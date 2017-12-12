@@ -1,0 +1,267 @@
+﻿<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Emerald MUD</title>
+    <link type="text/css" rel="stylesheet" href="css/bootstrap.css"/>
+    <link type="text/css" rel="stylesheet" href="css/goldenlayout-base.css" />
+    <link type="text/css" rel="stylesheet" href="css/goldenlayout-dark.css" />
+    <link type="text/css" rel="stylesheet" href="css/client.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/themes/default/style.min.css" />
+</head>
+
+<body translate="no">
+    <div class="top-container">
+        <div class="sidebar row">
+            <div class="options">
+                <h2>Client Settings</h2>
+                <div class="panel-group" id="clientSettings" role="tablist" aria-multiselectable="true">
+                    <div class="panel panel-default">
+                        <div class="panel-heading" role="tab" id="headingOne">
+                            <h4 class="panel-title">
+                                <a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                                    Console Settings
+                                </a>
+                            </h4>
+                        </div>
+                        <div id="collapseOne" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="headingOne">
+                            <div class="panel-body">
+                                <table>
+                                    <tr>
+                                        <td class="setting-header">
+                                            <span class="setting-header">Show Login Splash</span>
+                                        </td>
+                                        <td class="setting-number" style="text-align: left;">
+                                            <input class="setting-number" type="checkbox" name="console.showSplash" style="width: initial;" checked value="true" />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="setting-header">
+                                            <span class="setting-header">Print Commands in Output</span>
+                                        </td>
+                                        <td class="setting-number" style="text-align: left;">
+                                            <input class="setting-number" type="checkbox" name="console.echoCommands" style="width: initial;" checked value="true" />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="setting-header">
+                                            <span class="setting-header">Max View History</span>
+                                        </td>
+                                        <td class="setting-number">
+                                            <input class="setting-number" type="text" name="console.maxViewHistory" value="5000"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="setting-header">
+                                            <span class="setting-header">Max Input History</span>
+                                        </td>
+                                        <td class="setting-number">
+                                            <input type="text" class="setting-number" name="console.maxInputHistory" value="500"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="setting-header">
+                                            <span class="setting-header">Scroll to Bottom</span>
+                                        </td>
+                                        <td class="setting-number">
+                                            <select name="console.scrollToBottom">
+                                                <option selected value="always">Always</option>
+                                                <option value="whenOnBottom">When on Bottom</option>
+                                                <option value="onCommand">On New Command</option>
+                                                <option value="onMessage">On New Message</option>
+                                                <option value="never">Never</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="setting-header">
+                                            <span class="setting-header">Sound</span>
+                                        </td>
+                                        <td class="setting-number">
+                                            <input type="checkbox" class="setting-number" name="client.soundEnabled" checked value="500" /><br/>
+                                            <input type="number" name="client.soundVolume" value="50" min="0" max="100" />
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel panel-default">
+                        <div class="panel-heading" role="tab" id="headingTwo">
+                            <h4 class="panel-title">
+                                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                    Communications
+                                </a>
+                            </h4>
+                        </div>
+                        <div id="collapseTwo" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingTwo">
+                            <div class="panel-body">
+                                <table>
+                                    <tr>
+                                        <td class="setting-header">
+                                            <span class="setting-header">MUD Channels</span>
+                                        </td>
+                                        <td class="setting-number">
+                                            <select name="comms.chan">
+                                                <option value="disabled">Disabled</option>
+                                                <option selected value="chatWindow">In Combined Chat Window</option>
+                                                <option value="distinctWindows">Distinct Chat Windows</option>
+                                                <option value="mudConsole">In MUD Console</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="setting-header">
+                                            <span class="setting-header">Say Command</span>
+                                        </td>
+                                        <td class="setting-number">
+                                            <select name="comms.say">
+                                                <option value="disabled">Disabled</option>
+                                                <option value="chatWindow">In Separate Window</option>
+                                                <option selected value="mudConsole">In MUD Console</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="setting-header">
+                                            <span class="setting-header">Tell Command</span>
+                                        </td>
+                                        <td class="setting-number">
+                                            <select name="comms.tell">
+                                                <option value="disabled">Disabled</option>
+                                                <option selected value="chatWindow">In Separate Window</option>
+                                                <option value="mudConsole">In MUD Console</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="setting-header">
+                                            <span class="setting-header">Chat Docking</span>
+                                        </td>
+                                        <td class="setting-number">
+                                            <select name="comms.docking">
+                                                <option selected value="dockBottom">On Bottom</option>
+                                                <option value="dockRight">On Right</option>
+                                                <option value="dockLeft">On Left</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                               </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel panel-default">
+                        <div class="panel-heading" role="tab" id="headingThree">
+                            <h4 class="panel-title">
+                                <a class="collapsed" role="button" data-toggle="collapse" data-parent="#accordion" href="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                                    Wizard Options
+                                </a>
+                            </h4>
+                        </div>
+                        <div id="collapseThree" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingThree">
+                            <div class="panel-body">
+                                <table>
+                                    <tr>
+                                        <td class="setting-header">
+                                            <span class="setting-header">Directory Listings</span>
+                                        </td>
+                                        <td class="setting-number">
+                                            <select name="wiz.dir">
+                                                <option value="mudConsole">Show In Console</option>
+                                                <option value="explorer">Show in Explorer</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="setting-header">
+                                            <span class="setting-header">Explorer Sets CWD on MUD</span>
+                                        </td>
+                                        <td class="setting-number" style="text-align: left;">
+                                            <input type="checkbox" name="wiz.syncCwd" value="true" style="width: initial;"  />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="setting-header">
+                                            <span class="setting-header">Editor Theme</span>
+                                        </td>
+                                        <td class="setting-number">
+                                            <select name="wiz.editor.colors">
+                                                <option value="vs">Visual Studio</option>
+                                                <option value="vs-dark">Visual Studio Dark</option>
+                                                <option value="hc-black">Dark + High Contrast</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-heading">
+                    <div class="center-block btn-group-lg text-center">
+                        <div class="btn btn-success apply-settings ">Apply</div>
+                        <div class="btn btn-default cancel-settings ">Cancel</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="mudclient">
+        </div>
+    </div>
+
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
+    <script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="js/goldenlayout.js"></script>
+    <script type="text/javascript" src="js/mud.client.js"></script>
+    <script type="text/javascript" src="js/mud.console.js"></script>
+    <script type="text/javascript" src="js/mud.viewport.js"></script>
+    <script type="text/javascript" src="js/BootstrapMenu.js"></script>
+    <script type="text/x-template" id="mudConsoleTemplate">
+        <div class="mudConsoleContainer userinput">
+            <form autocomplete="off">
+
+            </form>
+        </div>
+    </script>
+    <script type="text/x-template" id="mudViewportTemplate">
+        <div class="toggle-settings" title="Open Settings" />
+        <div  class="viewport">
+            <div class="connecting">Connecting to MUD...</div>
+        </div>
+    </script>
+    <script type="text/x-template" id="mudHelpTemplate">
+        <div class="help" id="{{id}}">
+            <div class="category"></div>
+            <div class="body">{{text}}</div>
+            <div class="see-also" style="display:none;">
+                <span>Also see: </span>
+            </div>
+        </div>
+    </script>
+    <script>
+        var client;
+        $(document).ready(function () {
+            client = new MudClient();
+            client
+                .registerModule('MudConsole', MudConsole)
+                .registerModule('MudViewport', MudViewport)
+                .registerModule('MudOutputWindow', [
+                    'js/mud.window.js',
+                    'templates/mudOutputWindowTemplate.html'
+                ])
+                .registerModule('WizardEditor', [
+                    'templates/wizShellEditorTemplate.html',
+                    'monaco/min/vs/loader.js',
+                    'js/wiz.editor.js'])
+                .registerModule('WizardExplorer', [
+                    'templates/wizExplorerTemplate.html',
+                    'js/jstree.min.js',
+                    'js/wiz.Explorer.js'
+                ])
+                .run();
+        });
+    </script>
+</body>
+</html>

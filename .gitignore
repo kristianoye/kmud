@@ -1,0 +1,6 @@
+bin/
+node_modules/
+obj/
+KMUD.njsproj.user
+lib/sys/data/
+mudconfig.json

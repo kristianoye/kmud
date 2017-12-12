@@ -1,0 +1,58 @@
+﻿{
+  "/": {
+    "*": "r"
+  },
+  "/base": {
+    "$mudlib": "rw",
+    "*": "r"
+  },
+  "/cmds": {
+    "$mudlib": "rw",
+    "*": "r"
+  },
+  "/daemon": {
+    "$admin": "rw",
+    "$mudlib": "rw",
+    "*": "r"
+  },
+  "/daemon/save": {
+    "DAEMON": "rw",
+    "$admin": "rw",
+    "$mudlib": "rw",
+    "*": "r"
+  },
+  "/docs": {
+    "*": "r"
+  },
+  "/log": {
+    "*": "r"
+  },
+  "/realms": {
+    "*": "r"
+  },
+  "/sys": {
+    "$admin": "rw",
+    "SYSTEM": "rw",
+    "*": "r"
+  },
+  "/sys/daemon": {
+    "$admin": "rw",
+    "$mudlib": "rw",
+    "*": "r"
+  },
+  "/sys/etc": {
+    "$admin": "rw",
+    "$arch": "r",
+    "SYSTEM": "r"
+  },
+  "/sys/save": {
+    "$admin": "rw",
+    "$arch": "r"
+  },
+  "/world": {
+    "*": "r"
+  },
+  "/wwwroot": {
+    "*": "r"
+  }
+}

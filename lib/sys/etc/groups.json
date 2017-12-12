@@ -1,0 +1,6 @@
+﻿{
+  "$admin": [ "kriton" ],
+  "$arch": [],
+  "$mudlib": [ "$admin" ],
+  "$wizard": []
+}

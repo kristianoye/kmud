@@ -1,0 +1,15 @@
+﻿{
+  "/sys": [ "SYSTEM" ],
+  "/sys/lib/login": [ "EXEC" ],
+  "/base": [ "MUDLIB" ],
+  "/cmds": [ "COMMAND" ],
+  "/daemon": [ "DAEMON" ],
+  "/realms": [ "REALMS" ],
+  "/realms/$word/$word": [ "~{0}" ],
+  "/sys/daemon/playerdaemon": [ "EXEC" ],
+  "/v/sys/data/players/$char/$word": [ "{1}" ],
+  "/v/sys/data/creators/$char/$word": [ "{1}" ],
+  "/verbs": [ "VERB" ],
+  "/world": [ "DOMAIN" ],
+  "/world/$word/$word": [ "^{0}" ]
+}

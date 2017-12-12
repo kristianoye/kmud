@@ -1,0 +1,262 @@
+﻿body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+
+    .top-container {
+        position: absolute;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+
+        .sidebar {
+            top: 0;
+            height: 100%;
+            width: 50%;
+            padding: 0 !important;
+            margin: 0;
+            position: absolute;
+            background-color: #222;
+            visibility: hidden;
+            z-index: 100;
+            left: -50%;
+            padding: 5px 15px;
+            transition: visibility 0s 0s;
+            transition: left 0.5s 0.5s;
+
+            &.is-visible {
+                left: 0;
+                visibility: visible;
+                transition: visibility 0s 0s;
+                transition: left 0.5s 0.5s;
+            }
+
+            .options {
+                color: white;
+                position: relative;
+                padding: 5px 10px;
+
+                #clientSettings {
+                    color: #222;
+
+                    td {
+                        select, input {
+                            padding: 5px 3px;
+                        }
+                    }
+
+                    td.setting-header {
+                        white-space: nowrap;
+                    }
+
+                    td.setting-number {
+                        padding-left: 15px;
+                        width: 50%;
+
+                        input {
+                            width: 100px;
+                        }
+                    }
+                }
+
+                .card-header a {
+                    color: white;
+                    font-weight: bold;
+                    font-size: 1.2em;
+                }
+
+                table tr ~ tr > td {
+                    padding-top: 5px;
+                }
+            }
+        }
+
+        #mudclient {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+    }
+
+    .overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(255,255,255,0.5);
+        z-index: 50;
+    }
+
+    .mudModule {
+        &.mudConsole {
+            div.userinput {
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background-color: white;
+                color: black;
+                padding: 10px;
+
+                form.simpleForm {
+                }
+            }
+        }
+
+        &.mudOutputWindow {
+            overflow: auto;
+
+            .content {
+                position: absolute;
+                top: 0;
+                right: 0;
+                left: 0;
+                bottom: 0;
+                background-color: white;
+                color: black;
+                padding: 5px 10px;
+            }
+        }
+
+        .chatHistory {
+            span.mc ~ span.mc {
+                padding-left: 10px;
+            }
+        }
+
+        &.mudViewPort {
+            .toggle-settings {
+                position: fixed;
+                background: url('../img/gears.png');
+                background-size: 64px;
+                height: 64px;
+                width: 64px;
+                z-index: 150;
+                top: 32px;
+                right: 32px;
+                cursor: pointer;
+            }
+
+            div.viewport {
+                position: absolute;
+                top: 0;
+                right: 0;
+                left: 0;
+                bottom: 0;
+                background-color: white;
+                color: black;
+                padding: 5px 10px;
+                overflow: auto;
+
+                .help {
+                    padding: 10px 15px;
+                    background-color: cornsilk;
+
+                    .see-also-link ~ .see-also-link {
+                        padding-left: 10px;
+                    }
+                }
+
+                .inputHistory {
+                    color: #555;
+
+                    .inputField .fieldName {
+                        font-weight: 600;
+                    }
+
+                    .inputField .fieldValue {
+                        font-style: italic;
+                    }
+                }
+            }
+        }
+
+        &.wizExplorerWindow {
+            .wizShellView {
+                background-color: white;
+                color: black;
+                position: absolute;
+                top: 0;
+                right: 0;
+                left: 0;
+                bottom: 0;
+                overflow: auto;
+
+                .fileTree {
+                    overflow: auto;
+
+                    .jstree-icon.jstree-themeicon.jstree-themeicon-custom {
+                        &.fs-ext-css {
+                            background: url(../img/css-ext.png);
+                            background-size: 24px;
+                        }
+
+                        &.fs-ext-html {
+                            background: url(../img/html-ext.png);
+                            background-size: 24px;
+                        }
+
+                        &.fs-ext-image {
+                            background: url(../img/image-ext.png);
+                            background-size: 24px;
+                        }
+
+                        &.fs-ext-js {
+                            background: url(../img/js-ext.jpg);
+                            background-size: 24px;
+                        }
+
+                        &.fs-ext-json {
+                            background: url(../img/json-ext.ico);
+                            background-size: 24px;
+                        }
+
+                        &.fs-ext-ts {
+                            background: url(../img/ts-ext.png);
+                            background-size: 24px;
+                        }
+
+                        &.fs-ext-txt {
+                            background: url(../img/text-ext.png);
+                            background-size: 24px;
+                        }
+
+                        &.fs-ext-unknown {
+                            background: url(../img/unknown-ext.png);
+                            background-size: 24px;
+                        }
+                    }
+                }
+            }
+        }
+
+        &.wizShell {
+            .treeView, .fileView {
+                background-color: white;
+                color: black;
+                position: absolute;
+                top: 0;
+                right: 0;
+                left: 0;
+                bottom: 0;
+            }
+        }
+
+        &.wizEditor {
+            .wizShellEditor {
+                .wizShellEditorContainer {
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    left: 0;
+                    bottom: 0;
+                }
+            }
+        }
+    }
+}

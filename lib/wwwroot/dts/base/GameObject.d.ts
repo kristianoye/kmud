@@ -1,0 +1,3 @@
+﻿interface GameObject extends GameObject {
+
+}

@@ -1,0 +1,48 @@
+﻿/**
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ *
+ * Description: This module contains core game functionality.
+ */
+const ClientEndpoint = require('./ClientEndpoint'),
+    Telnet = require('./RanvierTelnet'),
+    TelnetServer = Telnet.TelnetServer,
+    TelnetSocket = Telnet.TelnetSocket,
+    RanvierTelnetInstance = require('./RanvierTelnetInstance'),
+    _connections = Symbol('_connections');
+
+class RanvierTelnetEndpoint extends ClientEndpoint {
+    constructor(gameMaster, port, maxConnections) {
+        super(gameMaster, port, maxConnections);
+        this[_connections] = [];
+    }
+
+    /**
+     * Binds the telnet port and listens for clients.
+     * @returns {TelnetClientEndpoint} A reference to itself
+     */
+    bind() {
+        var self = this;
+
+        var server = new TelnetServer((socket) => {
+            var client = new TelnetSocket().attach(socket);
+            var wrapper = new RanvierTelnetInstance(self, self.gameMaster, client);
+
+            self.emit('kmud.connection.new', client, 'telnet');
+            self.emit('kmud.connection', wrapper);
+        });
+
+        server.netServer.listen(this.port);
+        return this;
+    }
+}
+
+Object.defineProperty(RanvierTelnetEndpoint.prototype, 'connections', {
+    get: function () { return this[_connections]; },
+    set: function () { },
+    enumerable: true,
+    configurable: true
+});
+
+module.exports = RanvierTelnetEndpoint;

@@ -1,0 +1,30 @@
+﻿<script type="text/x-template" id="wizShellEditorTemplate">
+    <div class="wizShellEditor">
+        <div class="wizShellEditorContainer" id="{0}">
+
+        </div>
+        <xscript type="text/javascript">
+            var $owner = $('#{0}'), $editor = $owner.closest('.wizShellEditor'),
+            editorCtrl = $editor.parent().data('WizardEditor');
+            if (typeof jQuery === 'function') {
+                define('jquery', function() { return jQuery; });
+            }
+            require.config({ 
+                paths: { 
+                    'vs': 'monaco/min/vs'
+                }
+            });
+            require(['vs/editor/editor.main'], function () {
+                monaco.languages.typescript.javascriptDefaults.setCompilerOptions({ noLib: true, allowNonTsExtensions: true });
+                monaco.editor.setTheme(editorCtrl.getTheme());
+                editorCtrl.editor = monaco.editor.create(document.getElementById('{0}'), {
+                    automaticLayout: true,
+                    value: editorCtrl.getSource(),
+                    language: '{1}'
+                });
+                editorCtrl.addDTS('efuns.d.ts');
+                editorCtrl.addDTS('base/Room.d.ts');
+            });
+        </xscript>
+    </div>
+</script>

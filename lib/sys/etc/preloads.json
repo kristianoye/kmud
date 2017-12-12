@@ -1,0 +1,14 @@
+﻿[
+  "/sys/daemon/PlayerDaemon",
+  "/base/GameObject",
+  "/base/Container",
+  "/base/Room",
+  "/base/Body",
+  "/base/Living",
+  "/base/Interactive",
+  "/base/Player",
+  "/base/Creator",
+  "/base/Command",
+  "/base/Verb",
+  "/daemon/ChatDaemon"
+]

@@ -1,0 +1,5 @@
+﻿
+Welcome to Emerald MUD!  This MUD is in active development and you play at 
+your own risk.  It is quite possible that the MUD will crash during your
+time on-line so save often!
+

@@ -1,0 +1,786 @@
+﻿<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">14.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+    <Name>KMUD</Name>
+    <RootNamespace>KMUD</RootNamespace>
+    <NodeExeArguments>--expose-gc</NodeExeArguments>
+    <EnableTypeScript>true</EnableTypeScript>
+    <TypeScriptSourceMap>true</TypeScriptSourceMap>
+    <TypeScriptModuleKind>CommonJS</TypeScriptModuleKind>
+  </PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>2e4afb03-0e28-470a-b9e6-ac9ad6fda230</ProjectGuid>
+    <ProjectHome>.</ProjectHome>
+    <StartupFile>server.js</StartupFile>
+    <SearchPath>
+    </SearchPath>
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <ProjectTypeGuids>{3AF33F2E-1136-4D97-BBB7-1795711AC8B8};{349c5851-65df-11da-9384-00065b846f21};{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}</ProjectTypeGuids>
+    <NodejsPort>1337</NodejsPort>
+    <StartWebBrowser>True</StartWebBrowser>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="lib\base\Armor.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Command.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Container.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Body.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Creator.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\GameObject.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Limb.js" />
+    <Compile Include="lib\base\Living.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Monster.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\NPC.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Player.js" />
+    <Compile Include="lib\base\Room.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Partials\Senses.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Sign.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Verb.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Verbs\ItemSupportBase.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Weapon.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Call.js" />
+    <Compile Include="lib\cmds\creator\Edit.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Find.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Goto.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Invis.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\People.js" />
+    <Compile Include="lib\cmds\creator\Scan.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Vis.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\items\Put.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\items\Smell.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\player\Alias.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Cd.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Clone.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Compile.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Eval.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Ls.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Mkdir.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\More.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Pwd.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Rehash.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Rm.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\RmDir.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\admin\Shutdown.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\SetEnv.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\creator\Update.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\player\Body.js" />
+    <Compile Include="lib\cmds\player\Cls.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\player\Emote.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\player\Go.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\player\Help.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\player\Languages.js" />
+    <Compile Include="lib\cmds\player\Mudlist.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\player\Score.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\player\Settings.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\player\Skills.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\player\Who.jsx">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\daemon\HelpSystem.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\cmds\arch\Promote.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\cmds\player\Finger.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\daemon\FileIndex.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\include\Dirs.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\include\Flags.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\include\Lib.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\items\Drop.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\items\Get.js" />
+    <Compile Include="lib\cmds\common\Look.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\player\Quit.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\player\Save.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\cmds\player\Say.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\daemon\BodyDaemon.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\daemon\ChatDaemon.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\daemon\I3Daemon.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\daemon\I3Router.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\realms\kriton\Workroom.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\daemon\CommandResolver.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\daemon\FingerDaemon.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\daemon\GameMaster.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\daemon\PlayerDaemon.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\include\Base.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\include\Daemon.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\lib\CommandShell.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\lib\Login.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\lib\SimulEfuns.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\world\sarta\mob\Harry.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\world\sarta\obj\chest.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\world\sarta\square.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\world\sarta\obj\weapon\sword.js" />
+    <Compile Include="lib\wwwroot\js\BootstrapMenu.js" />
+    <Compile Include="lib\wwwroot\js\goldenlayout.js" />
+    <Compile Include="lib\wwwroot\js\ion.sound.js" />
+    <Compile Include="lib\wwwroot\js\ion.sound.min.js" />
+    <Compile Include="lib\wwwroot\js\jquery.layout.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\wwwroot\js\jstree.min.js" />
+    <Compile Include="lib\wwwroot\js\mud.console.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\wwwroot\js\mud.viewport.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\wwwroot\js\mud.client.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\wwwroot\js\mud.window.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\wwwroot\js\mudconsole.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\wwwroot\js\wiz.editor.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\wwwroot\js\wiz.explorer.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\wwwroot\js\wizshell.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Interactive.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\wwwroot\monaco\min\vs\base\worker\workerMain.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\bat.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\coffee.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\cpp.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\csharp.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\css.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\dockerfile.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\fsharp.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\go.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\handlebars.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\html.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\ini.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\java.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\less.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\lua.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\markdown.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\msdax.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\objective-c.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\php.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\postiats.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\powershell.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\pug.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\python.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\r.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\razor.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\ruby.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\sb.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\scss.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\solidity.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\sql.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\swift.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\vb.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\xml.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\basic-languages\src\yaml.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.nls.de.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.nls.es.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.nls.fr.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.nls.hu.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.nls.it.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.nls.ja.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.nls.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.nls.ko.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.nls.pt-br.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.nls.ru.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.nls.tr.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.nls.zh-cn.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\editor\editor.main.nls.zh-tw.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\language\css\cssMode.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\language\css\cssWorker.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\language\html\htmlMode.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\language\html\htmlWorker.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\language\json\jsonMode.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\language\json\jsonWorker.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\language\typescript\lib\typescriptServices.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\language\typescript\src\mode.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\language\typescript\src\worker.js" />
+    <Compile Include="lib\wwwroot\monaco\min\vs\loader.js" />
+    <Compile Include="src\compiler\LPCPreprocessor.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\compiler\PipelineContext.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\compiler\VM2Wrapper.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\compiler\VMAbstraction.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\compiler\VMWrapper.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\EFUNProxy.js" />
+    <Compile Include="src\EFUNS.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\ErrorTypes.js" />
+    <Compile Include="src\GameServer.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\LPCCompat.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MUDCache.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MUDCompiler.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MUDConfig.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MUDCreationContext.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MUDData.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MUDExcecutionContext.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MUDHtml.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MUDLoader.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MUDModule.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MUDObject.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MUDOSLoader.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\ClientEndpoint.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\ClientInstance.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MudLib.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="server.js" />
+    <Compile Include="src\network\HTTPClientInstance.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\HTTPClientEndpoint.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\RanvierTelnet.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\RanvierTelnetEndpoint.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\RanvierTelnetInstance.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\TelnetClientInstance.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\TelnetClientEndpoint.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\ObjectProxy.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\compiler\CompilerPipeline.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\compiler\PipelineComponent.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\setup\GameSetupScript.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\compiler\JSXTranspiler.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <None Include="compilerconfig.json" />
+    <None Include="bundleconfig.json" />
+    <Content Include="compilerconfig.json.defaults">
+      <SubType>Content</SubType>
+      <DependentUpon>compilerconfig.json</DependentUpon>
+    </Content>
+    <Content Include="lib\cmds\player\Inventory.js" />
+    <Content Include="lib\sys\cmds\player\Password.js">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\sys\etc\access.json">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\sys\etc\groups.json">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\sys\etc\motd.txt">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\sys\etc\permissions.json">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\sys\etc\preloads.json">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\sys\etc\test.json">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\sys\lib\Login.splash.txt" />
+    <Content Include="lib\wwwroot\css\boostrap.min.css">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\wwwroot\css\bootstrap.css">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\wwwroot\css\client.css">
+      <SubType>Content</SubType>
+      <DependentUpon>lib\wwwroot\css\client.less</DependentUpon>
+    </Content>
+    <Content Include="lib\wwwroot\css\client.less">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\wwwroot\css\client.min.css">
+      <SubType>Content</SubType>
+      <DependentUpon>lib\wwwroot\css\client.css</DependentUpon>
+    </Content>
+    <Content Include="lib\wwwroot\css\goldenlayout-base.css">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\wwwroot\css\goldenlayout-dark.css">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\wwwroot\css\goldenlayout.css">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\wwwroot\css\jquery.layout.css">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\wwwroot\img\css-ext.png" />
+    <Content Include="lib\wwwroot\img\forest.jpg" />
+    <Content Include="lib\wwwroot\img\gears.png" />
+    <Content Include="lib\wwwroot\img\html-ext.png" />
+    <Content Include="lib\wwwroot\img\image-ext.png" />
+    <Content Include="lib\wwwroot\img\js-ext.jpg" />
+    <Content Include="lib\wwwroot\img\json-ext.ico" />
+    <Content Include="lib\wwwroot\img\json.ico" />
+    <Content Include="lib\wwwroot\img\text-ext.png" />
+    <Content Include="lib\wwwroot\img\ts-ext.png" />
+    <Content Include="lib\wwwroot\img\unknown-ext.png" />
+    <Content Include="lib\wwwroot\index.html">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\wwwroot\js\themes\default-dark\32px.png" />
+    <Content Include="lib\wwwroot\js\themes\default-dark\40px.png" />
+    <Content Include="lib\wwwroot\js\themes\default-dark\style.css" />
+    <Content Include="lib\wwwroot\js\themes\default-dark\style.min.css" />
+    <Content Include="lib\wwwroot\js\themes\default-dark\throbber.gif" />
+    <Content Include="lib\wwwroot\js\themes\default\32px.png" />
+    <Content Include="lib\wwwroot\js\themes\default\40px.png" />
+    <Content Include="lib\wwwroot\js\themes\default\style.css" />
+    <Content Include="lib\wwwroot\js\themes\default\style.min.css" />
+    <Content Include="lib\wwwroot\js\themes\default\throbber.gif" />
+    <Content Include="lib\wwwroot\monaco\min\vs\editor\contrib\suggest\browser\media\String_16x.svg" />
+    <Content Include="lib\wwwroot\monaco\min\vs\editor\contrib\suggest\browser\media\String_inverse_16x.svg" />
+    <Content Include="lib\wwwroot\monaco\min\vs\editor\editor.main.css" />
+    <Content Include="lib\wwwroot\monaco\min\vs\editor\standalone\browser\quickOpen\symbol-sprite.svg" />
+    <Content Include="lib\wwwroot\sound\beer_can_opening.aac" />
+    <Content Include="lib\wwwroot\sound\beer_can_opening.mp3" />
+    <Content Include="lib\wwwroot\sound\beer_can_opening.ogg" />
+    <Content Include="lib\wwwroot\sound\bell_ring.aac" />
+    <Content Include="lib\wwwroot\sound\bell_ring.mp3" />
+    <Content Include="lib\wwwroot\sound\bell_ring.ogg" />
+    <Content Include="lib\wwwroot\sound\branch_break.aac" />
+    <Content Include="lib\wwwroot\sound\branch_break.mp3" />
+    <Content Include="lib\wwwroot\sound\branch_break.ogg" />
+    <Content Include="lib\wwwroot\sound\button_click.aac" />
+    <Content Include="lib\wwwroot\sound\button_click.mp3" />
+    <Content Include="lib\wwwroot\sound\button_click.ogg" />
+    <Content Include="lib\wwwroot\sound\button_click_on.aac" />
+    <Content Include="lib\wwwroot\sound\button_click_on.mp3" />
+    <Content Include="lib\wwwroot\sound\button_click_on.ogg" />
+    <Content Include="lib\wwwroot\sound\button_push.aac" />
+    <Content Include="lib\wwwroot\sound\button_push.mp3" />
+    <Content Include="lib\wwwroot\sound\button_push.ogg" />
+    <Content Include="lib\wwwroot\sound\button_tiny.aac" />
+    <Content Include="lib\wwwroot\sound\button_tiny.mp3" />
+    <Content Include="lib\wwwroot\sound\button_tiny.ogg" />
+    <Content Include="lib\wwwroot\sound\camera_flashing.aac" />
+    <Content Include="lib\wwwroot\sound\camera_flashing.mp3" />
+    <Content Include="lib\wwwroot\sound\camera_flashing.ogg" />
+    <Content Include="lib\wwwroot\sound\camera_flashing_2.aac" />
+    <Content Include="lib\wwwroot\sound\camera_flashing_2.mp3" />
+    <Content Include="lib\wwwroot\sound\camera_flashing_2.ogg" />
+    <Content Include="lib\wwwroot\sound\cd_tray.aac" />
+    <Content Include="lib\wwwroot\sound\cd_tray.mp3" />
+    <Content Include="lib\wwwroot\sound\cd_tray.ogg" />
+    <Content Include="lib\wwwroot\sound\computer_error.aac" />
+    <Content Include="lib\wwwroot\sound\computer_error.mp3" />
+    <Content Include="lib\wwwroot\sound\computer_error.ogg" />
+    <Content Include="lib\wwwroot\sound\door_bell.aac" />
+    <Content Include="lib\wwwroot\sound\door_bell.mp3" />
+    <Content Include="lib\wwwroot\sound\door_bell.ogg" />
+    <Content Include="lib\wwwroot\sound\door_bump.aac" />
+    <Content Include="lib\wwwroot\sound\door_bump.mp3" />
+    <Content Include="lib\wwwroot\sound\door_bump.ogg" />
+    <Content Include="lib\wwwroot\sound\glass.aac" />
+    <Content Include="lib\wwwroot\sound\glass.mp3" />
+    <Content Include="lib\wwwroot\sound\glass.ogg" />
+    <Content Include="lib\wwwroot\sound\keyboard_desk.aac" />
+    <Content Include="lib\wwwroot\sound\keyboard_desk.mp3" />
+    <Content Include="lib\wwwroot\sound\keyboard_desk.ogg" />
+    <Content Include="lib\wwwroot\sound\light_bulb_breaking.aac" />
+    <Content Include="lib\wwwroot\sound\light_bulb_breaking.mp3" />
+    <Content Include="lib\wwwroot\sound\light_bulb_breaking.ogg" />
+    <Content Include="lib\wwwroot\sound\metal_plate.aac" />
+    <Content Include="lib\wwwroot\sound\metal_plate.mp3" />
+    <Content Include="lib\wwwroot\sound\metal_plate.ogg" />
+    <Content Include="lib\wwwroot\sound\metal_plate_2.aac" />
+    <Content Include="lib\wwwroot\sound\metal_plate_2.mp3" />
+    <Content Include="lib\wwwroot\sound\metal_plate_2.ogg" />
+    <Content Include="lib\wwwroot\sound\ogg\animals\horse.ogg" />
+    <Content Include="lib\wwwroot\sound\ogg\axe\chop.ogg" />
+    <Content Include="lib\wwwroot\sound\ogg\collision.ogg" />
+    <Content Include="lib\wwwroot\sound\ogg\crush.ogg" />
+    <Content Include="lib\wwwroot\sound\ogg\explosion.med.ogg" />
+    <Content Include="lib\wwwroot\sound\ogg\explosion.ogg" />
+    <Content Include="lib\wwwroot\sound\ogg\rain.ogg" />
+    <Content Include="lib\wwwroot\sound\ogg\sonicboom.ogg" />
+    <Content Include="lib\wwwroot\sound\ogg\sword\hit.ogg" />
+    <Content Include="lib\wwwroot\sound\ogg\sword\miss.ogg" />
+    <Content Include="lib\wwwroot\sound\ogg\sword\miss2.ogg" />
+    <Content Include="lib\wwwroot\sound\ogg\sword\parry.ogg" />
+    <Content Include="lib\wwwroot\sound\ogg\sword\slash.ogg" />
+    <Content Include="lib\wwwroot\sound\pop_cork.aac" />
+    <Content Include="lib\wwwroot\sound\pop_cork.mp3" />
+    <Content Include="lib\wwwroot\sound\pop_cork.ogg" />
+    <Content Include="lib\wwwroot\sound\snap.aac" />
+    <Content Include="lib\wwwroot\sound\snap.mp3" />
+    <Content Include="lib\wwwroot\sound\snap.ogg" />
+    <Content Include="lib\wwwroot\sound\staple_gun.aac" />
+    <Content Include="lib\wwwroot\sound\staple_gun.mp3" />
+    <Content Include="lib\wwwroot\sound\staple_gun.ogg" />
+    <Content Include="lib\wwwroot\sound\tap.aac" />
+    <Content Include="lib\wwwroot\sound\tap.mp3" />
+    <Content Include="lib\wwwroot\sound\tap.ogg" />
+    <Content Include="lib\wwwroot\sound\water_droplet.aac" />
+    <Content Include="lib\wwwroot\sound\water_droplet.mp3" />
+    <Content Include="lib\wwwroot\sound\water_droplet.ogg" />
+    <Content Include="lib\wwwroot\sound\water_droplet_2.aac" />
+    <Content Include="lib\wwwroot\sound\water_droplet_2.mp3" />
+    <Content Include="lib\wwwroot\sound\water_droplet_2.ogg" />
+    <Content Include="lib\wwwroot\sound\water_droplet_3.aac" />
+    <Content Include="lib\wwwroot\sound\water_droplet_3.mp3" />
+    <Content Include="lib\wwwroot\sound\water_droplet_3.ogg" />
+    <Content Include="lib\wwwroot\templates\mudOutputWindowTemplate.html">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\wwwroot\templates\wizExplorerTemplate.html">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\wwwroot\templates\wizShellEditorTemplate.html">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="package.json" />
+    <Content Include="README.md" />
+    <Content Include="src\Extensions.js">
+      <SubType>Code</SubType>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="lib\" />
+    <Folder Include="lib\base\" />
+    <Folder Include="lib\base\Partials\" />
+    <Folder Include="lib\base\Verbs\" />
+    <Folder Include="lib\cmds\creator\" />
+    <Folder Include="lib\cmds\admin\" />
+    <Folder Include="lib\cmds\common\" />
+    <Folder Include="lib\cmds\items\" />
+    <Folder Include="lib\cmds\arch\" />
+    <Folder Include="lib\cmds\player\" />
+    <Folder Include="lib\daemon\" />
+    <Folder Include="lib\cmds\" />
+    <Folder Include="lib\daemon\save\" />
+    <Folder Include="lib\log\" />
+    <Folder Include="lib\docs\" />
+    <Folder Include="lib\sys\cmds\admin\" />
+    <Folder Include="lib\sys\cmds\arch\" />
+    <Folder Include="lib\sys\cmds\player\" />
+    <Folder Include="lib\sys\data\creators\" />
+    <Folder Include="lib\sys\" />
+    <Folder Include="lib\sys\data\players\" />
+    <Folder Include="lib\sys\lib\" />
+    <Folder Include="lib\sys\daemon\" />
+    <Folder Include="lib\sys\data\" />
+    <Folder Include="lib\sys\include\" />
+    <Folder Include="lib\sys\etc\" />
+    <Folder Include="lib\sys\cmds\" />
+    <Folder Include="lib\world\" />
+    <Folder Include="lib\world\sarta\" />
+    <Folder Include="lib\world\sarta\mob\" />
+    <Folder Include="lib\world\sarta\obj\" />
+    <Folder Include="lib\world\sarta\obj\weapon\" />
+    <Folder Include="lib\wwwroot\" />
+    <Folder Include="lib\realms\" />
+    <Folder Include="lib\realms\kriton\" />
+    <Folder Include="lib\wwwroot\dts\" />
+    <Folder Include="lib\wwwroot\dts\base\" />
+    <Folder Include="lib\wwwroot\img\" />
+    <Folder Include="lib\wwwroot\js\" />
+    <Folder Include="lib\wwwroot\css\" />
+    <Folder Include="lib\wwwroot\cgi\" />
+    <Folder Include="lib\wwwroot\js\themes\" />
+    <Folder Include="lib\wwwroot\js\themes\default-dark\" />
+    <Folder Include="lib\wwwroot\js\themes\default\" />
+    <Folder Include="lib\wwwroot\monaco\" />
+    <Folder Include="lib\wwwroot\monaco\min\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\base\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\base\worker\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\basic-languages\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\basic-languages\src\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\editor\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\editor\contrib\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\editor\contrib\suggest\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\editor\contrib\suggest\browser\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\editor\contrib\suggest\browser\media\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\editor\standalone\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\editor\standalone\browser\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\editor\standalone\browser\quickOpen\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\language\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\language\css\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\language\html\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\language\json\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\language\typescript\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\language\typescript\lib\" />
+    <Folder Include="lib\wwwroot\monaco\min\vs\language\typescript\src\" />
+    <Folder Include="lib\wwwroot\sound\" />
+    <Folder Include="lib\wwwroot\sound\ogg\" />
+    <Folder Include="lib\wwwroot\sound\ogg\animals\" />
+    <Folder Include="lib\wwwroot\sound\ogg\axe\" />
+    <Folder Include="lib\wwwroot\sound\ogg\sword\" />
+    <Folder Include="lib\wwwroot\templates\" />
+    <Folder Include="src\" />
+    <Folder Include="src\network\" />
+    <Folder Include="src\compiler\" />
+    <Folder Include="src\setup\" />
+  </ItemGroup>
+  <ItemGroup>
+    <TypeScriptCompile Include="lib\wwwroot\dts\base\Command.d.ts" />
+    <TypeScriptCompile Include="lib\wwwroot\dts\base\Container.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="lib\wwwroot\dts\base\GameObject.d.ts" />
+    <TypeScriptCompile Include="lib\wwwroot\dts\base\Room.d.ts" />
+    <TypeScriptCompile Include="lib\wwwroot\dts\efuns.d.ts" />
+  </ItemGroup>
+  <!-- Do not delete the following Import Project.  While this appears to do nothing it is a marker for setting TypeScript properties before our import that depends on them. -->
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TypeScript\Microsoft.TypeScript.targets" Condition="False" />
+  <Import Project="$(VSToolsPath)\Node.js Tools\Microsoft.NodejsTools.targets" />
+  <ProjectExtensions>
+    <VisualStudio>
+      <FlavorProperties GUID="{349c5851-65df-11da-9384-00065b846f21}">
+        <WebProjectProperties>
+          <UseIIS>False</UseIIS>
+          <AutoAssignPort>True</AutoAssignPort>
+          <DevelopmentServerPort>0</DevelopmentServerPort>
+          <DevelopmentServerVPath>/</DevelopmentServerVPath>
+          <IISUrl>http://localhost:48022/</IISUrl>
+          <NTLMAuthentication>False</NTLMAuthentication>
+          <UseCustomServer>True</UseCustomServer>
+          <CustomServerUrl>http://localhost:1337</CustomServerUrl>
+          <SaveServerSettingsInUserFile>False</SaveServerSettingsInUserFile>
+        </WebProjectProperties>
+      </FlavorProperties>
+      <FlavorProperties GUID="{349c5851-65df-11da-9384-00065b846f21}" User="">
+        <WebProjectProperties>
+          <StartPageUrl>
+          </StartPageUrl>
+          <StartAction>CurrentPage</StartAction>
+          <AspNetDebugging>True</AspNetDebugging>
+          <SilverlightDebugging>False</SilverlightDebugging>
+          <NativeDebugging>False</NativeDebugging>
+          <SQLDebugging>False</SQLDebugging>
+          <ExternalProgram>
+          </ExternalProgram>
+          <StartExternalURL>
+          </StartExternalURL>
+          <StartCmdLineArguments>
+          </StartCmdLineArguments>
+          <StartWorkingDirectory>
+          </StartWorkingDirectory>
+          <EnableENC>False</EnableENC>
+          <AlwaysStartWebServerOnDebug>False</AlwaysStartWebServerOnDebug>
+        </WebProjectProperties>
+      </FlavorProperties>
+    </VisualStudio>
+  </ProjectExtensions>
+</Project>

@@ -1,0 +1,7 @@
+﻿{
+  "/sys": "ADMIN[rw], ARCH[rw]",
+  "/sys/daemon":  "ADMIN[rw]",
+  "/sys/etc": "ADMIN[rw], ARCH[r], *[n]",
+  "/sys/save": "ADMIN[rw], ARCH[rw]",
+  "/sys/save/players": "ADMIN[rw], ARCH[r]"
+}
