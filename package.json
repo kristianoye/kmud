@@ -1,0 +1,24 @@
+{
+  "name": "kmud",
+  "version": "0.1.0",
+  "description": "KMUD",
+  "main": "server.js",
+  "author": {
+    "name": "koye"
+  },
+  "dependencies": {
+    "acorn": "^5.1.2",
+    "acorn-jsx": "^4.1.0",
+    "async": "^2.5.0",
+    "callsite": "^1.0.0",
+    "monaco-editor": "^0.10.1",
+    "ranvier-telnet": "^1.0.2",
+    "socket.io": "^2.0.3",
+    "sprintf": "^0.1.5",
+    "telnet": "0.0.1",
+    "tripwire": "^4.1.0"
+  },
+  "devDependencies": {
+    "bootstrap-menu": "^1.0.14"
+  }
+}
