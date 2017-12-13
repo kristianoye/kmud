@@ -8,7 +8,7 @@
     <EnableTypeScript>true</EnableTypeScript>
     <TypeScriptSourceMap>true</TypeScriptSourceMap>
     <TypeScriptModuleKind>CommonJS</TypeScriptModuleKind>
-    <ScriptArguments>--setup --config mudconfig.json</ScriptArguments>
+    <ScriptArguments>--config mudconfig.json</ScriptArguments>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -158,7 +158,7 @@
     <Compile Include="lib\cmds\player\Emote.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\player\Go.js">
+    <Compile Include="lib\cmds\common\Go.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\player\Help.js">

@@ -785,6 +785,7 @@ Object.defineProperties(EFUNProxy.prototype, {
             }
             catch (_e) {
                 MUDData.ActivePerms = this[_unguarded] = false;
+                console.log(_e);
                 throw _e;
             }
             finally {

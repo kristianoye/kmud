@@ -124,7 +124,7 @@ class GameServer extends EventEmitter {
     }
 
     addPlayer(body) {
-        var _body = body ? body() : false;
+        var _body = body ? unwrap(body) : false;
         if (_body && typeof _body.save === 'function') {
             MUDData.Players.pushDistinct(body);
         }
