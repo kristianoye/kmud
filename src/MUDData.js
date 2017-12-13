@@ -100,6 +100,7 @@ var MUDData = {
     },
     SharedProps: {},
     SpecialRootEfun: false,
+    StorageObjects: {},
     ThisObject: [],
     ThisPlayer: false
 };

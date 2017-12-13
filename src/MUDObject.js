@@ -6,6 +6,7 @@
 const
     EventEmitter = require('events'),
     MUDCreationContext = require('./MUDCreationContext'),
+    MUDStorage = require('./MUDStorage'),
     _environment = Symbol('_environment'),
     _filename = '_filename',  // Symbol('_filename'),
     _heartbeat = Symbol('_heartbeat'),
@@ -92,6 +93,7 @@ class MUDObject extends EventEmitter {
 
             if (!MUDData.InstanceProps[this._propKeyId])
                 MUDData.InstanceProps[this._propKeyId] = {};
+
             if (!MUDData.InstanceSymbols[this._propKeyId]) {
                 MUDData.InstanceSymbols[this._propKeyId] = {};
                 MUDData.InstanceSymbols[this._propKeyId][_inventory] = [];
@@ -106,78 +108,15 @@ class MUDObject extends EventEmitter {
             _shared = MUDData.SharedProps[this.basename] || {};
 
         if (!ctx.isReload) {
-            if (typeof ctx._props === 'object') {
-                for (var k in ctx._props) {
-                    val = ctx._props[k];
-                    if (!k.startsWith('_')) {
-                        _props[k] = val;
-                    }
-                    else {
-                        var setterName = 'set' + k[1].toUpperCase() + k.substr(2),
-                            propSet = k.substr(1),
-                            test = null;
-
-                        test = this.constructor.prototype[setterName];
-                        if (typeof test === 'function') {
-                            test.call(this, val);
-                            continue;
-                        }
-                        var desc = Object.getOwnPropertyDescriptor(this.constructor, propSet);
-                        if (desc) {
-                            desc.set.call(this, val);
-                            continue;
-                        }
-                        var setter = Object.getOwnPropertyDescriptor(this.constructor, setterName);
-                        if (setter && typeof setter.value === 'function') {
-                            setter.value.call(this, val);
-                            continue;
-                        }
-                        _props[k] = val;
-                    }
-                }
-            }
-            if (typeof ctx._shared === 'object') {
-                for (var k in ctx._shared) {
-                    var val = ctx._shared[k];
-                    if (!k.startsWith('_')) {
-                        _shared[k] = val;
-                    }
-                    else {
-                        var setterName = 'set' + k[1].toUpperCase() + k.substr(2),
-                            propSet = k.substr(1),
-                            test = null;
-
-                        test = this.constructor.prototype[setterName];
-                        if (typeof test === 'function') {
-                            test.call(this, val);
-                            continue;
-                        }
-                        var desc = Object.getOwnPropertyDescriptor(this.constructor, propSet);
-                        if (desc != null) {
-                            desc.set.call(this, val);
-                            continue;
-                        }
-                        var setter = Object.getOwnPropertyDescriptor(this.constructor, setterName);
-                        if (setter && typeof setter.value === 'function') {
-                            setter.value.call(this, val);
-                            continue;
-                        }
-                        _shared[k] = val;
-                    }
-                }
-            }
-            if (typeof ctx._symbols === 'object') {
-                Object.getOwnPropertySymbols(ctx._symbols).forEach(key => {
-                    if (!_symbols[key]) {
-                        _symbols[key] = ctx._symbols[key];
-                    }
-                });
-            }
+            ctx.$special = MUDData.StorageObjects[this._propKeyId] = new MUDStorage(this, ctx);
+        }
+        else
+        {
+            ctx.$special = MUDStorage.reload(this, ctx);
         }
     }
 
     addAction(verb, callback) {
-        efuns.assertArgs('addAction', arguments, 'string', 'function');
         var _actions = this.getSymbol(_actions, {});
         if (_actions[verb]) delete _actions[verb];
         _actions[verb] = callback;
@@ -186,7 +125,7 @@ class MUDObject extends EventEmitter {
 
     addInventory(item) {
         var wrapped = wrapper(item),
-            inv = this.getSymbol(_inventory);
+            inv = MUDStorage.get(this).inventory;
 
         if (!wrapped) return false;
         else if (wrapped() === this) return false;
@@ -304,12 +243,7 @@ class MUDObject extends EventEmitter {
     }
 
     get inventory() {
-        var inv = this.getSymbol(_inventory);
-        if (inv instanceof Array) {
-            var result = inv.slice(0).map(a => unwrap(a));
-            return result;
-        }
-        return [];
+        return MUDStorage.get(this).inventory.map(o => unwrap(o));
     }
 
     get name() {
@@ -321,30 +255,28 @@ class MUDObject extends EventEmitter {
     }
 
     getProperty(key, defaultValue) {
-        var _props = MUDData.InstanceProps[this._propKeyId];
-        var propVal = _props[key];
-        if (typeof propVal === 'undefined') {
-            propVal = this.getSharedProperty(key);
-            if (typeof propVal === 'undefined' && typeof defaultValue !== 'undefined') {
-                propVal = _props[key] = defaultValue;
-            }
-        }
-        return propVal;
+        return MUDStorage.get(this).getProperty(key, defaultValue);
     }
 
     init() {
     }
 
-    isProtectedProperty(prop) { return false; }
+    isProtectedProperty(prop) {
+        return false;
+    }
 
     isLiving() {
         var callback = this.getSymbol(_heartbeat);
         return typeof callback === 'function';
     }
 
-    isPlayer() { return false; }
+    isPlayer() {
+        return false;
+    }
 
-    get keyId() { return this.getProperty('id', 'unset'); }
+    get keyId() {
+        return MUDStorage.get(this).getProperty('id', 'unknown');
+    }
 
     matchesId(words) {
         if (typeof words === 'string') words = words.split(/\s+/g);
@@ -378,12 +310,14 @@ class MUDObject extends EventEmitter {
             self.emit('kmud.item.badmove', destination);
         }
         else if (!environment || environment.canReleaseItem(this)) {
-            var isAlive = MUDData.SpecialRootEfun.isLiving(this);
+            var isAlive = this.isLiving();
+
             if (target().canAcceptItem(this)) {
                 if (target().addInventory(this)) {
                     if (isAlive) {
 
                     }
+                    MUDStorage.get(this).environment = target;
                     this.setSymbol(_environment, target);
                     if (isAlive) {
                         target().init.call(this);
@@ -520,19 +454,14 @@ class MUDObject extends EventEmitter {
     }
 
     setProperty(key, value) {
-        MUDData.InstanceProps[this._propKeyId][key] = value;
+        return MUDStorage.get(this).setProperty(key, value);
+        //MUDData.InstanceProps[this._propKeyId][key] = value;
         return this;
     }
 
     incrementProperty(key, value, initialValue, callback) {
-        var _id = this._propKeyId,
-            props = MUDData.InstanceProps[_id],
-            val = props[key] || initialValue;
-        if (typeof val === 'number') {
-            props[key] = val + value;
-            if (typeof callback === 'function')
-                callback.call(this, val, props[key]);
-        }
+        return MUDStorage.get(this).incrementProperty(key, value, initialValue);
+        if (typeof callback === 'function') callback.call(this, val, props[key]);
         return this;
     }
 
@@ -546,6 +475,7 @@ class MUDObject extends EventEmitter {
     }
 
     getSymbol(key, defaultValue) {
+        return MUDStorage.get(this).getSymbol(key, defaultValue);
         if (typeof key !== 'symbol')
             throw new Error('Bad argument 1 to getSymbol; Expected symbol got {0}'.fs(typeof key));
         var _symbols = MUDData.InstanceSymbols[this._propKeyId] || {},
@@ -554,6 +484,7 @@ class MUDObject extends EventEmitter {
     }
 
     setSymbol(key, value) {
+        return MUDStorage.get(this).setSymbol(key, value);
         if (typeof key !== 'symbol')
             throw new Error('Bad argument 1 to setSymbol; Expected symbol got {0}'.fs(typeof key));
         var _symbols = MUDData.InstanceSymbols[this._propKeyId];

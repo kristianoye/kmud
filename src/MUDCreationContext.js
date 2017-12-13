@@ -16,6 +16,7 @@ class MUDCreationContext {
         this._forceCleanup = false;
         this._mixins = [];
         this._props = {};
+        this.$special = null;
         this._shared = {};
         this._symbols = {};
         this._wrapper = instanceWrapper;
