@@ -1,0 +1,113 @@
+﻿{
+  "mudlib": {
+    "base": "./lib",
+    "heartbeatInterval": 1000,
+    "includePath": [ "/base/include", "/sys/include" ],
+    "inGameMaster": {
+      "path": "/sys/daemon/GameMaster",
+      "parameters": {
+        "permissionsFile": "/sys/etc/permissions.json",
+        "preloadsFile": "/sys/etc/preloads.json",
+        "groupsFile": "/sys/etc/groups.json",
+        "accessFile": "/sys/etc/access.json"
+      }
+    },
+    "logDirectory": "/log",
+    "loginObject": "/sys/lib/Login",
+    "simulEfuns": "/sys/lib/SimulEfuns"
+  },
+  "driver": {
+    "core": "single-core",
+    "useObjectProxies": true,
+    "useRevocableProxies": false,
+    "compiler": {
+      "virtualMachine": "vm",
+      "components": [
+        {
+          "id": "JSXTranspiler",
+          "name": "JSX Transpiler",
+          "file": "./compiler/JSXTranspiler"
+        },
+        {
+          "id": "LPCPreprocessor",
+          "name": "MudOS Preprocessor",
+          "file": "./compiler/LPCPreprocessor",
+          "reusable": false
+        }
+      ],
+      "languages": {
+        ".js": {
+          "id": "JavaScript",
+          "loader": "MUDOSLoader",
+          "name": "JavaScript Pipeline",
+          "pipeline": []
+        },
+        ".jsx": {
+          "id": "JSX",
+          "enabled": true,
+          "loader": "MUDOSLoader",
+          "name": "MUD JSX",
+          "pipeline": [ "JSXTranspiler" ]
+        },
+        ".c": {
+          "id": "LPC",
+          "enabled": false,
+          "loader": "MUDOSLoader",
+          "name": "LPC Pipeline",
+          "pipeline": [ "LPCPreprocessor" ]
+        }
+      },
+      "loaders": {
+        "MUDLoader": {
+          "name": "KMUD Standard Loader",
+          "file": "./MUDLoader"
+        },
+        "MUDOSLoader": {
+          "name": "MudOS Compatibility Loader",
+          "file": "./MUDOSLoader"
+        }
+      }
+    },
+    "networking": {
+      "endpoints": {
+        "http": {
+          "enabled": true,
+          "handlers": [
+            {
+              "id": "default-http",
+              "file": "./network/HTTPClientEndpoint",
+              "name": "Standard Web Server (HTTP)",
+              "default": true
+            }
+          ]
+        },
+        "https": {
+          "enabled": false,
+          "handlers": []
+        },
+        "telnet": {
+          "enabled": true,
+          "handlers": [
+            {
+              "id": "ranvier-telnet",
+              "file": "./network/RanvierTelnetEndpoint",
+              "name": "Ranvier Telnet Server",
+              "default": true
+            },
+            {
+              "id": "legacy-telnet",
+              "file": "./network/TelnetClientEndpoint",
+              "name": "Legacy Telnet Server"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "mud": {
+    "name": "Another KMUD Clone #",
+    "adminName": "[Not Specified]",
+    "adminEmail": "[Not Specified]",
+    "portBindings": []
+  }
+}

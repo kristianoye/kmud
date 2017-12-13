@@ -1,7 +1,9 @@
 ﻿const
     fs = require('fs'),
     path = require('path'),
-    MUDData = require('./MUDData');
+    MUDData = require('./MUDData'),
+    ErrorTypes = require('./ErrorTypes'),
+    GameSetup = require('./setup/GameSetup');
 
 var
     nextComponentId = 1;
@@ -245,7 +247,7 @@ class MUDNetworkingEndpointsSection {
     /**
      * 
      * @param {string} protocol The name of the protocol requested.
-     * @returns {MUDNetworkingEndpointConfig}
+     * @returns {MUDNetworkingEndpointConfig} Information for the specified protocol.
      */
     getEndpointConfig(protocol) {
         if (typeof protocol !== 'string' || protocol.length === 0)
@@ -270,13 +272,16 @@ class MUDNetworkingSection {
 }
 
 class MUDConfig {
-    constructor(file) {
-        var _configFile = path.resolve(__dirname, '..', file);
-        if (!fs.existsSync(_configFile))
-            throw new Error(`File ${_configFile} not found!`);
+    constructor() {
+        var options = this.processCommandLine({
+            configFile: path.resolve(__dirname, '../mudconfig.json')
+        });
 
-        var raw = JSON.parse(fs.readFileSync(_configFile));
-        this.configFile = _configFile;
+        if (!fs.existsSync(options.configFile))
+            throw new ErrorTypes.MissingConfigError(`File ${options.configFile} not found!`);
+
+        var raw = JSON.parse(fs.readFileSync(options.configFile));
+        this.configFile = options.configFile;
 
         this['mudlibSection'] = new MUDLibConfigSection(raw.mudlib);
         this['driverSection'] = new MUDDriverConfigSection(raw.driver);
@@ -309,6 +314,41 @@ class MUDConfig {
      */
     get mudlib() {
         return this['mudlibSection'];
+    }
+
+    processCommandLine(options) {
+        var isSwitch = /^(?:[-]{1,2}|[\/]{1})(.+)/,
+            runSetup = false;
+
+        for (var i = 1, max = process.argv.length; i < max; i++) {
+            var arg = process.argv[i],
+                m = isSwitch.exec(arg);
+
+            if (m) {
+                var opt = m[1].toLowerCase();
+                switch (opt) {
+                    case 'config':
+                        if (typeof (options.configFile = process.argv[++i]) !== 'string') {
+                            throw new Error(`KMUD: Option ${arg} is missing parameter [filename]`);
+                        }
+                        console.log(`Using config file ${options.configFile}`);
+                        break;
+
+                    case 'help':
+                        this.showHelp();
+                        process.exit(0);
+                        break;
+
+                    case 'setup':
+                        console.log('Running setup...');
+                        this.runSetup = new GameSetup();
+                        this.setupMode = true;
+                        break;
+                }
+            }
+        }
+        if (this.setupMode) this.runSetup.runSetup(options);
+        return options;
     }
 }
 

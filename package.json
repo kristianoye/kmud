@@ -4,7 +4,7 @@
   "description": "KMUD",
   "main": "server.js",
   "author": {
-    "name": "koye"
+    "name": "Kristian Oye <kristianoye@gmail.com>"
   },
   "dependencies": {
     "acorn": "^5.1.2",

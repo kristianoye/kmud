@@ -8,6 +8,7 @@
     <EnableTypeScript>true</EnableTypeScript>
     <TypeScriptSourceMap>true</TypeScriptSourceMap>
     <TypeScriptModuleKind>CommonJS</TypeScriptModuleKind>
+    <ScriptArguments>--setup --config mudconfig.json</ScriptArguments>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -460,12 +461,24 @@
     <Compile Include="src\compiler\PipelineComponent.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\setup\GameSetupScript.js">
+    <Compile Include="src\setup\MudSetupTypes.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\setup\GameSetup.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\compiler\JSXTranspiler.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\setup\MudSectionSetup.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\setup\SectionSetup.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Content Include="src\setup\BaseConfig.json">
+      <SubType>Code</SubType>
+    </Content>
     <None Include="compilerconfig.json" />
     <None Include="bundleconfig.json" />
     <Content Include="compilerconfig.json.defaults">

@@ -8,7 +8,7 @@ const
     EventEmitter = require('events'),
     MUDData = require('./MUDData'),
     MUDLoader = require('./MUDLoader'),
-    MUDOSLoader = require('./MudOSLoader'),
+    MUDOSLoader = require('./MUDOSLoader'),
     acorn = require('acorn-jsx'),
     fs = require('fs'),
     ExtensionText = fs.readFileSync('src/Extensions.js', 'utf8'),
@@ -107,8 +107,9 @@ class MUDCompiler {
 
     /**
      * Create a loader for the specified pipeline and module.
-     * @param {CompilerPipeline} pipeline
-     * @param {MUDModule} module
+     * @param {CompilerPipeline} pipeline The pipeline to execute.
+     * @param {MUDModule} module The module to load.
+     * @returns {MUDLoader} A mud loader instance.
      */
     getLoader(pipeline, module) {
         var loader = this.loaders[pipeline.loaderName];

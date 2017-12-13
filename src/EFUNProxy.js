@@ -838,7 +838,7 @@ Object.defineProperties(EFUNProxy.prototype, {
 /**
  * @param {string} filename File to create proxy for.
  */
-EFUNProxy.createEfunProxy = function(filename) {
+EFUNProxy.createEfunProxy = function (filename) {
     var wrapper = new EFUNProxy(),
         parts = filename.length > 1 ? filename.split('/') : [],
         directory = parts.length > 1 ? parts.slice(0, parts.length - 1).join('/') : '/',
@@ -872,7 +872,7 @@ EFUNProxy.createEfunProxy = function(filename) {
         return Object.seal(w);
     })(wrapper, filename, perms);
 
-}
+};
 
 MUDData.SpecialRootEfun = EFUNProxy.createEfunProxy('/');
 

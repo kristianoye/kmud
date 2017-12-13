@@ -25,9 +25,16 @@ class BadModuleError extends MUDError {
     }
 }
 
+class MissingConfigError extends MUDError {
+    constructor(e) {
+        super(e);
+    }
+}
+
 
 module.exports = {
     BadModuleError: BadModuleError,
+    MissingConfigError: MissingConfigError,
     MUDError: MUDError,
     SecurityError: SecurityError
 };

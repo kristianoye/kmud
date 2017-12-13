@@ -513,7 +513,7 @@ class EFUNS {
             function getEnd(n) {
                 var a = [].slice.call(arguments, 1),
                     r = whatLC.slice(whatLC.length - n);
-                if (a.length) return a.filter(_ => _ === r).length > 0
+                if (a.length) return a.filter(_ => _ === r).length > 0;
                 return r;
             }
             switch (getEnd(1)) {
