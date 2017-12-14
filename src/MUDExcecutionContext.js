@@ -7,30 +7,36 @@ var
     MUDData = require('./MUDData');
 
 class MUDExecutionContext {
-    constructor(currentObject) {
-        if (currentObject) {
-            this.player = MUDData.ThisPlayer;
-            this.previous = currentContext;
-            this.permStack = currentObject.permissions;
-            this.thisObject = currentObject;
-        }
+    constructor() {
+        this.thisPlayer = MUDData.ThisPlayer;
+        /** @type {MUDExecutionContext } */
+        this.previousContext = MUDData.CurrentContext;
+        this.objectStack = MUDData.ObjectStack;
     }
 
-    restore(callback) {
-        var current = currentContext;
+    run(callback) {
         try {
-            MUDData.ThisPlayer = this.player;
+            this.previousContext = MUDData.CurrentContext;
+            MUDData.CurrentContext = this;
+            MUDData.ThisPlayer = this.thisPlayer;
+            MUDData.ObjectStack = this.objectStack;
             if (typeof callback === 'function') callback();
-            currentContext = current;
         }
         catch (e) {
-            currentContext = current;
+            MUDData.CleanError(e);
             throw e;
+        }
+        finally {
+            this.restore();
         }
     }
 
-    release() {
-        currentContext = this.previous;
+    restore() {
+        var prev = this.previousContext;
+        if ((MUDData.CurrentContext = prev)) {
+            MUDData.ThisPlayer = prev.thisPlayer;
+            MUDData.ObjectStack = prev.objectStack;
+        }
     }
 }
 

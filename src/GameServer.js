@@ -395,13 +395,10 @@ class GameServer extends EventEmitter {
     setThisPlayer(body) {
         try {
             MUDData.ThisPlayer = unwrap(body);
-            MUDData.ThisObject.push(MUDData.ThisPlayer);
         }
         catch (e) {
-            MUDData.ThisObject.pop();
             throw e;
         }
-        MUDData.ThisObject.pop();
     }
 
     setVirtualPrefix(path) {

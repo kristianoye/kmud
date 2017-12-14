@@ -43,50 +43,6 @@ const
     _thisId = '_thisId', // Symbol('_thisId')
     _unguarded = '_unguarded'; // Symbol('_unguarded');
 
-function setThisObjectForRoot(cb) {
-    try {
-        MUDData.ThisObject.push(MUDData.SpecialRootEfun);
-        if (typeof cb === 'function') cb();
-    }
-    catch (e) {
-        console.log('error: ' + e);
-        console.log(e.stack || e.trace);
-    }
-    MUDData.ThisObject.pop();
-}
-
-Object.defineProperty(global, 'getPermissions', {
-    get: function () {
-        return function (target) {
-            var o = unwrap(target || MUDData.ThisPlayer);
-            if (o) {
-                target = o.filename;
-            }
-            if (typeof target === 'string') {
-                var module = MUDData.ModuleCache.get(target);
-                if (!module) {
-                    if (!compileObject(target))
-                        return false;
-                    module = MUDData.ModuleCache.get(target);
-                }
-                if (module && module.efunProxy)
-                    return module.efunProxy.permissions.slice(0);
-            }
-            return false;
-        }
-    },
-    enumerable: true,
-    configurable: false
-});
-
-Object.defineProperty(global, 'thisObject', {
-    get: function () {
-        return function (target) { return MUDData.ThisObject; }
-    },
-    enumerable: true,
-    configurable: false
-});
-
 global.unwrap = function (target, success) {
     var result = false;
     if (typeof target === 'function' && target._isWrapper === true) {

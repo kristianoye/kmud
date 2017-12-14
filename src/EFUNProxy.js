@@ -675,23 +675,6 @@ Object.defineProperties(EFUNProxy.prototype, {
         },
         writable: false
     },
-    setThisObject: {
-        value: function (cb) {
-            if (typeof cb === 'function') {
-                MUDData.ThisObject.push(this);
-                try {
-                    cb();
-                }
-                catch (_e) {
-                    console.log(_e);
-                    console.log(_e.trace);
-                }
-                MUDData.ThisObject.pop();
-            }
-            return false;
-        },
-        writable: false
-    },
     shutdown: {
         value: function (errCode, reason) {
             if (MUDData.MasterObject.validShutdown(this)) {
