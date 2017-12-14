@@ -15,7 +15,8 @@ const
     FT_DIRECTORY = 1,
     FT_FILE = 2,
     basePath = path.resolve('src'),
-    libPath = path.resolve('lib');
+    libPath = path.resolve('lib'),
+    MUDExecutionContext = require('./MUDExcecutionContext');
 
 const
     PLURAL_SUFFIX = 1,
@@ -44,18 +45,23 @@ class EFUNS {
         if (!dirname.endsWith(path.sep)) parts.pop();
 
         if (_async) {
+            var ctx = new MUDExecutionContext();
             async.eachOfSeries(parts, (item, i, cb) => {
                 var dir = parts.slice(0, i + 1).join(path.sep);
                 this.isDirectory(dir, exists => {
                     if (exists) cb();
                     else {
                         fs.mkdir(dir, err => {
-                            err ? cb(err) : cb();
+                            ctx.run(() => {
+                                err ? cb(err) : cb();
+                            });
                         });
                     }
                 });
             }, function (err) {
-                err ? callback(err, parts.join(path.sep)) : callback(false, parts.join(path.sep));
+                ctx.run(() => {
+                    err ? callback(err, parts.join(path.sep)) : callback(false, parts.join(path.sep));
+                });
             });
             return this;
         }

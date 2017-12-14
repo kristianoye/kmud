@@ -4,7 +4,6 @@
  * Date: October 1, 2017
  */
 const
-    _actions = Symbol('_actions'),
     EventEmitter = require('events'),
     Extensions = require('./Extensions'),
     MUDCache = require('./MUDCache'),
@@ -18,9 +17,6 @@ const
 
 const
     ErrorTypes = require('./ErrorTypes'),
-    ClientEndpoint = require('./network/ClientEndpoint'),
-    HTTPClientEndpoint = require('./network/HTTPClientEndpoint'),
-    TelnetClientEndpoint = require('./network/TelnetClientEndpoint'),
     stack = require('callsite'),
     async = require('async'),
     path = require('path'),
@@ -30,18 +26,6 @@ const
 var
     _isGcOn = !!global.gc;
 
-const
-    _environment = Symbol('_environment'),
-    _filename = '_filename',  // Symbol('_filename'),
-    _heartbeat = Symbol('_heartbeat'),
-    _inventory = Symbol('_inventory'),
-    _living = Symbol('_living'),
-    _permissions = '_permissions', // Symbol('_permissions'),
-    _properties = '_properties',
-    _module = '_module', // Symbol('_module'),
-    _symbols = '_symbols',
-    _thisId = '_thisId', // Symbol('_thisId')
-    _unguarded = '_unguarded'; // Symbol('_unguarded');
 
 global.unwrap = function (target, success) {
     var result = false;
@@ -67,15 +51,6 @@ global.wrapper = function (_o) {
 Object.defineProperty(global, 'master', {
     get: function () { return MUDData.InGameMaster; },
     set: function () { throw new Error('Access violation detected'); },
-    configurable: true,
-    enumerable: true
-});
-
-Object.defineProperty(global, 'thisPlayer', {
-    get: function () {
-        return MUDData.ThisPlayer;
-    },
-    set: function () { },
     configurable: true,
     enumerable: true
 });
