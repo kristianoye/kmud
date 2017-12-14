@@ -87,14 +87,15 @@ Object.defineProperty(global, 'thisObject', {
     configurable: false
 });
 
-global.unwrap = function (_w) {
-    if (typeof _w === 'function' && _w._isWrapper === true) {
-        return _w() instanceof MUDObject ? _w() : false;
+global.unwrap = function (target, success) {
+    var result = false;
+    if (typeof target === 'function' && target._isWrapper === true) {
+        result = target() instanceof MUDObject ? target() : false;
     }
-    else if (typeof _w === 'object' && _w instanceof MUDObject) {
-        return _w;
+    else if (typeof target === 'object' && target instanceof MUDObject) {
+        result = target;
     }
-    return false;
+    return target === false ? false : (success ? success(result) : result);
 };
 
 global.wrapper = function (_o) {

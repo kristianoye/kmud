@@ -95,7 +95,7 @@ class PipelineContext {
             if (stat.isFile()) {
                 var n = this.filename.lastIndexOf('/');
                 this.extension = ext;
-                this.filename = this.basename + ext;
+                this.filename = this.basename;
                 this.lastModified = stat.mtime;
                 this.exists = true;
                 this.directory = this.filename.slice(0, n);

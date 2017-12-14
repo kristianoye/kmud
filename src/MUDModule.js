@@ -74,8 +74,7 @@ class MUDModule {
                     this.instances[instanceId] = instance;
                 }
                 this.proxies[instanceId] = this.getProxy(instanceId, isReload);
-                if (typeof instance.create === 'function')
-                    instance.create();
+                instance.create(MUDData.Storage.get(instance));
 
                 Object.defineProperty(instance, 'wrapper', {
                     value: instanceWrapper,

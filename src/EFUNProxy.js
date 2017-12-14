@@ -26,6 +26,7 @@ const
 var
     MUDData = require('./MUDData'),
     EFUNS = require('./EFUNS'),
+    { MUDHtmlComponent } = require('./MUDHtml'),
     _ruleCache = {};
 
 MUDData.MasterEFUNS = new EFUNS();
@@ -52,6 +53,12 @@ class EFUNProxy extends EventEmitter {
 }
 
 Object.defineProperties(EFUNProxy.prototype, {
+    abs: {
+        value: function (n) {
+            return Math.abs(n);
+        },
+        writable: false
+    },
     activePermissions: {
         value: function () {
             var seen = {}, perms = [], s = stack();
@@ -99,12 +106,6 @@ Object.defineProperties(EFUNProxy.prototype, {
     },
     arrayToSentence: {
         value: function (list, useOr, consolidate, useNumbers) {
-            this.assertArgs('listForSentence', arguments,
-                'array<string>',
-                'bool|undefined',
-                'bool|undefined',
-                'bool|undefined');
-
             useOr = typeof useOr === 'boolean' ? useOr : false;
             consolidate = typeof consolidate === 'boolean' ? consolidate : true;
             useNumbers = typeof useNumbers === 'boolean' ? useNumbers : false;
@@ -140,107 +141,15 @@ Object.defineProperties(EFUNProxy.prototype, {
         },
         writable: false
     },
-    assertArgs: {
-        value: function (methodName) {
-            var args = [].slice.apply(arguments),
-                method = args.shift(),
-                params = args.shift(),
-                self = this;
-
-            for (var i = 0, max = params.length; i < max; i++) {
-                var rule = i >= args.length ? args[args.length - 1] : args[i],
-                    compiledRule = _ruleCache[rule] || false;
-
-                if (!compiledRule) {
-                    compiledRule = (function (r) {
-                        var neg = r.startsWith('^'),
-                            parts = r.slice(neg ? 1 : 0).split('|').map(p => {
-
-                                if (_ruleCache[p]) return _ruleCache[p];
-
-                                /* array validation */
-                                if (p.startsWith('array<') && p.endsWith('>')) {
-                                    var type = p.slice(6, p.length - 1);
-
-                                    return _ruleCache[p] = function (v, n, m) {
-                                        if (v instanceof Array) {
-                                            var types = type.split('|');
-                                            for (var j = 0, _max = v.length; j < _max; j++) {
-                                                if (types.indexOf(typeof v[j]) === -1) {
-                                                    if (neg) break;
-                                                    throw Error('Bad argument {0} to {1}; Element at index {2} was {3} and not {4}'
-                                                        .fs(n.toString(), m, j, typeof v[j], types.join(',')));
-                                                }
-                                            }
-                                        }
-                                        else if (!neg)
-                                            return Error('Bad argument {0} to {1}; Expected array<{2}> got {3}'.fs(n, m, type, typeof v));
-                                    };
-                                }
-                                /* dictionary validation */
-                                else if (p.startsWith('object<') && p.endsWith('>')) {
-                                    var type = p.slice(7, p.length - 1);
-
-                                    return _ruleCache[p] = function (v, n, m) {
-                                        if (typeof v === 'object') {
-                                            var _ = type.split(','),
-                                                ktype = _[0].split('|'),
-                                                vtype = _[1].split('|'),
-                                                keys = Object.keys(v);
-                                            for (var c = 0, _m = keys.length; c < _m; c++) {
-                                                var k = keys[c], vv = v[k];
-                                                if (ktype.indexOf(typeof k) < 0) {
-                                                    if (neg) break;
-                                                    return Error('Bad argument {0} to {1}; Object contains unexpected key {2} was type {3} and not {4}'
-                                                        .fs(n.toString(), m, (k || undefined).toString(), typeof k, _[0]));
-                                                }
-                                                else if (vtype.indexOf(typeof vv) < 0) {
-                                                    if (neg) break;
-                                                    return Error('Bad argument {0} to {1}; Object value with key {2} was type {3} and not {4}'
-                                                        .fs(n.toString(), m, k, typeof vv, _[1]));
-                                                }
-                                            }
-                                            if (!neg)
-                                                throw new Error('Bad argument {0} to {1}; Type {2} is not allowed.'.fs(n.toString(), m, p));
-                                        }
-                                        else if (!neg)
-                                            throw Error('Bad argument {0} to {1}; Expected object<{2}> got {3}'.fs(n, m, type, typeof v));
-                                    };
-                                }
-                                else if ('string|object|undefined|number|boolean|symbol|function|null'.indexOf(r) > -1) {
-                                    return _ruleCache[p] = function (v, _n, m) {
-                                        if (p === 'null') {
-                                            if (neg && v === null)
-                                                return new Error('Bad argument {0} to {1}; Value cannot be null.'.fs(_n.toString(), m));
-                                            else if (v !== null)
-                                                return new Error('Bad argument {0} to {1}; Value must be null and not {2}.'.fs(_n.toString(), m, typeof v));
-                                        }
-                                        else if (neg && typeof v === r) {
-                                            throw Error('Bad argument {0} to {1}; Type {2} is not allowed.'
-                                                .fs(_n.toString(), m, r));
-                                        }
-                                        else if (typeof v !== r) {
-                                            throw Error('Bad argument {0} to {1}; Expected {2} got {3}.'
-                                                .fs(_n.toString(), m, r, typeof v));
-                                        }
-                                    };
-                                }
-                                else {
-                                    throw new Error('Unhandled rule type: ' + p);
-                                }
-                            });
-                        return function (val, ind, mn) {
-                            for (var x = 0; x < parts.length; x++) {
-                                parts[x].call(self, val, ind, mn);
-                            }
-                            return true;
-                        };
-                        return parts;
-                    })(rule);
-                }
-                return compiledRule.call(self, params[i], i, methodName);
+    assemble_class: {
+        value: function (arr) {
+            var s = '(function() { return function(o) {\n';
+            if (Array.isArray(arr)) {
+                arr.forEach(el => s += `  this.${el} ` + '= typeof o === \'object\' ? o.' + el + ' : undefined;\n');
+                s += '};})()';
+                return eval(s);
             }
-            return false;
+            else throw new Error(`Bad argument 1 to assemble_class(); Expected array got ${typeof arr}`);
         },
         writable: false
     },
@@ -320,6 +229,19 @@ Object.defineProperties(EFUNProxy.prototype, {
                 client = false;
             }
             if (MUDData.MasterObject.validExec(this, oldBody, newBody, client)) {
+                var oldContainer = oldBody ? MUDData.Storage.get(oldBody) : false,
+                    newContainer = MUDData.Storage.get(newBody),
+                    client = oldContainer.getProtected('client'),
+                    execEvent = {
+                        oldBody: oldBody,
+                        newBody: newBody,
+                        client: client
+                    };
+
+                if (oldContainer) oldContainer.emit('kmud.exec', execEvent);
+                newContainer.setProtected('client', client).emit('kmud.exec', execEvent);
+                MUDData.MasterObject.emit('kmud.exec', execEvent);
+
                 if (!client) client = thisPlayer.client;
                 if (typeof client === 'object') {
                     if (MUDData.MasterObject.exec(oldBody, newBody, client)) {
@@ -514,11 +436,29 @@ Object.defineProperties(EFUNProxy.prototype, {
                     module = MUDData.Compiler(filename, false, undefined, args);
                     return module ? module.getWrapper(0) : false;
                 }
-                return false;
             }
             throw new ErrorTypes.SecurityError();
         },
         writable: false
+    },
+    message: {
+        value: function (messageType, expr, ...audience) {
+            if (expr && MUDData.ThisPlayer) {
+                if (typeof expr !== 'string') {
+                    if (expr instanceof MUDHtmlComponent)
+                        expr = expr.render();
+                    else if (typeof expr === 'number')
+                        expr = expr.toString();
+                    else
+                        throw new Error(`Bad argument 2 to message; Expected string, number, or MUDHtmlComponent but received ${typeof expr}`);
+                }
+                audience.forEach(a => {
+                    if (Array.isArray(a))
+                        this.message(messageType, expr, a);
+                    else unwrap(a, a => a.receive_message(messageType, expr));
+                });
+            }
+        }
     },
     mkdir: {
         value: function (path, callback) {
@@ -805,6 +745,13 @@ Object.defineProperties(EFUNProxy.prototype, {
     wizardp: {
         value: function (target) {
             return MUDData.MasterObject.inGroup(target, 'admin', 'arch', 'wizard');
+        },
+        writable: false
+    },
+    write: {
+        value: function (expr) {
+            this.message('write', expr, MUDData.ThisPlayer);
+            return true;
         },
         writable: false
     },

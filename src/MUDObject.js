@@ -84,36 +84,10 @@ class MUDObject extends EventEmitter {
             throw new Error('Illegal constructor call');
         }
 
-        if (this._propKeyId || ctx._forceCleanup) {
-            function deleteAllKeys(m) {
-                typeof m === 'object' && Object.keys(m).forEach(k => delete m[k]);
-            }
-            deleteAllKeys(MUDData.InstanceProps[this._propKeyId]);
-            deleteAllKeys(MUDData.InstanceSymbols[this._propKeyId]);
-
-            if (!MUDData.InstanceProps[this._propKeyId])
-                MUDData.InstanceProps[this._propKeyId] = {};
-
-            if (!MUDData.InstanceSymbols[this._propKeyId]) {
-                MUDData.InstanceSymbols[this._propKeyId] = {};
-                MUDData.InstanceSymbols[this._propKeyId][_inventory] = [];
-            }
-        }
-
         if (this.filename && !MUDData.InstanceProps[this.filename])
             MUDData.SharedProps[this.basename] = {};
 
-        var _props = MUDData.InstanceProps[this._propKeyId] || {},
-            _symbols = MUDData.InstanceSymbols[this._propKeyId] || {},
-            _shared = MUDData.SharedProps[this.basename] || {};
-
-        if (!ctx.isReload) {
-            ctx.$special = MUDData.StorageObjects[this._propKeyId] = new MUDStorage(this, ctx);
-        }
-        else
-        {
-            ctx.$special = MUDStorage.reload(this, ctx);
-        }
+        ctx.$storage = MUDStorage.create(this, ctx);
     }
 
     addAction(verb, callback) {
@@ -147,6 +121,10 @@ class MUDObject extends EventEmitter {
      */
     canAcceptItem(item) { return false; }
 
+    create() {
+
+    }
+
     /**
      * Destroys the object.
      * @param {boolean=} isReload Indicates the object was destructed as part of a reload.
@@ -167,8 +145,7 @@ class MUDObject extends EventEmitter {
                 return this.eventDestroy();
             });
             this.setSymbol(_environment, null);
-            delete MUDData.InstanceProps[this._propKeyId];
-            delete MUDData.InstanceSymbols[this._propKeyId];
+            delete MUDStorage.instances[this._propKeyId];
             mod.destroyInstance(this);
         }
         return this;
@@ -205,8 +182,7 @@ class MUDObject extends EventEmitter {
     }
 
     get environment() {
-        var env = this.getSymbol(_environment, null);
-        return unwrap(env);
+        return unwrap(MUDStorage.get(this).environment);
     }
 
     evaluateProperty(key) {
@@ -349,6 +325,9 @@ class MUDObject extends EventEmitter {
         return result.slice(0);
     }
 
+    receive_message(msgClass, text) {
+    }
+
     serializeObject() {
         var props = MUDData.InstanceProps[this._propKeyId],
             refs = [ this ];
@@ -455,8 +434,6 @@ class MUDObject extends EventEmitter {
 
     setProperty(key, value) {
         return MUDStorage.get(this).setProperty(key, value);
-        //MUDData.InstanceProps[this._propKeyId][key] = value;
-        return this;
     }
 
     incrementProperty(key, value, initialValue, callback) {
@@ -476,22 +453,10 @@ class MUDObject extends EventEmitter {
 
     getSymbol(key, defaultValue) {
         return MUDStorage.get(this).getSymbol(key, defaultValue);
-        if (typeof key !== 'symbol')
-            throw new Error('Bad argument 1 to getSymbol; Expected symbol got {0}'.fs(typeof key));
-        var _symbols = MUDData.InstanceSymbols[this._propKeyId] || {},
-            _result = _symbols[key] || defaultValue;
-        return _result;
     }
 
     setSymbol(key, value) {
         return MUDStorage.get(this).setSymbol(key, value);
-        if (typeof key !== 'symbol')
-            throw new Error('Bad argument 1 to setSymbol; Expected symbol got {0}'.fs(typeof key));
-        var _symbols = MUDData.InstanceSymbols[this._propKeyId];
-        if (_symbols) {
-            _symbols[key] = value;
-        }
-        return this;
     }
 }
 
@@ -503,10 +468,8 @@ MUDObject.prototype.restoreObject = function (path, callback) {
 
     return efuns.readJsonFile(efuns.resolvePath(filename), (data, err) => {
         if (!err) {
-            var props = MUDData.InstanceProps[this._propKeyId];
-            for (var k in data) {
-                props[k] = data[k];
-            }
+            var props = MUDStorage.get(this).properties;
+            for (var k in data) { props[k] = data[k]; }
             err = false;
         }
         if (typeof callback === 'function') callback.call(this, err);
@@ -517,7 +480,7 @@ MUDObject.prototype.saveObject = function (path, callback) {
     var module = MUDData.ModuleCache.get(this.filename),
         efuns = module.efunProxy,
         filename = efuns.resolvePath(path + '.json'),
-        data = MUDData.InstanceProps[this._propKeyId],
+        data = MUDStorage.get(this).properties,
         _async = typeof callback === 'function',
         saveData = {};
 

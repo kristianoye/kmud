@@ -63,7 +63,7 @@ class MUDLoader {
             },
             allowProxy: {
                 get: function () { return _allowProxy; },
-                set: function (v) { _allowProxy = typeof v === 'boolean' ? v : true }
+                set: function (v) { _allowProxy = typeof v === 'boolean' ? v : true; }
             },
             PartialType: {
                 get: function () { return _extending; }
@@ -96,7 +96,8 @@ class MUDLoader {
                             return callback.call(this, _efuns, _context);
                         }
                         catch (x) {
-
+                            console.log(x);
+                            throw x;
                         }
                     }
                 },

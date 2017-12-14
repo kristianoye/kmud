@@ -59,10 +59,26 @@ declare class MUDInfo {
     readonly uptime: number;
 }
 
+declare interface MUDStorage {
+    /** Listen for a particular event from the mudlib/driver */
+    on(event: string, callback: (...args: any[]) => any): void;
+
+    /** get a property from the storage layer */
+    getProperty(prop: string, defaultValue: any): any
+
+    /** set a property in the storage layer */
+    setProperty(prop: string, value: any): MUDObject;
+
+    /** set a symbol in the storage layer */
+    setSymbol(prop: Symbol, value: any): MUDObject;
+}
+
 /**
  * Contains information required to construct a MUD object.
  */
 declare interface MUDCreationContext {
+    readonly $storage: MUDStorage;
+
     /** Contains the filename of the module being created */
     readonly filename: string;
 
@@ -170,15 +186,6 @@ declare class EFUNProxy
     * @returns {string} A string in the form of 'two swords, one mace, and three dogs'
     */
     arrayToSentence(list: Array<MUDObject | string>, useOr: boolean, consolidate: boolean, useNumbers: boolean): string;
-
-    /**
-    * 
-    * @param methodName The name of the method checking parameters.
-    * @param {IArguments} args The arguments object from the method call.
-    * @param {...String[]} typeDef One or more validation rules.  Must match number of arguments passed.
-    * @returns {Error|boolean} An error object if there was something wrong with the arguments or false if none.
-    */
-    assertArgs(methodName: string, args: IArguments, ...typeDef: string[]): Error | boolean;
 
     /**
     * Attempts to clone an object.
@@ -521,5 +528,8 @@ declare class EFUNProxy
      */
     writeJsonFile(filename: string, content: any, callback: (success: boolean, err: Error) => undefined): undefined;
 }
+
+declare function unwrap(target: any): MUDObject | false;
+declare function unwrap(target: any, success: (ob: MUDObject) => MUDObject): MUDObject | false;
 
 let efuns = new EFUNProxy;

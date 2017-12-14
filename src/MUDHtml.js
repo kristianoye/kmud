@@ -56,6 +56,6 @@ class MUDHtmlElement extends MUDHtmlComponent {
 }
 
 module.exports = {
-    MUDHTMLComponent: MUDHtmlComponent,
+    MUDHtmlComponent: MUDHtmlComponent,
     MUDHtmlElement: MUDHtmlElement
 };

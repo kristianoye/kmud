@@ -75,7 +75,7 @@ const TERMINALCOLOR = {
 
 class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, gameMaster, client) {
-        super(endpoint, gameMaster);
+        super(endpoint, gameMaster, client, client.remoteAddress);
         var self = this,
             clientHeight = 24,
             clientWidth = 80;

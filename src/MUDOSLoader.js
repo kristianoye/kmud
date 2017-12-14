@@ -13,11 +13,17 @@ class MUDOSLoader extends MUDLoader {
         var T = this;
 
         Object.defineProperties(this, {
+            abs: {
+                value: function (n) { return _efuns.abs(n); }
+            },
             adminp: {
                 value: function (target) { return _efuns.adminp(target); }
             },
             archp: {
                 value: function (target) { return _efuns.archp(target); }
+            },
+            assemble_class: {
+                value: function (arr) { return _efuns.assemble_class(arr);  }
             },
             call_other: {
                 value: function (target, args) {
@@ -152,10 +158,11 @@ class MUDOSLoader extends MUDLoader {
     catch(expr) {
         var result = 0;
         try {
-            var result = eval(expr);
+            result = eval(expr);
         } 
         catch (ex) {
-            result = '*' + ex.message;
+            MUDData.CleanError(ex);
+            result = '*' + ex.message + '\n' + ex.stack;
         }
         return result;
     }
@@ -192,6 +199,10 @@ class MUDOSLoader extends MUDLoader {
 
         var ret = arr.slice(startIndex).indexOf(item);
         return ret === -1 ? -1 : ret + startIndex;
+    }
+
+    message(messageType, msg, ...recipients) {
+        return this.efuns.message(messageType, msg, ...recipients);
     }
 
     pointerp(arg) { return Array.isArray(arg); }
@@ -245,6 +256,8 @@ class MUDOSLoader extends MUDLoader {
     throw(msg) {
         throw new Error(msg);
     }
+
+    write(msg) { return this.efuns.write(msg); }
 
     write_buffer(dest, start, source) {
         throw new Error('Not implemented yet');

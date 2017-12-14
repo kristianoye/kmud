@@ -16,10 +16,11 @@ class MUDCreationContext {
         this._forceCleanup = false;
         this._mixins = [];
         this._props = {};
-        this.$special = null;
+        this.$storage = null;
         this._shared = {};
         this._symbols = {};
         this._wrapper = instanceWrapper;
+        this.isReload = isReload;
 
         if (typeof startupData === 'object') {
             this._args = startupData.args || {};

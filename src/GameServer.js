@@ -300,7 +300,7 @@ class GameServer extends EventEmitter {
         if (!this.loginObject) {
             throw new Error('Login object must be specified');
         }
-        console.log('Starting %s', this.MudName);
+        console.log('Starting %s', this.mudName);
         if (this.globalErrorHandler) {
             process.on('uncaughtException', err => {
                 console.log(err);
@@ -327,22 +327,26 @@ class GameServer extends EventEmitter {
         for (i = 0; i < this.endpoints.length; i++) {
             this.endpoints[i]
                 .bind()
-                .on('kmud.connection', (c) => {
-                    MUDData.Clients.push(c);
-                    var newLogin = MUDData.SpecialRootEfun.cloneObject(
-                        this.config.mudlib.loginObject,
-                        { args: { client: c }
-                    });
-                    this.exec(null, newLogin, c);
+                .on('kmud.connection', (client) => {
+                    var newLogin = MUDData.SpecialRootEfun.cloneObject(this.config.mudlib.loginObject);
+
+                    MUDData.Storage.get(newLogin).setProtected('client', client,
+                        ($storage, _client) => {
+                            var evt = { newBody: newLogin, client: _client };
+                            self.emit('kmud.exec', evt)
+                            $storage.emit('kmud.exec', evt);
+                        });
+
+                    MUDData.Clients.push(client);
                 })
-                .on('kmud.connection.new', function (c, p) {
-                    console.log('New %s connection from %s', p, c.remoteAddress);
-                    self.connections.push(c);
+                .on('kmud.connection.new', function (client, protocol) {
+                    console.log(`New ${protocol} connection from ${client.remoteAddress}`);
+                    self.connections.push(client);
                 })
-                .on('kmud.connection.closed', function (c, p) {
-                    MUDData.Clients.removeValue(c);
-                    console.log('%s connection from %s closed', p, c.remoteAddress);
-                    self.connections.removeValue(c);
+                .on('kmud.connection.closed', function (client, protocol) {
+                    console.log(`${protocol} connection from ${client.remoteAddress} closed.`);
+                    MUDData.Clients.removeValue(client);
+                    self.connections.removeValue(client);
                 })
                 .on('kmud.connection.full', function (c) {
                     c.write('The game is all full, sorry; Please try again later.\n');
@@ -370,7 +374,7 @@ class GameServer extends EventEmitter {
     }
 
     removePlayer(body) {
-        var _body = body ? body() : false;
+        var _body = unwrap(body);
         if (_body && typeof _body.save === 'function') {
             MUDData.Players.removeValue(body);
         }

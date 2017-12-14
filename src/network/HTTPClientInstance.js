@@ -14,10 +14,9 @@ const
 
 class HTTPClientInstance extends ClientInstance {
     constructor(endpoint, gameMaster, client) {
-        super(endpoint, gameMaster, client.request.connection.remoteAddress);
+        super(endpoint, gameMaster, client, client.request.connection.remoteAddress);
         var T = this;
 
-        this[_client] = client;
         this[_callbacks] = {};
 
         function dispatchInput(resp) {
@@ -68,14 +67,21 @@ class HTTPClientInstance extends ClientInstance {
             }
         }
 
-        T.client.on('disconnect', client => {
+        client.on('disconnect', client => {
             T.emit('disconnected', T);
             gameMaster.removePlayer(T.body);
         });
-        T.client.on('kmud', data => {
+        client.on('kmud', data => {
             switch (data.eventType) {
                 case 'consoleInput':
-                    return dispatchInput.call(this, data.eventData);
+                    var t0 = new Date().getTime();
+                    try {
+                        return dispatchInput.call(this, data.eventData);
+                    }
+                    finally {
+                        var te = new Date().getTime() - t0;
+                        console.log(`Command took ${te} ms to execute.`);
+                    }
 
                 default:
                     var eventType = data.eventType,

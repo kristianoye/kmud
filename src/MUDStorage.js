@@ -26,6 +26,9 @@ class MUDStorage extends EventEmitter {
         /** @type {Object.<string,any>} */
         this.properties = {};
 
+        /** @type {Object.<string,any>} */
+        this.protected = {};
+
         /** @type {Object.<Symbol,any>} */
         this.symbols = {};
 
@@ -38,12 +41,15 @@ class MUDStorage extends EventEmitter {
      * @param {any} defaultValue
      */
     getProperty(prop, defaultValue) {
-        if (prop in this.properties)
-            return this.properties[prop];
-        else if (typeof defaultValue === 'undefined')
-            return (this.properties[prop] = defaultValue);
+        return this.properties[prop] || (this.properties[prop] = defaultValue);
     }
 
+    getProtected(prop, defaultValue) {
+        if (prop in this.protected)
+            return this.protected[prop];
+        else if (typeof defaultValue === 'undefined')
+            return (this.protected[prop] = defaultValue);
+    }
     /**
      * Retun the value stored for the given symbol.
      * @param {Symbol} prop
@@ -96,10 +102,24 @@ class MUDStorage extends EventEmitter {
      * Set a property in the storage object.
      * @param {string} prop
      * @param {any} value
+     * @returns {MUDObject}
      */
     setProperty(prop, value) {
         this.properties[prop] = value;
         return this.owner;
+    }
+
+    /**
+     * Set a property in the storage object.
+     * @param {string} prop The protected property to set.
+     * @param {any} value The value to be stored
+     * @param {function=} callback A callback that fires once the value is set.
+     * @returns {MUDStorage}
+     */
+    setProtected(prop, value, callback) {
+        this.protected[prop] = value;
+        if (callback) callback(this, value, prop);
+        return this;
     }
 
     /**
@@ -113,21 +133,28 @@ class MUDStorage extends EventEmitter {
     }
 }
 
+MUDStorage.create = function (/** @type {MUDObject} */ ob, /** @type {MUDCreationContext} */ ctx) {
+    return ctx.isReload ? MUDStorage.reload(ob, ctx) : (MUDStorage.instances[ob._propKeyId] = new MUDStorage(ob, ctx));
+};
+
 /**
  * @returns {MUDStorage} The storage object for the specified object.
  */
 MUDStorage.get = function (/** @type {MUDObject} */ ob) {
-    var result = MUDData.StorageObjects[ob._propKeyId] || false;
-    if (result === false) throw new Error('Bad stuff happened!  Object has no storage.');
-    return result;
+    return MUDStorage.instances[unwrap(ob)._propKeyId];
 };
+
+/**
+ * @type {Object.<string,MUDStorage>}
+ */
+MUDStorage.instances = {};
 
 /**
  * @returns {MUDStorage} Called if the object instance is reloaded.
  */
-MUDStorage.reload = function (/** @type {MUDObject} */ ob) {
-    var prev = MUDStorage.get(ob);
-    return prev.reload(ob);
-}
+MUDStorage.reload = function (/** @type {MUDObject} */ ob, /** @type {MUDCreationContext} */ ctx) {
+    return MUDStorage.get(ob).reload(ob, ctx);
+};
 
+MUDData.Storage = MUDStorage;
 module.exports = MUDStorage;
