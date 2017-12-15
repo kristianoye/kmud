@@ -281,7 +281,7 @@ class MUDConfig {
             configFile: path.resolve(__dirname, '../mudconfig.json')
         });
 
-        if (!fs.existsSync(options.configFile))
+        if (!this.setupMode && !fs.existsSync(options.configFile))
             throw new ErrorTypes.MissingConfigError(`File ${options.configFile} not found!`);
 
         var raw = JSON.parse(fs.readFileSync(options.configFile));
