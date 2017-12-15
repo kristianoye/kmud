@@ -554,6 +554,19 @@ Object.defineProperties(EFUNProxy.prototype, {
         },
         writable: false
     },
+    previousObjects: {
+        value: function () {
+            var objectStack = [];
+            stack().forEach((cs, i) => {
+                var fn = cs.getFileName();
+                if (objectStack[0] !== fn) {
+                    objectStack.unshift(fn);
+                }
+            });
+            return objectStack.reverse();
+        },
+        writable: false
+    },
     readFile: {
         value: function (filename, callback) {
             var _file = this.resolvePath(filename);

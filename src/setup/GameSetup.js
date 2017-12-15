@@ -82,7 +82,7 @@ class GameSetup {
                     fs.writeFileSync(this.options.configFile, JSON.stringify(this.config, null, 3));
                 }
                 con.write('\nExiting\n');
-                process.exit(0);
+                process.exit(-3);
             }
         });
     }

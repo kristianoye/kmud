@@ -85,6 +85,10 @@ class MUDDriverConfigSection {
         this.core = data.core;
         this.useObjectProxies = typeof data.useObjectProxies === 'boolean' ? data.useObjectProxies : true;
         this.useRevocableProxies = typeof data.useRevocableProxies === 'boolean' ? data.useRevocableProxies : false;
+        this.objectCreationMethod = typeof data.objectCreationMethod === 'string' ? data.objectCreationMethod : 'inline';
+        if (['inline', 'thinWrapper', 'fullWrapper'].indexOf(this.objectCreationMethod) === -1) {
+            throw new Error(`Invalid setting for driver.objectCreationMethod: Got ${data.objectCreationMethod} [valid values: inline, thinWrapper, fullWrapper`);
+        }
         this.compiler = new MUDCompilerSection(data.compiler);
         this.networking = new MUDNetworkingSection(data.networking);
     }
@@ -290,6 +294,12 @@ class MUDConfig {
         MUDData.Config = this;
     }
 
+    assertConfig(path, val, callback) {
+        if (this.readValue(path) === val) {
+            if (typeof callback === 'function') callback();
+        }
+    }
+
     assertValid() {
         this.driver.assertValid();
         return this;
@@ -335,8 +345,7 @@ class MUDConfig {
                         break;
 
                     case 'help':
-                        this.showHelp();
-                        process.exit(0);
+                        this.showHelp(-4);
                         break;
 
                     case 'setup':
@@ -350,6 +359,44 @@ class MUDConfig {
         if (this.setupMode) this.runSetup.runSetup(options);
         return options;
     }
+
+    /**
+     * 
+     * @param {string} key The value to read from the config.
+     */
+    readValue(key, defaultValue) {
+        let path = key.split('.'),
+            ptr = this;
+
+        while (path.length) {
+            let key = path.shift();
+            ptr = ptr[key];
+        }
+        return typeof ptr === 'undefined' ? defaultValue : ptr;
+    }
+
+    showHelp(exit) {
+        console.log(`
+Usage: server.js [options]
+
+Where options include:
+    --config [config file]
+        Specify an alternate location to the MUD configuration file.
+
+    --setup
+        Run setup mode to pick common MUD options.
+
+    --single-user
+        Run the MUD in "single user" mode.  This will disable any of the
+        external network interfaces and only allow traffic from the loopback
+        interface (localhost).  External sockets will also be disabled.
+
+    --wizLock
+        Start the MUD in wizard lock mode.  Normal players will not be 
+        allowed to connect.
+`.trim() + '\n');
+        process.exit(exit);
+    }
 }
 
-module.exports = MUDConfig;
+module.exports = new MUDConfig();

@@ -5,18 +5,15 @@
  */
 try {
     const
-        GameServer = require('./src/GameServer'),
         GameConfig = require('./src/MUDConfig'),
+        GameServer = require('./src/GameServer'),
         MUDData = require('./src/MUDData'),
         ErrorTypes = require('./src/ErrorTypes');
 
     try {
-        var
-            config = new GameConfig();
-
-        if (!config.setupMode) {
-            var gameMaster = new GameServer(config);
-
+        if (!GameConfig.setupMode) {
+            var gameMaster = new GameServer(GameConfig);
+            let test = GameConfig.readValue('mud.name');
             /** @type {GameServer} The game server instance */
             gameMaster
                 .setPreloads([
@@ -49,6 +46,7 @@ try {
     catch (e) {
         console.error(e.message);
         console.error(e.stack);
+        process.exit(-2);
     }
 }
 catch (boom) {

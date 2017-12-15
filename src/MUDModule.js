@@ -57,20 +57,23 @@ class MUDModule {
                 args,
                 this.directory);
 
-            var instance = new this.classRef(creationContext);
-            if (instance) {
+            var instance = null; // new this.classRef(creationContext);
+            if (true) {
                 if (instanceId === -1) {
                     if (this.singleton)
                         throw 'That object cannot be cloned!';
+                    instance = this.createObject(thisInstanceId, creationContext);
                     this.instances.push(instance);
                     instanceId = nextId;
                 }
                 else {
                     if (instanceId >= nextId)
                         throw 'Instance does not exist!  This should not happen!';
+
                     if (oldInstance) {
                         oldInstance.destroy(isReload);
                     }
+                    instance = this.createObject(thisInstanceId, creationContext);
                     this.instances[instanceId] = instance;
                 }
                 this.proxies[instanceId] = this.getProxy(instanceId, isReload);
@@ -289,6 +292,52 @@ class MUDModule {
         this.context = ctx;
         this.loader.ctx = ctx;
     }
+}
+
+const
+    objectCreationMethod = MUDData.Config.readValue('driver.objectCreationMethod', 'inline');
+
+if (objectCreationMethod === 'inline') {
+    MUDModule.prototype.createObject = function (id, creationContext) {
+        return new this.classRef(creationContext);
+    };
+}
+else if (objectCreationMethod === 'thinWrapper') {
+    MUDModule.prototype.createObject = function (id, creationContext) {
+        let scriptSource = `(function($ctx) {  
+                        class WrapperType extends ${this.classRef.name} { 
+                            constructor(ctx) { super(ctx); }
+
+                        }
+                        return new WrapperType($ctx);
+                    })`.trim();
+        let script = new vm.Script(scriptSource, {
+            filename: creationContext.filename + (id !== 0 ? '#' + id : '')
+        });
+        let foo = script.runInContext(this.context);
+        return foo(creationContext);
+    };
+}
+else if (objectCreationMethod === 'fullWrapper') {
+    MUDModule.prototype.createObject = function (id, creationContext) {
+        let moduleName = this.classRef.name,
+            methodBlock = Object.getOwnPropertyNames(this.classRef.prototype).filter(propId => {
+                if (propId === 'constructor') return false;
+                var desc = Object.getOwnPropertyDescriptor(this.classRef.prototype, propId);
+                return typeof desc.value === 'function';
+            }).map(name => `\t${name}(...args) { return super.${name}.apply(this, args); }\n`).join('\n')
+        let scriptSource = [`(function($ctx) {  
+    class ${moduleName}Wrapper extends ${this.classRef.name} { 
+        constructor(ctx) { super(ctx); }`.trim(),
+            methodBlock,
+            `}\n\nreturn new ${moduleName}Wrapper($ctx);
+})`].join('\n');
+        let script = new vm.Script(scriptSource, {
+            filename: creationContext.filename + (id !== 0 ? '#' + id : '')
+        });
+        let foo = script.runInContext(this.context);
+        return foo(creationContext);
+    };
 }
 
 var creationContext = new MUDCreationContext(0);
