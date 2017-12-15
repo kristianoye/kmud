@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+while true;
+do
+        node server.js "$@"
+        if [ $? -ne 0 ]; then
+                echo "Exiting (with error code $?)"
+                break
+        fi
+        sleep 1
+done
