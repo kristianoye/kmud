@@ -17,7 +17,6 @@ const
 
 const
     ErrorTypes = require('./ErrorTypes'),
-    stack = require('callsite'),
     async = require('async'),
     path = require('path'),
     os = require('os'),

@@ -4,11 +4,15 @@
  * Date: October 1, 2017
  */
 var
+    MUDConfig = require('./MUDConfig'),
     MUDData = require('./MUDData'),
     EFUNProxy = require('./EFUNProxy'),
     MUDCreationContext = require('./MUDCreationContext'),
     ObjectProxy = require('./ObjectProxy'),
     vm = require('vm');
+
+const
+    useProxies = MUDConfig.driver.useObjectProxies;
 
 /**
  * Contains information about a previously loaded MUD module.
@@ -76,7 +80,9 @@ class MUDModule {
                     instance = this.createObject(thisInstanceId, creationContext);
                     this.instances[instanceId] = instance;
                 }
-                this.proxies[instanceId] = this.getProxy(instanceId, isReload);
+                if (useProxies) {
+                    this.proxies[instanceId] = this.getProxy(instanceId, isReload);
+                }
                 instance.create(MUDData.Storage.get(instance));
 
                 Object.defineProperty(instance, 'wrapper', {
@@ -192,16 +198,30 @@ class MUDModule {
             wrapper = this.wrappers[n];
 
         if (!wrapper) {
-            wrapper = this.wrappers[n] = (function (_n) {
-                return function () {
-                    var result = self.allowProxy ? self.proxies[_n] : self.instances[_n];
-                    if (!result) {
-                        self.createInstance(_n, true);
-                        result = self.allowProxy ? self.proxies[_n] : self.instances[_n];
-                    }
-                    return result;
-                };
-            })(n);
+            if (useProxies) {
+                wrapper = this.wrappers[n] = (function (_n) {
+                    return function () {
+                        var result = self.allowProxy ? self.proxies[_n] : self.instances[_n];
+                        if (!result) {
+                            self.createInstance(_n, true);
+                            result = self.allowProxy ? self.proxies[_n] : self.instances[_n];
+                        }
+                        return result;
+                    };
+                })(n);
+            }
+            else {
+                wrapper = this.wrappers[n] = (function (_n) {
+                    return function () {
+                        var result = self.instances[_n];
+                        if (!result) {
+                            self.createInstance(_n, true);
+                            result = self.instances[_n];
+                        }
+                        return result;
+                    };
+                })(n);
+            }
             wrapper._isWrapper = true;
         }
         return wrapper;
@@ -325,18 +345,22 @@ else if (objectCreationMethod === 'fullWrapper') {
                 if (propId === 'constructor') return false;
                 var desc = Object.getOwnPropertyDescriptor(this.classRef.prototype, propId);
                 return typeof desc.value === 'function';
-            }).map(name => `\t${name}(...args) { return super.${name}.apply(this, args); }\n`).join('\n')
-        let scriptSource = [`(function($ctx) {  
+            }).map(name => `\t${name}(...args) { return super.${name}.apply(this, args); }\n`).join('\n');
+        let scriptSource = [`
+(function($ctx, $storage) {  
     class ${moduleName}Wrapper extends ${this.classRef.name} { 
-        constructor(ctx) { super(ctx); }`.trim(),
+        constructor(ctx) { super(ctx); }
+`.trim(),
             methodBlock,
-            `}\n\nreturn new ${moduleName}Wrapper($ctx);
+    `}
+
+    return new ${moduleName}Wrapper($ctx);
 })`].join('\n');
         let script = new vm.Script(scriptSource, {
             filename: creationContext.filename + (id !== 0 ? '#' + id : '')
         });
         let foo = script.runInContext(this.context);
-        return foo(creationContext);
+        return foo(creationContext, MUDData.Storage.createForId(creationContext.filename, id));
     };
 }
 

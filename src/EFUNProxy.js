@@ -9,6 +9,7 @@ const
     path = require('path'),
     os = require('os'),
     sprintf = require('sprintf').sprintf,
+    MUDConfig = require('./MUDConfig'),
     ErrorTypes = require('./ErrorTypes'),
     EventEmitter = require('events'),
     util = require('util'),
@@ -543,28 +544,58 @@ Object.defineProperties(EFUNProxy.prototype, {
         writable: false
     },
     previousObject: {
-        value: function (n) {
-            var thisObject = MUDData.ObjectStack[0] || false,
-                index = (n || 0) + 1, prev = null;
-            if (n === -1) {
-                return MUDData.ObjectStack.slice(0)
-                    .filter(o => o === prev ? false : (prev = o), true);
+        value: (function () {
+            if (MUDConfig.driver.useObjectProxies) {
+                //  If useObjectProxies is on then the driver maintains an object stack.
+                return function (n) {
+                    let thisObject = MUDData.ObjectStack[0] || false,
+                        index = (n || 0) + 1, prev = null;
+                    if (n === -1) {
+                        return MUDData.ObjectStack.slice(0)
+                            .filter(o => o === prev ? false : (prev = o), true);
+                    }
+                    return MUDData.ObjectStack[index] || thisObject || false;
+                };
             }
-            return MUDData.ObjectStack[index] || thisObject || false;
-        },
-        writable: false
-    },
-    previousObjects: {
-        value: function () {
-            var objectStack = [];
-            stack().forEach((cs, i) => {
-                var fn = cs.getFileName();
-                if (objectStack[0] !== fn) {
-                    objectStack.unshift(fn);
-                }
-            });
-            return objectStack.reverse();
-        },
+            else if (MUDConfig.driver.objectCreationMethod === 'inline') {
+                //  If objects are created inline without a wrapper class then it is 
+                //  impossible to determine the instance of the calling object unless
+                //  safe mode is turned off... which seems unlikely.
+                return function (n) {
+                    let objectStack = [], index = (n || 0) + 1;
+                    stack().forEach((cs, i) => {
+                        let fn = cs.getFileName();
+                        if (typeof fn === 'string' && !fn.startsWith(MUDData.DriverPath)) {
+                            let mudPath = MUDData.RealPathToMudPath(fn);
+                            let module = MUDData.ModuleCache.get(mudPath);
+                            if (module) {
+                                let ob = unwrap(module.getWrapper(0));
+                                if (objectStack[0] !== ob) objectStack.unshift(ob);
+                            }
+                        }
+                    });
+                    return n === -1 ? objectStack.reverse() : objectStack[index];
+                };
+            }
+            else /* creation method must be one of the wrapper varities */ {
+                return function (n) {
+                    let objectStack = [], index = (n || 0) + 1;
+                    stack().forEach((cs, i) => {
+                        let fn = cs.getFileName();
+                        if (typeof fn === 'string' && !fn.startsWith(MUDData.DriverPath)) {
+                            let fileParts = fn.split('#');
+                            let module = MUDData.ModuleCache.get(fileParts[0]),
+                                instanceId = fileParts.length === 0 ? 0 : parseInt(fileParts[1]);
+                            if (module) {
+                                let ob = unwrap(module.getWrapper(instanceId));
+                                if (objectStack[0] !== ob) objectStack.unshift(ob);
+                            }
+                        }
+                    });
+                    return n === -1 ? objectStack.reverse() : objectStack[index];
+                };
+            }
+        })(),
         writable: false
     },
     readFile: {
