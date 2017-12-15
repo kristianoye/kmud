@@ -280,16 +280,18 @@ class MUDConfig {
         var options = this.processCommandLine({
             configFile: path.resolve(__dirname, '../mudconfig.json')
         });
+        let exists = fs.existsSync(options.configFile);
 
-        if (!this.setupMode && !fs.existsSync(options.configFile))
+        if (!this.setupMode && !exists)
             throw new ErrorTypes.MissingConfigError(`File ${options.configFile} not found!`);
+        else if (exists) {
+            let raw = JSON.parse(fs.readFileSync(options.configFile));
+            this.configFile = options.configFile;
 
-        var raw = JSON.parse(fs.readFileSync(options.configFile));
-        this.configFile = options.configFile;
-
-        this['mudlibSection'] = new MUDLibConfigSection(raw.mudlib);
-        this['driverSection'] = new MUDDriverConfigSection(raw.driver);
-        this['mudSection'] = new MUDConfigSection(raw.mud);
+            this['mudlibSection'] = new MUDLibConfigSection(raw.mudlib);
+            this['driverSection'] = new MUDDriverConfigSection(raw.driver);
+            this['mudSection'] = new MUDConfigSection(raw.mud);
+        }
 
         MUDData.Config = this;
     }
