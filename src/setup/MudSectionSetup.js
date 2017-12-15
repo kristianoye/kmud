@@ -24,7 +24,7 @@ class MudSectionSetup extends SectionSetup {
                 'What is the real name of the primary admin?',
                 'This is the name of the primary administrator that may be contacted if a player has problems.\n' +
                 'This may be the name of a servicing account if the MUD is administered by multiple people.',
-                '[Not Specified]',
+                'Not Specified',
                 [
                     new StringValidator({ minLength: 3, maxLength: 100 })
                 ]),
@@ -32,12 +32,27 @@ class MudSectionSetup extends SectionSetup {
                 'What is the email of the primary admin?',
                 'The administrative email may be displayed in places where players look to seek help.  Prefix\n' +
                 'the e-mail address with a # in order to keep it private',
-                '[Not Specified]',
+                'Not Specified',
                 [
                     new StringValidator({
                         maxLength: 120,
                         regex: /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-                    })])
+                    })
+                ]),
+            new ConfigQuestion('mud.adminCharacter', 
+                'What is the character name of the primary admin? ',
+                'This character will be pre-created and automatically made an admin before you log in.',
+                'Not Specified',
+                [
+                    new StringValidator({
+                        minLength: 3,
+                        maxLength: 20,
+                        regex: /^[a-zA-Z0-9]{3,20}$/
+                    })
+                ], function (value) {
+
+                    return value;
+                })
         ];
     }
 

@@ -108,6 +108,18 @@
     "name": "Another KMUD Clone #",
     "adminName": "[Not Specified]",
     "adminEmail": "[Not Specified]",
-    "portBindings": []
+    "portBindings": [
+      {
+        "port": 8000,
+        "type": "telnet",
+        "wizardsOnly": false,
+        "maxConnections": 100
+      },
+      {
+        "port": 8888,
+        "type": "http",
+        "maxConnections": 100
+      }
+    ]
   }
 }
