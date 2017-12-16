@@ -4,7 +4,7 @@ const
     { StringValidator, ConfigQuestion, MudSetupStep } = require('./MudSetupTypes'),
     SectionSetup = require('./SectionSetup');
 
-class MudSectionSetup extends SectionSetup {
+class GeneralMueSettings extends SectionSetup {
     /**
      * 
      * @param {GameSetup} owner The setup object that owns this section.
@@ -98,4 +98,4 @@ class MudSectionSetup extends SectionSetup {
     }
 }
 
-module.exports = MudSectionSetup;
+module.exports = GeneralMueSettings;

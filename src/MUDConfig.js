@@ -3,7 +3,8 @@
     path = require('path'),
     MUDData = require('./MUDData'),
     ErrorTypes = require('./ErrorTypes'),
-    GameSetup = require('./setup/GameSetup');
+    GameSetup = require('./setup/GameSetup'),
+    NetUtil = require('./network/NetUtil');
 
 var
     nextComponentId = 1;
@@ -275,23 +276,33 @@ class MUDNetworkingSection {
     }
 }
 
+function stripBOM(content) {
+    if (content.charCodeAt(0) === 0xFEFF) {
+        content = content.slice(1);
+    }
+    return content;
+}
+
 class MUDConfig {
     constructor() {
         var options = this.processCommandLine({
             configFile: path.resolve(__dirname, '../mudconfig.json')
         });
-        let exists = fs.existsSync(options.configFile);
+        let exists = fs.existsSync(options.configFile),
+            raw = {};
 
         if (!this.setupMode && !exists)
             throw new ErrorTypes.MissingConfigError(`File ${options.configFile} not found!`);
         else if (exists) {
-            let raw = JSON.parse(fs.readFileSync(options.configFile));
-            this.configFile = options.configFile;
-
-            this['mudlibSection'] = new MUDLibConfigSection(raw.mudlib);
-            this['driverSection'] = new MUDDriverConfigSection(raw.driver);
-            this['mudSection'] = new MUDConfigSection(raw.mud);
+            raw = JSON.parse(fs.readFileSync(options.configFile));
         }
+        else {
+            raw = JSON.parse(stripBOM(fs.readFileSync(path.resolve(__dirname, './setup/BaseConfig.json'), 'utf8')));
+        }
+        this.configFile = options.configFile;
+        this['mudlibSection'] = new MUDLibConfigSection(raw.mudlib);
+        this['driverSection'] = new MUDDriverConfigSection(raw.driver);
+        this['mudSection'] = new MUDConfigSection(raw.mud);
 
         MUDData.Config = this;
     }
@@ -312,6 +323,10 @@ class MUDConfig {
      */
     get driver() {
         return this['driverSection'];
+    }
+
+    loadFallback() {
+
     }
 
     /**

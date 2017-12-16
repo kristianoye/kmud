@@ -13,7 +13,7 @@ const
         output: process.stdout
     }),
     configPath = path.join('./', 'mudconfig.json'),
-    MudSectionSetup = require('./MudSectionSetup');
+    GeneralMudSettings = require('./GeneralMudSettings');
 
 
 function stripBOM(content) {
@@ -110,7 +110,7 @@ class GameSetup {
             this.config  = JSON.parse(stripBOM(fs.readFileSync(path.resolve(__dirname, '../../', options.configFile), 'utf8')));
         }
         this.sections = [
-            new MudSectionSetup(this)
+            new GeneralMudSettings(this)
         ];
         return this.nextSection();
     }
