@@ -608,6 +608,14 @@ Object.defineProperties(EFUNProxy.prototype, {
         },
         writable: false
     },
+    readConfig: {
+        value: function (key, defaultValue) {
+            if (MUDData.MasterObject.validReadConfig(this.thisObject(), key))
+                return MUDData.Config.readValue(key, defaultValue);
+            return false;
+        },
+        writable: false
+    },
     readJsonFile: {
         value: function (filename, callback) {
             var _async = typeof callback === 'function',

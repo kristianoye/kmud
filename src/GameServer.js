@@ -145,6 +145,7 @@ class GameServer extends EventEmitter {
         MUDData.InGameMaster = _inGameMaster.getWrapper(0);
 
         /* validate in-game master */
+        this.applyValidReadConfig = typeof MUDData.InGameMaster().validReadConfig === 'function';
         this.applyValidExec = typeof MUDData.InGameMaster().validExec === 'function';
         this.applyValidObject = typeof MUDData.InGameMaster().validObject === 'function';
         this.applyValidRead = typeof MUDData.InGameMaster().validRead === 'function';
@@ -429,6 +430,13 @@ class GameServer extends EventEmitter {
         }
         else if (!this.applyValidObject) return true;
         else return MUDData.InGameMaster().validObject(ob);
+    }
+
+    validReadConfig(caller, key) {
+        if (MUDData.GameState === MUDData.Constants.GAMESTATE_STARTING)
+            return true;
+        else if (!this.applyValidReadConfig) return true;
+        else return MUDData.InGameMaster().validReadConfig(caller, key);
     }
 
     validRead(efuns, path) {

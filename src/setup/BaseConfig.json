@@ -26,7 +26,8 @@
         "permissionsFile": "/sys/etc/permissions.json",
         "preloadsFile": "/sys/etc/preloads.json",
         "groupsFile": "/sys/etc/groups.json",
-        "accessFile": "/sys/etc/access.json"
+        "accessFile": "/sys/etc/access.json",
+        "adminSavePath": "/sys/data/creators"
       }
     },
     "logDirectory": "/log",

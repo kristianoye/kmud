@@ -2,7 +2,8 @@
 const
     readline = require('readline'),
     { StringValidator, ConfigQuestion, MudSetupStep } = require('./MudSetupTypes'),
-    SectionSetup = require('./SectionSetup');
+    SectionSetup = require('./SectionSetup'),
+    AdminSetup = require('./general/AdminSetup');
 
 class GeneralMueSettings extends SectionSetup {
     /**
@@ -39,20 +40,7 @@ class GeneralMueSettings extends SectionSetup {
                         regex: /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
                     })
                 ]),
-            new ConfigQuestion('mud.adminCharacter', 
-                'What is the character name of the primary admin? ',
-                'This character will be pre-created and automatically made an admin before you log in.',
-                'Not Specified',
-                [
-                    new StringValidator({
-                        minLength: 3,
-                        maxLength: 20,
-                        regex: /^[a-zA-Z0-9]{3,20}$/
-                    })
-                ], function (value) {
-
-                    return value;
-                })
+            new AdminSetup()
         ];
     }
 
