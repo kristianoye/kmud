@@ -334,7 +334,7 @@ class GameServer extends EventEmitter {
                     MUDData.Storage.get(newLogin).setProtected('client', client,
                         ($storage, _client) => {
                             var evt = { newBody: newLogin, client: _client };
-                            self.emit('kmud.exec', evt)
+                            self.emit('kmud.exec', evt);
                             $storage.emit('kmud.exec', evt);
                         });
 
