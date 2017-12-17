@@ -77,6 +77,10 @@ class MUDConfigSection {
         this.name = data.name || 'Another KMUD';
         this.adminName = data.adminName || '[Unspecified]';
         this.adminEmail = data.adminEmail || '[Unspecified]';
+
+        /** @type {Object.<string,boolean>} */
+        this.features = data.features || {};
+
         /** @type {MUDConfigPort[]} */
         this.portBindings = data.portBindings.map(p => new MUDConfigPort(p));
     }
@@ -84,14 +88,25 @@ class MUDConfigSection {
 
 class MUDDriverConfigSection {
     constructor(data) {
+        /** @type {string} */
         this.core = data.core;
+
+        /** @type {boolean} */
         this.useObjectProxies = typeof data.useObjectProxies === 'boolean' ? data.useObjectProxies : true;
+
+        /** @type {boolean} */
         this.useRevocableProxies = typeof data.useRevocableProxies === 'boolean' ? data.useRevocableProxies : false;
+
+        /** @type {string} */
         this.objectCreationMethod = typeof data.objectCreationMethod === 'string' ? data.objectCreationMethod : 'inline';
         if (['inline', 'thinWrapper', 'fullWrapper'].indexOf(this.objectCreationMethod) === -1) {
             throw new Error(`Invalid setting for driver.objectCreationMethod: Got ${data.objectCreationMethod} [valid values: inline, thinWrapper, fullWrapper`);
         }
+
+        /** @type {MUDCompilerSection} */
         this.compiler = new MUDCompilerSection(data.compiler);
+
+        /** @type {MUDNetworkingSection} */
         this.networking = new MUDNetworkingSection(data.networking);
     }
 
@@ -103,6 +118,10 @@ class MUDDriverConfigSection {
 
 class MUDLibConfigSection {
     constructor(data) {
+
+        /** @type {Object.<string,string>} */
+        this.applyNames = data.applyNames;
+
         this.base = data.base;
         this.heartbeatInterval = parseInt(data.heartbeatInterval) || 1000;
         this.includePath = Array.isArray(data.includePath) ? data.includePath : [];
@@ -286,6 +305,8 @@ function stripBOM(content) {
 
 class MUDConfig {
     constructor() {
+        this.singleUser = false;
+
         var options = this.processCommandLine({
             configFile: path.resolve(__dirname, '../mudconfig.json')
         });
@@ -304,6 +325,11 @@ class MUDConfig {
         this['mudlibSection'] = new MUDLibConfigSection(raw.mudlib);
         this['driverSection'] = new MUDDriverConfigSection(raw.driver);
         this['mudSection'] = new MUDConfigSection(raw.mud);
+
+        if (this.singleUser === true) {
+            this.mud.features.intermud = false;
+            this.mud.portBindings.forEach(binding => binding.address = '127.0.0.1');
+        }
 
         MUDData.Config = this;
     }
@@ -370,6 +396,10 @@ class MUDConfig {
                         console.log('Running setup...');
                         this.runSetup = new GameSetup();
                         this.setupMode = true;
+                        break;
+
+                    case 'single-user':
+                        this.singleUser = true;
                         break;
                 }
             }

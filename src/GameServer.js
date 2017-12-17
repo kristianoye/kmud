@@ -132,26 +132,40 @@ class GameServer extends EventEmitter {
     }
 
     createMasterObject() {
-        var config = this.config.mudlib,
+        let config = this.config.mudlib, self = this,
             startupArgs = {
                 args: Object.extend({ driver: this, resolver: MUDData.MudPathToRealPath }, config.inGameMaster.parameters)
             };
 
-        var _inGameMaster = MUDData.Compiler(config.inGameMaster.path, false, undefined, startupArgs);
+        let _inGameMaster = MUDData.Compiler(config.inGameMaster.path, false, undefined, startupArgs);
 
         if (!_inGameMaster) {
             throw new Error('In-game master could not be loaded; Abort!');
         }
-        MUDData.InGameMaster = _inGameMaster.getWrapper(0);
+
+        this.masterObject = unwrap(MUDData.InGameMaster = _inGameMaster.getWrapper(0));
+
+        function locateApply(name, required) {
+            let func = self.masterObject[config.applyNames[name] || name];
+            if (typeof func !== 'function' && required === true)
+                throw new Error(`Invalid master object; Could not locate required ${name} apply: ${(config.applyNames[name] || 'validRead')}`);
+            return func || false;
+        }
 
         /* validate in-game master */
-        this.applyValidReadConfig = typeof MUDData.InGameMaster().validReadConfig === 'function';
-        this.applyValidExec = typeof MUDData.InGameMaster().validExec === 'function';
-        this.applyValidObject = typeof MUDData.InGameMaster().validObject === 'function';
-        this.applyValidRead = typeof MUDData.InGameMaster().validRead === 'function';
-        this.applyValidShutdown = typeof MUDData.InGameMaster().validShutdown === 'function';
-        this.applyValidSocket = typeof MUDData.InGameMaster().validSocket === 'function';
-        this.applyValidWrite = typeof MUDData.InGameMaster().validWrite === 'function';
+        this.applyGetPreloads = locateApply('getPreloads', false);
+        this.applyValidExec = locateApply('validExec', false);
+        this.applyValidObject = locateApply('validObject', false);
+        this.applyValidRead = locateApply('validRead', true);
+        this.applyValidSocket = locateApply('validSocket', false);
+        this.applyValidShutdown = locateApply('validShutdown', true);
+        this.applyValidWrite = locateApply('validWrite', true);
+
+
+        this.rootUid = typeof this.masterObject.get_root_uid === 'function' ?
+            this.masterObject.get_root_uid() || 'ROOT' : 'ROOT';
+        this.backboneUid = typeof this.masterObject.get_backbone_uid === 'function' ?
+            this.masterObject.get_backbone_uid() || 'BACKBONE' : 'BACKBONE';
 
         return this;
     }
@@ -180,6 +194,24 @@ class GameServer extends EventEmitter {
                 })(method, proto[method]);
             });
         }
+    }
+
+    createPreloads() {
+        if (this.applyGetPreloads !== false) {
+            this.preloads = this.applyGetPreloads.apply(this.masterObject);
+        }
+        if (this.preloads.length > 0) {
+            console.log('Creating preloads...');
+            this.preloads.forEach(function (file, i) {
+                var t0 = new Date().getTime();
+                var foo = file instanceof Array ?
+                    MUDData.Compiler(file[0], undefined, undefined, file.slice(1)) :
+                    MUDData.Compiler(file);
+                var t1 = new Date().getTime();
+                console.log('\tPreload: {0}: {1} [{2} ms]'.fs(file, foo ? '[OK]' : '[Failure]', t1 - t0));
+            });
+        }
+
     }
 
     createSimulEfuns() {
@@ -311,20 +343,13 @@ class GameServer extends EventEmitter {
                 process.on('uncaughtException', this.errorHandler);
             }
         }
-        MUDData.GameState = MUDData.Constants.GAMESTATE_STARTING;
         this.createSimulEfuns();
         this.createMasterObject();
-        if (this.preloads.length > 0) {
-            console.log('Creating preloads...');
-            this.preloads.forEach(function (file, i) {
-                var t0 = new Date().getTime();
-                var foo = file instanceof Array ?
-                    MUDData.Compiler(file[0], undefined, undefined, file.slice(1)) :
-                    MUDData.Compiler(file);
-                var t1 = new Date().getTime();
-                console.log('\tPreload: {0}: {1} [{2} ms]'.fs(file, foo ? '[OK]' : '[Failure]', t1 - t0));
-            });
-        }
+
+        MUDData.GameState = MUDData.Constants.GAMESTATE_STARTING;
+
+        this.createPreloads();
+
         for (i = 0; i < this.endpoints.length; i++) {
             this.endpoints[i]
                 .bind()
@@ -414,10 +439,10 @@ class GameServer extends EventEmitter {
     }
 
     validExec(oldBody, newBody) {
-        if (MUDData.GameState === MUDData.Constants.GAMESTATE_INITIALIZING)
+        if (MUDData.GameState < MUDData.Constants.GAMESTATE_RUNNING)
             return false;
-        else if (!this.applyValidExec) return true;
-        else return MUDData.InGameMaster().validExec(oldBody, newBody);
+        else if (this.applyValidExec === false) return true;
+        else return this.applyValidExec.apply(this.masterObject, arguments);
     }
 
     validObject(ob) {
@@ -440,10 +465,10 @@ class GameServer extends EventEmitter {
     }
 
     validRead(efuns, path) {
-        if (MUDData.GameState === MUDData.Constants.GAMESTATE_INITIALIZING)
+        if (MUDData.GameState < MUDData.Constants.GAMESTATE_RUNNING)
             return true;
-        else if (!this.applyValidRead) return true;
-        else return MUDData.InGameMaster().validRead(efuns, path);
+        else
+            return this.applyValidRead.apply(this.masterObject, arguments);
     }
 
     validShutdown(efuns) {
@@ -454,10 +479,10 @@ class GameServer extends EventEmitter {
     }
 
     validWrite(efuns, path) {
-        if (MUDData.GameState === MUDData.Constants.GAMESTATE_INITIALIZING)
+        if (MUDData.GameState < MUDData.Constants.GAMESTATE_INITIALIZING)
             return true;
-        else if (!this.applyValidWrite) return true;
-        else return MUDData.InGameMaster().validWrite(efuns, path);
+        else
+            return this.applyValidWrite.apply(this.masterObject, arguments);
     }
 }
 
