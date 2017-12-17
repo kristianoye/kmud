@@ -45,7 +45,7 @@ class NetUtil extends EventEmitter {
         }
         this.networks = [];
 
-        process.stdout.write(('\nPerforming network scan ');
+        process.stdout.write('\nPerforming network scan ');
         let working = setInterval(function () {
             process.stdout.write(('.');
         }, 500);
