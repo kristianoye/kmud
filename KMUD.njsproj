@@ -470,6 +470,9 @@
     <Compile Include="src\setup\general\AdminSetup.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\setup\general\NetBindingSetup.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\setup\MudSetupTypes.js">
       <SubType>Code</SubType>
     </Compile>

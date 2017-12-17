@@ -63,6 +63,7 @@ class MUDCompilerLanguageSection {
 
 class MUDConfigPort {
     constructor(data) {
+        this.address = typeof data.address === 'string' ? data.address : '0.0.0.0';
         this.enabled = typeof data.enabled === 'boolean' ? data.enabled : true;
         this.port = parseInt(data.port);
         this.type = data.type || 'http';
@@ -416,4 +417,7 @@ Where options include:
     }
 }
 
-module.exports = new MUDConfig();
+module.exports = {
+    MUDConfig: new MUDConfig(),
+    MUDConfigPort: MUDConfigPort
+};

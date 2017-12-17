@@ -5,15 +5,15 @@
  */
 try {
     const
-        GameConfig = require('./src/MUDConfig'),
+        { MUDConfig } = require('./src/MUDConfig'),
         GameServer = require('./src/GameServer'),
         MUDData = require('./src/MUDData'),
         ErrorTypes = require('./src/ErrorTypes');
 
     try {
-        if (!GameConfig.setupMode) {
-            var gameMaster = new GameServer(GameConfig);
-            let test = GameConfig.readValue('mud.name');
+        if (!MUDConfig.setupMode) {
+            var gameMaster = new GameServer(MUDConfig);
+
             /** @type {GameServer} The game server instance */
             gameMaster
                 .setPreloads([

@@ -22,8 +22,8 @@ class AdminSetup extends MudSetupStep {
     pickAdminName(flag) {
         if (this.config.mud.adminCharacter && !flag) {
             this.console.question(
-                `\n\nWould you like to re-configure the admin character name (existing: ${this.config.mud.adminCharacter} ? [yN]`, resp => {
-                if (resp.startsWith('n')) {
+                `\n\MUD Settings:Configure Admin Character (existing: ${this.config.mud.adminCharacter})? [yN]`, resp => {
+                if (resp.length === 0 || resp.startsWith('n')) {
                     this.callback();
                 }
                 else if (resp.startsWith('y')) {
@@ -37,7 +37,7 @@ class AdminSetup extends MudSetupStep {
         else {
             this.console.write('\n\nThe name given here will be made an admin on the MUD.\n');
             this.console.question(
-                `\n\nPlease enter the admin character name: `, resp => {
+                `\n\nMUD Settings:Admin Character> `, resp => {
                     if (resp.length < 3 || resp.length > 20) {
                         this.console.write('\n\nCharacter name should be between 3 and 20 characters in length.\n');
                         this.pickAdminName(true);

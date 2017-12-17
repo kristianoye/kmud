@@ -9,12 +9,18 @@ const ClientEndpoint = require('./ClientEndpoint'),
     Telnet = require('./RanvierTelnet'),
     TelnetServer = Telnet.TelnetServer,
     TelnetSocket = Telnet.TelnetSocket,
+    { MUDConfigPort } = require('../MUDConfig'),
     RanvierTelnetInstance = require('./RanvierTelnetInstance'),
     _connections = Symbol('_connections');
 
 class RanvierTelnetEndpoint extends ClientEndpoint {
-    constructor(gameMaster, port, maxConnections) {
-        super(gameMaster, port, maxConnections);
+    /**
+     * 
+     * @param {any} gameMaster
+     * @param {MUDConfigPort} config
+     */
+    constructor(gameMaster, config) {
+        super(gameMaster, config);
         this[_connections] = [];
     }
 
@@ -33,7 +39,7 @@ class RanvierTelnetEndpoint extends ClientEndpoint {
             self.emit('kmud.connection', wrapper);
         });
 
-        server.netServer.listen(this.port);
+        server.netServer.listen(this.port, this.address);
         return this;
     }
 }

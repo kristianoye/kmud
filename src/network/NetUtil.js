@@ -36,9 +36,14 @@ class NetUtil extends EventEmitter {
      * Perform network discovery operation.
      * @param {function} callback The callback for when operation is complete.
      */
-    discovery(callback) {
+    discovery(callback, refresh) {
         let _ifaces = os.networkInterfaces(),
             finished = 0;
+
+        if (this.networks.length > 0 && refresh !== true) {
+            return callback(this.networks);
+        }
+        this.networks = [];
 
         Object.keys(_ifaces).forEach((ifname) => {
             var alias = 0;

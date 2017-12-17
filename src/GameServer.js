@@ -6,7 +6,7 @@
 var
     Mudlib = require('./MudLib'),
     MUDData = require('./MUDData'),
-    MUDConfig = require('./MUDConfig');
+    { MUDConfig } = require('./MUDConfig');
 
 const
     _config = '_CONFIG_',
@@ -104,13 +104,13 @@ class GameServer extends EventEmitter {
             if (binding.port < 1024 || binding.port > 49151)
                 throw 'Illegal port value; Must be greater than 1024 and less than 49152';
 
-            console.log(`Adding ${binding.type} port ${binding.port}`);
+            console.log(`Adding ${binding.type} ${binding.address} port ${binding.port}`);
 
             var endpointConfig = config.driver.networking.endpoints.getEndpointConfig(binding.type),
                 handlerConfig = endpointConfig.getHandler(binding.handlerType || false),
                 handlerModule = require(handlerConfig.file),
                 handlerType = handlerConfig.type ? handlerModule[handlerConfig.type] : handlerModule,
-                endpoint = new handlerType(this, binding.port, binding.maxConnections);
+                endpoint = new handlerType(this, binding);
 
             return endpoint;
         });

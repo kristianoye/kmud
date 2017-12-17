@@ -9,6 +9,7 @@ const ClientEndpoint = require('./ClientEndpoint'),
     fs = require('fs'),
     HTTP = require('http'),
     HTTPClientInstance = require('./HTTPClientInstance'),
+    { MUDConfigPort } = require('../MUDConfig'),
     URL = require('url'),
     Path = require('path');
 
@@ -87,11 +88,10 @@ class HTTPClientEndpoint extends ClientEndpoint {
     /**
      * Construct a new HTTP client endpoint.
      * @param {object} gameMaster The master object.
-     * @param {number} port The TCP port the endpoint listens to.
-     * @param {number} maxConnections The maximum number of active connections on this port.
+     * @param {MUDConfigPort} config The port configuration.
      */
-    constructor(gameMaster, port, maxConnections) {
-        super(gameMaster, port, maxConnections);
+    constructor(gameMaster, config) {
+        super(gameMaster, config);
     }
 
     /**
@@ -102,7 +102,7 @@ class HTTPClientEndpoint extends ClientEndpoint {
         var T = this;
 
         T[_server] = createHttpServer();
-        T.httpServer.listen(this.port);
+        T.httpServer.listen({ port: this.port, host: this.address });
 
         this.WebSocket = require('socket.io')(T.httpServer, {
             log: true,

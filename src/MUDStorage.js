@@ -1,6 +1,6 @@
 ﻿const
     EventEmitter = require('events'),
-    MUDConfig = require('./MUDConfig'),
+    { MUDConfig } = require('./MUDConfig'),
     MUDData = require('./MUDData'),
     MUDObject = require('./MUDObject'),
     MUDCreationContext = require('./MUDCreationContext');

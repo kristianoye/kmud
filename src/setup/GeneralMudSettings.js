@@ -3,7 +3,8 @@ const
     readline = require('readline'),
     { StringValidator, ConfigQuestion, MudSetupStep } = require('./MudSetupTypes'),
     SectionSetup = require('./SectionSetup'),
-    AdminSetup = require('./general/AdminSetup');
+    AdminSetup = require('./general/AdminSetup'),
+    NetBindingSetup = require('./general/NetBindingSetup');
 
 class GeneralMueSettings extends SectionSetup {
     /**
@@ -15,14 +16,14 @@ class GeneralMueSettings extends SectionSetup {
         this.name = "MUD Settings";
         this.steps = [
             new ConfigQuestion('mud.name',
-                'What shall you name this MUD?',
+                'MUD Settings:MUD Name> ',
                 'The MUD name is displayed in many commands and on the Intermud network (if enabled).',
                 `KMUD #${+new Date().getTime()}`,
                 [
                     new StringValidator({ minLength: 3, maxLength: 100 })
                 ]),
             new ConfigQuestion('mud.adminName',
-                'What is the real name of the primary admin?',
+                'MUD Settings:Admin Real Name> ',
                 'This is the name of the primary administrator that may be contacted if a player has problems.\n' +
                 'This may be the name of a servicing account if the MUD is administered by multiple people.',
                 'Not Specified',
@@ -30,7 +31,7 @@ class GeneralMueSettings extends SectionSetup {
                     new StringValidator({ minLength: 3, maxLength: 100 })
                 ]),
             new ConfigQuestion('mud.adminEmail',
-                'What is the email of the primary admin?',
+                'MUD Settings:Admin Email Address> ',
                 'The administrative email may be displayed in places where players look to seek help.  Prefix\n' +
                 'the e-mail address with a # in order to keep it private',
                 'Not Specified',
@@ -40,7 +41,8 @@ class GeneralMueSettings extends SectionSetup {
                         regex: /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
                     })
                 ]),
-            new AdminSetup()
+            new AdminSetup(),
+            new NetBindingSetup()
         ];
     }
 

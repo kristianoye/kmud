@@ -4,7 +4,7 @@
  * Date: October 1, 2017
  */
 var
-    MUDConfig = require('./MUDConfig'),
+    { MUDConfig } = require('./MUDConfig'),
     MUDData = require('./MUDData'),
     EFUNProxy = require('./EFUNProxy'),
     MUDCreationContext = require('./MUDCreationContext'),

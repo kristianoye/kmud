@@ -9,7 +9,7 @@ const
     path = require('path'),
     os = require('os'),
     sprintf = require('sprintf').sprintf,
-    MUDConfig = require('./MUDConfig'),
+    { MUDConfig } = require('./MUDConfig'),
     ErrorTypes = require('./ErrorTypes'),
     EventEmitter = require('events'),
     util = require('util'),
