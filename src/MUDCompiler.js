@@ -247,7 +247,7 @@ class MUDCompiler {
                 MUDData.ModuleCache.delete(context.filename);
             }
             MUDData.CleanError(err);
-            throw err;
+            MUDData.MasterObject.logError(context.filename, err);
         }
         finally {
             var t1 = new Date().getTime();

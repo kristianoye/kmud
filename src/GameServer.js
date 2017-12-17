@@ -154,6 +154,7 @@ class GameServer extends EventEmitter {
 
         /* validate in-game master */
         this.applyGetPreloads = locateApply('getPreloads', false);
+        this.applyLogError = locateApply('logError', false);
         this.applyValidExec = locateApply('validExec', false);
         this.applyValidObject = locateApply('validObject', false);
         this.applyValidRead = locateApply('validRead', true);
@@ -164,6 +165,7 @@ class GameServer extends EventEmitter {
 
         this.rootUid = typeof this.masterObject.get_root_uid === 'function' ?
             this.masterObject.get_root_uid() || 'ROOT' : 'ROOT';
+
         this.backboneUid = typeof this.masterObject.get_backbone_uid === 'function' ?
             this.masterObject.get_backbone_uid() || 'BACKBONE' : 'BACKBONE';
 
@@ -275,6 +277,14 @@ class GameServer extends EventEmitter {
 
     isVirtualPath(path) {
         return this.virtualPrefix ? path.startsWith(this.virtualPrefix) : false;
+    }
+
+    logError(path, error) {
+        if (!this.applyLogError) {
+            console.log('Compiler Error: ' + error.message);
+            console.log(error.stack);
+        }
+        else this.applyLogError.apply(this.masterObject, arguments);
     }
 
     /**
@@ -453,8 +463,8 @@ class GameServer extends EventEmitter {
             this.mergeEfuns(ob);
             return true;
         }
-        else if (!this.applyValidObject) return true;
-        else return MUDData.InGameMaster().validObject(ob);
+        else if (this.applyValidObject === false) return true;
+        else return this.applyValidObject.apply(this.masterObject, arguments);
     }
 
     validReadConfig(caller, key) {
