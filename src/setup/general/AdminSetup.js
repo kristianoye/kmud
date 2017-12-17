@@ -22,7 +22,7 @@ class AdminSetup extends MudSetupStep {
     pickAdminName(flag) {
         if (this.config.mud.adminCharacter && !flag) {
             this.console.question(
-                `\n\MUD Settings:Configure Admin Character (existing: ${this.config.mud.adminCharacter})? [yN]`, resp => {
+                `\n\MUD Settings:Configure Admin Character (existing: ${this.config.mud.adminCharacter})? [yN] `, resp => {
                 if (resp.length === 0 || resp.startsWith('n')) {
                     this.callback();
                 }

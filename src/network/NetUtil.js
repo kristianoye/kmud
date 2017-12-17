@@ -45,6 +45,11 @@ class NetUtil extends EventEmitter {
         }
         this.networks = [];
 
+        console.log('\nPerforming network scan ');
+        let working = setInterval(function () {
+            console.log('.');
+        }, 500);
+
         Object.keys(_ifaces).forEach((ifname) => {
             var alias = 0;
 
@@ -96,15 +101,25 @@ class NetUtil extends EventEmitter {
                 }, () => {
                     network.internetAccess = true;
                     client.end();
-                    if (++finished === this.networks.length) callback(this.networks);
+                    if (++finished === this.networks.length) {
+                        clearInterval(working);
+                        callback(this.networks);
+                    }
                 });
                 client.on('error', err => {
                     network.internetAccess = false;
-                    if (++finished === this.networks.length) callback(this.networks);
+                    if (++finished === this.networks.length) {
+                        clearInterval(working);
+                        callback(this.networks);
+                    }
                 });
             }
             catch (x) {
                 network.internetAccess = false;
+                if (++finished === this.networks.length) {
+                    clearInterval(working);
+                    callback(this.networks);
+                }
             }
         });
     }

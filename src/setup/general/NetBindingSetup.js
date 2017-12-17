@@ -17,7 +17,7 @@ Select address to bind:
         [0] - 0.0.0.0:${spec.port} - [Available on all Interfaces]
 ${addressList}
 
-MUD Settings:Bindings:${spec.type} port:Address>`, resp => {
+MUD Settings:Bindings:${spec.type} port:Address> `, resp => {
                 var n = parseInt(resp);
                 if (n === 0) {
                     spec.address = '0.0.0.0';
