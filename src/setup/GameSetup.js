@@ -12,8 +12,10 @@ const
         input: process.stdin,
         output: process.stdout
     }),
-    configPath = path.join('./', 'mudconfig.json'),
     GeneralMudSettings = require('./GeneralMudSettings');
+
+var
+    configPath = path.join('./', 'mudconfig.json');
 
 
 function stripBOM(content) {
@@ -103,7 +105,9 @@ class GameSetup {
         if (!options.configFile) {
             options.configFile = 'mudconfig.json';
         }
+        configPath = path.join(__dirname, '../../',  options.configFile);
         if (!this.configExists) {
+            this.console.write(`\nWarning: Specified config ${configPath} does not yet exist; Loading defaults\n\n`);
             this.config  = JSON.parse(stripBOM(fs.readFileSync(path.resolve(__dirname, './BaseConfig.json'), 'utf8')));
         }
         else {

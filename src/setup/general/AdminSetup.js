@@ -49,8 +49,11 @@ class AdminSetup extends MudSetupStep {
                     else {
                         if (fs.existsSync(this.characterFile = this.characterFilename(resp))) {
                             this.console.question(
-                                `\n\nA character named '${resp}' already exists; Continue? [yN] `, foo => {
-                                    if (foo.startsWith('n') || foo.length === 0) {
+                                `\n\nA character named '${resp}' already exists;\n\nReset password [y], specify different char [n] or skip? [ynS] `, foo => {
+                                    if (foo.startsWith('s') || foo.length === 0) {
+                                        return this.callback();
+                                    }
+                                    else if (foo.startsWith('n')) {
                                         return this.pickAdminName(true);
                                     }
                                     else if (foo.startsWith('y')) {

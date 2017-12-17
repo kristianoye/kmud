@@ -14,7 +14,7 @@ class NetBindingSetup extends MudSetupStep {
         let addressList = list.map((item, i) => `\t[${(i + 1)}] - ${item.address}:${spec.port} [inet access: ${(item.internetAccess ?  'yes' : 'no')}, local: ${(item.isLocal ? 'yes' : 'no')}]`).join('\n');
         this.console.question(`
 Select address to bind:
-        [0] - 0.0.0.0:${spec.port} - [Available on all Interfaces]
+        [0] - ${spec.type}://0.0.0.0:${spec.port} - [Available on all Interfaces]
 ${addressList}
 
 MUD Settings:Bindings:${spec.type} port:Address> `, resp => {
@@ -114,7 +114,7 @@ MUD Settings:Bindings:${spec.type} port> `, resp => {
 
         lines.push(...this.config.mud.portBindings.map((binding, index) => {
                 bindingCount++;
-                return `\t\t[${index}] - ${binding.type} port ${binding.port} ${(binding.wizardsOnly ? ' [Wizards Only]' : '')}\n`;
+                return `\t\t[${index}] - ${binding.type}://${binding.address}:${binding.port} ${(binding.wizardsOnly ? ' [Wizards Only]' : '')}\n`;
             }));
 
         if (lines.length === 1)
