@@ -247,7 +247,9 @@ Object.defineProperties(EFUNProxy.prototype, {
                     client = oldContainer.getProtected('client'),
                     execEvent = {
                         oldBody: oldBody,
+                        oldStorage: oldContainer,
                         newBody: newBody,
+                        newStorage: newContainer,
                         client: client
                     };
 

@@ -15,14 +15,20 @@ const
 class HTTPClientInstance extends ClientInstance {
     constructor(endpoint, gameMaster, client) {
         super(endpoint, gameMaster, client, client.request.connection.remoteAddress);
-        var T = this;
+        var T = this, body, $storage;
 
         this[_callbacks] = {};
+
+        function commandComplete(result) {
+
+        }
 
         function dispatchInput(resp) {
             try {
                 var body = this.body;
+
                 gameMaster.setThisPlayer(body());
+
                 if (tripwire) {
                     tripwire.resetTripwire(2000, {
                         player: body(),
@@ -52,7 +58,8 @@ class HTTPClientInstance extends ClientInstance {
                     }
                 }
                 else {
-                    body().dispatchInput(resp.cmdline);
+                    body().dispatchInput(resp.cmdline, commandComplete);
+                    $storage.emit('kmud.input', { command: resp.cmdline, callback: commandComplete });
                 }
             }
             catch (e) {
@@ -70,6 +77,12 @@ class HTTPClientInstance extends ClientInstance {
         client.on('disconnect', client => {
             T.emit('disconnected', T);
             gameMaster.removePlayer(T.body);
+        });
+        gameMaster.on('kmud.exec', evt => {
+            if (evt.client === T) {
+                body = evt.newBody;
+                $storage = evt.newStorage;
+            }
         });
         client.on('kmud', data => {
             switch (data.eventType) {

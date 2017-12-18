@@ -534,7 +534,7 @@ class EFUNS {
                         break;
                     else {
                         found = PLURAL_CHOP + 1;
-                        if (whatLC.endsWith('ff')) suffix = 'ves'
+                        if (whatLC.endsWith('ff')) suffix = 'ves';
                     }
                     break;
                 case 'h':

@@ -53,10 +53,13 @@ class ClientInstance extends EventEmitter {
 
         function handleExec(evt) {
             this.removeAllListeners('disconnected');
+
             _body = evt.newBody;
+
             gameMaster.addPlayer(_body);
             gameMaster.removePlayer(evt.oldBody);
             gameMaster.setThisPlayer(_body);
+
             _inputStack = [];
         }
 

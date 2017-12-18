@@ -1,11 +1,12 @@
 ﻿const
     EventEmitter = require('events'),
+    { MUDEventEmitter } = require('./MUDEventEmitter'),
     { MUDConfig } = require('./MUDConfig'),
     MUDData = require('./MUDData'),
     MUDObject = require('./MUDObject'),
     MUDCreationContext = require('./MUDCreationContext');
 
-class MUDStorage extends EventEmitter {
+class MUDStorage extends MUDEventEmitter {
     /**
      * Construct a storage object.
      * @param {MUDObject} owner The owner of the storage object.

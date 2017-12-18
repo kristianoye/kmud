@@ -81,8 +81,8 @@
     <Compile Include="lib\base\Weapon.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Call.js" />
-    <Compile Include="lib\cmds\creator\Edit.js">
+    <Compile Include="lib\sys\cmds\creator\Call.js" />
+    <Compile Include="lib\sys\cmds\creator\Edit.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\creator\Find.js">
@@ -110,25 +110,25 @@
     <Compile Include="lib\cmds\player\Alias.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Cd.js">
+    <Compile Include="lib\sys\cmds\creator\Cd.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\creator\Clone.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Compile.js">
+    <Compile Include="lib\sys\cmds\creator\Compile.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Eval.js">
+    <Compile Include="lib\sys\cmds\creator\Eval.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Ls.js">
+    <Compile Include="lib\sys\cmds\creator\Ls.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Mkdir.js">
+    <Compile Include="lib\sys\cmds\creator\Mkdir.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\More.js">
+    <Compile Include="lib\sys\cmds\creator\More.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\creator\Pwd.js">
@@ -140,7 +140,7 @@
     <Compile Include="lib\cmds\creator\Rm.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\RmDir.js">
+    <Compile Include="lib\sys\cmds\creator\RmDir.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\admin\Shutdown.js">
@@ -149,7 +149,7 @@
     <Compile Include="lib\cmds\creator\SetEnv.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Update.js">
+    <Compile Include="lib\sys\cmds\creator\Update.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\player\Body.js" />
@@ -178,6 +178,7 @@
     <Compile Include="lib\cmds\player\Skills.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\cmds\player\Tell.js" />
     <Compile Include="lib\cmds\player\Who.jsx">
       <SubType>Code</SubType>
     </Compile>
@@ -209,10 +210,10 @@
     <Compile Include="lib\cmds\common\Look.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\player\Quit.js">
+    <Compile Include="lib\sys\cmds\player\Quit.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\player\Save.js">
+    <Compile Include="lib\sys\cmds\player\Save.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\player\Say.js">
@@ -402,6 +403,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\MUDData.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MUDEventEmitter.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\MUDExcecutionContext.js">
@@ -699,6 +703,7 @@
     <Folder Include="lib\docs\" />
     <Folder Include="lib\sys\cmds\admin\" />
     <Folder Include="lib\sys\cmds\arch\" />
+    <Folder Include="lib\sys\cmds\creator\" />
     <Folder Include="lib\sys\cmds\player\" />
     <Folder Include="lib\sys\data\creators\" />
     <Folder Include="lib\sys\" />
