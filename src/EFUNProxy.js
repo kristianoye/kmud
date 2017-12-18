@@ -196,6 +196,12 @@ Object.defineProperties(EFUNProxy.prototype, {
         },
         writable: false
     },
+    createPassword: {
+        value: function (str, callback) {
+            MUDData.Config.mud.passwordPolicy.hashPasword(str, callback);
+        },
+        writable: false
+    },
     deepInventory: {
         value: function (target, callback) {
             var _async = typeof callback === 'function',
@@ -254,6 +260,13 @@ Object.defineProperties(EFUNProxy.prototype, {
                 return false;
             }
             throw new Error('Permission denied: ' + expr);
+        },
+        writable: false
+    },
+    featureEnabled: {
+        value: function (feature) {
+            let result = MUDData.Config.readValue(`mud.features.${feature}`, false);
+            return result === true;
         },
         writable: false
     },
@@ -774,6 +787,12 @@ Object.defineProperties(EFUNProxy.prototype, {
     userp: {
         value: function (target) {
             return this.playerp(target) || this.wizardp(target);
+        },
+        writable: false
+    },
+    validPassword: {
+        value: function (str) {
+            return MUDData.Config.mud.passwordPolicy.validPassword(str);
         },
         writable: false
     },

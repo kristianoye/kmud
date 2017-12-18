@@ -360,6 +360,27 @@ class GameServer extends EventEmitter {
 
         this.createPreloads();
 
+        if (this.config.skipStartupScripts === false) {
+            let runOnce = path.resolve(__dirname, '../runOnce.json');
+            if (fs.existsSync(runOnce)) {
+                let list = MUDData.StripBOM(fs.readFileSync(runOnce, 'utf8'))
+                    .split('\n')
+                    .map(s => JSON.parse(s));
+                try {
+                    let $storage = MUDData.Storage.get(this.masterObject);
+                    $storage.emit('kmud', {
+                        eventType: 'runOnce',
+                        eventData: list
+                    });
+                    console.log(`Run once complete; Removing ${runOnce}`)
+                    //fs.unlinkSync(runOnce);
+                }
+                catch (err) {
+                    console.log(`Error running runOnce.json: ${err.message}`);
+                }
+            }
+        }
+
         for (i = 0; i < this.endpoints.length; i++) {
             this.endpoints[i]
                 .bind()
@@ -456,13 +477,13 @@ class GameServer extends EventEmitter {
     }
 
     validObject(ob) {
-        if (MUDData.GameState === MUDData.Constants.GAMESTATE_INITIALIZING)
-            return true;
-        else if (ob.filename === this.simulEfunPath) {
+        if (ob.filename === this.simulEfunPath) {
             console.log('\tRe-merging SimulEfuns...');
             this.mergeEfuns(ob);
             return true;
         }
+        else if (MUDData.GameState === MUDData.Constants.GAMESTATE_INITIALIZING)
+            return true;
         else if (this.applyValidObject === false) return true;
         else return this.applyValidObject.apply(this.masterObject, arguments);
     }

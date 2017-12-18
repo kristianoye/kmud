@@ -101,6 +101,9 @@ var MUDData = {
     SharedProps: {},
     SpecialRootEfun: false,
     Storage: false,
+    StripBOM: function (s) {
+        return s.charCodeAt(0) === 0xFEFF ? s.slice(1) : s;
+    },
     ThisObject: [],
     ThisPlayer: false
 };

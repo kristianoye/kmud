@@ -99,8 +99,9 @@ class GameSetup {
             });
     }
 
-    runSetup(options) {
+    runSetup(options, origin) {
         this.options = options;
+        this.origin = origin;
 
         if (!options.configFile) {
             options.configFile = 'mudconfig.json';
