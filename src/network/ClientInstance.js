@@ -56,6 +56,7 @@ class ClientInstance extends EventEmitter {
             _body = evt.newBody;
             gameMaster.addPlayer(_body);
             gameMaster.removePlayer(evt.oldBody);
+            gameMaster.setThisPlayer(_body);
             _inputStack = [];
         }
 

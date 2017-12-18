@@ -287,48 +287,11 @@ class GameServer extends EventEmitter {
         else this.applyLogError.apply(this.masterObject, arguments);
     }
 
-    /**
-     * Registers an error handler.
-     * @param {function} callback The function that is executed upon error.  A return value of 1 indicates the MUD should restart.
-     * @returns {GameServer} The instance of the GameServer is returned.
-     */
-    setErrorHandler(callback) {
-        if (typeof callback !== 'function')
-            throw 'Error handler must be a valid function.';
-        this.errorHandler = callback;
-        return this;
-    }
-
-    setLoginObject(path) {
-        this.loginObject = path;
-        return this;
-    }
-
-    setPermissionsFile(file) {
-        this.permissionsFile = file;
-        return this;
-    }
-
-    setPreloads(list) {
-        this.preloads = list;
-        return this;
-    }
-
-    setPreloadsFile(file) {
-        this.preloadsFile = file;
-        return this;
-    }
-
-    setServerAddress(addr) {
-        if (!this.addressList[addr])
-            throw new Error('Specified address ({0}) is not available; Possible choices are {1}'
-                .fs(addr, Object.keys(this.addressList).join(', ')));
-        this.serverAddress = addr;
-        return this;
-    }
-
-    setSimulEfunPath(sim) {
-        this.simulEfunPath = '/sys/lib/SimulEfuns';
+    removePlayer(body) {
+        var _body = unwrap(body);
+        if (_body && typeof _body.save === 'function') {
+            MUDData.Players.removeValue(body);
+        }
         return this;
     }
 
@@ -425,16 +388,53 @@ class GameServer extends EventEmitter {
         return this;
     }
 
-    setHeartbeatInterval(delay) {
-        this.heartbeatInterval = delay;
+    /**
+     * Registers an error handler.
+     * @param {function} callback The function that is executed upon error.  A return value of 1 indicates the MUD should restart.
+     * @returns {GameServer} The instance of the GameServer is returned.
+     */
+    setErrorHandler(callback) {
+        if (typeof callback !== 'function')
+            throw 'Error handler must be a valid function.';
+        this.errorHandler = callback;
         return this;
     }
 
-    removePlayer(body) {
-        var _body = unwrap(body);
-        if (_body && typeof _body.save === 'function') {
-            MUDData.Players.removeValue(body);
-        }
+    setLoginObject(path) {
+        this.loginObject = path;
+        return this;
+    }
+
+    setPermissionsFile(file) {
+        this.permissionsFile = file;
+        return this;
+    }
+
+    setPreloads(list) {
+        this.preloads = list;
+        return this;
+    }
+
+    setPreloadsFile(file) {
+        this.preloadsFile = file;
+        return this;
+    }
+
+    setServerAddress(addr) {
+        if (!this.addressList[addr])
+            throw new Error('Specified address ({0}) is not available; Possible choices are {1}'
+                .fs(addr, Object.keys(this.addressList).join(', ')));
+        this.serverAddress = addr;
+        return this;
+    }
+
+    setSimulEfunPath(sim) {
+        this.simulEfunPath = '/sys/lib/SimulEfuns';
+        return this;
+    }
+
+    setHeartbeatInterval(delay) {
+        this.heartbeatInterval = delay;
         return this;
     }
 
