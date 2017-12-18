@@ -154,6 +154,12 @@ Object.defineProperties(EFUNProxy.prototype, {
         },
         writable: false
     },
+    checkPassword: {
+        value: function (plain, crypto, callback) {
+            return MUDData.Config.mud.passwordPolicy.checkPassword(plain, crypto, callback);
+        },
+        writable: false
+    },
     cloneObject: {
         value: function (file) {
             if (arguments.length === 0)

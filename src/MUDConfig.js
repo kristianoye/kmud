@@ -302,6 +302,8 @@ class MUDNetworkingSection {
 
 class MUDPasswordPolicy {
     constructor(data) {
+        this.allowPlainTextAuth = data.allowPlainTextAuth || false;
+
         /** @type {number} */
         this.minLength = data.minLength || 5;
 
@@ -349,14 +351,18 @@ class MUDPasswordPolicy {
      * @param {string} enc The stored, encrypted password.
      */
     checkPassword(str, enc, callback) {
-        //  Just in case it was stored in plain text...
-        if (str === enc)
-            callback(true, false);
-        else if (callback === 'function')
+        if (callback === 'function') {
+            if (str === enc)
+                callback(true, false);
             bcrypt.compare(str, enc, (err, same) => {
                 if (err) callback(false, err);
                 else callback(same, same ? false : new Error('Password mismatch'));
             });
+        }
+        else if (str === enc && this.allowPlainTextAuth) {
+            console.log('WARNING: Plain-text password detected!!!');
+            return true;
+        }
         else
             return bcrypt.compareSync(str, enc);
     }
