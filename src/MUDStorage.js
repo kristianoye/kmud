@@ -18,6 +18,8 @@ class MUDStorage extends EventEmitter {
         /** @type {MUDObject} The current environment */
         this.environment = null;
 
+        this.filename = owner ? owner.filename : '';
+
         /** @type {MUDObject[]}} All of the inventory contained with the object */
         this.inventory = [];
 
@@ -95,8 +97,114 @@ class MUDStorage extends EventEmitter {
             this.emit('kmud.reload');
             this.removeAllListeners();
             this.owner = owner;
+            this.filename = owner ? owner.filename : '';
         }
         return this.merge(ctx);
+    }
+
+    /**
+     * Serialize the MUD object state into a format that can be stored
+     * and reconstituted later.
+     */
+    serialize() {
+        let result = {
+            props: {},
+            protected: {}
+        }, backrefs = [];
+
+        Object.keys(this.properties).forEach((prop, index) => {
+            if (typeof prop === 'string') {
+                let value = this.properties[prop], uw = unwrap(value);
+                if (Array.isArray(value)) result.props[prop] = this.serializeArray(value);
+                else if (uw) result.props[prop] = this.serializeMudObject(uw);
+                else if (typeof value === 'object') result.props[prop] = this.serializeOtherObject(value);
+                else {
+                    let s = this.serializeScalar(value);
+                    if (s) result.props[prop] = s;
+                }
+            }
+        });
+
+        Object.keys(this.protected).forEach((prop, index) => {
+            if (typeof prop === 'string') {
+                let value = this.protected[prop], uw = unwrap(value);
+                if (Array.isArray(value)) result.protected[prop] = this.serializeArray(value);
+                else if (uw) result.protected[prop] = this.serializeMudObject(uw);
+                else if (typeof value === 'object') result.protected[prop] = this.serializeOtherObject(value);
+                else {
+                    let s = this.serializeScalar(value);
+                    if (s) result.protected[prop] = s;
+                }
+            }
+        });
+
+        var env = unwrap(this.environment);
+        result.$environment = env ? env.filename : null;
+        result.$inventory = this.inventory.map(item => {
+            let $storage = MUDStorage.get(item);
+            return $storage ? $storage.serialize() : false;
+        }).filter(s => s !== false);
+
+        result.$filename = this.filename;
+
+        return result;
+    }
+
+    /**
+     * Serialize an array for storage
+     * @param {Array<any>} a
+     */
+    serializeArray(a) {
+        return a.map((el, i) => {
+            var uw = unwrap(el);
+            if (Array.isArray(el)) return this.serializeArray(el);
+            else if (uw) return this.serializeMudObject(uw);
+            else if (typeof el === 'object') return this.serializeOtherObject(el);
+            else return this.serializeScalar(el);
+        });
+    }
+
+    /**
+     * Serialize an object for storage.
+     * @param {MUDObject} o The object to serialize
+     */
+    serializeMudObject(o) {
+        let $storage = MUDStorage.get(o);
+        if ($storage) {
+            let data = $storage.serialize();
+            data.$$type = o.filename;
+            return data;
+        }
+        return null;
+    }
+
+    serializeOtherObject(o) {
+        if (o === null || isNaN(o)) return null;
+        var type = o.constructor.name, result = {}, file = o.constructor.filename;
+
+        Object.keys(o).forEach((prop, index) => {
+            if (typeof prop === 'string') {
+                let value = o[prop], uw = unwrap(value);
+                if (Array.isArray(value)) result[prop] = this.serializeArray(value);
+                else if (uw) result[prop] = this.serializeMudObject(uw);
+                else if (typeof value === 'object') result[prop] = this.serializeOtherObject(value);
+                else {
+                    let s = this.serializeScalar(value);
+                    if (s) result[prop] = s;
+                }
+            }
+        });
+        if (type && file) {
+            result.$$type = type;
+            result.$$file = o.constructor.filename;
+        }
+        return result;
+    }
+
+    serializeScalar(v) {
+        if (['string', 'boolean', 'number'].indexOf(typeof v) === -1)
+            return null;
+        return v.toString();
     }
 
     /**

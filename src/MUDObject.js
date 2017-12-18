@@ -234,6 +234,16 @@ class MUDObject extends EventEmitter {
         return MUDStorage.get(this).getProperty(key, defaultValue);
     }
 
+    getSharedProperty(key, defaultValue) {
+        return MUDData.SharedProps[this.basename][key] || defaultValue;
+    }
+
+    incrementProperty(key, value, initialValue, callback) {
+        return MUDStorage.get(this).incrementProperty(key, value, initialValue);
+        if (typeof callback === 'function') callback.call(this, val, props[key]);
+        return this;
+    }
+
     init() {
     }
 
@@ -329,67 +339,8 @@ class MUDObject extends EventEmitter {
     }
 
     serializeObject() {
-        var props = MUDData.InstanceProps[this._propKeyId],
-            refs = [ this ];
-
-        // TODO: Prevent reference loops...
-        function serializeArray(a) {
-            return a.map((v, i) => {
-                var uw = unwrap(v);
-                if (Array.isArray(v)) return serializeArray(a);
-                else if (uw) return { $type: uw.filename, props: uw.serializeObject() };
-                else if (typeof v === 'object') return serializeObject(v);
-                else return v;
-            });
-        }
-
-        function serializeObject(o) {
-            var mo = unwrap(o), n = refs.indexOf(mo);
-
-            if (n > -1) {
-                return `^^REF:${n}`;
-            }
-            if (mo) {
-                return { $type: mo.filename, props: mo.serializeObject() };
-            }
-            var so = {};
-            Object.keys(o).forEach(k => {
-                var v = o[k], uw = unwrap(v);
-                if (Array.isArray(v)) so[k] = serializeArray(v);
-                else if (uw) so[k] = { $type: uw.filename, props: uw.serializeObject() };
-                else if (typeof v === 'object') so[k] = serializeObject(v);
-                else so[k] = v;
-            });
-            return so;
-        }
-
-        function serializeScalar(v) {
-            return ['string', 'number', 'boolean'].indexOf(typeof v) > -1 ? v : null;
-        }
-
-        var result = { props: {}, $inv: [] };
-        Object.keys(props).forEach(k => {
-            var v = props[k], uw = unwrap(v);
-
-            if (typeof k !== 'string') return;
-            if (Array.isArray(v)) result.props[k] = serializeArray(v);
-            else if (uw) result.props = { type: uw.filename, props: uw.serializeObject() };
-            else if (typeof v === 'object') result.props[k] = serializeObject(v);
-            else {
-                var sv = serializeScalar(v);
-                if (sv !== null) result.props[k] = sv;
-            }
-        });
-        var inv = this.inventory;
-        inv.forEach(i => {
-            var uw = unwrap(i),
-                data = uw.serializeObject();
-            if (data) {
-                result.$inv.push({ $type: uw.filename, props: data });
-            }
-        });
-
-        return result;
+        let $storage = MUDData.Storage.get(this);
+        return $storage.serialize();
     }
 
     setAdjectives(adjectives) {
@@ -434,16 +385,6 @@ class MUDObject extends EventEmitter {
 
     setProperty(key, value) {
         return MUDStorage.get(this).setProperty(key, value);
-    }
-
-    incrementProperty(key, value, initialValue, callback) {
-        return MUDStorage.get(this).incrementProperty(key, value, initialValue);
-        if (typeof callback === 'function') callback.call(this, val, props[key]);
-        return this;
-    }
-
-    getSharedProperty(key, defaultValue) {
-        return MUDData.SharedProps[this.basename][key] || defaultValue;
     }
 
     setSharedProperty(key, value) {
