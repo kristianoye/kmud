@@ -6,7 +6,8 @@
 var
     Mudlib = require('./MudLib'),
     MUDData = require('./MUDData'),
-    { MUDConfig } = require('./MUDConfig');
+    { MUDConfig } = require('./MUDConfig'),
+    stack = require('callsite');
 
 const
     _config = '_CONFIG_',
@@ -488,6 +489,26 @@ class GameServer extends MUDEventEmitter {
         else return this.applyValidObject.apply(this.masterObject, arguments);
     }
 
+    getStack() {
+        return stack().map(cs => {
+            let fileName = cs.getFileName(),
+                funcName = cs.getMethodName() || cs.getFunctionName(),
+                fileParts = fileName ? fileName.split('#') : false;
+
+            if (fileParts !== false) {
+                let instanceId = fileParts.length > 1 ? parseInt(fileParts[1]) : 0,
+                    module = MUDData.ModuleCache.get(fileParts[0]);
+
+                if (module) {
+                    return { object: module.instances[instanceId], func: funcName };
+                }
+            }
+            return false;
+        })
+        .filter((cs) => cs !== false)
+        .reverse();
+    }
+
     validReadConfig(caller, key) {
         if (MUDData.GameState === MUDData.Constants.GAMESTATE_STARTING)
             return true;
@@ -498,8 +519,24 @@ class GameServer extends MUDEventEmitter {
     validRead(efuns, path) {
         if (MUDData.GameState < MUDData.Constants.GAMESTATE_RUNNING)
             return true;
-        else
-            return this.applyValidRead.apply(this.masterObject, arguments);
+        else if (efuns.filename === '/') return true;
+        else {
+            let checkObjects = this.getStack();
+            if (checkObjects.length > 0) {
+                for (let i = 0; i < checkObjects.length; i++) {
+                    if (!this.applyValidRead.call(this.masterObject, path, checkObjects[i].object, checkObjects[i].func))
+                        return false;
+                }
+                return true;
+            }
+            let module = MUDData.ModuleCache.get(efuns.filename),
+                cs = stack().map(cs => cs.getFileName()),
+                inst = module.instances[0];
+            if (inst)
+                return this.applyValidRead.call(this.masterObject, path, inst, 'write');
+            else
+                return true;
+        }
     }
 
     validShutdown(efuns) {
@@ -512,8 +549,19 @@ class GameServer extends MUDEventEmitter {
     validWrite(efuns, path) {
         if (MUDData.GameState < MUDData.Constants.GAMESTATE_INITIALIZING)
             return true;
-        else
-            return this.applyValidWrite.apply(this.masterObject, arguments);
+        else if (efuns.filename === '/') return true;
+        else {
+            let checkObjects = this.getStack();
+            if (checkObjects.length > 0) {
+                for (let i = 0; i < checkObjects.length; i++) {
+                    if (!this.applyValidWrite.call(this.masterObject, path, checkObjects[i].object, checkObjects[i].func))
+                        return false;
+                }
+                return true;
+            }
+            let module = MUDData.ModuleCache.get(efuns.filename), cs = stack().map(cs => cs.getFileName());
+            return this.applyValidWrite.call(this.masterObject, path, module.instances[0], 'write');
+        }
     }
 }
 

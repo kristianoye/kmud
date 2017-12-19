@@ -351,20 +351,6 @@ class MUDLoader {
                 writable: false
             }
         });
-
-        _efuns.on('beginCreateInstance', (evt) => {
-            _loaderEnabled = true;
-            self[sLoaderEnabled] = true;
-            self[sEfuns] = evt.efuns;
-            self[sArgs] = evt.context;
-        });
-
-        _efuns.on('endCreateInstance',  () => {
-            _loaderEnabled = true;
-            self[sLoaderEnabled] = false;
-            self[sEfuns] = null;
-            self[sArgs] = null;
-        });
     }
 
     get loaderEnabled() {

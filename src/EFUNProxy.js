@@ -11,7 +11,6 @@ const
     sprintf = require('sprintf').sprintf,
     { MUDConfig } = require('./MUDConfig'),
     ErrorTypes = require('./ErrorTypes'),
-    EventEmitter = require('events'),
     util = require('util'),
     fs = require('fs'),
     vm = require('vm');
@@ -21,7 +20,6 @@ const
     MegaByte = KiloByte * 1000,
     GigaByte = MegaByte * 1000,
     TeraByte = GigaByte * 1000,
-    _symbols = '_symbols',
     _unguarded = '_unguarded';
 
 var
@@ -32,21 +30,11 @@ var
 
 MUDData.MasterEFUNS = new EFUNS();
 
-class EFUNProxy extends EventEmitter {
+class EFUNProxy {
     constructor() {
-        super();
         this[_unguarded] = false;
-        this[_symbols] = {};
     }
 
-    defineSymbol(name) {
-        if (typeof name !== 'string' || name.length === 0)
-            throw new Error('Bad argument 1 to defineSymbol; Expected string got {0}'.fs(typeof name));
-        if (typeof this[_symbols][name] !== 'symbol') {
-            this[_symbols][name] = Symbol(name);
-        }
-        return this[_symbols][name];
-    }
 
     get isUnguarded() {
         return this[_unguarded];
@@ -604,14 +592,7 @@ Object.defineProperties(EFUNProxy.prototype, {
                     console.log('previousObject() stack:');
                     stack().forEach((cs, i) => {
                         let fn = cs.getFileName() || '[no file]',
-                            func = cs.getFunctionName(),
-                            cn = cs.getTypeName() || false,
-                            mn = cs.getMethodName();
-
-                        if (cn === false)
-                            console.log(`\tFile: ${fn} [${func}]`);
-                        else
-                            console.log(`\tFile: ${fn} [${cn}.${mn}]`);
+                            func = cs.getFunctionName();
 
                         if (typeof fn === 'string' && !fn.startsWith(MUDData.DriverPath)) {
                             let fileParts = fn.split('#');
