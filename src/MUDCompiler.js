@@ -5,7 +5,6 @@
  */
 
 const
-    EventEmitter = require('events'),
     MUDData = require('./MUDData'),
     MUDLoader = require('./MUDLoader'),
     MUDOSLoader = require('./MUDOSLoader'),

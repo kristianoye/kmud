@@ -4,8 +4,8 @@
  * Date: October 1, 2017
  */
 const
-    EventEmitter = require('events'),
     MUDCreationContext = require('./MUDCreationContext'),
+    MUDEventEmitter = require('./MUDEventEmitter'),
     MUDStorage = require('./MUDStorage'),
     _environment = Symbol('_environment'),
     _filename = '_filename',  // Symbol('_filename'),
@@ -52,7 +52,7 @@ function parseIdentifierList(args, mn) {
 /**
  * Base type for all MUD objects.
  */
-class MUDObject extends EventEmitter {
+class MUDObject extends MUDEventEmitter {
     /**
      * Initialize the object instance with the context.
      * @param {MUDCreationContext} ctx

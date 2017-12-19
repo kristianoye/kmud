@@ -58,8 +58,7 @@ class HTTPClientInstance extends ClientInstance {
                     }
                 }
                 else {
-                    body().dispatchInput(resp.cmdline, commandComplete);
-                    $storage.emit('kmud.input', { command: resp.cmdline, callback: commandComplete });
+                    $storage.emit('kmud.command', T.createCommandEvent(resp.cmdline, true, commandComplete));
                 }
             }
             catch (e) {

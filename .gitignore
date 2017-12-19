@@ -4,3 +4,5 @@ obj/
 KMUD.njsproj.user
 lib/sys/data/
 mudconfig.json
+runOnce.json
+runAlways.json

@@ -143,10 +143,6 @@ class MUDLoader {
                 value: _efuns.directory,
                 writable: false
             },
-            EventEmitter: {
-                value: EventEmitter,
-                writable: false
-            },
             filename: {
                 value: _efuns.filename,
                 writable: false
@@ -293,6 +289,14 @@ class MUDLoader {
             },
             MUD: {
                 value: this,
+                writable: false
+            },
+            MUDEVENT_REMOVELISTENER: {
+                value: global.MUDEVENT_REMOVELISTENER,
+                writable: false
+            },
+            MUDEVENT_STOP: {
+                value: global.MUDEVENT_STOP,
                 writable: false
             },
             MUDHTMLComponent: {

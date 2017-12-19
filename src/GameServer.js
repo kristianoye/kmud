@@ -15,12 +15,12 @@ const
     os = require('os'),
     ClientEndpoint = require('./network/ClientEndpoint'),
     EFUNProxy = require('./EFUNProxy'),
-    EventEmitter = require('events'),
     HTTPClientEndpoint = require('./network/HTTPClientEndpoint'),
     TelnetClientEndpoint = require('./network/TelnetClientEndpoint'),
-    MUDCompiler = require('./MUDCompiler');
+    MUDCompiler = require('./MUDCompiler'),
+    MUDEventEmitter = require('./MUDEventEmitter');
 
-class GameServer extends EventEmitter {
+class GameServer extends MUDEventEmitter {
     /**
      * Construct a new game server
      * @param {MUDConfig} config The configuration object.
@@ -335,7 +335,7 @@ class GameServer extends EventEmitter {
                         eventType: 'runOnce',
                         eventData: list
                     });
-                    console.log(`Run once complete; Removing ${runOnce}`)
+                    console.log(`Run once complete; Removing ${runOnce}`);
                     //fs.unlinkSync(runOnce);
                 }
                 catch (err) {

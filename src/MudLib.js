@@ -4,7 +4,6 @@
  * Date: October 1, 2017
  */
 const
-    EventEmitter = require('events'),
     Extensions = require('./Extensions'),
     MUDCache = require('./MUDCache'),
     EFUNProxy = require('./EFUNProxy'),
@@ -54,7 +53,6 @@ Object.defineProperty(global, 'master', {
     enumerable: true
 });
 
-global.EventEmitter = EventEmitter;
 global.async = async;
 
-/// <reference path="../lib/wwwroot/dts/efuns.d.ts" />
+/// <reference path="../lib/wwwroot/dts/global.d.ts" />

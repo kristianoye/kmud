@@ -30,10 +30,12 @@ class MUDEventEmitter {
                         listener.processEvent(this, eventName, ...args) :
                         listener.apply(this, args);
 
-                // event was handled.
+                // Check event state
                 if (typeof result === 'number') {
+
                     if ((result & EVENT_REMOVELISTENER) == EVENT_REMOVELISTENER)
                         event[i] = null;
+
                     if ((result & EVENT_STOP) === EVENT_STOP)
                         break;
                 }
@@ -93,8 +95,7 @@ const
     EVENT_STOP = 1 << 20,
     EVENT_REMOVELISTENER = 1 << 21;
 
-module.exports = {
-    MUDEventEmitter: MUDEventEmitter,
-    EVENT_STOP: EVENT_STOP,
-    EVENT_REMOVELISTENER: EVENT_REMOVELISTENER
-};
+global.MUDEVENT_STOP = EVENT_STOP;
+global.MUDEVENT_REMOVELISTENER = EVENT_REMOVELISTENER;
+
+module.exports = MUDEventEmitter;

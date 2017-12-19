@@ -83,6 +83,26 @@ class ClientInstance extends EventEmitter {
     }
 
     /**
+     * Parse a line of user input into words, a verb, etc.
+     * @param {string} input
+     */
+    createCommandEvent(input, isBrowser, callback) {
+        let words = input.trim().split(/\s+/g),
+            verb = words.shift();
+
+        return {
+            verb: verb.trim(),
+            args: words,
+            client: this,
+            error: 'What?',
+            browser: isBrowser,
+            original: input,
+            callback: callback,
+            fromHistory: false
+        };
+    }
+
+    /**
      * @returns {string} The remote address of the client.
      */
     get remoteAddress() {

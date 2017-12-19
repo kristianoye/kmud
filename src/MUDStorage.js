@@ -1,6 +1,5 @@
 ﻿const
-    EventEmitter = require('events'),
-    { MUDEventEmitter } = require('./MUDEventEmitter'),
+    MUDEventEmitter = require('./MUDEventEmitter'),
     { MUDConfig } = require('./MUDConfig'),
     MUDData = require('./MUDData'),
     MUDObject = require('./MUDObject'),
@@ -51,7 +50,7 @@ class MUDStorage extends MUDEventEmitter {
     getProtected(prop, defaultValue) {
         if (prop in this.protected)
             return this.protected[prop];
-        else if (typeof defaultValue === 'undefined')
+        else if (typeof defaultValue !== 'undefined')
             return (this.protected[prop] = defaultValue);
     }
     /**

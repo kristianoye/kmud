@@ -78,9 +78,15 @@ class RanvierTelnetInstance extends ClientInstance {
         super(endpoint, gameMaster, client, client.remoteAddress);
         var self = this,
             clientHeight = 24,
-            clientWidth = 80;
+            clientWidth = 80,
+            $storage,
+            body;
 
         this[_client] = client;
+
+        function commandComplete(evt) {
+            self.write('> ');
+        }
 
         function dispatchInput(text) {
             var body = this.body();
@@ -113,10 +119,16 @@ class RanvierTelnetInstance extends ClientInstance {
                 }
             }
             else if (body) {
-                body.dispatchInput(text);
+                $storage.emit('kmud.command', this.createCommandEvent(text, true, commandComplete));
             }
         }
 
+        gameMaster.on('kmud.exec', evt => {
+            if (evt.client === self) {
+                body = evt.newBody;
+                $storage = evt.newStorage;
+            }
+        });
         this.client.on('data', (buffer) => {
             dispatchInput.call(this, buffer.toString('utf8'));
         });

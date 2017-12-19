@@ -533,3 +533,15 @@ declare function unwrap(target: any): MUDObject | false;
 declare function unwrap(target: any, success: (ob: MUDObject) => MUDObject): MUDObject | false;
 
 let efuns = new EFUNProxy;
+
+declare class MUDInputEvent {
+    readonly verb: string;
+    readonly args: string[];
+    readonly error: string;
+    readonly original: string;
+    readonly callback: function;
+    readonly fromHistory: boolean;
+}
+
+let MUDEVENT_STOP = 1 << 20;
+let MUDEVENT_REMOVELISTENER = 1 << 21;
