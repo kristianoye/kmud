@@ -86,7 +86,7 @@ class ClientInstance extends EventEmitter {
      * Parse a line of user input into words, a verb, etc.
      * @param {string} input
      */
-    createCommandEvent(input, isBrowser, callback) {
+    createCommandEvent(input, isBrowser, callback, defaultPrompt) {
         let words = input.trim().split(/\s+/g),
             verb = words.shift();
 
@@ -95,7 +95,13 @@ class ClientInstance extends EventEmitter {
             args: words,
             client: this,
             error: 'What?',
+            input: input.slice(verb.length).trim(),
             browser: isBrowser,
+            prompt: {
+                type: 'text',
+                text: defaultPrompt,
+                recapture: false
+            },
             original: input,
             callback: callback,
             fromHistory: false

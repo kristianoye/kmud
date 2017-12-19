@@ -601,8 +601,18 @@ Object.defineProperties(EFUNProxy.prototype, {
             else /* creation method must be one of the wrapper varities */ {
                 return function (n) {
                     let objectStack = [], index = (n || 0) + 1;
+                    console.log('previousObject() stack:');
                     stack().forEach((cs, i) => {
-                        let fn = cs.getFileName();
+                        let fn = cs.getFileName() || '[no file]',
+                            func = cs.getFunctionName(),
+                            cn = cs.getTypeName() || false,
+                            mn = cs.getMethodName();
+
+                        if (cn === false)
+                            console.log(`\tFile: ${fn} [${func}]`);
+                        else
+                            console.log(`\tFile: ${fn} [${cn}.${mn}]`);
+
                         if (typeof fn === 'string' && !fn.startsWith(MUDData.DriverPath)) {
                             let fileParts = fn.split('#');
                             let module = MUDData.ModuleCache.get(fileParts[0]),

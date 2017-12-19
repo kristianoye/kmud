@@ -15,12 +15,14 @@ const
 class HTTPClientInstance extends ClientInstance {
     constructor(endpoint, gameMaster, client) {
         super(endpoint, gameMaster, client, client.request.connection.remoteAddress);
-        var T = this, body, $storage;
+        var self = this, body, $storage;
 
         this[_callbacks] = {};
 
-        function commandComplete(result) {
-
+        function commandComplete(evt) {
+            if (!evt.prompt.recapture) {
+                self.renderPrompt(evt.prompt);
+            }
         }
 
         function dispatchInput(resp) {
@@ -58,7 +60,7 @@ class HTTPClientInstance extends ClientInstance {
                     }
                 }
                 else {
-                    $storage.emit('kmud.command', T.createCommandEvent(resp.cmdline, true, commandComplete));
+                    $storage.emit('kmud.command', self.createCommandEvent(resp.cmdline, true, commandComplete, 'Enter a command...'));
                 }
             }
             catch (e) {
@@ -74,11 +76,11 @@ class HTTPClientInstance extends ClientInstance {
         }
 
         client.on('disconnect', client => {
-            T.emit('disconnected', T);
-            gameMaster.removePlayer(T.body);
+            self.emit('disconnected', self);
+            gameMaster.removePlayer(self.body);
         });
         gameMaster.on('kmud.exec', evt => {
-            if (evt.client === T) {
+            if (evt.client === self) {
                 body = evt.newBody;
                 $storage = evt.newStorage;
             }
@@ -97,14 +99,14 @@ class HTTPClientInstance extends ClientInstance {
 
                 default:
                     var eventType = data.eventType,
-                        callback = T[_callbacks][eventType];
+                        callback = self[_callbacks][eventType];
 
                     if (callback) {
-                        callback.call(T.body(), data);
+                        callback.call(self.body(), data);
                     }
                     break;
             }
-            T.emit('kmud', data);
+            self.emit('kmud', data);
         });
     }
 

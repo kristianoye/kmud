@@ -85,7 +85,8 @@ class RanvierTelnetInstance extends ClientInstance {
         this[_client] = client;
 
         function commandComplete(evt) {
-            self.write('> ');
+            if (!evt.prompt.recapture)
+                self.write(evt.prompt.text);
         }
 
         function dispatchInput(text) {
@@ -119,7 +120,7 @@ class RanvierTelnetInstance extends ClientInstance {
                 }
             }
             else if (body) {
-                $storage.emit('kmud.command', this.createCommandEvent(text, true, commandComplete));
+                $storage.emit('kmud.command', this.createCommandEvent(text, true, commandComplete, '> ' ));
             }
         }
 
