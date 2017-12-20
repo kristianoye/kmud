@@ -11,21 +11,21 @@ const
 
 class MUDCreationContext {
     constructor(instanceId, filename, isReload, instanceWrapper, startupData, dir) {
-        this._args = {};
-        this._directory = dir;
-        this._forceCleanup = false;
-        this._mixins = [];
-        this._props = {};
+        this.args = {};
+        this.directory = dir;
+        this.forceCleanup = false;
+        this.mixins = [];
+        this.props = {};
         this.$storage = null;
-        this._shared = {};
-        this._symbols = {};
+        this.shared = {};
+        this.symbols = {};
         this._wrapper = instanceWrapper;
         this.isReload = isReload;
 
         if (typeof startupData === 'object') {
-            this._args = startupData.args || {};
-            this._props = startupData.props || {};
-            this._shared = startupData.shared || {};
+            this.args = startupData.args || {};
+            this.props = startupData.props || {};
+            this.shared = startupData.shared || {};
         }
 
         function setter(col, key, value) {
@@ -77,7 +77,7 @@ class MUDCreationContext {
                 get: function () {
                     var self = this;
                     return function (key, value) {
-                        return setter.call(self, self._props, key, value);
+                        return setter.call(self, self.props, key, value);
                     };
                 }
             },
@@ -85,7 +85,7 @@ class MUDCreationContext {
                 get: function () {
                     var self = this;
                     return function (key, value) {
-                        return setter.call(self, self._shared, key, value);
+                        return setter.call(self, self.shared, key, value);
                     };
                 }
             },
@@ -94,7 +94,7 @@ class MUDCreationContext {
                     return function (key, value) {
                         if (typeof key !== 'symbol')
                             throw new Error('Bad argument 1 to symbols');
-                        return setter.call(this, this._symbols, key, value);
+                        return setter.call(this, this.symbols, key, value);
                     };
                 }
             }
@@ -102,13 +102,13 @@ class MUDCreationContext {
     }
 
     addMixin(filename, self) {
-        var resolved = MUDData.SpecialRootEfun.resolvePath(filename, this._directory),
+        var resolved = MUDData.SpecialRootEfun.resolvePath(filename, this.directory),
             module = MUDData.ModuleCache.get(resolved),
             proto = MUDData.SpecialRootEfun.isClass(self) ? self.prototype : self.constructor.prototype,
-            mixins = proto._mixins || false;
+            mixins = proto.mixins || false;
 
         if (!mixins) {
-            mixins = proto._mixins = {};
+            mixins = proto.mixins = {};
         }
         if (resolved in mixins) {
             if (!this.isReload) {
@@ -145,23 +145,23 @@ class MUDCreationContext {
     forceCleanUpdate(flag) {
         if (typeof flag !== 'boolean')
             throw new Error(`Bad argument 1 to forceCleanUpdate(); Expected boolean got ${typeof flag}`);
-        this._forceCleanup = flag;
+        this.forceCleanup = flag;
         return this;
     }
 
     hasArg(key) {
-        var result = (typeof this._args[key] !== 'undefined');
+        var result = (typeof this.args[key] !== 'undefined');
         return result;
     }
 
     hasSymbol(key) {
-        return typeof this._symbols[key] !== 'undefined';
+        return typeof this.symbols[key] !== 'undefined';
     }
 
     takeArg(key, defaultValue, preserve) {
-        if (typeof this._args[key] !== 'undefined') {
-            var result = this._args[key];
-            if (preserve !== true) delete this._args[key];
+        if (typeof this.args[key] !== 'undefined') {
+            var result = this.args[key];
+            if (preserve !== true) delete this.args[key];
             return result;
         }
         return defaultValue || undefined;

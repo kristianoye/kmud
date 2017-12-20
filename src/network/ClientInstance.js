@@ -96,7 +96,7 @@ class ClientInstance extends EventEmitter {
             client: this,
             error: 'What?',
             input: input.slice(verb.length).trim(),
-            browser: isBrowser,
+            preferHtml: isBrowser,
             prompt: {
                 type: 'text',
                 text: defaultPrompt,

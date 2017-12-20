@@ -42,6 +42,7 @@ class GameServer extends MUDEventEmitter {
         MUDData.GameState = MUDData.Constants.GAMESTATE_INITIALIZING;
 
         this.connections = [];
+        this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
         this.startTime = new Date().getTime();
 
         this.addressList = { '127.0.0.1': true };
@@ -350,15 +351,20 @@ class GameServer extends MUDEventEmitter {
                 .bind()
                 .on('kmud.connection', (client) => {
                     var newLogin = MUDData.SpecialRootEfun.cloneObject(this.config.mudlib.loginObject);
+                    if (newLogin) {
+                        MUDData.Storage.get(newLogin).setProtected('client', client,
+                            ($storage, _client) => {
+                                var evt = { newBody: newLogin, client: _client };
+                                self.emit('kmud.exec', evt);
+                                $storage.emit('kmud.exec', evt);
+                            });
 
-                    MUDData.Storage.get(newLogin).setProtected('client', client,
-                        ($storage, _client) => {
-                            var evt = { newBody: newLogin, client: _client };
-                            self.emit('kmud.exec', evt);
-                            $storage.emit('kmud.exec', evt);
-                        });
-
-                    MUDData.Clients.push(client);
+                        MUDData.Clients.push(client);
+                    }
+                    else {
+                        client.writeLine('Sorry, something is very wrong right now; Please try again later.');
+                        client.close('No Login Object Available');
+                    }
                 })
                 .on('kmud.connection.new', function (client, protocol) {
                     console.log(`New ${protocol} connection from ${client.remoteAddress}`);
@@ -487,26 +493,36 @@ class GameServer extends MUDEventEmitter {
             return true;
         else if (this.applyValidObject === false) return true;
         else return this.applyValidObject.apply(this.masterObject, arguments);
-    }
+    } 
 
     getStack() {
-        return stack().map(cs => {
-            let fileName = cs.getFileName(),
+        let isUnguarded = false, _stack = stack(), result = [];
+        for (let i = 0, max = _stack.length; i < max; i++) {
+            let cs = _stack[i],
+                fileName = cs.getFileName(),
                 funcName = cs.getMethodName() || cs.getFunctionName(),
                 fileParts = fileName ? fileName.split('#') : false;
 
+            if (fileName === this.efunProxyPath) {
+                if (funcName === 'unguarded') isUnguarded = true;
+            }
             if (fileParts !== false) {
                 let instanceId = fileParts.length > 1 ? parseInt(fileParts[1]) : 0,
                     module = MUDData.ModuleCache.get(fileParts[0]);
 
                 if (module) {
-                    return { object: module.instances[instanceId], func: funcName };
+                    let frame = {
+                        object: module.instances[instanceId],
+                        func: funcName
+                    };
+                    if (isUnguarded) {
+                        return [frame];
+                    }
+                    result.unshift(frame);
                 }
             }
-            return false;
-        })
-        .filter((cs) => cs !== false)
-        .reverse();
+        }
+        return result;
     }
 
     validReadConfig(caller, key) {

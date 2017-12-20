@@ -66,7 +66,8 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     incrementProperty(prop, incrementBy, initialValue) {
-        if (!(prop in this.properties)) this.properties[prop] = initialValue;
+        if (!(prop in this.properties))
+            this.properties[prop] = parseInt(initialValue);
         this.properties[prop] += incrementBy;
         return this.owner;
     }
@@ -76,12 +77,12 @@ class MUDStorage extends MUDEventEmitter {
      * @param {MUDCreationContext} ctx The context to merge from
      */
     merge(ctx) {
-        Object.keys(ctx._props).forEach(key => {
-            this.properties[key] = ctx._props[key];
+        Object.keys(ctx.props).forEach(key => {
+            this.properties[key] = ctx.props[key];
         });
 
-        Object.getOwnPropertySymbols(ctx._symbols).forEach(key => {
-            this.symbols[key] = ctx._symbols[key];
+        Object.getOwnPropertySymbols(ctx.symbols).forEach(key => {
+            this.symbols[key] = ctx.symbols[key];
         });
         return this;
     }
@@ -179,12 +180,17 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     serializeOtherObject(o) {
-        if (o === null || isNaN(o)) return null;
-        var type = o.constructor.name, result = {}, file = o.constructor.filename;
+        if (o === null)
+            return null;
+
+        let result = {},
+            type = o.constructor ? o.constructor.name : '$anonymous',
+            file = o.constructor ? o.constructor.filename : false;
 
         Object.keys(o).forEach((prop, index) => {
             if (typeof prop === 'string') {
                 let value = o[prop], uw = unwrap(value);
+
                 if (Array.isArray(value)) result[prop] = this.serializeArray(value);
                 else if (uw) result[prop] = this.serializeMudObject(uw);
                 else if (typeof value === 'object') result[prop] = this.serializeOtherObject(value);
@@ -202,9 +208,10 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     serializeScalar(v) {
-        if (['string', 'boolean', 'number'].indexOf(typeof v) === -1)
+        let vt = typeof v;
+        if (['string', 'boolean', 'number'].indexOf(vt) === -1)
             return null;
-        return v.toString();
+        else return v;
     }
 
     /**

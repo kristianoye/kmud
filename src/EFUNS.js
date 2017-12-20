@@ -145,6 +145,7 @@ class EFUNS {
             throw new Error('Security Violation');
 
         if (_async) {
+            let context = new MUDExecutionContext();
             return this.isDirectory(filepath, (isDir) => {
                 return fs.readdir(isDir ? filepath : _restOfPath, (err, files) => {
                     if (err)
@@ -700,15 +701,16 @@ class EFUNS {
      * @param {string} filename The name of the file to write to.
      * @param {string} content The content to write to file.
      * @param {function} callback Callback for async operation which will receive a flag indicating success or failure.
+     * @param {boolean} overwrite Overwrites the file if set otherwise it appends
      */
-    writeFile(filename, content, callback) {
+    writeFile(filename, content, callback, overwrite) {
         var _async = typeof callback === 'function';
         if (_async)
-            fs.writeFile(filename, content, err => {
+            fs.writeFile(filename, content, { flag: overwrite ? 'w' : 'a' }, err => {
                 callback(!err, err);
             });
         else
-            return fs.writeFileSync(filename, content);
+            return fs.writeFileSync(filename, content, { flag: overwrite ? 'w' : 'a' });
     }
 }
 
