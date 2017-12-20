@@ -103,6 +103,11 @@ class HTTPClientEndpoint extends ClientEndpoint {
 
         T[_server] = createHttpServer();
         T.httpServer.listen({ port: this.port, host: this.address });
+        T.httpServer.on('error', (error) => {
+            if (error.code === 'EADDRINUSE') {
+                this.emit('error', error, this);
+            }
+        });
 
         this.WebSocket = require('socket.io')(T.httpServer, {
             log: true,

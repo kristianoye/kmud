@@ -7,7 +7,8 @@
  */
 const
     EventEmitter = require('events'),
-    ClientEndpoint = require('./ClientEndpoint');
+    ClientEndpoint = require('./ClientEndpoint'),
+    MUDEventEmitter = require('../MUDEventEmitter');
 
 const
     _body = Symbol('body'),

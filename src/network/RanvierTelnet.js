@@ -1,7 +1,10 @@
 ﻿'use strict';
 
-const EventEmitter = require('events');
-const net = require('net');
+const
+    net = require('net'),
+    EventEmitter = require('events'),
+    MUDEventEmitter = require('../MUDEventEmitter');
+
 
 // see: arpa/telnet.h
 const Seq = {
@@ -336,11 +339,13 @@ class TelnetSocket extends EventEmitter {
 
 exports.TelnetSocket = TelnetSocket;
 
-class TelnetServer {
+class TelnetServer extends EventEmitter {
     /**
      * @param {function} listener   connected callback
      */
     constructor(listener) {
+        super();
+
         this.netServer = net.createServer({}, (socket) => {
             socket.fresh = true;
             listener(socket);

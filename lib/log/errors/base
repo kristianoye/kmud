@@ -1,0 +1,19 @@
+GameObject is not defined
+/base/Sign.js:1
+class Sign extends GameObject {
+                   ^
+
+ReferenceError: GameObject is not defined
+    at /base/Sign.js:1:20
+    at ContextifyScript.Script.runInContext (vm.js:59:29)
+    at Object.runInContext (vm.js:120:6)
+    at VMWrapper.run ([driver]\compiler\VMWrapper.js:32:25)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:190:38)
+    at Object.Compiler ([driver]\MUDData.js:52:55)
+    at EFUNProxy.value ([driver]\EFUNProxy.js:725:38)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update.js:12:25)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update:4:34)
+    at CreatorWrapper.processInput (/base/Interactive.js:196:111)
+
+[2017-12-20 02:08:58]
+GameObject is not defined

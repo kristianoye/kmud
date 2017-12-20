@@ -8,6 +8,7 @@
 const
     Telnet = require('ranvier-telnet'),
     ClientInstance = require('./ClientInstance'),
+    MUDData = require('../MUDData'),
     _client = Symbol('_client'),
     tripwire = false;
 
@@ -90,37 +91,43 @@ class RanvierTelnetInstance extends ClientInstance {
         }
 
         function dispatchInput(text) {
-            var body = this.body();
+            let body = this.body(),
+                evt = this.createCommandEvent(text, true, commandComplete, '> ');
+            try {
+                gameMaster.setThisPlayer(body);
 
-            gameMaster.setThisPlayer(body);
+                if (tripwire) {
+                    tripwire.resetTripwire(2000, {
+                        player: body,
+                        input: resp
+                    });
+                }
 
-            if (tripwire) {
-                tripwire.resetTripwire(2000, {
-                    player: body,
-                    input: resp
-                });
+                text = text.replace(/[\r\n]+/g, '');
+
+                if (this.inputStack.length > 0) {
+                    var frame = this.inputStack.pop(), result;
+                    try {
+                        result = frame.callback.call(body, text);
+                    }
+                    catch (_err) {
+                        this.writeLine('Error: ' + _err);
+                        this.writeLine(_err.stack);
+                        result = true;
+                    }
+
+                    if (result === true) {
+                        this.inputStack.push(frame);
+                        this.write(frame.data.text);
+                    }
+                }
+                else if (body) {
+                    $storage.emit('kmud.command', evt);
+                }
             }
-
-            text = text.replace(/[\r\n]+/g, '');
-
-            if (this.inputStack.length > 0) {
-                var frame = this.inputStack.pop(), result;
-                try {
-                    result = frame.callback.call(body, text);
-                }
-                catch (_err) {
-                    this.writeLine('Error: ' + _err);
-                    this.writeLine(_err.stack);
-                    result = true;
-                }
-
-                if (result === true) {
-                    this.inputStack.push(frame);
-                    this.write(frame.data.text);
-                }
-            }
-            else if (body) {
-                $storage.emit('kmud.command', this.createCommandEvent(text, true, commandComplete, '> ' ));
+            catch (err) {
+                if (evt) evt.callback(evt);
+                MUDData.MasterObject.errorHandler(err, false);
             }
         }
 

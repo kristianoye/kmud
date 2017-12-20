@@ -48,7 +48,6 @@ class GameServer extends MUDEventEmitter {
         this.addressList = { '127.0.0.1': true };
         this.compiler = MUDData.CompilerInstance = new MUDCompiler(config.driver.compiler);
         this.endpoints = [];
-        this.errorHandler = function () { return 1; };
         this.heartbeatCounter = 0;
         this.includePath = config.mudlib.includePath || [];
         this.masterFilename = config.mudlib.inGameMaster.path;
@@ -114,6 +113,13 @@ class GameServer extends MUDEventEmitter {
                 handlerType = handlerConfig.type ? handlerModule[handlerConfig.type] : handlerModule,
                 endpoint = new handlerType(this, binding);
 
+            endpoint.on('error', (error, failedEndpoint) => {
+                if (error.code === 'EADDRINUSE') {
+                    console.log(`Port Error: ${failedEndpoint.name} reports address+port already in use (game already running?); Shutting down...`);
+                    process.exit(-111);
+                }
+            });
+
             return endpoint;
         });
     }
@@ -155,6 +161,7 @@ class GameServer extends MUDEventEmitter {
         }
 
         /* validate in-game master */
+        this.applyErrorHandler = locateApply('errorHandler', false);
         this.applyGetPreloads = locateApply('getPreloads', false);
         this.applyLogError = locateApply('logError', false);
         this.applyValidExec = locateApply('validExec', false);
@@ -227,6 +234,60 @@ class GameServer extends MUDEventEmitter {
     enableGlobalErrorHandler() {
         this.globalErrorHandler = true;
         return this;
+    }
+
+    /**
+     * Apply handling to a runtime error.
+     * @param {Error} err
+     * @param {boolean} caught
+     */
+    errorHandler(err, caught) {
+        if (this.applyErrorHandler !== false) {
+            MUDData.CleanError(err);
+            let error = {
+                error: err.message,
+                program: '',
+                object: null,
+                line: 0,
+                trace: []
+            }, firstFrame = true;
+
+            error.trace = err.stack.split('\n').map((line, index) => {
+                let parts = line.split(/\s+/g).filter(s => s.length);
+                if (parts[0] === 'at') {
+                    let func = parts[1].split('.'), inst = null;
+                    let [filename, line, cindex] = parts[2].slice(1, parts[2].length - 1).split(':');
+
+                    if (filename.indexOf('.') === -1) {
+                        let fparts = filename.split('#'),
+                            module = MUDData.ModuleCache.get(fparts[0]);
+                        if (module) {
+                            inst = module.instances[fparts.length === 2 ? parseInt(fparts[1]) : 0];
+                        }
+                    }
+                    let frame = {
+                        character: cindex,
+                        file: filename,
+                        function: func.pop(),
+                        line: line,
+                        object: inst,
+                        program: func.length === 0 ? '[null]' : func.join('.')
+                    };
+                    if (firstFrame) {
+                        error.character = frame.character;
+                        error.file = frame.file;
+                        error.function = frame.function;
+                        error.line = frame.line;
+                        error.object = inst;
+                        error.program = frame.program;
+                        firstFrame = false;
+                    }
+                    return frame;
+                }
+            });
+
+            this.applyErrorHandler.call(this.masterObject, error, caught);
+        }
     }
 
     exec(oldBody, newBody, client, callback) {
@@ -570,6 +631,7 @@ class GameServer extends MUDEventEmitter {
             let checkObjects = this.getStack();
             if (checkObjects.length > 0) {
                 for (let i = 0; i < checkObjects.length; i++) {
+                    if (checkObjects[i].object === this.masterObject) continue;
                     if (!this.applyValidWrite.call(this.masterObject, path, checkObjects[i].object, checkObjects[i].func))
                         return false;
                 }

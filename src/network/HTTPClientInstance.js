@@ -10,7 +10,9 @@ const ClientInstance = require('./ClientInstance'),
 
 const
     _client = Symbol('client'),
-    _callbacks = Symbol('callbacks');
+    _callbacks = Symbol('callbacks'),
+    MUDData = require('../MUDData'),
+    MUDEventEmitter = require('../MUDEventEmitter');
 
 class HTTPClientInstance extends ClientInstance {
     constructor(endpoint, gameMaster, client) {
@@ -26,6 +28,7 @@ class HTTPClientInstance extends ClientInstance {
         }
 
         function dispatchInput(resp) {
+            let evt = self.createCommandEvent(resp.cmdline, true, commandComplete, 'Enter a command...');
             try {
                 var body = this.body;
 
@@ -60,18 +63,18 @@ class HTTPClientInstance extends ClientInstance {
                     }
                 }
                 else {
-                    $storage.emit('kmud.command', self.createCommandEvent(resp.cmdline, true, commandComplete, 'Enter a command...'));
+                    $storage.emit('kmud.command', evt);
                 }
             }
-            catch (e) {
+            catch (err) {
                 this.eventSend({
                     eventType: 'remoteError',
                     eventData: {
                         message: 'An error occurred processing your request; Please try again.'
                     }
                 });
-                console.log('Error in dispatchInput(): ' + e);
-                console.log(e.stack || e.trace);
+                if (evt) evt.callback(evt);
+                MUDData.MasterObject.errorHandler(err, false);
             }
         }
 

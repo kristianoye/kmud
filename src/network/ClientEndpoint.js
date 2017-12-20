@@ -7,7 +7,8 @@
  */
 const
     EventEmitter = require('events'),
-    { MUDConfigPort } = require('../MUDConfig');
+    { MUDConfigPort } = require('../MUDConfig'),
+    MUDEventEmitter = require('../MUDEventEmitter');
 
 
 const
@@ -15,7 +16,8 @@ const
     _connections = Symbol('connections'),
     _gameMaster = Symbol('gameMaster'),
     _maxConnections = Symbol('maxConnections'),
-    _port = Symbol('port');
+    _port = Symbol('port'),
+    _type = Symbol('type');
 
 var endpointData = {};
 
@@ -33,6 +35,7 @@ class ClientEndpoint extends EventEmitter {
         this[_gameMaster] = gameMaster;
         this[_maxConnections] = config.maxConnections;
         this[_port] = config.port;
+        this[_type] = config.type;
     }
 
     get address() {
@@ -51,8 +54,16 @@ class ClientEndpoint extends EventEmitter {
         return this[_maxConnections];
     }
 
+    get name() {
+        return `Binding: ${this.type}://${this.address}:${this.port}`;
+    }
+
     get port() {
         return this[_port];
+    }
+
+    get type() {
+        return this[_type];
     }
 
     /**

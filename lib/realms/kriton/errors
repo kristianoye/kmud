@@ -1,0 +1,32 @@
+Unexpected identifier
+/realms/kriton/Workroom.js:15
+    init() {
+    ^^^^
+
+SyntaxError: Unexpected identifier
+    at createScript (vm.js:80:10)
+    at Object.runInContext (vm.js:119:10)
+    at VMWrapper.run ([driver]\compiler\VMWrapper.js:32:25)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:190:38)
+    at Object.Compiler ([driver]\MUDData.js:52:55)
+    at EFUNProxy.value ([driver]\EFUNProxy.js:725:38)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update.js:12:25)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update:4:34)
+    at CreatorWrapper.processInput (/base/Interactive.js:196:111)
+    at CreatorWrapper.preprocessInput (/base/Creator.js:156:25)
+Invalid left-hand side in assignment
+/realms/kriton/Workroom.js:11
+        42 = 18;
+        ^^
+
+ReferenceError: Invalid left-hand side in assignment
+    at createScript (vm.js:80:10)
+    at Object.runInContext (vm.js:119:10)
+    at VMWrapper.run ([driver]\compiler\VMWrapper.js:32:25)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:190:38)
+    at Object.Compiler ([driver]\MUDData.js:52:55)
+    at EFUNProxy.value ([driver]\EFUNProxy.js:725:38)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update.js:12:25)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update:4:34)
+    at CreatorWrapper.processInput (/base/Interactive.js:196:111)
+    at CreatorWrapper.preprocessInput (/base/Creator.js:156:25)

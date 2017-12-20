@@ -5,6 +5,7 @@
     "portBindings": []
   },
   "mudlib": {
+    "applyNames": {},
     "base": "./lib",
     "heartbeatInterval": 1000,
     "includePath": [ "/base/include", "/sys/include" ],

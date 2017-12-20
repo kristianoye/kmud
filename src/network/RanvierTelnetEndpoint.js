@@ -38,7 +38,11 @@ class RanvierTelnetEndpoint extends ClientEndpoint {
             self.emit('kmud.connection.new', client, 'telnet');
             self.emit('kmud.connection', wrapper);
         });
-
+        server.on('error', (error) => {
+            if (error.code === 'EADDRINUSE') {
+                this.emit('error', error, this);
+            }
+        });
         server.netServer.listen(this.port, this.address);
         return this;
     }

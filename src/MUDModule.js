@@ -357,7 +357,9 @@ else if (objectCreationMethod === 'fullWrapper') {
     return new ${moduleName}Wrapper($ctx);
 })`].join('\n');
         let script = new vm.Script(scriptSource, {
-            filename: creationContext.filename + (id !== 0 ? '#' + id : '')
+            filename: creationContext.filename + (id !== 0 ? '#' + id : ''),
+            lineOffset: 1,
+            timeout: 2000
         });
         let foo = script.runInContext(this.context);
         return foo(creationContext, MUDData.Storage.createForId(creationContext.filename, id));
