@@ -15,37 +15,22 @@ const
     PipelineContext = PipeContext.PipelineContext,
     CompilerPipeline = require('./compiler/CompilerPipeline'),
     VMAbstraction = require('./compiler/VMAbstraction'),
-    MUDModule = require('./MUDModule');
-
+    MUDModule = require('./MUDModule'),
+    VM = VMAbstraction.getImplementation();
 
 class MUDCompiler {
     constructor(config) {
         var comps = 0, self = this, vm = false;
 
-        this.vm = new VMAbstraction();
         this.components = {};
         this.loaders = {};
         this.pipelines = {};
         this.validExtensions = [];
 
-        switch (this.vmName = config.virtualMachine || 'vm') {
-            case 'vm2':
-                const VM2Wrapper = require('./compiler/VM2Wrapper');
-                this.vm = new VM2Wrapper();
-                break;
-
-            case 'vm':
-                const VMWrapper = require('./compiler/VMWrapper');
-                this.vm = new VMWrapper();
-                break;
-
-            default:
-                throw new Error(`Unrecognized virtual machine module: ${this.vmName}`);
-        }
-
         Object.keys(config.loaders).forEach(name => {
             this.loaders[name] = require(config.loaders[name]["file"]); 
         });
+
         if (Array.isArray(config.components)) {
             config.components.forEach((comp, i) => {
                 if (!comp.name) throw new Error(`Invalid pipeline component [${i}] - No Name Specified: ${JSON.stringify(comp)}`);
@@ -187,7 +172,7 @@ class MUDCompiler {
                 }
 
                 module.loader = this.getLoader(pipeline, module);
-                var result = this.vm.run(context, module);
+                var result = VM.run(context, module);
 
                 module.allowProxy = module.loader.allowProxy;
                  

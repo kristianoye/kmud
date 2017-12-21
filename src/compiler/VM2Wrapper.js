@@ -34,4 +34,4 @@ class VM2Wrapper extends VMAbstraction {
     }
 }
 
-module.exports = VM2Wrapper;
+module.exports = new VM2Wrapper();

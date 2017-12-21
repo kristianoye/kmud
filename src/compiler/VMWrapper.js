@@ -3,7 +3,9 @@ const
     PipelineContext = require('./PipelineContext').PipelineContext,
     VMAbstraction = require('./VMAbstraction'),
     MUDData = require('../MUDData'),
+    MUDConfig = require('../MUDConfig').MUDConfig,
     MUDModule = require('../MUDModule'),
+    CompilerTimeout = MUDConfig.driver.compiler.maxCompileTime || -1,
     fs = require('fs'),
     vm = require('vm');
 
@@ -29,16 +31,22 @@ class VMWrapper extends VMAbstraction {
             filename: './src/Extensions.js',
             displayErrors: true
         });
-        var result = vm.runInContext(context.content, module.context, {
+
+        let options = {
             filename: context.resolvedName,
             lineOffset: 0,
-            timeout: MUDData.Config.driver.compiler.maxCompileTime,
             produceCachedData: false,
             displayErrors: true
-        });
+        };
+
+        if (CompilerTimeout > 0) {
+            options.timeout = CompilerTimeout;
+        }
+
+        let result = vm.runInContext(context.content, module.context, options);
 
         return result;
     }
 }
 
-module.exports = VMWrapper;
+module.exports = new VMWrapper();
