@@ -12,7 +12,11 @@ var
     vm = require('vm');
 
 const
-    useProxies = MUDConfig.driver.useObjectProxies;
+    useProxies = MUDConfig.driver.useObjectProxies,
+    useAuthorStats = MUDConfig.driver.hasFeature('authorStats'),
+    useDomainStats = MUDConfig.driver.hasFeature('domainStats'),
+    useStats = useAuthorStats || useDomainStats,
+    DomainStats = useStats ? require('./features/DomainStats').DomainStats : false;
 
 /**
  * Contains information about a previously loaded MUD module.
@@ -37,6 +41,15 @@ class MUDModule {
         this.proxies = [null];
         this.singleton = false;
         this.wrappers = [null];
+
+        if (useStats) {
+            let stats = MUDData.MasterObject.getDomainStats(filename) ||
+                MUDData.MasterObject.getAuthorStats(filename) || false;
+            if (stats) {
+                /** @type {DomainStats} */
+                this.stats = stats;
+            }
+        }
     }
 
     /**
@@ -83,7 +96,15 @@ class MUDModule {
                 if (useProxies) {
                     this.proxies[instanceId] = this.getProxy(instanceId, isReload);
                 }
-                instance.create(MUDData.Storage.get(instance));
+                let store = MUDData.Storage.get(instance);
+
+                instance.create(store);
+
+                if (this.stats) {
+                    store.stats = this.stats;
+                    this.stats.objects++;
+                    this.stats.arrays += store.getSizeOf();
+                }
 
                 Object.defineProperty(instance, 'wrapper', {
                     value: instanceWrapper,

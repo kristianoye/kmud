@@ -411,6 +411,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\ErrorTypes.js" />
+    <Compile Include="src\features\DomainStats.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\GameServer.js">
       <SubType>Code</SubType>
     </Compile>
@@ -791,6 +794,7 @@
     <Folder Include="src\network\" />
     <Folder Include="src\compiler\" />
     <Folder Include="src\config\" />
+    <Folder Include="src\features\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
   </ItemGroup>

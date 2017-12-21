@@ -10,6 +10,9 @@ class DriverSection {
         /** @type {string} */
         this.core = data.core;
 
+        /** @type {Object.<string,boolean>} */
+        this.features = data.features || {};
+
         /** @type {boolean} */
         this.useObjectProxies = typeof data.useObjectProxies === 'boolean' ? data.useObjectProxies : true;
 
@@ -32,6 +35,16 @@ class DriverSection {
         }
         this.networking.assertValid();
         return this;
+    }
+
+    /**
+     * Check to see if a particular driver feature is enabled.
+     * @param {string} feature
+     * @returns {boolean} True if the specified feature is defined and enabled.
+     */
+    hasFeature(feature) {
+        if (!this.features) return false;
+        return this.features[feature] || false;
     }
 }
 

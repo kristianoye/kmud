@@ -242,6 +242,9 @@ class MUDCompiler {
             }
         }
         catch (err) {
+            if (module && module.stats) {
+                module.stats.errors++;
+            }
             if (module && !module.loaded) {
                 MUDData.ModuleCache.delete(context.filename);
             }

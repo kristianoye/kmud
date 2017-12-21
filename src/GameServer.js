@@ -19,7 +19,8 @@ const
     HTTPClientEndpoint = require('./network/HTTPClientEndpoint'),
     TelnetClientEndpoint = require('./network/TelnetClientEndpoint'),
     MUDCompiler = require('./MUDCompiler'),
-    MUDEventEmitter = require('./MUDEventEmitter');
+    MUDEventEmitter = require('./MUDEventEmitter'),
+    { DomainStats, DomainStatsContainer } = require('./features/DomainStats');
 
 class GameServer extends MUDEventEmitter {
     /**
@@ -161,6 +162,8 @@ class GameServer extends MUDEventEmitter {
         }
 
         /* validate in-game master */
+        this.applyAuthorFile = locateApply('authorFile', false);
+        this.applyDomainFile = locateApply('domainFile', false);
         this.applyErrorHandler = locateApply('errorHandler', false);
         this.applyGetPreloads = locateApply('getPreloads', false);
         this.applyLogError = locateApply('logError', false);
@@ -327,6 +330,20 @@ class GameServer extends MUDEventEmitter {
 
     getAddress() {
         return this.serverAddress;
+    }
+
+    getAuthorStats(filename) {
+        if (this.applyAuthorFile) {
+            let author = this.applyAuthorFile.call(this.masterObject, filename);
+            return author && DomainStatsContainer.getAuthor(author, true);
+        }
+    }
+
+    getDomainStats(filename) {
+        if (this.applyDomainFile) {
+            let domain = this.applyDomainFile.call(this.masterObject, filename);
+            return domain && DomainStatsContainer.getDomain(domain, true);
+        }
     }
 
     getMudName() {

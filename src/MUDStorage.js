@@ -65,6 +65,16 @@ class MUDStorage extends MUDEventEmitter {
             return (this.symbols[prop] = defaultValue);
     }
 
+    /**
+     * Probably very inaccurate but it will do for now...
+     * @returns {number} A guess as to how much memory the object is using.
+     */
+    getSizeOf() {
+        let data = this.serialize(true),
+            size = JSON.stringify(data).length;
+        return size;
+    }
+
     incrementProperty(prop, incrementBy, initialValue) {
         if (!(prop in this.properties))
             this.properties[prop] = parseInt(initialValue);
@@ -107,11 +117,11 @@ class MUDStorage extends MUDEventEmitter {
      * Serialize the MUD object state into a format that can be stored
      * and reconstituted later.
      */
-    serialize() {
+    serialize(flag) {
         let result = {
             props: {},
             protected: {}
-        }, backrefs = [];
+        }, backrefs = [], propsOnly = flag || false;
 
         Object.keys(this.properties).forEach((prop, index) => {
             if (typeof prop === 'string') {
@@ -126,25 +136,25 @@ class MUDStorage extends MUDEventEmitter {
             }
         });
 
-        Object.keys(this.protected).forEach((prop, index) => {
-            if (typeof prop === 'string') {
-                let value = this.protected[prop], uw = unwrap(value);
-                if (Array.isArray(value)) result.protected[prop] = this.serializeArray(value);
-                else if (uw) result.protected[prop] = this.serializeMudObject(uw);
-                else if (typeof value === 'object') result.protected[prop] = this.serializeOtherObject(value);
-                else {
-                    let s = this.serializeScalar(value);
-                    if (s) result.protected[prop] = s;
+        if (!propsOnly) {
+            Object.keys(this.protected).forEach((prop, index) => {
+                if (typeof prop === 'string') {
+                    let value = this.protected[prop], uw = unwrap(value);
+                    if (Array.isArray(value)) result.protected[prop] = this.serializeArray(value);
+                    else if (uw) result.protected[prop] = this.serializeMudObject(uw);
+                    else if (typeof value === 'object') result.protected[prop] = this.serializeOtherObject(value);
+                    else {
+                        let s = this.serializeScalar(value);
+                        if (s) result.protected[prop] = s;
+                    }
                 }
-            }
-        });
-
-        var env = unwrap(this.environment);
-        result.$environment = env ? env.filename : null;
-        result.$inventory = this.inventory.map(item => {
-            let $storage = MUDStorage.get(item);
-            return $storage ? $storage.serialize() : false;
-        }).filter(s => s !== false);
+            });
+            result.$environment = unwrap(this.environment, (env) => env.filename);
+            result.$inventory = this.inventory.map(item => {
+                let $storage = MUDStorage.get(item);
+                return $storage ? $storage.serialize() : false;
+            }).filter(s => s !== false);
+        }
 
         result.$filename = this.filename;
 
@@ -268,6 +278,7 @@ MUDStorage.createForId = function (/** @type {string}, */ filename, /** @type {n
  * @returns {MUDStorage} The storage object for the specified object.
  */
 MUDStorage.get = function (/** @type {MUDObject} */ ob) {
+    if (typeof ob === 'function') ob = ob();
     return MUDStorage.instances[unwrap(ob)._propKeyId];
 };
 

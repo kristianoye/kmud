@@ -12,6 +12,7 @@ const
     { MUDConfig } = require('./MUDConfig'),
     ErrorTypes = require('./ErrorTypes'),
     MUDExecutionContext = require('./MUDExcecutionContext'),
+    { DomainStatsContainer } = require('./features/DomainStats'),
     util = require('util'),
     fs = require('fs'),
     vm = require('vm');
@@ -116,6 +117,10 @@ class EFUNProxy {
         else throw new Error(`Bad argument 1 to assemble_class(); Expected array got ${typeof arr}`);
     }
 
+    authorStats(name) {
+        return DomainStatsContainer.getAuthor(name);
+    }
+
     /**
      * Validate a password.
      * @param {string} plain The plain text entered as a password.
@@ -206,6 +211,10 @@ class EFUNProxy {
 
         }
         return false;
+    }
+
+    domainStats(domain) {
+        return DomainStatsContainer.getDomain(domain);
     }
 
     /**

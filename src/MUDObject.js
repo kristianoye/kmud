@@ -152,8 +152,9 @@ class MUDObject extends MUDEventEmitter {
     }
 
     enableHeartbeat(flag) {
-        var callback = this.getSymbol(_heartbeat) || false,
-            thisObject = global.wrapper(this);
+        let callback = this.getSymbol(_heartbeat) || false,
+            thisObject = global.wrapper(this),
+            $storage = MUDStorage.get(this);
 
         if (typeof this.eventHeartbeat !== 'function')
             throw new Error('Cannot call enableHeartbeat() on that object!');
@@ -163,7 +164,13 @@ class MUDObject extends MUDEventEmitter {
                 if (callback) {
                     MUDData.MasterObject.removeListener('kmud.heartbeat', callback);
                 }
-                callback = (ticks, total) => { this.eventHeartbeat(ticks, total); };
+                callback = (ticks, total) => {
+                    let env = MUDStorage.get($storage.environment);
+                    this.eventHeartbeat(ticks, total);
+                    if (env && env.stats) {
+                        env.stats.heartbeats++;
+                    }
+                };
                 this.setSymbol(_heartbeat, callback);
                 MUDData.MasterObject.addListener('kmud.heartbeat', callback);
                 MUDData.Livings.push(thisObject);
@@ -242,6 +249,10 @@ class MUDObject extends MUDEventEmitter {
         return MUDData.SharedProps[this.basename][key] || defaultValue;
     }
 
+    getSizeOf() {
+        return MUDStorage.get(this).getSizeOf();
+    }
+
     incrementProperty(key, value, initialValue, callback) {
         return MUDStorage.get(this).incrementProperty(key, value, initialValue);
         if (typeof callback === 'function') callback.call(this, val, props[key]);
@@ -304,10 +315,14 @@ class MUDObject extends MUDEventEmitter {
 
             if (target().canAcceptItem(this)) {
                 if (target().addInventory(this)) {
-                    if (isAlive) {
+                    let $storage = MUDStorage.get(this),
+                        $target = MUDStorage.get(target);
 
+                    if (isAlive) {
+                        let stats = $target.stats;
+                        if (stats) stats.moves++;
                     }
-                    MUDStorage.get(this).environment = target;
+                    $storage.environment = target;
                     this.setSymbol(_environment, target);
                     if (isAlive) {
                         target().init.call(this);
