@@ -126,7 +126,7 @@ class DriverNetworkingEndpointsConfig {
     }
 }
 
-class DriverNetworkingSection {
+class DriverNetworking {
     constructor(data) {
         this.endpoints = new DriverNetworkingEndpointsConfig(data.endpoints);
     }
@@ -137,7 +137,7 @@ class DriverNetworkingSection {
 }
 
 module.exports = {
-    DriverNetworkingSection,
+    DriverNetworking,
     DriverNetworkingEndpointConfig,
     DriverNetworkingEndpointsConfig,
     DriverNetworkingEndpointHandlerConfig

@@ -15,7 +15,7 @@ class AdminSetup extends MudSetupStep {
 
     characterFilename(name) {
         let normName = name.toLowerCase().replace(/[^a-z0-9]+$/g, ''),
-            filename = path.resolve(__dirname, '../../../', this.config.mudlib.base, 'sys/data/creators/', normName.charAt(0), normName + '.json');
+            filename = path.resolve(__dirname, '../../../', this.config.mudlib.baseDirectory, 'sys/data/creators/', normName.charAt(0), normName + '.json');
         return filename;
     }
 

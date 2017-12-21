@@ -9,7 +9,7 @@ const ClientEndpoint = require('./ClientEndpoint'),
     Telnet = require('./RanvierTelnet'),
     TelnetServer = Telnet.TelnetServer,
     TelnetSocket = Telnet.TelnetSocket,
-    { MUDConfigPort } = require('../MUDConfig'),
+    MudPort = require('../config/MudPort'),
     RanvierTelnetInstance = require('./RanvierTelnetInstance'),
     _connections = Symbol('_connections');
 
@@ -17,7 +17,7 @@ class RanvierTelnetEndpoint extends ClientEndpoint {
     /**
      * 
      * @param {any} gameMaster
-     * @param {MUDConfigPort} config
+     * @param {MudPort} config
      */
     constructor(gameMaster, config) {
         super(gameMaster, config);

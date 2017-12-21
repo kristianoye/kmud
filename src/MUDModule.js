@@ -380,7 +380,7 @@ else if (objectCreationMethod === 'fullWrapper') {
         let script = new vm.Script(scriptSource, {
             filename: creationContext.filename + (id !== 0 ? '#' + id : ''),
             lineOffset: 1,
-            timeout: 2000
+            timeout: MUDData.Config.driver.compiler.maxConstructorTime
         });
         let foo = script.runInContext(this.context);
         return foo(creationContext, MUDData.Storage.createForId(creationContext.filename, id));

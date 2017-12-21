@@ -32,6 +32,7 @@ class VMWrapper extends VMAbstraction {
         var result = vm.runInContext(context.content, module.context, {
             filename: context.resolvedName,
             lineOffset: 0,
+            timeout: MUDData.Config.driver.compiler.maxCompileTime,
             produceCachedData: false,
             displayErrors: true
         });

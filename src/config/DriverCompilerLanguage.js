@@ -1,6 +1,6 @@
 ﻿
 
-class MUDCompilerLanguageConfig {
+class DriverCompilerLanguage {
     constructor(data, ext) {
         /** @type {string} */
         this.id = data.id;
@@ -20,4 +20,4 @@ class MUDCompilerLanguageConfig {
 }
 
 
-module.exports = MUDCompilerLanguageConfig;
+module.exports = DriverCompilerLanguage;

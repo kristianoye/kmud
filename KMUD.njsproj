@@ -382,28 +382,37 @@
     <Compile Include="src\config\ConfigShared.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\config\MUDCompilerComponentConfig.js">
+    <Compile Include="src\config\DriverCompilerComponent.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\config\MUDCompilerLanguageConfig.js">
+    <Compile Include="src\config\DriverCompilerLanguage.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\config\DriverSectionCompiler.js">
+    <Compile Include="src\config\DriverCompiler.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\config\DriverSection.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\config\MUDLibSection.js">
+    <Compile Include="src\config\MudlibMasterObject.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\config\MUDLoaderConfig.js">
+    <Compile Include="src\config\MudlibSection.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\config\DriverSectionNetworking.js">
+    <Compile Include="src\config\DriverCompilerLoader.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\config\DriverNetworking.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\config\MUDPasswordPolicy.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\config\MudPort.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\config\MudSection.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\EFUNProxy.js" />

@@ -8,7 +8,9 @@
 const
     EventEmitter = require('events'),
     ClientEndpoint = require('./ClientEndpoint'),
-    MUDEventEmitter = require('../MUDEventEmitter');
+    MUDEventEmitter = require('../MUDEventEmitter'),
+    MUDConfig = require('../MUDConfig').MUDConfig,
+    DefaultError = MUDConfig.mudlib.defaultError;
 
 const
     _body = Symbol('body'),
@@ -94,18 +96,18 @@ class ClientInstance extends EventEmitter {
         return {
             verb: verb.trim(),
             args: words,
+            callback: callback,
             client: this,
-            error: 'What?',
+            error: DefaultError.replace('$verb', verb),
+            fromHistory: false,
             input: input.slice(verb.length).trim(),
+            original: input,
             preferHtml: isBrowser,
             prompt: {
                 type: 'text',
                 text: defaultPrompt,
                 recapture: false
-            },
-            original: input,
-            callback: callback,
-            fromHistory: false
+            }
         };
     }
 

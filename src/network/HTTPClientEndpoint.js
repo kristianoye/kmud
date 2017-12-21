@@ -9,7 +9,7 @@ const ClientEndpoint = require('./ClientEndpoint'),
     fs = require('fs'),
     HTTP = require('http'),
     HTTPClientInstance = require('./HTTPClientInstance'),
-    { MUDConfigPort } = require('../MUDConfig'),
+    MudPort = require('../config/MudPort'),
     URL = require('url'),
     Path = require('path');
 
@@ -88,7 +88,7 @@ class HTTPClientEndpoint extends ClientEndpoint {
     /**
      * Construct a new HTTP client endpoint.
      * @param {object} gameMaster The master object.
-     * @param {MUDConfigPort} config The port configuration.
+     * @param {MudPort} config The port configuration.
      */
     constructor(gameMaster, config) {
         super(gameMaster, config);

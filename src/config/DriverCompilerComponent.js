@@ -5,7 +5,7 @@
 var
     nextComponentId = 1;
 
-class MUDCompilerComponentConfig {
+class DriverCompilerComponent {
     constructor(data) {
         /** @type {string} */
         this.id = data.id || 'Component #' + nextComponentId;
@@ -25,5 +25,5 @@ class MUDCompilerComponentConfig {
     }
 }
 
-module.exports = MUDCompilerComponentConfig;
+module.exports = DriverCompilerComponent;
 

@@ -8,14 +8,14 @@
 const ClientEndpoint = require('./ClientEndpoint'),
     Telnet = require('telnet'),
     TelnetClientInstance = require('./TelnetClientInstance'),
-    { MUDConfigPort } = require('../MUDConfig'),
+    MudPort = require('../config/MudPort'),
     _connections = Symbol('_connections');
 
 class TelnetClientEndpoint extends ClientEndpoint {
     /**
      * 
      * @param {any} gameMaster
-     * @param {MUDConfigPort} config
+     * @param {MudPort} config
      */
     constructor(gameMaster, config) {
         super(gameMaster, config);

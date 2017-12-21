@@ -1,30 +1,51 @@
-﻿
-class MUDLibSection {
+﻿const
+    MudlibMasterObject = require('./MudlibMasterObject');
+
+class MudlibSection {
     constructor(data) {
 
         /** @type {Object.<string,string>} */
         this.applyNames = data.applyNames;
 
-        this.base = data.base;
+        /** @type {string} */
+        this.baseDirectory = data.baseDirectory;
 
+        /** @type {string} */
+        this.defaultError = data.defaultError || 'What?';
+
+        /** @type {string} */
         this.heartbeatInterval = parseInt(data.heartbeatInterval) || 1000;
 
+        /** @type {string[]} */
         this.includePath = Array.isArray(data.includePath) ? data.includePath : [];
 
-        /** @type {MUDMasterObjectConfig} */
-        this.inGameMaster = new MUDMasterObjectConfig(data.inGameMaster);
+        /** @type {MudlibMasterObject} */
+        this.inGameMaster = new MudlibMasterObject(data.inGameMaster);
 
         /** @type {string} */
         this.logDirectory = data.logDirectory || '/log';
 
+        /** @type {string} */
         this.loginObject = data.loginObject;
 
+        /** @type {string} */
         this.simulEfuns = data.simulEfuns || false;
 
+        /** @type {string} */
         this.mudlibName = 'KMUD';
+
+        /** @type {number} */
         this.mudlibVersionMajor = 0;
+
+        /** @type {number} */
         this.mudlibVersionMinor = 3;
+
+        /** @type {number} */
         this.mudlibPatchVersion = 1;
+    }
+
+    assertValid() {
+        this.inGameMaster.assertValid();
     }
 
     getVersion() {
@@ -32,4 +53,4 @@ class MUDLibSection {
     }
 }
 
-module.exports = MUDLibSection;
+module.exports = MudlibSection;

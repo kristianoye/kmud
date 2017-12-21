@@ -2,7 +2,7 @@
     fs = require('fs'),
     resolvePath = require('./ConfigShared').resolvePath;
 
-class MUDLoaderConfig {
+class DriverCompilerLoader {
     constructor(data, id) {
         /** @type {boolean} */
         this.enabled = true;
@@ -27,4 +27,4 @@ class MUDLoaderConfig {
     }
 }
 
-module.exports = MUDLoaderConfig;
+module.exports = DriverCompilerLoader;

@@ -7,7 +7,7 @@
  */
 const
     EventEmitter = require('events'),
-    { MUDConfigPort } = require('../MUDConfig'),
+    MudPort = require('../config/MudPort'),
     MUDEventEmitter = require('../MUDEventEmitter');
 
 
@@ -25,7 +25,7 @@ class ClientEndpoint extends EventEmitter {
     /**
      *
      * @param {GameServer} gameMaster The game master object.
-     * @param {MUDConfigPort} config The port configuration.
+     * @param {MudPort} config The port configuration.
      */
     constructor(gameMaster, config) {
         super();

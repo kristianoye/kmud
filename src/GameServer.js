@@ -310,6 +310,9 @@ class GameServer extends MUDEventEmitter {
         return true;
     }
 
+    /**
+     * Periodically call heartbeat on all applicable objects in the game.
+     */
     executeHeartbeat() {
         try {
             this.emit('kmud.heartbeat', this.heartbeatInterval, ++this.heartbeatCounter);
@@ -332,6 +335,11 @@ class GameServer extends MUDEventEmitter {
         return this.serverAddress;
     }
 
+    /**
+     * If enabled this returns the author stats to track wizard popularity and usage.
+     * @param {string} filename
+     * @returns {DomainStats}
+     */
     getAuthorStats(filename) {
         if (this.applyAuthorFile) {
             let author = this.applyAuthorFile.call(this.masterObject, filename);
@@ -339,6 +347,11 @@ class GameServer extends MUDEventEmitter {
         }
     }
 
+    /**
+     * If enabled this returns the author stats to track domain popularity and usage.
+     * @param {string} filename
+     * @returns {DomainStats}
+     */
     getDomainStats(filename) {
         if (this.applyDomainFile) {
             let domain = this.applyDomainFile.call(this.masterObject, filename);
@@ -573,7 +586,7 @@ class GameServer extends MUDEventEmitter {
         else return this.applyValidObject.apply(this.masterObject, arguments);
     } 
 
-    getStack() {
+    getObjectStack() {
         let isUnguarded = false, _stack = stack(), result = [];
         for (let i = 0, max = _stack.length; i < max; i++) {
             let cs = _stack[i],
@@ -622,7 +635,7 @@ class GameServer extends MUDEventEmitter {
             return true;
         else if (efuns.filename === '/') return true;
         else {
-            let checkObjects = this.getStack();
+            let checkObjects = this.getObjectStack();
             if (checkObjects.length > 0) {
                 for (let i = 0; i < checkObjects.length; i++) {
                     if (!this.applyValidRead.call(this.masterObject, path, checkObjects[i].object, checkObjects[i].func))
@@ -652,7 +665,7 @@ class GameServer extends MUDEventEmitter {
             return true;
         else if (efuns.filename === '/') return true;
         else {
-            let checkObjects = this.getStack();
+            let checkObjects = this.getObjectStack();
             if (checkObjects.length > 0) {
                 for (let i = 0; i < checkObjects.length; i++) {
                     if (checkObjects[i].object === this.masterObject) continue;
