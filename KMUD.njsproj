@@ -379,6 +379,33 @@
     <Compile Include="src\compiler\VMWrapper.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\config\ConfigShared.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\config\MUDCompilerComponentConfig.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\config\MUDCompilerLanguageConfig.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\config\DriverSectionCompiler.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\config\DriverSection.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\config\MUDLibSection.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\config\MUDLoaderConfig.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\config\DriverSectionNetworking.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\config\MUDPasswordPolicy.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\EFUNProxy.js" />
     <Compile Include="src\EFUNS.js">
       <SubType>Code</SubType>
@@ -763,6 +790,7 @@
     <Folder Include="src\" />
     <Folder Include="src\network\" />
     <Folder Include="src\compiler\" />
+    <Folder Include="src\config\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
   </ItemGroup>

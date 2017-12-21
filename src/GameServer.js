@@ -237,12 +237,12 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
-     * Apply handling to a runtime error.
+     * Let the in-game master possibly handle an exception.
      * @param {Error} err
      * @param {boolean} caught
      */
     errorHandler(err, caught) {
-        if (this.applyErrorHandler !== false) {
+        if (this.applyErrorHandler) {
             MUDData.CleanError(err);
             let error = {
                 error: err.message,
@@ -586,6 +586,13 @@ class GameServer extends MUDEventEmitter {
         return result;
     }
 
+    /**
+     * Get the MUD uptime.
+     * @returns {number} The game uptime in milliseconds.
+     */
+    uptime() {
+        return new Date().getTime() - this.startTime;
+    }
     validReadConfig(caller, key) {
         if (MUDData.GameState === MUDData.Constants.GAMESTATE_STARTING)
             return true;

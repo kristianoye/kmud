@@ -223,7 +223,7 @@ class MUDLoader {
                                 var content = _includeCache[includedFile] || false;
                                 try {
                                     if (!content) {
-                                        content = _.efuns.stripBOM(_.efuns.readFile(includedFile));
+                                        content = MUDData.StripBOM(_.efuns.readFile(includedFile));
                                     }
                                     var ctx = vm.createContext(_);
                                     var result = vm.runInContext(content, ctx, {
@@ -259,7 +259,7 @@ class MUDLoader {
                 value: function (target, src) {
                     var _ = this || self,
                         file = _.efuns.resolvePath(src, _.directory),
-                        content = _.efuns.stripBOM(_.efuns.readFile(file = file + (file.endsWith('.js') ? '' : '.js')));
+                        content = MUDData.StripBOM(_.efuns.readFile(file = file + (file.endsWith('.js') ? '' : '.js')));
                     try {
                         _extending = target;
                         var ctx = vm.createContext(_);

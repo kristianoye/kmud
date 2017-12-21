@@ -222,6 +222,10 @@ class MUDObject extends MUDEventEmitter {
         return MUDStorage.get(this).inventory.map(o => unwrap(o));
     }
 
+    isLiving() { return false; }
+
+    isPlayer() { return false; }
+
     get name() {
         return this.id;
     }
@@ -336,6 +340,8 @@ class MUDObject extends MUDEventEmitter {
     }
 
     receive_message(msgClass, text) {
+        let client = MUDData.Storage.get(this).getProtected('client');
+        if (client) client.write(text);
     }
 
     serializeObject() {

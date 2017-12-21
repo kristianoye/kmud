@@ -301,15 +301,6 @@ declare class EFUNProxy
     isLiving(target: any): boolean;
 
     /**
-    * Execute the specified code only if the objects in the permission stack have
-    * the specified permission ID.
-    * @param {string} permission The permission to search for.
-    * @param {function}  callback The code to execute if the permission check passed.
-    * @returns {any|false} Returns what the callback returns.
-    */
-    ifPermission(permission: string[], callback: (...args?: any[]) => any);
-
-    /**
     * Returns an in-memory object or loads and returns that object if it was not previously loaded.
     * @param {string} path The path to the module to load.
     * @returns {MUDObject} The object or false if the object was invalid.

@@ -301,7 +301,9 @@ class EFUNProxy {
         if (typeof flags === 'function') (cb = flags), (flags = 0);
         return this.resolvePath(expr, (fullpath) => {
             if (MUDData.MasterObject.validRead(this, fullpath)) {
-                return MUDData.MasterEFUNS.getDir(MUDData.MasterEFUNS.mudPathToAbsolute(fullpath), flags, cb);
+                return MUDData.MasterEFUNS.getDir(
+                    MUDData.MasterEFUNS.mudPathToAbsolute(fullpath), flags,
+                    MUDExecutionContext.awaiter(cb));
             }
             throw new Error('Permission denied: ' + expr);
         });
@@ -350,9 +352,332 @@ class EFUNProxy {
         return files.length === 0 ? MUDData.MasterObject.includePath : result;
     }
 
+    /**
+     * Determines whether the specified path expression is a directory.
+     * @param {string} dirpath The path expression to check.
+     * @param {function=} callback Optional callback for async operation.
+     * @returns {boolean} True if the path resolves to a directory.
+     */
+    isDirectory  (dirpath, callback) {
+        if (MUDData.MasterObject.validRead(this, dirpath)) {
+            return MUDData.MasterEFUNS.isDirectory(MUDData.MasterEFUNS.mudPathToAbsolute(dirpath), callback);
+        }
+        throw new Error('Permission denied: ' + dirpath);
+    }
+
+    /**
+     * Checks to see if the value is a class.
+     * @param {any} o The value to check.
+     * @returns {boolean} True if the value is a class reference.
+     */
+    isClass (o) {
+        return /\s*class /.test(o.toString());
+    }
+
+    /**
+     * Determine whether the value is a clone or not.
+     * @param {any} o The value to check.
+     * @returns {boolean} True if the value is a clone of a MUD object.
+     */
+    isClone(o) {
+        return unwrap(o, (ob) => ob.instanceId > 0);
+    }
+
+    /**
+     * Determines whether the path expression represents a normal file.
+     * @param {string} filepath The file expression to check.
+     * @param {function=} cb An optional callback for async operation.
+     */
+    isFile (filepath, cb) {
+        if (MUDData.MasterObject.validRead(this, filepath)) {
+            return MUDData.MasterEFUNS.isFile(MUDData.MasterEFUNS.mudPathToAbsolute(filepath), cb);
+        }
+        throw new ErrorTypes.SecurityError();
+    }
+
+    /**
+     * Determines whether the target value is a living object.
+     * @param {any} target The value to check.
+     * @returns {boolean} True if the object is alive or false if not.
+     */
+    isLiving(target) {
+        return unwrap(target, (ob) => ob.isLiving());
+    }
+
+    /**
+     * Attempts to find the specified object.  If not found then the object is compiled and returned.
+     * @param {string} path The filename of the object to try and load.
+     * @param {any} args If the object is not found then these arguments are passed to the constructor.
+     */
+    loadObject(path, args) {
+        var filename = this.resolvePath(path);
+        if (MUDData.MasterObject.validRead(this, filename)) {
+            var module = MUDData.ModuleCache.get(filename);
+            if (module && module.loaded) {
+                if (module.instances[0])
+                    return module.getWrapper(0);
+                else
+                    return module.createInstance(0, false, args);
+            }
+            else {
+                module = MUDData.Compiler(filename, false, undefined, args);
+                return module ? module.getWrapper(0) : false;
+            }
+        }
+        throw new ErrorTypes.SecurityError();
+    }
+
+    /**
+     * Send a message to one or more recipients.
+     * @param {string} messageType
+     * @param {string|MUDHtmlComponent|number|function} expr
+     * @param {...MUDObject[]} audience
+     */
+    message(messageType, expr, ...audience) {
+        if (expr && MUDData.ThisPlayer) {
+            if (typeof expr !== 'string') {
+                if (expr instanceof MUDHtmlComponent)
+                    expr = expr.render();
+                else if (typeof expr === 'number')
+                    expr = expr.toString();
+                else if (typeof expr !== 'function')
+                    throw new Error(`Bad argument 2 to message; Expected string, number, or MUDHtmlComponent but received ${typeof expr}`);
+            }
+            if (typeof expr === 'function') {
+                audience.forEach(a => {
+                    if (Array.isArray(a))
+                        this.message(messageType, expr, a);
+                    else unwrap(a, a => a.receive_message(messageType, expr(a)));
+                });
+            }
+            else {
+                audience.forEach(a => {
+                    if (Array.isArray(a))
+                        this.message(messageType, expr, a);
+                    else unwrap(a, a => a.receive_message(messageType, expr));
+                });
+            }
+        }
+    }
+
+    /**
+     * Create a directory in the MUD filesystem.
+     * @param {string} path The file expression to turn into a directory.
+     * @param {function=} callback An optional callback for async mode.
+     * @returns {boolean} True if the directory was created (or already exists)
+     */
+    mkdir(path, callback) {
+        var filename = this.resolvePath(path);
+        if (MUDData.MasterObject.validWrite(this, filename)) {
+            var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
+            return MUDData.MasterEFUNS.mkdir(absPath, callback);
+        }
+        throw new ErrorTypes.SecurityError();
+    }
+
+    mudInfo () {
+        return {
+            arch: os.arch(),
+            architecture: os.platform(),
+            cpuUsage: process.cpuUsage().user,
+            gameDriver: 'Node.js v' + process.versions.node,
+            hardware: (function () {
+                var cpus = {}, r = [];
+                os.cpus().forEach((cpu, i) => {
+                    if (!cpus[cpu.model]) cpus[cpu.model] = 0;
+                    cpus[cpu.model]++;
+                });
+                for (var k in cpus) {
+                    r.push(k + " x " + cpus[k]);
+                }
+                return r.join('');
+            })(),
+            mudlibName: 'KMUD',
+            mudlibBaseVersion: MUDData.Config.mudlib.getVersion(),
+            mudlibVersion: 'Emerald MUD 2.0',
+            mudMemoryTotal: this.getMemSizeString(process.memoryUsage().heapTotal),
+            mudMemoryUsed: this.getMemSizeString(process.memoryUsage().heapUsed),
+            name: MUDData.MasterObject.mudName,
+            osbuild: os.type() + ' ' + os.release(),
+            serverAddress: MUDData.MasterObject.serverAddress,
+            systemMemoryUsed: this.getMemSizeString(os.totalmem() - os.freemem()),
+            systemMemoryPercentUsed: ((os.totalmem() - os.freemem()) / os.totalmem()) * 100.0,
+            systemMemoryTotal: this.getMemSizeString(os.totalmem()),
+            uptime: MUDData.MasterObject.uptime()
+        };
+    }
+
+    /**
+     * Returns the MUD's name
+     * @returns {string} The MUD name.
+     */
+    mudName() {
+        return MUDData.Config.mud.name;
+    }
+
+    /**
+     * Returns a normalized version of a character name.
+     * @param {string} name The name to normalize e.g. Bob the Builder
+     * @returns {string} The normalized version of the name e.g. 'bobthebuilder'
+     */
+    normalizeName(name) {
+        if (typeof name !== 'string')
+            throw new Error('Bad argument 1 to normalizeName; Expected string got {0}'.fs(typeof name));
+        return name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    }
+
+    /**
+     * Determines whether a value is a player or not.
+     * @param {any} target The value to check.
+     * @returns {boolean} True if the value is a player or false.
+     */
+    playerp(target) {
+        return unwrap(target, (player) => player.isPlayer());
+    }
+
+    /**
+     * Returns players in the game.  
+     * @param {boolean=} showAll If optional flag is provided then link-dead players are also shown.
+     * @returns {MUDObject[]} Player objects currently in the game.
+     */
+    players(showAll) {
+        return MUDData.Players.map(p => unwrap(p)).filter((player) => {
+            if (!player.connected && !showAll)
+                return false;
+            return true;
+        });
+    }
+
+    /**
+     * Returns the pluralized version of a string.
+     * @param {string} what The string to pluralize. e.g. "Sword of Truth"
+     * @returns {string} The pluralized version of the string.  e.g. "Swords of Truth"
+     */
+    pluralize(what) {
+        return MUDData.MasterEFUNS.pluralize(what);
+    }
+
+    /**
+     * Attempt to read a value from the MUD's config file.
+     * @param {string} key A delimited key like mud.name.
+     * @param {any} defaultValue A default value if one was not specified in the config.
+     * @returns {any} A value from the config if permitted by the master object.
+     */
+    readConfig(key, defaultValue) {
+        if (MUDData.MasterObject.validReadConfig(this.thisObject(), key))
+            return MUDData.Config.readValue(key, defaultValue);
+        return false;
+    }
+
+    /**
+     * Attempt to read a plain file.
+     * @param {string} filename The name of the file to read.
+     * @param {function=} callback An optional callback for an async read.
+     * @returns {string|void} Reads the file contents if read synchronously.
+     */
+    readFile(filename, callback) {
+        if (MUDData.MasterObject.validRead(this, filename)) {
+            let result = MUDData.MasterEFUNS.readFile(
+                MUDData.MasterEFUNS.mudPathToAbsolute(this.resolvePath(filename)),
+                MUDExecutionContext.awaiter(callback));
+            return result ? MUDData.StripBOM(result) : undefined;
+        }
+        throw new Error('Permission denied: ' + filename);
+    }
+
+    /**
+     * 
+     * @param {string} filename
+     * @param {function=} callback
+     */
+    readJsonFile(filename, callback) {
+        if (typeof callback === 'function') {
+            return this.readFile(this.resolvePath(filename), (content) => {
+                var result = JSON.parse(content);
+                callback(result, false);
+            });
+        }
+        else {
+            return JSON.parse(this.readFile(this.resolvePath(filename)));
+        }
+    }
+
+    reloadObject(path) {
+        var filename = this.resolvePath(path);
+        if (MUDData.MasterObject.validRead(this, filename)) {
+            var result = MUDData.Compiler(filename, true);
+            return result === false ? false : true;
+        }
+        throw new ErrorTypes.SecurityError();
+    }
+
+    /**
+     * Attempt to convert a partial MUD path into a fully-qualified MUD path.
+     * @param {string} expr
+     * @param {string} expr2
+     * @param {any} callback
+     */
+    resolvePath(expr, expr2, callback) {
+        if (typeof expr2 === 'function') {
+            callback = expr2;
+            expr2 = false;
+        }
+        else if (typeof expr2 !== 'string') {
+            expr2 = false;
+        }
+        if (expr[0] === '~') {
+            var re = /^~([\\\/])*([^\\\/]+)/, m = re.exec(expr) || [];
+            if (m.length === 2) {
+                expr = '/realms/' + m[2] + expr.slice(m[2].length + 1);
+            }
+            else if (expr[1] === '/' || expr === '~') {
+                expr = MUDData.ThisPlayer ? '/realms/' + MUDData.ThisPlayer.getName() + expr.slice(1) : self.homeDirectory + expr.slice(1);
+            }
+            else if (m.length === 3 && !m[1]) {
+                expr = '/realms/' + expr.slice(1);
+            }
+        }
+        var result = expr.startsWith('/') ?
+            path.join('/', expr.substr(1)).replace(/\\/g, '/') :
+            path.join(expr2 || this.directory, expr).replace(/\\/g, '/');
+        return typeof callback === 'function' ? callback(result) : result;
+    }
+
+    rm(path, callback) {
+        var filename = this.resolvePath(path);
+        if (MUDData.MasterObject.validWrite(this, filename)) {
+            var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
+            return MUDData.MasterEFUNS.rm(absPath);
+        }
+        throw new ErrorTypes.SecurityError();
+    }
+
+    rmdir(path, callback) {
+        var filename = this.resolvePath(path);
+        if (MUDData.MasterObject.validWrite(this, filename)) {
+            var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
+            return MUDData.MasterEFUNS.rmdir(absPath);
+        }
+        throw new ErrorTypes.SecurityError();
+    }
+
+    shutdown(errCode, reason) {
+        if (MUDData.MasterObject.validShutdown(this)) {
+            process.exit(errCode || 0);
+        }
+    }
+
+    sprintf(...args) {
+        return sprintf.apply(sprintf, args);
+    }
+
+    /**
+     * Returns the upper-most object on the stack.
+     * @returns {MUDObject|false} The last object to interact with the MUD or false if none.
+     */
     thisObject() {
         var prev = this.previousObject(-1);
-        return prev[0];
+        return prev[0] || false;
     }
 
     /**
@@ -376,33 +701,70 @@ class EFUNProxy {
         }
         return typeof result === 'undefined' ? this : result;
     }
+
+    userp(target) {
+        return unwrap(target, (player) => player.isPlayer());
+    }
+
+    /**
+     * Checks to see if a given password complies with the MUD password policy.
+     * @param {string} str A plain text password.
+     * @returns {boolean} True if the password complies with the policy or false if too weak.
+     */
+    validPassword(str) {
+        return MUDData.Config.mud.passwordPolicy.validPassword(str);
+    }
+
+    /**
+     * Determine if the given object is a wizard or not.
+     * @param {any} target
+     */
+    wizardp(target) {
+        return MUDData.MasterObject.inGroup(target, 'admin', 'arch', 'wizard');
+    }
+
+    /**
+     * Write a message to the current player's screen.
+     * @param {any} expr
+     */
+    write(expr) {
+        this.message('write', expr, MUDData.ThisPlayer);
+        return true;
+    }
+    /**
+     * Write text to file.
+     * @param {string} filename The file to write to.
+     * @param {string} content The content to write.
+     * @param {function=} callback Optional callback for async mode.
+     * @param {boolean} overwrite A flag indicating the file should be overwritten.
+     */
+    writeFile(filename, content, callback, overwrite) {
+        var _async = typeof callback === 'function',
+            _filename = this.resolvePath(filename),
+            _absfile = MUDData.MasterEFUNS.mudPathToAbsolute(_filename);
+
+        if (typeof content === 'object') {
+            content = JSON.stringify(content);
+            overwrite = true;
+        }
+        else if (typeof content === 'function') {
+            content = content();
+        }
+
+        if (MUDData.MasterObject.validWrite(this, _filename)) {
+            return MUDData.MasterEFUNS.writeFile(_absfile, content,
+                MUDExecutionContext.awaiter(callback),
+                overwrite);
+        }
+        throw new Error('Permission denied: ' + _filename);
+    }
+
+    writeJsonFile(filename, data, callback, replacer) {
+        return this.writeFile(filename, JSON.stringify(data, replacer, 2), callback, true);
+    }
 }
 
 Object.defineProperties(EFUNProxy.prototype, {
-    activePermissions: {
-        value: function () {
-            var seen = {}, perms = [], s = stack();
-            if (MUDData.ActivePerms) {
-                return MUDData.ActivePerms.permissions;
-            }
-            s.forEach(cs => {
-                var fn = cs.getFileName(),
-                    mp = MUDData.MasterEFUNS.pathToMudPath(fn);
-
-                if (mp && !seen[mp]) {
-                    var wext = mp.replace(/\.js[x]*$/, ''),
-                        module = MUDData.ModuleCache.get(wext);
-
-                    if (module) {
-                        perms.pushDistinct(...module.efunProxy.permissions);
-                        seen[wext] = true;
-                    }
-                }
-            });
-            return perms;
-        },
-        writable: false
-    },
     getProxy: {
         value: function (n) {
             var module = MUDData.ModuleCache.get(this.filename);
@@ -433,181 +795,6 @@ Object.defineProperties(EFUNProxy.prototype, {
                 (typeof o.client === 'object') &&
                 (o.client.isBrowser === true);
         }
-    },
-    isDirectory: {
-        value: function (dirpath, callback) {
-            if (MUDData.MasterObject.validRead(this, dirpath)) {
-                return MUDData.MasterEFUNS.isDirectory(MUDData.MasterEFUNS.mudPathToAbsolute(dirpath), callback);
-            }
-            throw new Error('Permission denied: ' + dirpath);
-        },
-        writable: false
-    },
-    isClass: {
-        value: function (o) {
-            return /\s*class /.test(o.toString());
-        },
-        writable: false
-    },
-    isClone: {
-        value: function (o) {
-            var target = unwrap(o);
-            return typeof target === 'object' && target.instanceId > 0;
-        },
-        writable: false
-    },
-    isFile: {
-        value: function (filepath, cb) {
-            if (MUDData.MasterObject.validRead(this, filepath)) {
-                return MUDData.MasterEFUNS.isFile(MUDData.MasterEFUNS.mudPathToAbsolute(filepath), cb);
-            }
-            throw new ErrorTypes.SecurityError();
-        },
-        writable: false
-    },
-    isLiving: {
-        value: function (target) {
-            var o = unwrap(target);
-            return o === false ? false : typeof o.dispatchInput === 'function';
-        },
-        writable: false
-    },
-    ifPermission: {
-        value: function (perms, callback) {
-            var ap = this.activePermissions();
-            if (typeof perms === 'string')
-                perms = [perms];
-            if (Array.isArray(perms)) {
-                for (var i = 0, max = perms.length; i < max; i++) {
-                    if (ap.indexOf('ROOT') > -1) break;
-                    if (ap.indexOf(perms[i]) < 0) return false;
-                }
-                return callback.call(this);
-            }
-            return false;
-        },
-        writable: false
-    },
-    loadObject: {
-        value: function (path, args) {
-            var filename = this.resolvePath(path);
-            if (MUDData.MasterObject.validRead(this, filename)) {
-                var module = MUDData.ModuleCache.get(filename);
-                if (module && module.loaded) {
-                    if (module.instances[0])
-                        return module.getWrapper(0);
-                    else
-                        return module.createInstance(0, false, args);
-                }
-                else {
-                    module = MUDData.Compiler(filename, false, undefined, args);
-                    return module ? module.getWrapper(0) : false;
-                }
-            }
-            throw new ErrorTypes.SecurityError();
-        },
-        writable: false
-    },
-    message: {
-        value: function (messageType, expr, ...audience) {
-            if (expr && MUDData.ThisPlayer) {
-                if (typeof expr !== 'string') {
-                    if (expr instanceof MUDHtmlComponent)
-                        expr = expr.render();
-                    else if (typeof expr === 'number')
-                        expr = expr.toString();
-                    else
-                        throw new Error(`Bad argument 2 to message; Expected string, number, or MUDHtmlComponent but received ${typeof expr}`);
-                }
-                audience.forEach(a => {
-                    if (Array.isArray(a))
-                        this.message(messageType, expr, a);
-                    else unwrap(a, a => a.receive_message(messageType, expr));
-                });
-            }
-        }
-    },
-    mkdir: {
-        value: function (path, callback) {
-            var filename = this.resolvePath(path);
-            if (MUDData.MasterObject.validWrite(this, filename)) {
-                var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
-                return MUDData.MasterEFUNS.mkdir(absPath, callback);
-            }
-            throw new ErrorTypes.SecurityError();
-        },
-        writable: false
-    },
-    mudInfo: {
-        value: function () {
-            return {
-                arch: os.arch(),
-                architecture: os.platform(),
-                cpuUsage: process.cpuUsage().user,
-                gameDriver: 'Node.js v' + process.versions.node,
-                hardware: (function () {
-                    var cpus = {}, r = [];
-                    os.cpus().forEach((cpu, i) => {
-                        if (!cpus[cpu.model]) cpus[cpu.model] = 0;
-                        cpus[cpu.model]++;
-                    });
-                    for (var k in cpus) {
-                        r.push(k + " x " + cpus[k]);
-                    }
-                    return r.join('');
-                })(),
-                mudlibName: 'KMUD',
-                mudlibBaseVersion: 'KMUD 0.3',
-                mudlibVersion: 'Emerald MUD 2.0',
-                mudMemoryTotal: this.getMemSizeString(process.memoryUsage().heapTotal),
-                mudMemoryUsed: this.getMemSizeString(process.memoryUsage().heapUsed),
-                name: MUDData.MasterObject.mudName,
-                osbuild: os.type() + ' ' + os.release(),
-                serverAddress: MUDData.MasterObject.serverAddress,
-                systemMemoryUsed: this.getMemSizeString(os.totalmem() - os.freemem()),
-                systemMemoryPercentUsed: ((os.totalmem() - os.freemem()) / os.totalmem()) * 100.0,
-                systemMemoryTotal: this.getMemSizeString(os.totalmem()),
-                uptime: new Date().getTime() - MUDData.MasterObject.startTime
-            };
-        },
-        writable: false
-    },
-    mudName: {
-        value: function () { return MUDData.MasterObject.mudName; },
-        writable: false
-    },
-    normalizeName: {
-        value: function (name) {
-            if (typeof name !== 'string')
-                throw new Error('Bad argument 1 to normalizeName; Expected string got {0}'.fs(typeof name));
-            return name.toLowerCase().replace(/[^a-z0-9]+/g, '');
-        },
-        writable: false
-    },
-    playerp: {
-        value: function (target) {
-            var o = unwrap(target);
-            return (typeof o === 'object') &&
-                (typeof o.dispatchInput === 'function') &&
-                (o.filename.startsWith('/v/sys/data/players/'));
-        },
-        writable: false
-    },
-    players: {
-        value: function (showAll) {
-            return MUDData.Players.map(p => unwrap(p)).filter(player => {
-                if (!player.connected && !showAll)
-                    return false;
-                return true;
-            });
-        },
-        writable: false
-    },
-    pluralize: {
-        value: function (what) {
-            return MUDData.MasterEFUNS.pluralize(what);
-        },
-        writable: false
     },
     previousObject: {
         value: (function () {
@@ -665,202 +852,6 @@ Object.defineProperties(EFUNProxy.prototype, {
                 };
             }
         })(),
-        writable: false
-    },
-    readFile: {
-        value: function (filename, callback) {
-            var _file = this.resolvePath(filename);
-            if (MUDData.MasterObject.validRead(this, filename)) {
-                return this.stripBOM(MUDData.MasterEFUNS.readFile(MUDData.MasterEFUNS.mudPathToAbsolute(_file), callback));
-            }
-            throw new Error('Permission denied: ' + filename);
-        },
-        writable: false
-    },
-    readConfig: {
-        value: function (key, defaultValue) {
-            if (MUDData.MasterObject.validReadConfig(this.thisObject(), key))
-                return MUDData.Config.readValue(key, defaultValue);
-            return false;
-        },
-        writable: false
-    },
-    readJsonFile: {
-        value: function (filename, callback) {
-            var _async = typeof callback === 'function',
-                _filename = this.resolvePath(filename);
-            if (MUDData.MasterObject.validRead(this, _filename)) {
-                if (_async)
-                    return MUDData.MasterEFUNS.readFile(MUDData.MasterEFUNS.mudPathToAbsolute(_filename), (data, err) => {
-                        try {
-                            if (err) {
-                                return callback(null, err);
-                            }
-                            var result = JSON.parse(data);
-                            callback(result, false);
-                        }
-                        catch (e) {
-                            callback(null, 'readJsonFile: Error: ' + e);
-                            throw e;
-                        }
-                    });
-                else {
-                    try {
-                        var result = JSON.parse(MUDData.MasterEFUNS.readFile(MUDData.MasterEFUNS.mudPathToAbsolute(_filename)));
-                        return result;
-                    }
-                    catch (e) {
-                        throw new Error('Unable to parse file');
-                    }
-                }
-            }
-            throw new Error('Permission denied: ' + filename);
-        },
-        writable: false
-    },
-    reloadObject: {
-        value: function (path) {
-            var filename = this.resolvePath(path);
-            if (MUDData.MasterObject.validRead(this, filename)) {
-                var result = MUDData.Compiler(filename, true);
-                return result === false ? false : true;
-            }
-            throw new ErrorTypes.SecurityError();
-        },
-        writable: false
-    },
-    removeAction: {
-        value: function (verb, callback) {
-            var prevObject = this.previousObject(),
-                thisObject = this.thisObject();
-            if (prevObject) {
-                prevObject.unbindAction(verb, thisObject, callback);
-            }
-        }
-    },
-    resolvePath: {
-        value: function (expr, expr2, callback) {
-            if (typeof expr2 === 'function') {
-                callback = expr2;
-                expr2 = false;
-            }
-            else if (typeof expr2 !== 'string') {
-                expr2 = false;
-            }
-            if (expr[0] === '~') {
-                var re = /^~([\\\/])*([^\\\/]+)/, m = re.exec(expr) || [];
-                if (m.length === 2) {
-                    expr = '/realms/' + m[2] + expr.slice(m[2].length + 1);
-                }
-                else if (expr[1] === '/' || expr === '~') {
-                    expr = MUDData.ThisPlayer ? '/realms/' + MUDData.ThisPlayer.getName() + expr.slice(1) : self.homeDirectory + expr.slice(1);
-                }
-                else if (m.length === 3 && !m[1]) {
-                    expr = '/realms/' + expr.slice(1);
-                }
-            }
-            var result = expr.startsWith('/') ?
-                path.join('/', expr.substr(1)).replace(/\\/g, '/') :
-                path.join(expr2 || this.directory, expr).replace(/\\/g, '/');
-            return typeof callback === 'function' ? callback(result) : result;
-        },
-        writable: false
-    },
-    rm: {
-        value: function (path, callback) {
-            var filename = this.resolvePath(path);
-            if (MUDData.MasterObject.validWrite(this, filename)) {
-                var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
-                return MUDData.MasterEFUNS.rm(absPath);
-            }
-            throw new ErrorTypes.SecurityError();
-        },
-        writable: false
-    },
-    rmdir: {
-        value: function (path, callback) {
-            var filename = this.resolvePath(path);
-            if (MUDData.MasterObject.validWrite(this, filename)) {
-                var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
-                return MUDData.MasterEFUNS.rmdir(absPath);
-            }
-            throw new ErrorTypes.SecurityError();
-        },
-        writable: false
-    },
-    setTimeout: {
-        value: function (cb) {
-            var args = [].slice.apply(arguments),
-                target = args.shift(),
-                delay = args.shift();
-        },
-        writable: false
-    },
-    shutdown: {
-        value: function (errCode, reason) {
-            if (MUDData.MasterObject.validShutdown(this)) {
-                process.exit(errCode || 0);
-            }
-        },
-        writable: false
-    },
-    sprintf: {
-        value: sprintf,
-        writable: false
-    },
-    stripBOM: {
-        value: MUDData.MasterEFUNS.stripBOM,
-        writable: false
-    },
-    userp: {
-        value: function (target) {
-            return this.playerp(target) || this.wizardp(target);
-        },
-        writable: false
-    },
-    validPassword: {
-        value: function (str) {
-            return MUDData.Config.mud.passwordPolicy.validPassword(str);
-        },
-        writable: false
-    },
-    wizardp: {
-        value: function (target) {
-            return MUDData.MasterObject.inGroup(target, 'admin', 'arch', 'wizard');
-        },
-        writable: false
-    },
-    write: {
-        value: function (expr) {
-            this.message('write', expr, MUDData.ThisPlayer);
-            return true;
-        },
-        writable: false
-    },
-    writeFile: {
-        value: function (filename, content, callback, overwrite) {
-            var _async = typeof callback === 'function',
-                _filename = this.resolvePath(filename),
-                _absfile = MUDData.MasterEFUNS.mudPathToAbsolute(_filename);
-
-            if (MUDData.MasterObject.validWrite(this, _filename)) {
-                return MUDData.MasterEFUNS.writeFile(_absfile, content, callback, overwrite);
-            }
-            throw new Error('Permission denied: ' + _filename);
-        },
-        writable: false
-    },
-    writeJsonFile: {
-        value: function (filename, data, callback, replacer) {
-            var _async = typeof callback === 'function',
-                _filename = this.resolvePath(filename),
-                _absfile = MUDData.MasterEFUNS.mudPathToAbsolute(_filename);
-
-            if (MUDData.MasterObject.validWrite(this, _filename)) {
-                return MUDData.MasterEFUNS.writeFile(_absfile, JSON.stringify(data, replacer, 3), callback, true);
-            }
-            throw new Error('Permission denied: ' + _filename);
-        },
         writable: false
     }
 });

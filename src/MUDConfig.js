@@ -7,60 +7,9 @@
     GameSetup = require('./setup/GameSetup'),
     NetUtil = require('./network/NetUtil');
 
-var
-    nextComponentId = 1;
-
-function resolvePath(p1, ext) {
-    var p2 = path.join(__dirname, p1);
-    return p2.endsWith(ext || '.js') ? p2 : p2 + (ext || '.js'); 
-}
-
-class MUDCompilerComponentConfig {
-    constructor(data) {
-        /** @type {string} */
-        this.id = data.id || 'Component #' + nextComponentId;
-        /** @type {string} */
-        this.name = data.name || 'Unnamed Component #' + nextComponentId;
-        /** @type {string} */
-        this.file = data.file;
-        /** @type {boolean} */
-        this.enabled = typeof data.enabled === 'boolean' ? data.enabled : true;
-
-        if (!fs.existsSync(resolvePath(this.file = data.file)))
-            throw new Error(`Component ${this.name} [id ${this.id}] has invalid filename: ${this.file}`);
-        nextComponentId++;
-    }
-}
-
-class MUDCompilerSection {
-    constructor(data) {
-        /** @type {string} */
-        this.virtualMachine = data.virtualMachine || 'vm';
-        /** @type {MUDCompilerComponentConfig[]} */
-        this.components = Array.isArray(data.components) ?
-            data.components.map(c => new MUDCompilerComponentConfig(c)) : [];
-        /** @type {Object.<string,MUDCompilerLanguageSection>} */
-        this.languages = {};
-        Object.keys(data.languages).forEach(ext => {
-            this.languages[ext] = new MUDCompilerLanguageSection(data.languages[ext], ext);
-        });
-        /** @type {Object.<string,MUDLoaderConfig>} */
-        this.loaders = {};
-        Object.keys(data.loaders).forEach(id => {
-            this.loaders[id] = new MUDLoaderConfig(data.loaders[id], id);
-        });
-    }
-}
-
-class MUDCompilerLanguageSection {
-    constructor(data, ext) {
-        this.id = data.id;
-        this.extension = ext;
-        this.loader = data.loader || 'MUDLoader';
-        this.name = data.name || 'Unknown Language';
-        this.pipeline = data.pipeline;
-    }
-}
+const
+    DriverSection = require('./config/DriverSection'),
+    MUDPasswordPolicy = require('./config/MUDPasswordPolicy');
 
 class MUDConfigPort {
     constructor(data) {
@@ -90,36 +39,6 @@ class MUDConfigSection {
     }
 }
 
-class MUDDriverConfigSection {
-    constructor(data) {
-        /** @type {string} */
-        this.core = data.core;
-
-        /** @type {boolean} */
-        this.useObjectProxies = typeof data.useObjectProxies === 'boolean' ? data.useObjectProxies : true;
-
-        /** @type {boolean} */
-        this.useRevocableProxies = typeof data.useRevocableProxies === 'boolean' ? data.useRevocableProxies : false;
-
-        /** @type {string} */
-        this.objectCreationMethod = typeof data.objectCreationMethod === 'string' ? data.objectCreationMethod : 'inline';
-        if (['inline', 'thinWrapper', 'fullWrapper'].indexOf(this.objectCreationMethod) === -1) {
-            throw new Error(`Invalid setting for driver.objectCreationMethod: Got ${data.objectCreationMethod} [valid values: inline, thinWrapper, fullWrapper`);
-        }
-
-        /** @type {MUDCompilerSection} */
-        this.compiler = new MUDCompilerSection(data.compiler);
-
-        /** @type {MUDNetworkingSection} */
-        this.networking = new MUDNetworkingSection(data.networking);
-    }
-
-    assertValid() {
-        this.networking.assertValid();
-        return this;
-    }
-}
-
 class MUDLibConfigSection {
     constructor(data) {
 
@@ -134,24 +53,6 @@ class MUDLibConfigSection {
         this.logDirectory = data.logDirectory || '/log';
         this.loginObject = data.loginObject;
         this.simulEfuns = data.simulEfuns || false;
-    }
-}
-
-class MUDLoaderConfig {
-    constructor(data, id) {
-        this.enabled = true;
-        this.id = id;
-        this.name = data.name;
-        this.file = data.file;
-    }
-
-    assertValid() {
-        if (!this.name)
-            throw new Error(`Loader with ID ${this.id} did not specify a name.`);
-        if (!this.id)
-            throw new Error(`Loader with name ${this.name} did not specify an ID.`);
-        if (!fs.existsSync(resolvePath(this.file)))
-            throw new Error(`Failed to locate specified loader: ${this.file}`);
     }
 }
 
@@ -213,48 +114,6 @@ class MUDNetworkingEndpointConfig {
     }
 }
 
-class MUDNetworkingEndpointHandlerConfig {
-    constructor(data, protoIndex, handlerIndex, protocol) {
-        /** @type {boolean} */
-        this.default = typeof data.default === "boolean" ? data.default : false;
-
-        /** @type {number} */
-        this.handlerIndex = handlerIndex;
-
-        /** @type {string} */
-        this.protocol = protocol;
-
-        /** @type {number} */
-        this.protocolIndex = protoIndex;
-
-        /** @type {string} */
-        this.file = data.file;
-
-        /** @type {string} */
-        this.id = data.id;
-
-        /** @type {string} */
-        this.name = data.name;
-
-        /** @type {string|boolean} */
-        this.type = data.type || false;
-    }
-
-    assertValid() {
-        if (!this.name)
-            new Error(`Endpoint handler for protocol ${this.protocol} at position ${this.handlerIndex} has no name.`);
-        if (!this.id)
-            new Error(`Endpoint handler with name ${this.name} [position ${this.handlerIndex}] for protocol ${this.protocol} has no id.`);
-        if (!this.file)
-            new Error(`Endpoint handler with name ${this.name} [position ${this.handlerIndex}] for protocol ${this.protocol} has no module file specified.`);
-        if (!resolvePath(this.file))
-            new Error(`Endpoint handler with name ${this.name} [position ${this.handlerIndex}] for protocol ${this.protocol} points to non-existant file: ${this.file}`);
-        if (typeof this.type === 'string' && !this.type.match(/^\w+$/)) {
-            new Error(`Endpoint handler with name ${this.name} [position ${this.handlerIndex}] for protocol ${this.protocol} has invalid type specifier: ${this.type}`);
-        }
-    }
-}
-
 class MUDNetworkingEndpointsSection {
     constructor(data) {
         /** @type {Object.<string,MUDNetworkingEndpointConfig>} */
@@ -300,125 +159,6 @@ class MUDNetworkingSection {
     }
 }
 
-class MUDPasswordPolicy {
-    constructor(data) {
-        this.allowPlainTextAuth = data.allowPlainTextAuth || false;
-
-        /** @type {number} */
-        this.minLength = data.minLength || 5;
-
-        /** @type {number} */
-        this.maxLength = data.maxLength || 100;
-
-        /** @type {number} */
-        this.requiredUpper = data.requiredUpper || 0;
-
-        /** @type {number} */
-        this.requiredLower = data.requiredLower || 0;
-
-        /** @type {number} */
-        this.requiredNumbers = data.requiredNumbers || 0;
-
-        /** @type {number} */
-        this.requiredSymbols = data.requiredSymbols || 0;
-
-        /** @type {number} */
-        this.saltRounds = data.saltRounds || 10;
-    }
-
-    assertValid() {
-        if (typeof this.minLength !== 'number' || this.minLength < 0)
-            throw new Error(`Invalid parameter for mud.passwordPolicy.minLength; Must be positive integer but got ${typeof this.minLength}`);
-        if (typeof this.maxLength !== 'number' || this.maxLength < 0)
-            throw new Error(`Invalid parameter for mud.passwordPolicy.maxLength; Must be numeric but got ${typeof this.maxLength}`);
-        if (typeof this.requiredUpper !== 'number' || this.requiredUpper < 0)
-            throw new Error(`Invalid parameter for mud.passwordPolicy.requiredUpper; Must be numeric but got ${typeof this.requiredUpper}`);
-        if (typeof this.requiredLower !== 'number' || this.requiredLower < 0)
-            throw new Error(`Invalid parameter for mud.passwordPolicy.requiredLower; Must be numeric but got ${typeof this.requiredLower}`);
-        if (typeof this.requiredNumbers !== 'number' || this.requiredNumbers < 0)
-            throw new Error(`Invalid parameter for mud.passwordPolicy.requiredNumbers; Must be numeric but got ${typeof this.requiredNumbers}`);
-        if (typeof this.requiredSymbols !== 'number' || this.requiredSymbols < 0)
-            throw new Error(`Invalid parameter for mud.passwordPolicy.requiredSymbols; Must be numeric but got ${typeof this.requiredSymbols}`);
-        if (this.minLength > this.maxLength)
-            throw new Error('Invalid mud.passwordPolicy; minLength must be lessthan maxLength');
-        if ((this.requiredLower + this.requiredUpper + this.requiredSymbols + this.requiredNumbers) > this.minLength)
-            throw new Error('Invalid mud.passwordPolicy; The sum of the required character types may not exceed the minLength');
-    }
-
-    /**
-     * Check to see if the password enters matched what was previously stored.
-     * @param {string} str The plain text password just entered.
-     * @param {string} enc The stored, encrypted password.
-     */
-    checkPassword(str, enc, callback) {
-        if (callback === 'function') {
-            if (str === enc)
-                callback(true, false);
-            bcrypt.compare(str, enc, (err, same) => {
-                if (err) callback(false, err);
-                else callback(same, same ? false : new Error('Password mismatch'));
-            });
-        }
-        else if (str === enc && this.allowPlainTextAuth) {
-            console.log('WARNING: Plain-text password detected!!!');
-            return true;
-        }
-        else
-            return bcrypt.compareSync(str, enc);
-    }
-
-    /**
-     * 
-     * @param {string} str Attempt to generate a password.
-     */
-    hashPasword(str, callback) {
-        let checks = this.validPassword(str);
-        if (typeof callback === 'function') {
-            if (checks === true) {
-                bcrypt.hash(str, this.saltRounds, (err, enc) => {
-                    if (!err) {
-                        callback(enc, []);
-                    }
-                });
-            }
-            else
-                callback(null, checks);
-        }
-        else if (checks.length === 0)
-            return bcrypt.hashSync(str, this.saltRounds);
-        else
-            throw new Error('Password policy: ' + checks.join(', '));
-    }
-
-    /**
-     * Check to see if the password provided meets the MUD policy.
-     * @param {string} str A possible password
-     * @returns {true|string[]} True if the password is accepted or list if errors if not.
-     */
-    validPassword(str) {
-        let errors = [];
-        if (str.length < this.minLength) errors.push('Password is too short');
-        if (str.length > this.maxLength) errors.push('Password is too long');
-        if (this.requiredUpper > 0) {
-            let ucc = str.replace(/[^A-Z]+/g, '').length;
-            if (ucc < this.requiredUpper) errors.push(`Password must contain ${this.requiredUpper} uppercase characters.`);
-        }
-        if (this.requiredLower > 0) {
-            let lcc = str.replace(/[^a-z]+/g, '').length;
-            if (lcc < this.requiredLower) errors.push(`Password must contain ${this.requiredLower} lowercase characters.`);
-        }
-        if (this.requiredNumbers > 0) {
-            let ncc = str.replace(/[^0-9]+/g, '').length;
-            if (ncc < this.requiredNumbers) errors.push(`Password must contain ${this.requiredNumbers} numeric characters.`);
-        }
-        if (this.requiredSymbols > 0) {
-            let scc = str.replace(/[a-zA-Z0-9]+/g, '').length;
-            if (scc < this.requiredSymbols) errors.push(`Password must contain ${this.requiredSymbols} special symbols.`);
-        }
-        return errors.length === 0 ? true : errors;
-    }
-}
-
 class MUDConfig {
     constructor() {
         this.singleUser = false;
@@ -441,14 +181,13 @@ class MUDConfig {
         }
         this.configFile = options.configFile;
         this['mudlibSection'] = new MUDLibConfigSection(raw.mudlib);
-        this['driverSection'] = new MUDDriverConfigSection(raw.driver);
+        this['driverSection'] = new DriverSection(raw.driver);
         this['mudSection'] = new MUDConfigSection(raw.mud);
 
         if (this.singleUser === true) {
             this.mud.features.intermud = false;
             this.mud.portBindings.forEach(binding => binding.address = '127.0.0.1');
         }
-
         MUDData.Config = this;
     }
 
@@ -468,7 +207,7 @@ class MUDConfig {
     }
 
     /**
-     * @returns {MUDDriverConfigSection} The driver section from the config.
+     * @returns {DriverSection} The driver section from the config.
      */
     get driver() {
         return this['driverSection'];

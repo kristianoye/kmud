@@ -22,10 +22,6 @@ class MUDExecutionContext {
             MUDData.ObjectStack = this.objectStack;
             if (typeof callback === 'function') callback();
         }
-        catch (e) {
-            MUDData.CleanError(e);
-            throw e;
-        }
         finally {
             this.restore();
         }
@@ -38,6 +34,29 @@ class MUDExecutionContext {
             MUDData.ObjectStack = prev.objectStack;
         }
     }
+
 }
+
+MUDExecutionContext.awaiter = function (callback) {
+    if (!callback)
+        return callback;
+
+    let context = new MUDExecutionContext();
+
+    context.previousContext = MUDData.CurrentContext;
+    MUDData.CurrentContext = context;
+    MUDData.ThisPlayer = context.thisPlayer;
+    MUDData.ObjectStack = context.objectStack;
+
+    return function (...args) {
+        try {
+            context.run(() => callback(...args));
+        }
+        finally {
+            context.restore();
+        }
+    };
+};
+
 
 module.exports = MUDExecutionContext;

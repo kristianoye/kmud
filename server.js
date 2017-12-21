@@ -16,26 +16,6 @@ try {
 
             /** @type {GameServer} The game server instance */
             gameMaster
-                .setPreloads([
-                    '/sys/daemon/PlayerDaemon',
-                    '/base/Interactive',
-                    '/sys/lib/Login',
-                    ['/daemon/I3Router', { id: '*kmud', port: 8787, address: MUDData.MasterObject.serverAddress }],
-                    '/sys/lib/CommandShell',
-                    '/sys/daemon/FileIndex',
-                    '/sys/daemon/CommandResolver',
-                    '/daemon/ChatDaemon',
-                    '/base/GameObject',
-                    '/base/Container',
-                    '/base/Body',
-                    '/base/Living',
-                    '/base/Player',
-                    '/base/Creator',
-                    '/base/Command',
-                    '/base/Room',
-                    '/daemon/I3Daemon',
-                    '/cmds/player/Who'
-                ])
                 .setLoginObject('/sys/lib/Login')
                 .enableGlobalErrorHandler()
                 .run(function () {

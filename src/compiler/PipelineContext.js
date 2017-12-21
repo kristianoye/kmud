@@ -80,7 +80,7 @@ class PipelineContext {
 
     update(state, content) {
         if (state !== this.state && state === CTX_RUNNING) {
-            this.content = MUDData.SpecialRootEfun.stripBOM(fs.readFileSync(this.resolvedName, 'utf8') || '');
+            this.content = MUDData.StripBOM(fs.readFileSync(this.resolvedName, 'utf8') || '');
         }
         if(content) this.content = content;
         return (this.state = state), this;

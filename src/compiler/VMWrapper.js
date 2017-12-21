@@ -8,7 +8,7 @@ const
     vm = require('vm');
 
 var
-    ExtensionText = MUDData.MasterEFUNS.stripBOM(fs.readFileSync('src/Extensions.js', 'utf8'));
+    ExtensionText = MUDData.StripBOM(fs.readFileSync('src/Extensions.js', 'utf8'));
 
 class VMWrapper extends VMAbstraction {
     constructor() {
