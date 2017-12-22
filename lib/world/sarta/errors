@@ -1,0 +1,84 @@
+
+[2017-12-21 18:02:37]
+this.resetStack.push(...).sort is not a function
+TypeError: this.resetStack.push(...).sort is not a function
+    at GameServer.registerReset ([driver]\GameServer.js:415:63)
+    at MUDModule.createInstance ([driver]\MUDModule.js:115:38)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:192:51)
+    at Object.Compiler ([driver]\MUDData.js:52:55)
+    at EFUNProxy.loadObject ([driver]\EFUNProxy.js:432:34)
+    at CreatorWrapper.moveObject ([driver]\MUDObject.js:307:52)
+    at CreatorWrapper.movePlayer (/base/Interactive.js:373:18)
+    at LoginWrapper.efuns.exec (/sys/lib/Login.js:73:38)
+    at EFUNProxy.exec ([driver]\EFUNProxy.js:252:34)
+    at efuns.unguarded (/sys/lib/Login.js:71:31)
+
+[2017-12-21 18:04:40]
+this.resetStack.push(...).sort is not a function
+TypeError: this.resetStack.push(...).sort is not a function
+    at GameServer.registerReset ([driver]\GameServer.js:415:63)
+    at MUDModule.createInstance ([driver]\MUDModule.js:115:38)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:192:51)
+    at Object.Compiler ([driver]\MUDData.js:52:55)
+    at EFUNProxy.loadObject ([driver]\EFUNProxy.js:432:34)
+    at CreatorWrapper.moveObject ([driver]\MUDObject.js:307:52)
+    at CreatorWrapper.movePlayer (/base/Interactive.js:373:18)
+    at LoginWrapper.efuns.exec (/sys/lib/Login.js:73:38)
+    at EFUNProxy.exec ([driver]\EFUNProxy.js:252:34)
+    at efuns.unguarded (/sys/lib/Login.js:71:31)
+
+[2017-12-21 18:06:21]
+this.resetStack.push(...).sort is not a function
+TypeError: this.resetStack.push(...).sort is not a function
+    at GameServer.registerReset ([driver]\GameServer.js:415:63)
+    at MUDModule.createInstance ([driver]\MUDModule.js:115:38)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:192:51)
+    at Object.Compiler ([driver]\MUDData.js:52:55)
+    at EFUNProxy.reloadObject ([driver]\EFUNProxy.js:617:34)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update.js:12:25)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update:5:34)
+    at CreatorWrapper.processInput (/base/Interactive.js:196:111)
+    at CreatorWrapper.preprocessInput (/base/Creator.js:156:25)
+    at CreatorWrapper.preprocessInput (/v/sys/data/creators/k/kriton:13:58)
+
+[2017-12-21 18:10:27]
+this.resetStack.push(...).sort is not a function
+TypeError: this.resetStack.push(...).sort is not a function
+    at GameServer.registerReset ([driver]\GameServer.js:417:26)
+    at MUDModule.createInstance ([driver]\MUDModule.js:115:38)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:192:51)
+    at Object.Compiler ([driver]\MUDData.js:52:55)
+    at EFUNProxy.loadObject ([driver]\EFUNProxy.js:432:34)
+    at CreatorWrapper.moveObject ([driver]\MUDObject.js:307:52)
+    at CreatorWrapper.movePlayer (/base/Interactive.js:373:18)
+    at LoginWrapper.efuns.exec (/sys/lib/Login.js:73:38)
+    at EFUNProxy.exec ([driver]\EFUNProxy.js:252:34)
+    at efuns.unguarded (/sys/lib/Login.js:71:31)
+
+[2017-12-21 18:15:29]
+stack.push(...).sort is not a function
+TypeError: stack.push(...).sort is not a function
+    at GameServer.registerReset ([driver]\GameServer.js:420:26)
+    at MUDModule.createInstance ([driver]\MUDModule.js:115:38)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:192:51)
+    at Object.Compiler ([driver]\MUDData.js:52:55)
+    at EFUNProxy.loadObject ([driver]\EFUNProxy.js:432:34)
+    at CreatorWrapper.moveObject ([driver]\MUDObject.js:307:52)
+    at CreatorWrapper.movePlayer (/base/Interactive.js:373:18)
+    at LoginWrapper.efuns.exec (/sys/lib/Login.js:73:38)
+    at EFUNProxy.exec ([driver]\EFUNProxy.js:252:34)
+    at efuns.unguarded (/sys/lib/Login.js:71:31)
+
+[2017-12-21 19:10:47]
+stack.push(...).sort is not a function
+TypeError: stack.push(...).sort is not a function
+    at GameServer.registerReset ([driver]\GameServer.js:420:26)
+    at MUDModule.createInstance ([driver]\MUDModule.js:115:38)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:192:51)
+    at Object.Compiler ([driver]\MUDData.js:52:55)
+    at EFUNProxy.loadObject ([driver]\EFUNProxy.js:432:34)
+    at CreatorWrapper.moveObject ([driver]\MUDObject.js:307:52)
+    at CreatorWrapper.movePlayer (/base/Interactive.js:373:18)
+    at LoginWrapper.efuns.exec (/sys/lib/Login.js:73:38)
+    at EFUNProxy.exec ([driver]\EFUNProxy.js:252:34)
+    at efuns.unguarded (/sys/lib/Login.js:71:31)
