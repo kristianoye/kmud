@@ -1,22 +1,43 @@
 ﻿{
   "mud": {
-    "adminName": "",
-    "adminEmail": "",
+    "features": {
+      "autoWiz": false,
+      "intermud3": true,
+      "webEditor": true
+    },
+    "passwordPolicy": {
+      "allowPlainTextAuth": true,
+      "minLength": 3,
+      "maxLength": 100,
+      "requiredUpper": 1,
+      "requiredLower": 1,
+      "requiredSymbols": 1,
+      "requiredNumbers": 1
+    },
     "portBindings": []
   },
   "mudlib": {
-    "applyNames": {},
-    "base": "./lib",
-    "heartbeatInterval": 1000,
-    "includePath": [ "/base/include", "/sys/include" ],
+    "baseDirectory": "./lib",
+    "defaultError": "What? (not recognized: $verb)",
+    "heartbeatInterval": "1 second",
+    "objectResetInterval": "30 minutes",
+    "includePath": [
+      "/base/include",
+      "/sys/include"
+    ],
+    "applyNames": {
+      "getPreloads": "epilog",
+      "validExec": "validExec",
+      "validRead": "validRead",
+      "validWrite": "validWrite"
+    },
     "inGameMaster": {
       "path": "/sys/daemon/GameMaster",
       "parameters": {
         "permissionsFile": "/sys/etc/permissions.json",
         "preloadsFile": "/sys/etc/preloads.json",
         "groupsFile": "/sys/etc/groups.json",
-        "accessFile": "/sys/etc/access.json",
-        "adminSavePath": "/sys/data/creators"
+        "accessFile": "/sys/etc/access.json"
       }
     },
     "logDirectory": "/log",
@@ -25,9 +46,18 @@
   },
   "driver": {
     "core": "single-core",
-    "useObjectProxies": true,
+    "features": {
+      "creatorStats": true,
+      "domainStats": false
+    },
+    "resetPollingInterval": "5 seconds",
+    "useLazyResets": true,
+    "useObjectProxies": false,
     "useRevocableProxies": false,
+    "objectCreationMethod": "fullWrapper",
     "compiler": {
+      "maxCompileTime": "1.5 seconds",
+      "maxConstructorTime": 1000,
       "virtualMachine": "vm",
       "components": [
         {
@@ -54,14 +84,18 @@
           "enabled": true,
           "loader": "MUDOSLoader",
           "name": "MUD JSX",
-          "pipeline": [ "JSXTranspiler" ]
+          "pipeline": [
+            "JSXTranspiler"
+          ]
         },
         ".c": {
           "id": "LPC",
           "enabled": false,
           "loader": "MUDOSLoader",
           "name": "LPC Pipeline",
-          "pipeline": [ "LPCPreprocessor" ]
+          "pipeline": [
+            "LPCPreprocessor"
+          ]
         }
       },
       "loaders": {
