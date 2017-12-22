@@ -33,7 +33,7 @@ class MUDEventEmitter {
                 // Check event state
                 if (typeof result === 'number') {
 
-                    if ((result & EVENT_REMOVELISTENER) == EVENT_REMOVELISTENER)
+                    if ((result & EVENT_REMOVELISTENER) === EVENT_REMOVELISTENER)
                         event[i] = null;
 
                     if ((result & EVENT_STOP) === EVENT_STOP)

@@ -1,3 +1,62 @@
 
 [2017-12-20 02:10:05]
 Cannot read property '0' of null
+[2017-12-22 01:02:13]
+Unexpected template string
+/sys/lib/SimulEfuns.js:32
+    }ti``
+       ^^
+
+SyntaxError: Unexpected template string
+    at createScript (vm.js:80:10)
+    at Object.runInContext (vm.js:119:10)
+    at VMWrapper.run ([driver]\compiler\VMWrapper.js:46:25)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:175:33)
+    at Object.Compiler ([driver]\MUDData.js:52:55)
+    at EFUNProxy.reloadObject ([driver]\EFUNProxy.js:618:34)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update.js:12:25)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update:5:34)
+    at CreatorWrapper.processInput (/base/Interactive.js:196:111)
+    at CreatorWrapper.preprocessInput (/base/Creator.js:156:25)
+
+[2017-12-22 08:22:16]
+Cannot read property 'permissions' of null
+TypeError: Cannot read property 'permissions' of null
+    at GameMasterWrapper.getAccess (/sys/daemon/GameMaster.js:142:25)
+    at GameMasterWrapper.getAccess (/sys/daemon/GameMaster:13:46)
+    at GameMasterWrapper.validRead (/sys/daemon/GameMaster.js:292:21)
+    at GameMasterWrapper.validRead (/sys/daemon/GameMaster:31:46)
+    at GameServer.validRead ([driver]\GameServer.js:739:46)
+    at EFUNProxy.loadObject ([driver]\EFUNProxy.js:423:34)
+    at new MkDir (/sys/cmds/creator/Mkdir.js:8:32)
+    at new MkDirWrapper (/sys/cmds/creator/Mkdir:4:28)
+    at /sys/cmds/creator/Mkdir:9:12
+    at MUDModule.createObject ([driver]\MUDModule.js:389:16)
+
+[2017-12-22 08:24:41]
+Cannot read property 'permissions' of null
+TypeError: Cannot read property 'permissions' of null
+    at GameMasterWrapper.getAccess (/sys/daemon/GameMaster.js:142:25)
+    at GameMasterWrapper.getAccess (/sys/daemon/GameMaster:13:46)
+    at GameMasterWrapper.validRead (/sys/daemon/GameMaster.js:292:21)
+    at GameMasterWrapper.validRead (/sys/daemon/GameMaster:31:46)
+    at GameServer.validRead ([driver]\GameServer.js:739:46)
+    at EFUNProxy.loadObject ([driver]\EFUNProxy.js:423:34)
+    at new MkDir (/sys/cmds/creator/MkDir.js:8:32)
+    at new MkDirWrapper (/sys/cmds/creator/MkDir:4:28)
+    at /sys/cmds/creator/MkDir:9:12
+    at MUDModule.createObject ([driver]\MUDModule.js:389:16)
+
+[2017-12-22 08:27:35]
+Cannot read property 'permissions' of null
+TypeError: Cannot read property 'permissions' of null
+    at GameMasterWrapper.getAccess (/sys/daemon/GameMaster.js:142:25)
+    at GameMasterWrapper.getAccess (/sys/daemon/GameMaster:13:46)
+    at GameMasterWrapper.validRead (/sys/daemon/GameMaster.js:292:21)
+    at GameMasterWrapper.validRead (/sys/daemon/GameMaster:31:46)
+    at GameServer.validRead ([driver]\GameServer.js:739:46)
+    at EFUNProxy.loadObject ([driver]\EFUNProxy.js:423:34)
+    at new MkDir (/sys/cmds/creator/MkDir.js:8:32)
+    at new MkDirWrapper (/sys/cmds/creator/MkDir:4:28)
+    at /sys/cmds/creator/MkDir:9:12
+    at MUDModule.createObject ([driver]\MUDModule.js:389:16)

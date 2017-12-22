@@ -278,7 +278,10 @@ class MUDModule {
                         console.log('Re-compiling ' + childName.filename);
                         compileObject(childName, true);
                     }
-                    catch (e) { }
+                    catch (e)
+                    {
+                        MUDData.MasterObject.errorHandler(e, false);
+                    }
                     innerCallback();
                 }, err => {
                     console.log('All children of ' + this.filename + ' have been updated');

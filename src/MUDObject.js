@@ -154,8 +154,9 @@ class MUDObject extends MUDEventEmitter {
     }
 
     enableHeartbeat(flag) {
-        let callback = this.getSymbol(_heartbeat) || false,
-            thisObject = global.wrapper(this),
+        let callback = this.getSymbol(_heartbeat) || false;
+
+        let thisObject = global.wrapper(this),
             $storage = MUDStorage.get(this);
 
         if (typeof this.eventHeartbeat !== 'function')
@@ -422,7 +423,8 @@ class MUDObject extends MUDEventEmitter {
     }
 
     getSymbol(key, defaultValue) {
-        return MUDStorage.get(this).getSymbol(key, defaultValue);
+        let store = MUDStorage.get(this);
+        return store ? store.getSymbol(key, defaultValue) : undefined;
     }
 
     setSymbol(key, value) {

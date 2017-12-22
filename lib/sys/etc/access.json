@@ -1,7 +1,8 @@
 ﻿{
   "/": {
     "*": "r",
-    "$admin": "rw"
+    "$admin": "rw",
+    "SYSTEM": "rw"
   },
   "/base": {
     "$mudlib": "rw",

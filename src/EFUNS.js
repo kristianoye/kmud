@@ -37,6 +37,12 @@ class EFUNS {
             throw new Error('Illegal access attempt');
     }
 
+    /**
+     * Attempts to build the provided path as a directory tree.
+     * @param {string} dirname The directory to create.
+     * @param {function=} callback An optional callback for async mode.
+     * @returns {boolean|void}
+     */
     mkdir(dirname, callback) {
         var _async = typeof callback === 'function';
         this.assertValidPath(dirname);
@@ -48,14 +54,17 @@ class EFUNS {
             var ctx = new MUDExecutionContext();
             async.eachOfSeries(parts, (item, i, cb) => {
                 var dir = parts.slice(0, i + 1).join(path.sep);
-                this.isDirectory(dir, exists => {
-                    if (exists) cb();
+                console.log(`Mkdir: Checking if ${dir} exists.`);
+                this.isDirectory(dir, (exists, err) => {
+                    if (err)
+                        cb(err);
+                    else if (exists) {
+                        console.log(`\tMkdir: ${dir} already exists`);
+                        cb();
+                    }
                     else {
-                        fs.mkdir(dir, err => {
-                            ctx.run(() => {
-                                err ? cb(err) : cb();
-                            });
-                        });
+                        console.log(`\tMkdir: ${dir} does not exist; Creating.`);
+                        fs.mkdir(dir, (err) => err ? cb(err) : cb());
                     }
                 });
             }, function (err) {
@@ -435,6 +444,7 @@ class EFUNS {
                     found = PLURAL_SUFFIX;
                     suffix = 'en';
                 }
+                break;
 
             case 'p':
                 if (whatLC === 'pants')

@@ -322,8 +322,9 @@ class GameServer extends MUDEventEmitter {
         try {
             this.emit('kmud.heartbeat', this.heartbeatInterval, ++this.heartbeatCounter);
         }
-        catch (e) {
-            console.log('Error in executeHeartbeat: ' + e);
+        catch (err) {
+            console.log('Error in executeHeartbeat: ' + err);
+            MUDData.MasterObject.errorHandler(err, false);
         }
     }
 
@@ -490,7 +491,11 @@ class GameServer extends MUDEventEmitter {
                     if (newLogin) {
                         MUDData.Storage.get(newLogin).setProtected('client', client,
                             ($storage, _client) => {
-                                var evt = { newBody: newLogin, client: _client };
+                                var evt = {
+                                    newBody: newLogin,
+                                    newStorage: MUDData.Storage.get(newLogin),
+                                    client: _client
+                                };
                                 self.emit('kmud.exec', evt);
                                 $storage.emit('kmud.exec', evt);
                             });
@@ -684,8 +689,12 @@ class GameServer extends MUDEventEmitter {
                 if (module) {
                     let frame = {
                         object: module.instances[instanceId],
+                        file: fileParts[0],
                         func: funcName
                     };
+                    if (frame.object === null)
+                        throw new Error(`Illegal call in constructor [${fileParts[0]}`);
+
                     if (isUnguarded) {
                         return [frame];
                     }
