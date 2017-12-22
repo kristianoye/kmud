@@ -1,4 +1,5 @@
 ﻿const
+    ConfigUtil = require('./ConfigShared').ConfigUtil,
     MudlibMasterObject = require('./MudlibMasterObject');
 
 class MudlibSection {
@@ -27,6 +28,9 @@ class MudlibSection {
 
         /** @type {string} */
         this.loginObject = data.loginObject;
+
+        /** @type {number} */
+        this.objectResetInterval = ConfigUtil.parseTime(data.objectResetInterval || '30 minutes');
 
         /** @type {string} */
         this.simulEfuns = data.simulEfuns || false;

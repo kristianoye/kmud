@@ -1,4 +1,5 @@
 ﻿const
+    ConfigUtil = require('./ConfigShared').ConfigUtil,
     { DriverNetworking } = require('./DriverNetworking'),
     DriverCompiler = require('./DriverCompiler');
 
@@ -12,6 +13,12 @@ class DriverSection {
 
         /** @type {Object.<string,boolean>} */
         this.features = data.features || {};
+
+        /** @type {number} */
+        this.resetPollingInterval = ConfigUtil.parseTime(data.resetPollingInterval || 5000);
+
+        /** @type {boolean} */
+        this.useLazyResets = data.useLazyResets || false;
 
         /** @type {boolean} */
         this.useObjectProxies = typeof data.useObjectProxies === 'boolean' ? data.useObjectProxies : true;

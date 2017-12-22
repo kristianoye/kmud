@@ -20,7 +20,9 @@ const
     TelnetClientEndpoint = require('./network/TelnetClientEndpoint'),
     MUDCompiler = require('./MUDCompiler'),
     MUDEventEmitter = require('./MUDEventEmitter'),
-    { DomainStats, DomainStatsContainer } = require('./features/DomainStats');
+    { DomainStats, DomainStatsContainer } = require('./features/DomainStats'),
+    ResetInterval = MUDConfig.mudlib.objectResetInterval,
+    UseLazyResets = MUDConfig.driver.useLazyResets;
 
 class GameServer extends MUDEventEmitter {
     /**
@@ -53,6 +55,9 @@ class GameServer extends MUDEventEmitter {
         this.includePath = config.mudlib.includePath || [];
         this.masterFilename = config.mudlib.inGameMaster.path;
         this.mudName = config.mud.name;
+        this.nextResetTime = 0;
+        this.resetStack = [];
+        this.resetTimes = {};
         this.preloads = [];
 
         this.heartbeatInterval = config.mudlib.heartbeatInterval;
@@ -328,6 +333,7 @@ class GameServer extends MUDEventEmitter {
                 var n = this.indexOf(e);
                 if (n === -1) this.push(e);
             });
+            return this;
         };
     }
 
@@ -380,6 +386,45 @@ class GameServer extends MUDEventEmitter {
         else this.applyLogError.apply(this.masterObject, arguments);
     }
 
+    /**
+     * Register the time at which an object should reset.
+     * @param {MUDObject} ob
+     * @param {number=} resetTime
+     * @param {MUDStorage=} $storage
+     */
+    registerReset(ob, resetTime, $storage) {
+        if (typeof ob().reset === 'function') {
+            if (!resetTime) {
+                resetTime = new Date().getTime() + (ResetInterval / 2) + Math.random(ResetInterval / 2);
+            }
+            if (!$storage) {
+                $storage = MUDData.Storage.get(ob);
+            }
+            let prev = $storage.resetTime;
+
+            resetTime = Math.floor((resetTime / 5000) * 5000);
+            $storage.nextReset = resetTime;
+
+            if (prev > 0 && prev in this.resetTimes) {
+                let n = this.resetTimes[prev].indexOf(ob);
+                if (n > -1) this.resetTimes[prev].splice(n, 1);
+            }
+
+            if (!UseLazyResets) {
+                let newEntry = false,
+                    list = this.resetTimes[resetTime] ||
+                        (newEntry = true, this.resetTimes[resetTime] = []),
+                    stack = this.resetStack;
+
+                if (newEntry) {
+                    Array.prototype.push.call(stack, resetTime);
+                    stack.sort((a, b) => a < b ? -1 : 1);
+                }
+                list.push(ob);
+            }
+        }
+    }
+
     removePlayer(body) {
         var _body = unwrap(body);
         if (_body && typeof _body.save === 'function') {
@@ -394,7 +439,7 @@ class GameServer extends MUDEventEmitter {
      * @returns {GameServer} A reference to the GameServer.
      */
     run(callback) {
-        var self = this, i, hbTimer;
+        var self = this, i;
 
         if (!this.loginObject) {
             throw new Error('Login object must be specified');
@@ -478,10 +523,45 @@ class GameServer extends MUDEventEmitter {
         var startupTime = new Date().getTime() - this.startTime, startSeconds = startupTime / 1000;
         console.log('Startup took {0} seconds [{1} ms]'.fs(startSeconds, startupTime));
         MUDData.GameState = MUDData.Constants.GAMESTATE_RUNNING;
-        if (this.heartbeatInterval > 100) {
-            hbTimer = setInterval(() => {
+
+        if (MUDConfig.mudlib.heartbeatInterval > 0) {
+            this.heartbeatTimer = setInterval(() => {
                 this.executeHeartbeat();
-            }, this.heartbeatInterval);
+            }, MUDConfig.mudlib.heartbeatInterval);
+        }
+
+        if (MUDConfig.mudlib.objectResetInterval > 0 && MUDConfig.driver.useLazyResets === false) {
+            this.resetTimer = setInterval(() => {
+                let n = 0;
+                for (let i = 0, now = new Date().getTime(); i < this.resetStack.length; i++) {
+                    let timestamp = this.resetStack[i],
+                        list = this.resetTimes[timestamp];
+
+                    if (timestamp > 0 && timestamp < now) {
+                        list.forEach((item, index) => {
+                            unwrap(item, (ob) => {
+                                try {
+                                    let $storage = MUDData.Storage.get(ob);
+                                    if ($storage.nextReset < now) {
+                                        ob.reset();
+                                        this.registerReset(item, false);
+                                    }
+                                }
+                                catch (resetError) {
+                                    // Do not re-register reset--now disabled for previous object.
+                                    this.errorHandler(resetError, false);
+                                }
+                            });
+                        });
+                        delete this.resetTimes[timestamp];
+                        n++;
+                        continue;
+                    }
+                    break;
+                }
+                //  This requires revisiting.  Use real stack and pop to avoid grossness like this.
+                if (n > 0) this.resetStack.splice(0, n);
+            }, MUDConfig.driver.resetPollingInterval);
         }
         return this;
     }
@@ -623,6 +703,13 @@ class GameServer extends MUDEventEmitter {
     uptime() {
         return new Date().getTime() - this.startTime;
     }
+
+    /**
+     * Checks to see if the current permissions stack can read the config.
+     * @param {any} caller
+     * @param {any} key
+     * @returns {boolean} Returns true if the read operation should be permitted.
+     */
     validReadConfig(caller, key) {
         if (MUDData.GameState === MUDData.Constants.GAMESTATE_STARTING)
             return true;
@@ -630,6 +717,12 @@ class GameServer extends MUDEventEmitter {
         else return MUDData.InGameMaster().validReadConfig(caller, key);
     }
 
+    /**
+     * Checks to see if the current permissions stack can read a path expression.
+     * @param {any} caller
+     * @param {string} path
+     * @returns {boolean} Returns true if the read operation should be permitted.
+     */
     validRead(efuns, path) {
         if (MUDData.GameState < MUDData.Constants.GAMESTATE_RUNNING)
             return true;
@@ -653,6 +746,10 @@ class GameServer extends MUDEventEmitter {
         }
     }
 
+    /**
+     * Checks to see if a shutdown request is valid.
+     * @returns {boolean} Returns true if the shutdown may proceed.
+     */
     validShutdown(efuns) {
         if (MUDData.GameState !== MUDData.Constants.GAMESTATE_RUNNING)
             return true;
@@ -660,6 +757,12 @@ class GameServer extends MUDEventEmitter {
         else return MUDData.InGameMaster().validShutdown(efuns);
     }
 
+    /**
+     * Checks to see if the current permissions stack can write to a path expression.
+     * @param {any} caller
+     * @param {string} path The path to write to, delete, or create.
+     * @returns {boolean} Returns true if the write operation should be permitted.
+     */
     validWrite(efuns, path) {
         if (MUDData.GameState < MUDData.Constants.GAMESTATE_INITIALIZING)
             return true;

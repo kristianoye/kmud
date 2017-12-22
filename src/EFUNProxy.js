@@ -455,14 +455,15 @@ class EFUNProxy {
             if (typeof expr === 'function') {
                 audience.forEach(a => {
                     if (Array.isArray(a))
-                        this.message(messageType, expr, a);
-                    else unwrap(a, a => a.receive_message(messageType, expr(a)));
+                        a.forEach((player) => this.message(messageType, expr, player));
+                    else unwrap(a, (player) => player.receive_message(messageType, expr(player)));
                 });
             }
             else {
                 audience.forEach(a => {
-                    if (Array.isArray(a))
-                        this.message(messageType, expr, a);
+                    if (Array.isArray(a)) {
+                        a.forEach((player) => this.message(messageType, expr, player));
+                    }
                     else unwrap(a, a => a.receive_message(messageType, expr));
                 });
             }
@@ -670,6 +671,21 @@ class EFUNProxy {
         throw new ErrorTypes.SecurityError();
     }
 
+    /**
+     * Set the reset interval for a particular object.
+     * @param {MUDObject} target
+     * @param {number=} interval
+     */
+    setResetInterval(target, interval) {
+        unwrap(target, (ob) => {
+            if (!interval) {
+                interval = MUDConfig.mudlib.objectResetInterval;
+                interval = (interval / 2) + Math.random(interval / 2);
+            }
+            MUDData.MasterObject.registerResetTime(ob, new Date().getTime() + interval);
+        });
+    }
+
     shutdown(errCode, reason) {
         if (MUDData.MasterObject.validShutdown(this)) {
             process.exit(errCode || 0);
@@ -702,7 +718,6 @@ class EFUNProxy {
             result = callback();
         }
         catch (err) {
-            MUDData.CleanError(err);
             throw err;
         }
         finally {

@@ -111,6 +111,9 @@ class MUDModule {
                     writable: false,
                     enumerable: false
                 });
+
+                MUDData.MasterObject.registerReset(instanceWrapper, false, store);
+
                 return instanceWrapper;
             }
             creationContext = prevContext;

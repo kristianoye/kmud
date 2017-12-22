@@ -7,6 +7,8 @@ const
     MUDCreationContext = require('./MUDCreationContext'),
     MUDEventEmitter = require('./MUDEventEmitter'),
     MUDStorage = require('./MUDStorage'),
+    MUDConfig = require('./MUDConfig').MUDConfig,
+    UseLazyResets = MUDConfig.driver.useLazyResets || false,
     _environment = Symbol('_environment'),
     _filename = '_filename',  // Symbol('_filename'),
     _heartbeat = Symbol('_heartbeat'),
@@ -306,33 +308,39 @@ class MUDObject extends MUDEventEmitter {
             efuns = getEfunProxy(this),
             target = wrapper(destination) || efuns.loadObject(destination);
 
-        if (typeof target() !== 'object') {
+        if (target && typeof target() !== 'object') {
             console.log('Unable to move object: Bad destination!');
             self.emit('kmud.item.badmove', destination);
         }
         else if (!environment || environment.canReleaseItem(this)) {
-            var isAlive = this.isLiving();
+            let $target = MUDStorage.get(target);
 
+            if (UseLazyResets) {
+                if (typeof target().reset === 'function') {
+                    if ($target.nextReset < new Date().getTime()) {
+                        target().reset();
+                        MUDData.MasterObject.registerReset(target, false, $target);
+                    }
+                }
+            }
             if (target().canAcceptItem(this)) {
                 if (target().addInventory(this)) {
-                    let $storage = MUDStorage.get(this),
-                        $target = MUDStorage.get(target);
+                    let $storage = MUDStorage.get(this);
 
-                    if (isAlive) {
+                    if (this.isLiving()) {
                         let stats = $target.stats;
                         if (stats) stats.moves++;
                     }
                     $storage.environment = target;
                     this.setSymbol(_environment, target);
-                    if (isAlive) {
+                    if (this.isLiving()) {
                         target().init.call(this);
-                        isAlive = true;
                     }
                     target().inventory.forEach(p => {
-                        if (p !== this && MUDData.SpecialRootEfun.isLiving(p)) {
+                        if (p !== this && unwrap(p, (o) => o.isLiving())) {
                             this.init.call(p);
                         }
-                        if (isAlive && p !== this) {
+                        if (this.isLiving() && p !== this) {
                             p.init.call(this);
                         }
                     });

@@ -23,6 +23,9 @@ class MUDStorage extends MUDEventEmitter {
         /** @type {MUDObject[]}} All of the inventory contained with the object */
         this.inventory = [];
 
+        /** @type {number} */
+        this.nextReset = 0;
+
         /** @type {MUDObject} The owner of the storage objects */
         this.owner = owner;
 
