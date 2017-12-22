@@ -12,6 +12,7 @@ try {
 
     try {
         if (!MUDConfig.setupMode) {
+            MUDConfig.assertValid();
             var gameMaster = new GameServer(MUDConfig);
 
             /** @type {GameServer} The game server instance */

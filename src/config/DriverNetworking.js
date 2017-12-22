@@ -1,4 +1,7 @@
-﻿class DriverNetworkingEndpointHandlerConfig {
+﻿const
+    ConfigUtil = require('./ConfigShared').ConfigUtil;
+
+class DriverNetworkingEndpointHandlerConfig {
     constructor(data, protoIndex, handlerIndex, protocol) {
         /** @type {boolean} */
         this.default = typeof data.default === "boolean" ? data.default : false;
@@ -32,7 +35,7 @@
             new Error(`Endpoint handler with name ${this.name} [position ${this.handlerIndex}] for protocol ${this.protocol} has no id.`);
         if (!this.file)
             new Error(`Endpoint handler with name ${this.name} [position ${this.handlerIndex}] for protocol ${this.protocol} has no module file specified.`);
-        if (!resolvePath(this.file))
+        if (!ConfigUtil.resolvePath(this.file))
             new Error(`Endpoint handler with name ${this.name} [position ${this.handlerIndex}] for protocol ${this.protocol} points to non-existant file: ${this.file}`);
         if (typeof this.type === 'string' && !this.type.match(/^\w+$/)) {
             new Error(`Endpoint handler with name ${this.name} [position ${this.handlerIndex}] for protocol ${this.protocol} has invalid type specifier: ${this.type}`);
@@ -41,6 +44,12 @@
 }
 
 class DriverNetworkingEndpointConfig {
+    /**
+     * 
+     * @param {Object} data
+     * @param {number} protoIndex
+     * @param {string} protocol
+     */
     constructor(data, protoIndex, protocol) {
         /** @type {boolean} */
         this.enabled = typeof data.enabled === 'boolean' ? data.enabled : true;
@@ -61,13 +70,16 @@ class DriverNetworkingEndpointConfig {
             }
             return handler;
         });
+
+        /** @type {number} */
+        this.protoIndex = protoIndex;
     }
 
     assertValid() {
         if (!this.protocol)
-            throw new Error(`Protocol at position ${protoIndex} must specify a protocol parameter (e.g. http)`);
+            throw new Error(`Protocol at position ${this.protoIndex} must specify a protocol parameter (e.g. http)`);
         if (this.handlers.length === 0)
-            throw new Error(`Protocol ${this.protocol} at position ${protoIndex} did not specify any handlers!`);
+            throw new Error(`Protocol ${this.protocol} at position ${this.protoIndex} did not specify any handlers!`);
         this.handlers.forEach(handler => handler.assertValid());
     }
 

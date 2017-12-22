@@ -50,6 +50,7 @@
       "creatorStats": true,
       "domainStats": false
     },
+    "maxCommandLength": 10240,
     "resetPollingInterval": "5 seconds",
     "useLazyResets": true,
     "useObjectProxies": false,

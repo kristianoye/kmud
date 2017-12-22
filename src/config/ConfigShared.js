@@ -4,9 +4,9 @@
 class ConfigUtil {
     assertType(val, key, ...typeList) {
         for (let i = 0, myType = typeof val; i < typeList.length; i++) {
-            if (val === typeList[i]) return true;
+            if (myType === typeList[i]) return true;
         }
-        throw new Error(`Setting for ${key} has invalid type; Expected ${typeList.join('|')} but got ${myType}`);
+        throw new Error(`Setting for ${key} has invalid type; Expected ${typeList.join('|')} but got ${typeof val}`);
     }
 
     assertRange(val, key, min, max) {
@@ -50,9 +50,9 @@ class ConfigUtil {
 
 function assertType(val, key, ...typeList) {
     for (let i = 0, myType = typeof val; i < typeList.length; i++) {
-        if (val === typeList[i]) return true;
+        if (myType === typeList[i]) return true;
     }
-    throw new Error(`Setting for ${key} has invalid type; Expected ${typeList.join('|')} but got ${myType}`);
+    throw new Error(`Setting for ${key} has invalid type; Expected ${typeList.join('|')} but got ${typeof val}`);
 }
 
 function resolvePath(p1, ext) {

@@ -15,6 +15,9 @@ class DriverSection {
         this.features = data.features || {};
 
         /** @type {number} */
+        this.maxCommandLength = data.maxCommandLength || 1024;
+
+        /** @type {number} */
         this.resetPollingInterval = ConfigUtil.parseTime(data.resetPollingInterval || 5000);
 
         /** @type {boolean} */
@@ -50,6 +53,7 @@ class DriverSection {
         });
         this.compiler.assertValid();
         this.networking.assertValid();
+        ConfigUtil.assertRange(this.maxCommandLength, 'driver.maxCommandLength', 100, 1024 * 4);
         return this;
     }
 
