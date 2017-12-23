@@ -22,6 +22,9 @@ class MUDCreationContext {
         this._wrapper = instanceWrapper;
         this.isReload = isReload;
 
+        if (isNaN(instanceId))
+            throw new Error('Illegal instanceId!');
+
         if (typeof startupData === 'object') {
             this.args = startupData.args || {};
             this.props = startupData.props || {};

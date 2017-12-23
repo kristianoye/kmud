@@ -116,6 +116,13 @@ class MUDStorage extends MUDEventEmitter {
         return this.merge(ctx);
     }
 
+    restore(data) {
+        // TODO: Restore inventory / object references
+        this.properties = data.props;
+        this.protected = data.protected;
+        this.emit('kmud.restored', this);
+    }
+
     /**
      * Serialize the MUD object state into a format that can be stored
      * and reconstituted later.

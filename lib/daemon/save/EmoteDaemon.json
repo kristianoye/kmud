@@ -1,0 +1,11 @@
+{
+  "props": {
+    "emotes": {
+      "grin": {}
+    }
+  },
+  "protected": {},
+  "$environment": false,
+  "$inventory": [],
+  "$filename": "/daemon/EmoteDaemon"
+}

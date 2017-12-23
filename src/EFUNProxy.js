@@ -666,6 +666,24 @@ class EFUNProxy {
         return typeof callback === 'function' ? callback(result) : result;
     }
 
+    restoreObject(path) {
+        let result = false;
+        try {
+            let prev = this.previousObject();
+            if (prev) {
+                let data = this.readJsonFile(path);
+                if (data) {
+                    let $storage = MUDData.Storage.get(prev);
+                    $storage && $storage.restore(data);
+                    result = true;
+                }
+            }
+        }
+        finally {
+            return result;
+        }
+    }
+
     rm(path, callback) {
         var filename = this.resolvePath(path);
         if (MUDData.MasterObject.validWrite(this, filename)) {
@@ -682,6 +700,21 @@ class EFUNProxy {
             return MUDData.MasterEFUNS.rmdir(absPath);
         }
         throw new ErrorTypes.SecurityError();
+    }
+
+    saveObject(path) {
+        try {
+            let prev = this.previousObject();
+
+            if (prev) {
+                this.writeJsonFile(path, prev.serializeObject());
+                return true;
+            }
+        }
+        catch (err) {
+
+        }
+        return false;
     }
 
     /**
@@ -878,7 +911,7 @@ Object.defineProperties(EFUNProxy.prototype, {
                         if (typeof fn === 'string' && !fn.startsWith(MUDData.DriverPath)) {
                             let fileParts = fn.split('#');
                             let module = MUDData.ModuleCache.get(fileParts[0]),
-                                instanceId = fileParts.length === 0 ? 0 : parseInt(fileParts[1]);
+                                instanceId = fileParts.length === 1 ? 0 : parseInt(fileParts[1]);
                             if (module) {
                                 let ob = unwrap(module.getWrapper(instanceId));
                                 if (objectStack[0] !== ob) objectStack.unshift(ob);

@@ -61,8 +61,16 @@ class MUDLoader {
                 },
                 writable: false
             },
-            __DIR__: {
+            __dirname: {
                 value: _directory,
+                writable: false
+            },
+            __filename: {
+                value: _efuns.filename,
+                writable: false
+            },
+            __DIR__: {
+                value: _directory.endsWith('/') ? _directory : _directory + '/',
                 writable: false
             },
             __FILE__: {
