@@ -256,11 +256,14 @@ class MUDModule {
      * @param {any} target
      */
     importScope(target) {
+        let exports = {}, count = 0;
         if (this.context !== null) {
             Object.keys(this.context.exports).forEach(name => {
-                target[name] = this.context.exports[name];
+                exports[name] = target[name] = this.context.exports[name];
+                count++;
             });
         }
+        return count === 1 ? this.context.primaryExport : exports;
     }
 
     /**

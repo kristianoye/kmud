@@ -148,30 +148,25 @@ class MUDLoader {
                 writable: false
             },
             require: {
-                value: function (src) {
-                    var _ = this || self;
-                    [].slice.apply(arguments).forEach(exp => {
-                        if (typeof exp === 'string') {
-                            switch (exp) {
-                                case 'lpc':
-                                    _[exp] = require('./LPCCompat');
-                                    break;
+                value: function (exp) {
+                    if (typeof exp === 'string') {
+                        switch (exp) {
+                            case 'lpc':
+                                self[exp] = require('./LPCCompat');
+                                break;
 
-                                case 'async':
-                                case 'net':
-                                    _[exp] = require(exp);
-                                    break;
+                            case 'net':
+                                self[exp] = require(exp);
+                                break;
 
-                                default:
-                                    var filename = _.efuns.resolvePath(src, _.efuns.directory),
-                                        module = MUDData.Compiler(filename);
-                                    if (!module)
-                                        throw new Error('Failed to load parent module: ' + filename);
-                                    module.importScope(_);
-                                    break;
-                            }
+                            default:
+                                var filename = self.efuns.resolvePath(exp, self.efuns.directory),
+                                    module = MUDData.Compiler(filename);
+                                if (!module)
+                                    throw new Error('Failed to load parent module: ' + filename);
+                                return module.importScope(self);
                         }
-                    });
+                    }
                     return this;
                 },
                 writable: false
@@ -280,6 +275,9 @@ class MUDLoader {
             },
             master: {
                 get: function () { return MUDData.InGameMaster; }
+            },
+            module: {
+                get: function () { return this || self; }
             },
             mud_name: {
                 value: function () {
