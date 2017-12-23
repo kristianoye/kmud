@@ -2,7 +2,7 @@
 
 :RunMud
 	node server.js  %*
-	IF %ERRORLEVEL% EQU 0 THEN GOTO :RunMud
+	IF %ERRORLEVEL% EQU 0 GOTO :RunMud
 	
 :ExitMud
 	

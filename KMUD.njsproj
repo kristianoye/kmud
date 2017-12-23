@@ -84,6 +84,9 @@
     <Compile Include="lib\cmds\creator\Reset.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\sys\cmds\arch\Reboot.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\sys\cmds\creator\Call.js" />
     <Compile Include="lib\sys\cmds\creator\Edit.js">
       <SubType>Code</SubType>
@@ -146,7 +149,7 @@
     <Compile Include="lib\sys\cmds\creator\RmDir.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\admin\Shutdown.js">
+    <Compile Include="lib\sys\cmds\admin\Shutdown.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\creator\SetEnv.js">
