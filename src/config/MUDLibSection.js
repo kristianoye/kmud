@@ -15,7 +15,7 @@ class MudlibSection {
         this.defaultError = data.defaultError || 'What?';
 
         /** @type {string} */
-        this.heartbeatInterval = parseInt(data.heartbeatInterval) || 1000;
+        this.heartbeatInterval = ConfigUtil.parseTime(data.heartbeatInterval) || 1000;
 
         /** @type {string[]} */
         this.includePath = Array.isArray(data.includePath) ? data.includePath : [];

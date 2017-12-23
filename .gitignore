@@ -3,6 +3,7 @@ node_modules/
 obj/
 KMUD.njsproj.user
 lib/log
+lib/realms/
 lib/sys/data/
 mudconfig.json
 runOnce.json

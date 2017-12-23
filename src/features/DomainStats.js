@@ -64,7 +64,7 @@ class DomainStatsContainerType {
         if (!domain)
             return this.domains;
         else if (domain in this.domains)
-            return this.domains[author];
+            return this.domains[domain];
         else if (createIfMissing)
             return this.domains[domain] = new DomainStats();
         return false;
@@ -83,6 +83,9 @@ class DomainStatsFeature extends FeatureBase {
         this.applyNameAuthorFile = config.parameters.applyNameAuthorFile || false;
         this.applyNameDomainFile = config.parameters.applyNameDomainFile || false;
         this.driver = null;
+        this.efunNameAuthorStats = config.parameters.efunNameAuthorStats || false;
+        this.efunNameAddWorth = config.parameters.efunNameAddWorth || false;
+        this.efunNameDomainStats = config.parameters.efunNameDomainStats || false;
     }
 
     createDriverApplies(driver, driverProto) {
@@ -123,22 +126,26 @@ class DomainStatsFeature extends FeatureBase {
     }
 
     createExternalFunctions(efunProto) {
-        if (this.applyNameAuthorFile) {
-            efunProto.author_stats = function (author) {
-                return DomainStatsContainer.getAuthor(author, false);
-            };
-        }
-        else {
-            efunProto.author_stats = function () { throw new Error('Author stats are not enabled in driver.'); }
+        if (this.efunNameAuthorStats) {
+            if (this.applyNameAuthorFile) {
+                efunProto[this.efunNameAuthorStats] = function (author) {
+                    return DomainStatsContainer.getAuthor(author, false);
+                };
+            }
+            else {
+                efunProto[this.efunNameAuthorStats] = function () { throw new Error('Author stats are not enabled in driver.'); }
+            }
         }
 
-        if (this.applyNameDomainFile) {
-            efunProto.domain_stats = function (domain) {
-                return DomainStatsContainer.getDomain(domain, false);
-            };
-        }
-        else {
-            efunProto.domain_stats = function () { throw new Error('Domain stats are not enabled in driver.'); }
+        if (this.efunNameDomainStats) {
+            if (this.applyNameDomainFile) {
+                efunProto[this.efunNameDomainStats] = function (domain) {
+                    return DomainStatsContainer.getDomain(domain, false);
+                };
+            }
+            else {
+                efunProto[this.efunNameDomainStats] = function () { throw new Error('Domain stats are not enabled in driver.'); }
+            }
         }
     }
 
