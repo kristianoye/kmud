@@ -15,6 +15,17 @@ const
     MUDEventEmitter = require('../MUDEventEmitter');
 
 class HTTPClientInstance extends ClientInstance {
+
+    createCommandEvent(input, callback) {
+        if (!callback) {
+            callback = function (evt) {
+                if (!evt.prompt.recapture) {
+                    this.renderPrompt(evt.prompt);
+                }
+            };
+        }
+        return super.createCommandEvent(input, true, callback, 'Enter a command...');
+    }
     constructor(endpoint, gameMaster, client) {
         super(endpoint, gameMaster, client, client.request.connection.remoteAddress);
         var self = this, body, $storage;
@@ -28,7 +39,7 @@ class HTTPClientInstance extends ClientInstance {
         }
 
         function dispatchInput(resp) {
-            let evt = self.createCommandEvent(resp.cmdline, true, commandComplete, 'Enter a command...');
+            let evt = self.createCommandEvent(resp.cmdline, commandComplete);
             try {
                 var body = this.body;
 
@@ -51,7 +62,7 @@ class HTTPClientInstance extends ClientInstance {
                             result = p.callback.call(body(), resp.cmdline);
                         }
                         catch (_err) {
-                            this.writeLine('Error: ' + _err);
+                            this.writeLine(_err.message);
                             this.writeLine(_err.stack);
                             result = true;
                         }
@@ -82,12 +93,14 @@ class HTTPClientInstance extends ClientInstance {
             self.emit('disconnected', self);
             gameMaster.removePlayer(self.body);
         });
+
         gameMaster.on('kmud.exec', evt => {
             if (evt.client === self) {
                 body = evt.newBody;
                 $storage = evt.newStorage;
             }
         });
+
         client.on('kmud', data => {
             switch (data.eventType) {
                 case 'consoleInput':

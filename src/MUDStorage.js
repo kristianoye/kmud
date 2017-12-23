@@ -127,18 +127,20 @@ class MUDStorage extends MUDEventEmitter {
      * Serialize the MUD object state into a format that can be stored
      * and reconstituted later.
      */
-    serialize(flag) {
+    serialize(flag, backrefs) {
         let result = {
             props: {},
             protected: {}
-        }, backrefs = [], propsOnly = flag || false;
+        }, propsOnly = flag || false;
+
+        if (!backrefs) backrefs = [this.owner];
 
         Object.keys(this.properties).forEach((prop, index) => {
             if (typeof prop === 'string') {
                 let value = this.properties[prop], uw = unwrap(value);
-                if (Array.isArray(value)) result.props[prop] = this.serializeArray(value);
-                else if (uw) result.props[prop] = this.serializeMudObject(uw);
-                else if (typeof value === 'object') result.props[prop] = this.serializeOtherObject(value);
+                if (Array.isArray(value)) result.props[prop] = this.serializeArray(value, backrefs);
+                else if (uw) result.props[prop] = this.serializeMudObject(uw, backrefs);
+                else if (typeof value === 'object') result.props[prop] = this.serializeOtherObject(value, backrefs);
                 else {
                     let s = this.serializeScalar(value);
                     if (s) result.props[prop] = s;
@@ -175,13 +177,13 @@ class MUDStorage extends MUDEventEmitter {
      * Serialize an array for storage
      * @param {Array<any>} a
      */
-    serializeArray(a) {
+    serializeArray(a, backrefs) {
         return a.map((el, i) => {
             var uw = unwrap(el);
-            if (Array.isArray(el)) return this.serializeArray(el);
-            else if (uw) return this.serializeMudObject(uw);
-            else if (typeof el === 'object') return this.serializeOtherObject(el);
-            else return this.serializeScalar(el);
+            if (Array.isArray(el)) return this.serializeArray(el, backrefs);
+            else if (uw) return this.serializeMudObject(uw, backrefs);
+            else if (typeof el === 'object') return this.serializeOtherObject(el, backrefs);
+            else return this.serializeScalar(el, backrefs);
         });
     }
 
@@ -189,17 +191,19 @@ class MUDStorage extends MUDEventEmitter {
      * Serialize an object for storage.
      * @param {MUDObject} o The object to serialize
      */
-    serializeMudObject(o) {
+    serializeMudObject(o, backrefs) {
+        let index = backrefs.indexOf(o) > -1;
+        if (index > -1) return `OBJREF:${index}`;
         let $storage = MUDStorage.get(o);
         if ($storage) {
-            let data = $storage.serialize();
+            let data = $storage.serialize(false, backrefs);
             data.$$type = o.filename;
             return data;
         }
         return null;
     }
 
-    serializeOtherObject(o) {
+    serializeOtherObject(o, backrefs) {
         if (o === null)
             return null;
 
@@ -211,9 +215,9 @@ class MUDStorage extends MUDEventEmitter {
             if (typeof prop === 'string') {
                 let value = o[prop], uw = unwrap(value);
 
-                if (Array.isArray(value)) result[prop] = this.serializeArray(value);
-                else if (uw) result[prop] = this.serializeMudObject(uw);
-                else if (typeof value === 'object') result[prop] = this.serializeOtherObject(value);
+                if (Array.isArray(value)) result[prop] = this.serializeArray(value, backrefs);
+                else if (uw) result[prop] = this.serializeMudObject(uw, backrefs);
+                else if (typeof value === 'object') result[prop] = this.serializeOtherObject(value, backrefs);
                 else {
                     let s = this.serializeScalar(value);
                     if (s) result[prop] = s;

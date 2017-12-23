@@ -42,14 +42,7 @@ class MUDModule {
         this.singleton = false;
         this.wrappers = [null];
 
-        if (useStats) {
-            let stats = MUDData.MasterObject.getDomainStats(filename) ||
-                MUDData.MasterObject.getAuthorStats(filename) || false;
-            if (stats) {
-                /** @type {DomainStats} */
-                this.stats = stats;
-            }
-        }
+        MUDData.MasterObject.preCompile(this);
     }
 
     /**

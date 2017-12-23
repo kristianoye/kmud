@@ -56,6 +56,7 @@ class GameServer extends MUDEventEmitter {
         this.masterFilename = config.mudlib.inGameMaster.path;
         this.mudName = config.mud.name;
         this.nextResetTime = 0;
+        this.preCompilers = [];
         this.resetStack = [];
         this.resetTimes = {};
         this.preloads = [];
@@ -167,8 +168,6 @@ class GameServer extends MUDEventEmitter {
         }
 
         /* validate in-game master */
-        this.applyAuthorFile = locateApply('authorFile', false);
-        this.applyDomainFile = locateApply('domainFile', false);
         this.applyErrorHandler = locateApply('errorHandler', false);
         this.applyGetPreloads = locateApply('getPreloads', false);
         this.applyLogError = locateApply('logError', false);
@@ -237,6 +236,29 @@ class GameServer extends MUDEventEmitter {
         if (this.simulEfunPath) {
             MUDData.Compiler(this.simulEfunPath);
         }
+    }
+
+    enableFeatures() {
+        console.log('Bootstrap: Initializing driver features');
+        this.features = this.config.driver.features.map((featureConfig) => {
+            if (featureConfig.enabled) {
+                console.log(`\tEnabling driver feature: ${featureConfig.name}`);
+                let feature = featureConfig.initialize();
+
+                feature.createGlobalData(MUDData);
+                feature.createMasterApplies(this.masterObject, this.masterObject.constructor.prototype);
+                feature.createExternalFunctions(EFUNProxy.prototype);
+                feature.createDriverApplies(this, this.constructor.prototype);
+
+                return feature;
+            }
+            else {
+                console.log(`\tSkipping disabled feature: ${featureConfig.name}`);
+            }
+            return false;
+        }).filter((feature) => feature !== false);
+
+        this.preCompilers = this.features.filter((feature) => typeof feature.preCompile === 'function');
     }
 
     enableGlobalErrorHandler() {
@@ -342,30 +364,6 @@ class GameServer extends MUDEventEmitter {
         return this.serverAddress;
     }
 
-    /**
-     * If enabled this returns the author stats to track wizard popularity and usage.
-     * @param {string} filename
-     * @returns {DomainStats}
-     */
-    getAuthorStats(filename) {
-        if (this.applyAuthorFile) {
-            let author = this.applyAuthorFile.call(this.masterObject, filename);
-            return author && DomainStatsContainer.getAuthor(author, true);
-        }
-    }
-
-    /**
-     * If enabled this returns the author stats to track domain popularity and usage.
-     * @param {string} filename
-     * @returns {DomainStats}
-     */
-    getDomainStats(filename) {
-        if (this.applyDomainFile) {
-            let domain = this.applyDomainFile.call(this.masterObject, filename);
-            return domain && DomainStatsContainer.getDomain(domain, true);
-        }
-    }
-
     getMudName() {
         return this.MudName;
     }
@@ -385,6 +383,11 @@ class GameServer extends MUDEventEmitter {
             console.log(error.stack);
         }
         else this.applyLogError.apply(this.masterObject, arguments);
+    }
+
+    preCompile(module) {
+        this.preCompilers.forEach((pre) => pre.preCompile(module));
+        return true;
     }
 
     /**
@@ -457,9 +460,11 @@ class GameServer extends MUDEventEmitter {
         }
         this.createSimulEfuns();
         this.createMasterObject();
+        this.enableFeatures();
 
         MUDData.GameState = MUDData.Constants.GAMESTATE_STARTING;
 
+        this.sealProtectedTypes();
         this.createPreloads();
 
         if (this.config.skipStartupScripts === false) {
@@ -569,6 +574,15 @@ class GameServer extends MUDEventEmitter {
             }, MUDConfig.driver.resetPollingInterval);
         }
         return this;
+    }
+
+    /**
+     * Try to make sure no evil code tries to redefine important in-game security features..
+     */
+    sealProtectedTypes() {
+        Object.freeze(this.masterObject);
+        Object.freeze(this.masterObject.constructor);
+        Object.freeze(this.masterObject.constructor.prototype);
     }
 
     /**

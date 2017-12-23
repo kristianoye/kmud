@@ -30,3 +30,17 @@ ReferenceError: Invalid left-hand side in assignment
     at UpdateWrapper.cmd (/sys/cmds/creator/Update:4:34)
     at CreatorWrapper.processInput (/base/Interactive.js:196:111)
     at CreatorWrapper.preprocessInput (/base/Creator.js:156:25)
+
+[2017-12-23 14:12:34]
+backrefs is not defined
+ReferenceError: backrefs is not defined
+    at Object.keys.forEach ([driver]\MUDStorage.js:220:101)
+    at Array.forEach (<anonymous>)
+    at MUDStorage.serializeOtherObject ([driver]\MUDStorage.js:214:24)
+    at Object.keys.forEach ([driver]\MUDStorage.js:143:79)
+    at Array.forEach (<anonymous>)
+    at MUDStorage.serialize ([driver]\MUDStorage.js:138:38)
+    at MUDStorage.getSizeOf ([driver]\MUDStorage.js:76:25)
+    at MUDModule.createInstance ([driver]\MUDModule.js:99:48)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:194:51)
+    at Object.Compiler ([driver]\MUDData.js:52:55)

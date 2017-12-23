@@ -400,6 +400,9 @@
     <Compile Include="src\config\DriverCompiler.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\config\DriverFeature.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\config\DriverSection.js">
       <SubType>Code</SubType>
     </Compile>
@@ -430,6 +433,9 @@
     </Compile>
     <Compile Include="src\ErrorTypes.js" />
     <Compile Include="src\features\DomainStats.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\features\FeatureBase.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\GameServer.js">
@@ -518,6 +524,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\compiler\PipelineComponent.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\features\VerbSystem.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\setup\general\AdminSetup.js">

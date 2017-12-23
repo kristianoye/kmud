@@ -1,7 +1,8 @@
 ﻿const
     ConfigUtil = require('./ConfigShared').ConfigUtil,
     { DriverNetworking } = require('./DriverNetworking'),
-    DriverCompiler = require('./DriverCompiler');
+    DriverCompiler = require('./DriverCompiler'),
+    DriverFeature = require('./DriverFeature');
 
 /**
  * The driver section controls the nuts and bolts of the game.
@@ -11,8 +12,12 @@ class DriverSection {
         /** @type {string} */
         this.core = data.core;
 
-        /** @type {Object.<string,boolean>} */
-        this.features = data.features || {};
+        /**@type {Object.<string,boolean>} */
+        this.featureFlags = {};
+
+        /** @type {DriverFeature[]} */
+        this.features = (Array.isArray(data.features) ? data.features : [])
+            .map((spec, pos) => new DriverFeature(spec, pos, this.featureFlags));
 
         /** @type {number} */
         this.maxCommandLength = data.maxCommandLength || 1024;
@@ -43,14 +48,7 @@ class DriverSection {
         if (['inline', 'thinWrapper', 'fullWrapper'].indexOf(this.objectCreationMethod) === -1) {
             throw new Error(`Invalid setting for driver.objectCreationMethod: Got ${data.objectCreationMethod} [valid values: inline, thinWrapper, fullWrapper`);
         }
-        if (typeof this.features !== 'object')
-            throw new Error(`Invalid driver.features setting; Expected object, but got ${typeof this.features}`);
-        Object.keys(this.features).forEach((key, index) => {
-            if (typeof key !== 'string')
-                throw new Error(`Invalid driver.features entry [index ${key}]; Key must be string and not ${typeof key}.`);
-            if (typeof this.features[key] !== 'boolean')
-                throw new Error(`Invalid driver.features entry for ${key}; Value must be boolean and not ${typeof this.features[key]}`);
-        });
+        this.features.forEach((feature) => feature.assertValid());
         this.compiler.assertValid();
         this.networking.assertValid();
         ConfigUtil.assertRange(this.maxCommandLength, 'driver.maxCommandLength', 100, 1024 * 4);
@@ -63,8 +61,8 @@ class DriverSection {
      * @returns {boolean} True if the specified feature is defined and enabled.
      */
     hasFeature(feature) {
-        if (!this.features) return false;
-        return this.features[feature] || false;
+        if (!this.featureFlags) return false;
+        return this.featureFlags[feature] || false;
     }
 }
 

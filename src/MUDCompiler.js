@@ -172,17 +172,15 @@ class MUDCompiler {
                 }
 
                 module.loader = this.getLoader(pipeline, module);
-                var result = VM.run(context, module);
+                VM.run(context, module);
+
+                let result = module.context.primaryExport;
 
                 if (!module.efunProxy.isClass(result)) {
                     throw new Error(`Error: Module ${context.filename} did not return a class; Did you forget to export?`);
                 }
 
                 module.allowProxy = module.loader.allowProxy;
-                 
-                if (result && !module.context.primaryExport) {
-                    module.context.primaryExport = result;
-                }
 
                 if (result) {
                     var isReload = module.loaded,

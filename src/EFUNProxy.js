@@ -12,7 +12,6 @@ const
     { MUDConfig } = require('./MUDConfig'),
     ErrorTypes = require('./ErrorTypes'),
     MUDExecutionContext = require('./MUDExcecutionContext'),
-    { DomainStatsContainer } = require('./features/DomainStats'),
     util = require('util'),
     fs = require('fs'),
     vm = require('vm');
@@ -117,10 +116,6 @@ class EFUNProxy {
         else throw new Error(`Bad argument 1 to assemble_class(); Expected array got ${typeof arr}`);
     }
 
-    authorStats(name) {
-        return DomainStatsContainer.getAuthor(name);
-    }
-
     /**
      * Validate a password.
      * @param {string} plain The plain text entered as a password.
@@ -173,6 +168,41 @@ class EFUNProxy {
     }
 
     /**
+     * Force the previous object to perform an in-game object.
+     */
+    command(input) {
+        let prev = this.previousObject();
+        if (prev) {
+            let $storage = MUDData.Storage.get(prev),
+                client = $storage.getProtected('client'),
+                evt = client ? client.createCommandEvent(input) : false;
+
+            if (!evt) {
+                let words = input.trim().split(/\s+/g),
+                    verb = words.shift();
+
+                evt = {
+                    verb: verb.trim(),
+                    args: words,
+                    callback: function () { },
+                    client: prev,
+                    error: 'What?',
+                    fromHistory: false,
+                    input: input.slice(verb.length).trim(),
+                    original: input,
+                    preferHtml: false,
+                    prompt: {
+                        type: 'text',
+                        text: '> ',
+                        recapture: false
+                    }
+                };
+            }
+            $storage.emit('kmud.command', evt);
+        }
+    }
+
+    /**
      * Create an encrypted password.
      * @param {string} plainText The plain text to be encrypted.
      * @param {function=} callback An optional callback if the operation is async.
@@ -211,10 +241,6 @@ class EFUNProxy {
 
         }
         return false;
-    }
-
-    domainStats(domain) {
-        return DomainStatsContainer.getDomain(domain);
     }
 
     /**
