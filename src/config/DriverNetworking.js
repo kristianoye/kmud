@@ -54,6 +54,9 @@ class DriverNetworkingEndpointConfig {
         /** @type {boolean} */
         this.enabled = typeof data.enabled === 'boolean' ? data.enabled : true;
 
+        /** @type {number} */
+        this.maxCommandLength = data.maxCommandLength || 512;
+
         /** @type {string} */
         this.protocol = protocol;
 

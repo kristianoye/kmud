@@ -61,6 +61,22 @@ class MUDLoader {
                 },
                 writable: false
             },
+            __DIR__: {
+                value: _directory,
+                writable: false
+            },
+            __FILE__: {
+                value: _efuns.filename,
+                writable: false
+            },
+            __LINE__: {
+                get: function () {
+                    let foo = new Error('').stack.split('\n'), re = /((\d+):(\d+))/;
+                    for (let i = 0, m=null, c=0; i < foo.length; i++) {
+                        if ((m = re.exec(foo[i])) && c++ === 1) return parseInt(m[1]);
+                    }
+                }
+            },
             allowProxy: {
                 get: function () { return _allowProxy; },
                 set: function (v) { _allowProxy = typeof v === 'boolean' ? v : true; }

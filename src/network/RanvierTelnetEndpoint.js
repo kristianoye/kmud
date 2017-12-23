@@ -29,11 +29,12 @@ class RanvierTelnetEndpoint extends ClientEndpoint {
      * @returns {TelnetClientEndpoint} A reference to itself
      */
     bind() {
-        var self = this;
+        let self = this;
 
-        var server = new TelnetServer((socket) => {
-            var client = new TelnetSocket().attach(socket);
-            var wrapper = new RanvierTelnetInstance(self, self.gameMaster, client);
+        let server = new TelnetServer((socket) => {
+            let opts = { maxInputLength: this.config.maxCommandLength || 80 };
+            let client = new TelnetSocket().attach(socket);
+            let wrapper = new RanvierTelnetInstance(self, self.gameMaster, client);
 
             self.emit('kmud.connection.new', client, 'telnet');
             self.emit('kmud.connection', wrapper);

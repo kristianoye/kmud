@@ -84,6 +84,9 @@
     <Compile Include="lib\cmds\creator\Reset.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\daemon\EmoteDaemon.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\sys\cmds\arch\Reboot.js">
       <SubType>Code</SubType>
     </Compile>
@@ -222,7 +225,7 @@
     <Compile Include="lib\sys\cmds\player\Save.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\player\Say.js">
+    <Compile Include="lib\cmds\common\Say.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\daemon\BodyDaemon.js">

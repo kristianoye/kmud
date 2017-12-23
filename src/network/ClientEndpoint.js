@@ -13,6 +13,7 @@ const
 
 const
     _address = Symbol('address'),
+    _config = Symbol('config'),
     _connections = Symbol('connections'),
     _gameMaster = Symbol('gameMaster'),
     _maxConnections = Symbol('maxConnections'),
@@ -31,6 +32,7 @@ class ClientEndpoint extends EventEmitter {
         super();
 
         this[_address] = config.address || '0.0.0.0';
+        this[_config] = config;
         this[_connections] = [];
         this[_gameMaster] = gameMaster;
         this[_maxConnections] = config.maxConnections;
@@ -38,33 +40,21 @@ class ClientEndpoint extends EventEmitter {
         this[_type] = config.type;
     }
 
-    get address() {
-        return this[_address];
-    }
+    get address() {  return this[_address];  }
 
-    get connections() {
-        return this[_connections];
-    }
+    get config() { return this[_config]; }
 
-    get gameMaster() {
-        return this[_gameMaster];
-    }
+    get connections() { return this[_connections];  }
 
-    get maxConnections() {
-        return this[_maxConnections];
-    }
+    get gameMaster() {  return this[_gameMaster];   }
 
-    get name() {
-        return `Binding: ${this.type}://${this.address}:${this.port}`;
-    }
+    get maxConnections() {  return this[_maxConnections];  }
 
-    get port() {
-        return this[_port];
-    }
+    get name() {  return `Binding: ${this.type}://${this.address}:${this.port}`; }
 
-    get type() {
-        return this[_type];
-    }
+    get port() {  return this[_port]; }
+
+    get type() {  return this[_type];  }
 
     /**
      * @returns {ClientEndpoint} Reference to self
