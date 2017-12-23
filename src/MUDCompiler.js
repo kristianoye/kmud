@@ -125,7 +125,7 @@ class MUDCompiler {
             return false;
 
         var context = new PipeContext.PipelineContext(filename),
-            module = MUDData.ModuleCache.get(context.basename),
+            /** @type {MUDModule} */ module = MUDData.ModuleCache.get(context.basename),
             t0 = new Date().getTime(), virtualData = false;
 
         if (module && !reload && module.loaded === true)
@@ -173,6 +173,10 @@ class MUDCompiler {
 
                 module.loader = this.getLoader(pipeline, module);
                 var result = VM.run(context, module);
+
+                if (!module.efunProxy.isClass(result)) {
+                    throw new Error(`Error: Module ${context.filename} did not return a class; Did you forget to export?`);
+                }
 
                 module.allowProxy = module.loader.allowProxy;
                  
@@ -235,6 +239,7 @@ class MUDCompiler {
             }
             MUDData.CleanError(err);
             MUDData.MasterObject.logError(context.filename, err);
+            throw err;
         }
         finally {
             var t1 = new Date().getTime();

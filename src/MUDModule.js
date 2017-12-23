@@ -251,6 +251,10 @@ class MUDModule {
         return wrapper;
     }
 
+    /**
+     * Import a module into the global scope.
+     * @param {any} target
+     */
     importScope(target) {
         if (this.context !== null) {
             Object.keys(this.context.exports).forEach(name => {
@@ -259,6 +263,11 @@ class MUDModule {
         }
     }
 
+    /**
+     * Fires when a module is updated in-game.  This process makes sure that
+     * all in-game instances are also updated and that child modules and
+     * child instances are updated as well.
+     */
     recompiled() {
         async.forEach(this.instances, (item, callback) => {
             var instanceId = item.instanceId;
@@ -372,7 +381,7 @@ else if (objectCreationMethod === 'fullWrapper') {
                 if (propId === 'constructor') return false;
                 var desc = Object.getOwnPropertyDescriptor(this.classRef.prototype, propId);
                 return typeof desc.value === 'function';
-            }).map(name => `\t${name}(...args) { return super.${name}.apply(this, args); }\n`).join('\n');
+            }).map(name => `\t${name}() { return super.${name}.apply(this, arguments); }\n`).join('\n');
         let scriptSource = [`
 (function($ctx, $storage) {  
     class ${moduleName}Wrapper extends ${this.classRef.name} { 

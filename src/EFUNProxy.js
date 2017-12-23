@@ -380,7 +380,7 @@ class EFUNProxy {
      * @returns {boolean} True if the value is a class reference.
      */
     isClass (o) {
-        return /\s*class /.test(o.toString());
+        return o && /\s*class /.test(o.toString());
     }
 
     /**
@@ -390,6 +390,19 @@ class EFUNProxy {
      */
     isClone(o) {
         return unwrap(o, (ob) => ob.instanceId > 0);
+    }
+
+    /**
+     * Indents a string by prefixing each line with whitespace.
+     * @param {string} str The string to indent.
+     * @param {number} count The number of patterns to insert (default: 1)
+     * @param {any} pattern The pattern to insert (default: tab);
+     * @returns {string} The indented string.
+     */
+    indent(str, count, pattern) {
+        return str.split('\n')
+            .map(s => Array(count || 1).join(pattern || '\t') + s)
+            .join('\n');
     }
 
     /**

@@ -306,8 +306,7 @@ class EFUNS {
         var found = 0,
             suffix = 's',
             toUpper = what.toUpperCase() === what,
-            whatLC = what.toLowerCase(),
-            result;
+            whatLC = what.toLowerCase();
 
         switch (what.charAt(0).toLowerCase()) {
             case 'a':

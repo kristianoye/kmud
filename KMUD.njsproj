@@ -81,6 +81,9 @@
     <Compile Include="lib\base\Weapon.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\cmds\creator\Reset.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\sys\cmds\creator\Call.js" />
     <Compile Include="lib\sys\cmds\creator\Edit.js">
       <SubType>Code</SubType>
@@ -533,6 +536,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Content Include="src\setup\BaseConfig.json">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="TODO.html">
       <SubType>Code</SubType>
     </Content>
     <None Include="compilerconfig.json" />
