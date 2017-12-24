@@ -1,5 +1,5 @@
 ﻿const
-    ConfigUtil = require('./ConfigShared').ConfigUtil,
+    ConfigUtil = require('./ConfigShared'),
     MudlibMasterObject = require('./MudlibMasterObject');
 
 class MudlibSection {

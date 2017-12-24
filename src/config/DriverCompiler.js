@@ -1,5 +1,5 @@
 ﻿const
-    ConfigUtil = require('./ConfigShared').ConfigUtil,
+    ConfigUtil = require('./ConfigShared'),
     DriverCompilerComponent = require('./DriverCompilerComponent'),
     DriverCompilerLanguage = require('./DriverCompilerLanguage'),
     DriverCompilerLoader = require('./DriverCompilerLoader');

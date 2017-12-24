@@ -1,7 +1,27 @@
 {
   "props": {
+    "adverbs": [
+      "happily",
+      "carefully",
+      "eagerly",
+      "lazily",
+      "ruthlessly",
+      "sloppily",
+      "urgently",
+      "wishfully",
+      "worriedly",
+      "savegely"
+    ],
     "emotes": {
-      "grin": {}
+      "grin": [
+        "WRD",
+        "WRD at LIV",
+        ""
+      ],
+      "bow": [
+        "",
+        "WRD"
+      ]
     }
   },
   "protected": {},

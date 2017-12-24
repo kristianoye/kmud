@@ -1,5 +1,5 @@
 ﻿const
-    ConfigUtil = require('./ConfigShared').ConfigUtil,
+    ConfigUtil = require('./ConfigShared'),
     FeatureBase = require('../features/FeatureBase'),
     MUDData = require('../MUDData'),
     path = require('path');

@@ -20,7 +20,9 @@ const
 
 class MUDCompiler {
     constructor(config) {
-        var comps = 0, self = this, vm = false;
+        var comps = 0,
+            self = this,
+            vm = false;
 
         this.components = {};
         this.loaders = {};

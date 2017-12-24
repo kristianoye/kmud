@@ -87,6 +87,9 @@
     <Compile Include="lib\daemon\EmoteDaemon.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\sys\cmds\arch\Emotes.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\sys\cmds\arch\Reboot.js">
       <SubType>Code</SubType>
     </Compile>

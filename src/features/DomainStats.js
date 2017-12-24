@@ -1,4 +1,11 @@
-﻿const
+﻿/**
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ *
+ * Description: This module contains core game functionality.
+ */
+const
     FeatureBase = require('./FeatureBase'),
     DriverFeature = require('../config/DriverFeature');
 

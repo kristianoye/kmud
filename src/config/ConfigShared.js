@@ -1,4 +1,11 @@
-﻿const
+﻿/**
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ *
+ * Description: Module contains helpers to parse and validate MUD config.
+ */
+const
     path = require('path');
 
 class ConfigUtil {
@@ -48,19 +55,5 @@ class ConfigUtil {
     }
 }
 
-function assertType(val, key, ...typeList) {
-    for (let i = 0, myType = typeof val; i < typeList.length; i++) {
-        if (myType === typeList[i]) return true;
-    }
-    throw new Error(`Setting for ${key} has invalid type; Expected ${typeList.join('|')} but got ${typeof val}`);
-}
+module.exports = new ConfigUtil();
 
-function resolvePath(p1, ext) {
-    var p2 = path.join(__dirname, '..', p1);
-    return p2.endsWith(ext || '.js') ? p2 : p2 + (ext || '.js');
-}
-
-module.exports = {
-    assertType, resolvePath,
-    ConfigUtil: new ConfigUtil()
-};
