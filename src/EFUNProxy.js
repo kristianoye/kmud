@@ -127,6 +127,38 @@ class EFUNProxy {
         return MUDData.Config.mud.passwordPolicy.checkPassword(plain, crypto, callback);
     }
 
+    clientCaps(target) {
+        let result = unwrap(target, (ob) => {
+            let $storage = MUDData.Storage.get(ob);
+
+            if ($storage) {
+                let caps = $storage.getProtected('clientCaps');
+
+                return {
+                    clientHeight: caps.clientHeight,
+                    clientWidth: caps.clientWidth,
+                    colorEnabled: caps.colorEnabled,
+                    htmlEnabled: caps.htmlEnabled,
+                    soundEnabled: caps.soundEnabled,
+                    terminalType: caps.terminalType,
+                    videoEnabled: caps.videoEnabled
+                };
+            }
+        });
+
+        if (result) return result;
+
+        return {
+            clientHeight: 24,
+            clientWidth: 80,
+            colorEnabled: false,
+            htmlEnabled: false,
+            soundEnabled: false,
+            terminalType: 'ascii',
+            videoEnabled: false
+        };
+    }
+
     cloneObject(file) {
         if (arguments.length === 0)
             throw new Error('Bad call to cloneObject; Expected string got null');
@@ -147,6 +179,35 @@ class EFUNProxy {
             return false;
         }
         throw new ErrorTypes.SecurityError();
+    }
+
+    /**
+     * 
+     * @param {string[]} list
+     * @param {number} width
+     */
+    columnText(list, width) {
+        let rows = [],
+            row = [],
+            longest = 0,
+            colCount = 0,
+            colWidth = 0;
+
+        width = (width || this.clientCaps(MUDData.ThisPlayer).clientWidth || 80) -2;
+
+        list.forEach(i => { let n = i.length; longest = n > longest ? n : longest; });
+        colWidth = longest + 2;
+        colCount = Math.floor(width / colWidth);
+        list.forEach((item, index) => {
+            let s = item + Array(colWidth - item.length).join(' ');
+            row.push(s);
+            if ((index + 1) % colCount === 0) {
+                rows.push(row.join('').trim());
+                row = [];
+            }
+        });
+        if (row.length > 0) rows.push(row.join(''));
+        return rows.join('\n');
     }
 
     consolidateArray (arr) {
@@ -270,8 +331,7 @@ class EFUNProxy {
             if (oldContainer) oldContainer.emit('kmud.exec', execEvent);
             newContainer
                 .setProtected('client', client)
-                .setProperty('clientWidth', client.width)
-                .setProperty('clientHeight', client.height)
+                .setProtected('clientCaps', client.caps)
                 .emit('kmud.exec', execEvent);
             MUDData.MasterObject.emit('kmud.exec', execEvent);
 

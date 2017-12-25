@@ -83,11 +83,10 @@ class RanvierTelnetInstance extends ClientInstance {
             $storage,
             body;
 
-        this[_client] = client;
-
         function commandComplete(evt) {
-            if (!evt.prompt.recapture)
+            if (!evt.prompt.recapture) {
                 self.write(evt.prompt.text);
+            }
         }
 
         function dispatchInput(text) {
@@ -108,6 +107,7 @@ class RanvierTelnetInstance extends ClientInstance {
                 if (this.inputStack.length > 0) {
                     var frame = this.inputStack.pop(), result;
                     try {
+                        if (!this.client.echoing) self.client.toggleEcho(true);
                         result = frame.callback.call(body, text);
                     }
                     catch (_err) {
@@ -147,6 +147,10 @@ class RanvierTelnetInstance extends ClientInstance {
             this.emit('disconnected', this);
         });
 
+        this.client.on('terminal type', (ttype) => {
+            self.emit('terminal type', ttype);
+        });
+
         this.client.on('window size', (spec) => {
             clientWidth = spec.width;
             clientHeight = spec.height;
@@ -154,6 +158,7 @@ class RanvierTelnetInstance extends ClientInstance {
                 $storage.setProperty('clientHeight', clientHeight);
                 $storage.setProperty('clientWidth', clientWidth);
             }
+            self.emit('window size', spec);
         });
 
         Object.defineProperties(this, {
@@ -165,11 +170,6 @@ class RanvierTelnetInstance extends ClientInstance {
             }
         });
     }
-
-    /**
-     * @returns {Telnet.Socket} Returns an instance of the underlying socket.
-     */
-    get client() { return this[_client]; }
 
     eventSend(data) {
         switch (data.eventType) {

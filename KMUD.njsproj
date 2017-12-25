@@ -486,6 +486,9 @@
     <Compile Include="src\MUDStorage.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\network\ClientCaps.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\network\ClientEndpoint.js">
       <SubType>Code</SubType>
     </Compile>

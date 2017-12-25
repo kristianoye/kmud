@@ -48,6 +48,7 @@ exports.Sequences = Seq;
 
 const Opts = {
     OPT_ECHO: 1,
+    OPT_TTYPE: 24,
     OPT_EOR: 25,
     OPT_NAWS: 31,
     OPT_ENV: 39,
@@ -182,6 +183,7 @@ class TelnetSocket extends EventEmitter {
         connection.on('error', err => this.emit('error', err));
 
         this.telnetCommand(Seq.DO, Opts.OPT_NAWS);
+        this.telnetCommand(Seq.DO, Opts.OPT_TTYPE);
         this.socket.write("\r\n");
 
         connection.on('data', (databuf) => {
@@ -269,6 +271,11 @@ class TelnetSocket extends EventEmitter {
                         case Opts.OPT_EOR:
                             this.gaMode = Seq.EOR;
                             break;
+
+                        case Opts.OPT_TTYPE:
+                            this.termType = false;
+                            break;
+
                         default:
                             /**
                              * @event TelnetSocket#DO
@@ -300,6 +307,12 @@ class TelnetSocket extends EventEmitter {
                      * @event TelnetSocket#WILL
                      * @param {number} opt
                      */
+                    switch (opt) {
+                        case Opts.OPT_TTYPE:
+                            //this.telnetCommand(Seq.SB, Opts.OPT_TTYPE);
+                            this.telnetCommand(Seq.SB, [Opts.OPT_TTYPE, 1, Seq.IAC, Seq.SE]);
+                            break;
+                    }
                     this.emit('WILL', opt);
                     i += 3;
                     break;
@@ -310,6 +323,11 @@ class TelnetSocket extends EventEmitter {
                      * @event TelnetSocket#WONT
                      * @param {number} opt
                      */
+                    switch (opt) {
+                        case Opts.OPT_TTYPE:
+                            /* weak */
+                            break;
+                    }
                     this.emit('WONT', opt);
                     i += 3;
                     break;
@@ -322,6 +340,21 @@ class TelnetSocket extends EventEmitter {
                     let sublen = 0;
                     while (inputbuf[i] !== Seq.IAC) {
                         subnegBuffer[sublen++] = inputbuf[i++];
+                    }
+
+                    switch (opt) {
+                        case Opts.OPT_TTYPE:
+                            {
+                                let tte = {
+                                    terminalType: subnegBuffer.slice(1).toString('utf8').trim()
+                                };
+                                if (tte.terminalType) {
+                                    this.emit('terminal type', tte);
+                                    if (typeof tte.terminalType !== 'undefined')
+                                        this.telnetCommand(Seq.SB, [Opts.OPT_TTYPE, 1, Seq.IAC, Seq.SE]);
+                                }
+                            }
+                            break;
                     }
                     break;
 
@@ -342,6 +375,11 @@ class TelnetSocket extends EventEmitter {
                         this.emit('window size', {
                             width: subnegBuffer.readInt16BE(0),
                             height: subnegBuffer.readInt16BE(2)
+                        });
+                    }
+                    else if (subnegOpt == Opts.OPT_TTYPE) {
+                        this.emit('terminal type', {
+
                         });
                     }
                     else {

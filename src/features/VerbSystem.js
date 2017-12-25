@@ -266,7 +266,7 @@ class Verb {
         let rule = new VerbRule(this.verb, ruleText, handler, container, scope), x = -1;
 
         // Look for existing rule with same pattern.
-        this.rules.filter((r, i) => { if (r.rule === rule) x = i; });
+        this.rules.filter((r, i) => { if (r.rule === ruleText) x = i; });
 
         if (x > 0) this.rules.splice(x, 1);
 
@@ -535,6 +535,11 @@ class VerbContainer {
                 lastPrep = word;
                 continue;
             }
+            else if (!this.isToken(word) && word === rule.parts[i]) {
+                // literal match -- do not include in next chunk.
+                chunks[c].shift();
+                continue;
+            }
             else if (this.isToken(word)) {
                 var doneWithChunk = false;
                 chunk = chunks[c++];
@@ -558,7 +563,7 @@ class VerbContainer {
                     case 'LIV':
                     case "LIVING":
                     case "LIVINGS":
-                    case 'LVS': 
+                    case 'LVS':
                     case "OBJECT":
                     case "OBJECTS":
                     case "PLAYER":

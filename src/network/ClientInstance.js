@@ -8,9 +8,11 @@
 const
     EventEmitter = require('events'),
     ClientEndpoint = require('./ClientEndpoint'),
+    ClientCaps = require('./ClientCaps'),
     MUDEventEmitter = require('../MUDEventEmitter'),
     MUDConfig = require('../MUDConfig').MUDConfig,
-    DefaultError = MUDConfig.mudlib.defaultError;
+    DefaultError = MUDConfig.mudlib.defaultError,
+    GameServer = require('../GameServer');
 
 const
     _body = Symbol('body'),
@@ -25,6 +27,13 @@ var
  * Abstracted client interface shared by all client connection types.
  */
 class ClientInstance extends EventEmitter {
+    /**
+     * 
+     * @param {ClientEndpoint} endpoint
+     * @param {GameServer} _gameMaster
+     * @param {any} _client
+     * @param {string} _remoteAddress
+     */
     constructor(endpoint, _gameMaster, _client, _remoteAddress) {
         super();
         var _body = null,
@@ -33,24 +42,15 @@ class ClientInstance extends EventEmitter {
 
         gameMaster = _gameMaster;
 
-        this[_endpoint] = endpoint;
-        this[_inputstack] = [];
+        this.client = _client;
+        this.caps = new ClientCaps(this.client);
+        this.endpoint = endpoint;
+        this.inputStack = [];
+        this.remoteAddress = _remoteAddress;
 
         Object.defineProperties(this, {
             body: {
                 get: function () { return _body; }
-            },
-            client: {
-                get: function () { return _client; }
-            },
-            endpoint: {
-                get: function () { return _endpoint; }
-            },
-            inputStack: {
-                get: function () { return _inputStack; }
-            },
-            remoteAddress: {
-                get: function () { return _remoteAddress; }
             }
         });
 
@@ -109,13 +109,6 @@ class ClientInstance extends EventEmitter {
                 recapture: false
             }
         };
-    }
-
-    /**
-     * @returns {string} The remote address of the client.
-     */
-    get remoteAddress() {
-        return this[_remoteAddress];
     }
 
     /**
