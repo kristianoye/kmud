@@ -87,6 +87,7 @@ class DomainStatsFeature extends FeatureBase {
      */
     constructor(config, flags) {
         super(config, flags);
+
         this.applyNameAuthorFile = config.parameters.applyNameAuthorFile || false;
         this.applyNameDomainFile = config.parameters.applyNameDomainFile || false;
         this.driver = null;

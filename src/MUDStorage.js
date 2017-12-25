@@ -54,7 +54,7 @@ class MUDStorage extends MUDEventEmitter {
         if (prop in this.protected)
             return this.protected[prop];
         else if (typeof defaultValue !== 'undefined')
-            return (this.protected[prop] = defaultValue);
+            return this.protected[prop] = defaultValue;
     }
     /**
      * Retun the value stored for the given symbol.
@@ -65,7 +65,7 @@ class MUDStorage extends MUDEventEmitter {
         if (prop in this.symbols)
             return this.symbols[prop];
         else if (typeof defaultValue !== 'undefined')
-            return (this.symbols[prop] = defaultValue);
+            return this.symbols[prop] = defaultValue;
     }
 
     /**
@@ -275,7 +275,7 @@ class MUDStorage extends MUDEventEmitter {
 
 if (MUDConfig.readValue('driver.objectCreationMethod', 'inline') === 'inline') {
     MUDStorage.create = function (/** @type {MUDObject} */ ob, /** @type {MUDCreationContext} */ ctx) {
-        return ctx.isReload ? MUDStorage.reload(ob, ctx) : (MUDStorage.instances[ob._propKeyId] = new MUDStorage(ob, ctx));
+        return ctx.isReload ? MUDStorage.reload(ob, ctx) : MUDStorage.instances[ob._propKeyId] = new MUDStorage(ob, ctx);
     };
 } else {
     MUDStorage.create = function (/** @type {MUDObject} */ ob, /** @type {MUDCreationContext} */ ctx) {
@@ -285,8 +285,8 @@ if (MUDConfig.readValue('driver.objectCreationMethod', 'inline') === 'inline') {
 
 MUDStorage.createForId = function (/** @type {string}, */ filename, /** @type {number} */ id) {
     let instanceId = `${filename}.${id}`;
-    return (MUDStorage.instances[instanceId] = new MUDStorage(null, null));
-}
+    return MUDStorage.instances[instanceId] = new MUDStorage(null, null);
+};
 
 /**
  * @returns {MUDStorage} The storage object for the specified object.

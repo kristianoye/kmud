@@ -10,7 +10,8 @@
       "urgently",
       "wishfully",
       "worriedly",
-      "savegely"
+      "savegely",
+      "demonically"
     ],
     "emotes": {
       "grin": [
@@ -21,6 +22,14 @@
       "bow": [
         "",
         "WRD"
+      ],
+      "frown": [
+        "WRD",
+        "WRD at LIV"
+      ],
+      "girn": [
+        "like an idiot who can't spell \"grin\"",
+        "WRD like an idiot who can't spell \"grin\""
       ]
     }
   },

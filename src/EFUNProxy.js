@@ -695,7 +695,7 @@ class EFUNProxy {
     restoreObject(path) {
         let result = false;
         try {
-            let prev = this.previousObject();
+            let prev = this.thisObject();
             if (prev) {
                 let data = this.readJsonFile(path);
                 if (data) {
@@ -775,6 +775,10 @@ class EFUNProxy {
     thisObject() {
         var prev = this.previousObject(-1);
         return prev[0] || false;
+    }
+
+    thisPlayer(flag) {
+        return flag ? MUDData.TruePlayer || MUDData.ThisPlayer : MUDData.ThisPlayer;
     }
 
     /**
@@ -929,7 +933,6 @@ Object.defineProperties(EFUNProxy.prototype, {
             else /* creation method must be one of the wrapper varities */ {
                 return function (n) {
                     let objectStack = [], index = (n || 0) + 1;
-                    console.log('previousObject() stack:');
                     stack().forEach((cs, i) => {
                         let fn = cs.getFileName() || '[no file]',
                             func = cs.getFunctionName();
