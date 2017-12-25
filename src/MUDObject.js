@@ -414,7 +414,8 @@ class MUDObject extends MUDEventEmitter {
     }
 
     setProperty(key, value) {
-        return MUDStorage.get(this).setProperty(key, value);
+        MUDStorage.get(this).setProperty(key, value);
+        return this;
     }
 
     setSharedProperty(key, value) {
@@ -428,7 +429,8 @@ class MUDObject extends MUDEventEmitter {
     }
 
     setSymbol(key, value) {
-        return MUDStorage.get(this).setSymbol(key, value);
+        MUDStorage.get(this).setSymbol(key, value);
+        return this;
     }
 }
 

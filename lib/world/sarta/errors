@@ -82,3 +82,17 @@ TypeError: stack.push(...).sort is not a function
     at LoginWrapper.efuns.exec (/sys/lib/Login.js:73:38)
     at EFUNProxy.exec ([driver]\EFUNProxy.js:252:34)
     at efuns.unguarded (/sys/lib/Login.js:71:31)
+
+[2017-12-25 00:15:53]
+this.setShort(...).setLong(...).addExit is not a function
+TypeError: this.setShort(...).setLong(...).addExit is not a function
+    at SquareWrapper.create (/world/sarta/square.js:17:14)
+    at SquareWrapper.create (/world/sarta/square:5:33)
+    at MUDModule.createInstance ([driver]\MUDModule.js:94:26)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:196:51)
+    at Object.Compiler ([driver]\MUDData.js:52:55)
+    at EFUNProxy.loadObject ([driver]\EFUNProxy.js:475:34)
+    at CreatorWrapper.moveObject ([driver]\MUDObject.js:310:52)
+    at CreatorWrapper.movePlayer (/base/Interactive.js:390:18)
+    at LoginWrapper.efuns.exec (/sys/lib/Login.js:73:38)
+    at EFUNProxy.exec ([driver]\EFUNProxy.js:282:34)

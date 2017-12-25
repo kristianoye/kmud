@@ -242,11 +242,11 @@ class MUDStorage extends MUDEventEmitter {
      * Set a property in the storage object.
      * @param {string} prop
      * @param {any} value
-     * @returns {MUDObject}
+     * @returns {MUDStorage}
      */
     setProperty(prop, value) {
         this.properties[prop] = value;
-        return this.owner;
+        return this;
     }
 
     /**

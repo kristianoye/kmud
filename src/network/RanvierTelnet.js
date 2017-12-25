@@ -1,4 +1,29 @@
-﻿'use strict';
+﻿/**
+    Copyright (c) 2017 Shawn Biddle, http://shawnbiddle.com/
+
+    Permission is hereby granted, free of charge, to any person obtaining
+    a copy of this software and associated documentation files (the
+    "Software"), to deal in the Software without restriction, including
+    without limitation the rights to use, copy, modify, merge, publish,
+    distribute, sublicense, and/or sell copies of the Software, and to
+    permit persons to whom the Software is furnished to do so, subject to
+    the following conditions:
+
+    The above copyright notice and this permission notice shall be
+    included in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+    OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+    Changes made since "branching" from original by ShawnCPlus:
+        * Added NAWS support
+*/
+'use strict';
 
 const
     net = require('net'),
@@ -8,15 +33,15 @@ const
 
 // see: arpa/telnet.h
 const Seq = {
-    IAC: 255,
-    DONT: 254,
-    DO: 253,
-    WONT: 252,
-    WILL: 251,
-    SB: 250,
-    SE: 240,
-    GA: 249,
-    EOR: 239
+    IAC:    255,
+    DONT:   254,
+    DO:     253,
+    WONT:   252,
+    WILL:   251,
+    SB:     250,
+    SE:     240,
+    GA:     249,
+    EOR:    239
 };
 
 exports.Sequences = Seq;
@@ -24,6 +49,8 @@ exports.Sequences = Seq;
 const Opts = {
     OPT_ECHO: 1,
     OPT_EOR: 25,
+    OPT_NAWS: 31,
+    OPT_ENV: 39,
     OPT_GMCP: 201
 };
 
@@ -154,7 +181,9 @@ class TelnetSocket extends EventEmitter {
          */
         connection.on('error', err => this.emit('error', err));
 
+        this.telnetCommand(Seq.DO, Opts.OPT_NAWS);
         this.socket.write("\r\n");
+
         connection.on('data', (databuf) => {
             databuf.copy(inputbuf, inputlen);
             inputlen += databuf.length;
@@ -233,6 +262,7 @@ class TelnetSocket extends EventEmitter {
 
             const cmd = inputbuf[i + 1];
             const opt = inputbuf[i + 2];
+
             switch (cmd) {
                 case Seq.DO:
                     switch (opt) {
@@ -249,6 +279,7 @@ class TelnetSocket extends EventEmitter {
                     }
                     i += 3;
                     break;
+
                 case Seq.DONT:
                     switch (opt) {
                         case Opts.OPT_EOR:
@@ -263,6 +294,7 @@ class TelnetSocket extends EventEmitter {
                     }
                     i += 3;
                     break;
+
                 case Seq.WILL:
                     /**
                      * @event TelnetSocket#WILL
@@ -271,6 +303,7 @@ class TelnetSocket extends EventEmitter {
                     this.emit('WILL', opt);
                     i += 3;
                     break;
+
                 /* falls through */
                 case Seq.WONT:
                     /**
@@ -280,6 +313,7 @@ class TelnetSocket extends EventEmitter {
                     this.emit('WONT', opt);
                     i += 3;
                     break;
+
                 case Seq.SB:
                     i += 2;
                     subnegOpt = inputbuf[i++];
@@ -290,6 +324,7 @@ class TelnetSocket extends EventEmitter {
                         subnegBuffer[sublen++] = inputbuf[i++];
                     }
                     break;
+
                 case Seq.SE:
                     if (subnegOpt === Opts.OPT_GMCP) {
                         let gmcpString = subnegBuffer.toString().trim();
@@ -302,7 +337,14 @@ class TelnetSocket extends EventEmitter {
                          * @param {*} gmcpData
                          */
                         this.emit('GMCP', gmcpPackage, gmcpData);
-                    } else {
+                    }
+                    else if (subnegOpt === Opts.OPT_NAWS) {
+                        this.emit('window size', {
+                            width: subnegBuffer.readInt16BE(0),
+                            height: subnegBuffer.readInt16BE(2)
+                        });
+                    }
+                    else {
                         /**
                          * @event TelnetSocket#SUBNEG
                          * @param {number} subnegOpt SB option
@@ -312,6 +354,7 @@ class TelnetSocket extends EventEmitter {
                     }
                     i += 2;
                     break;
+
                 default:
                     /**
                      * @event TelnetSocket#unknownAction

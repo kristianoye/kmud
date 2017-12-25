@@ -137,12 +137,32 @@ class RanvierTelnetInstance extends ClientInstance {
                 $storage = evt.newStorage;
             }
         });
+
         this.client.on('data', (buffer) => {
             dispatchInput.call(this, buffer.toString('utf8'));
         });
+
         this.client.on('close', () => {
             this.emit('kmud.connection.closed', this, 'telnet');
             this.emit('disconnected', this);
+        });
+
+        this.client.on('window size', (spec) => {
+            clientWidth = spec.width;
+            clientHeight = spec.height;
+            if ($storage) {
+                $storage.setProperty('clientHeight', clientHeight);
+                $storage.setProperty('clientWidth', clientWidth);
+            }
+        });
+
+        Object.defineProperties(this, {
+            height: {
+                get: function () { return clientHeight; }
+            },
+            width: {
+                get: function () { return clientWidth; }
+            }
         });
     }
 

@@ -324,11 +324,9 @@ class GameServer extends MUDEventEmitter {
         var result = false;
         try {
             if (MUDData.Clients.indexOf(client) > -1) {
-                MUDData.SpecialRootEfun.unguarded(() => {
-                    result = client.setBody(newBody);
-                    if (result && typeof callback === 'function')
-                        callback.call(oldBody, newBody);
-                });
+                result = client.setBody(newBody);
+                if (result && typeof callback === 'function')
+                    callback.call(oldBody, newBody);
             }
         }
         catch (e) {

@@ -125,6 +125,9 @@ class VerbRule {
         this.canMethod = VerbSystemFeature.normalizeRule('can', verb, rule);
 
         /** @type {string} */
+        this.directFallback = VerbSystemFeature.normalizeRule('direct', 'verb', 'rule', false);
+
+        /** @type {string} */
         this.directMethod = VerbSystemFeature.normalizeRule('direct', verb, rule, true);
 
         /** @type {string} */
@@ -444,7 +447,7 @@ class VerbContainer {
                 if (env.isInventoryVisible()) {
                     env.inventory.forEach((item) => {
                         if (token.matches.indexOf(item) === -1) {
-                            if (this.identifiers.length === 0 && token.all) {
+                            if (token.identifiers.length === 0 && token.all) {
                                 token.matches.push(item);
                             }
                             else if (item.matchesId(token.identifiers)) {
@@ -459,7 +462,6 @@ class VerbContainer {
                 }
             });
         }
-        return result;
     }
 
     /**
@@ -562,10 +564,10 @@ class VerbContainer {
                     case "PLAYER":
                     case "PLAYERS":
                         {
-                            var
+                            let
                                 thisToken = objTokenCount++ === 0 ?
-                                    direct = new VerbTokenMatch(objTokenCount - 1) :
-                                    indirect = new VerbTokenMatch(objTokenCount - 1),
+                                    direct = new VerbTokenMatch() :
+                                    indirect = new VerbTokenMatch(),
                                 env = thisPlayer.environment,
                                 environments = [
                                     thisPlayer,
@@ -574,7 +576,7 @@ class VerbContainer {
                                 inv = env.inventory,
                                 target;
 
-
+                            thisToken.index = objTokenCount;
                             thisToken.living = word.startsWith("LIV");
                             thisToken.multi = word.endsWith('S');
                             thisToken.player = word.startsWith('PLAYER');
@@ -630,7 +632,9 @@ class VerbContainer {
 
                             thisToken.lastPrep = lastPrep;
                             this.matchObjectToken(thisToken, environments);
-                            matchedTokens.push(thisToken.identifiers.join(' ')), matched++;
+                            thisToken.index = matchedTokens.length;
+                            matchedTokens.push(thisToken),
+                                matched++;
 
                             if (thisToken.matches.length === 0)
                                 return false;
@@ -664,20 +668,24 @@ class VerbContainer {
             /* hmm okay easy but... */
             case 1:
                 if (direct.matches.length > 0) {
-                    var directMethod = rule.directMethod;
                     result[direct.index] = [];
                     direct.matches.forEach(_d => {
-                        var theseArgs = matchedTokens.slice(0);
+                        var theseArgs = matchedTokens.slice(0),
+                            directResult = false;
                         theseArgs[direct.index] = _d;
-                        if (directMethod in _d) {
-                            var directResult = _d[directMethod].apply(_d, theseArgs);
-                            if (directResult === true) {
-                                result[direct.index].push(_d);
-                                directMatches++;
-                            }
-                            else if (typeof directResult === 'string')
-                                errors.push(directResult);
+
+                        if (rule.directMethod in _d) {
+                            directResult = _d[rule.directMethod].apply(_d, theseArgs);
                         }
+                        else if (rule.directFallback in _d) {
+                            directResult = _d[rule.directFallback].call(_d, rule.verb, rule.rule);
+                        }
+                        if (directResult === true) {
+                            result[direct.index].push(_d);
+                            directMatches++;
+                        }
+                        else if (typeof directResult === 'string')
+                            errors.push(directResult);
                     });
                 }
                 break;
@@ -883,7 +891,8 @@ class VerbSystemFeature extends FeatureBase {
         this.efunNameParseVerb = config.parameters.efunNameParseVerb || false;
 
         this.container = new VerbContainer();
-        this.useVerbRuleScope = typeof config.parameters.useVerbRuleScope === 'boolean' ? config.parameters.useVerbRuleScope : true;
+        this.useVerbRuleScope = typeof config.parameters.useVerbRuleScope === 'boolean' ?
+            config.parameters.useVerbRuleScope : true;
     }
 
     createExternalFunctions(efunPrototype) {
@@ -892,7 +901,8 @@ class VerbSystemFeature extends FeatureBase {
             efunPrototype[this.efunNameParseAddRule] = function (verb, rule, target) {
                 let handler = feature.allowHandlerParameter ?
                     target || this.thisObject() : this.thisObject();
-                let scope = feature.useVerbRuleScope ? unwrap(handler, (o) => o.verbScope || o.directory) : false;
+                let scope = feature.useVerbRuleScope ?
+                    unwrap(handler, (o) => o.verbScope || o.directory) : false;
                 return container.addRule(verb, rule, handler, scope);
             };
         }
@@ -914,7 +924,9 @@ class VerbSystemFeature extends FeatureBase {
         if (this.efunNameParseSentence) {
             efunPrototype[this.efunNameParseSentence] = function (/** @type {string} */ rawInput, /** @type {string[]} */ scopeList) {
                 let input = rawInput.trim(),
-                    scopes = feature.useVerbRuleScope ? Array.isArray(scopeList) && scopeList.length ? scopeList : false : false,
+                    scopes = feature.useVerbRuleScope ?
+                        Array.isArray(scopeList) && scopeList.length ?
+                            scopeList : false : false,
                     thisPlayer = this.thisPlayer();
 
                 return container.tryParseSentence(input, thisPlayer, scopes);
@@ -922,7 +934,9 @@ class VerbSystemFeature extends FeatureBase {
         }
         if (this.efunNameParseVerb) {
             efunPrototype[this.efunNameParseVerb] = function (/** @type {string} */ verb, /** @type {string|string[]} */ input, /** @type {string[]} */ scopeList) {
-                let scopes = feature.useVerbRuleScope ? Array.isArray(scopeList) && scopeList.length ? scopeList : false : false,
+                let scopes = feature.useVerbRuleScope ?
+                    Array.isArray(scopeList) && scopeList.length ?
+                        scopeList : false : false,
                     thisPlayer = this.thisPlayer();
 
                 return container.tryParseVerb(verb, input, thisPlayer, scopes);

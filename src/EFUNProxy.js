@@ -268,7 +268,11 @@ class EFUNProxy {
                 };
 
             if (oldContainer) oldContainer.emit('kmud.exec', execEvent);
-            newContainer.setProtected('client', client).emit('kmud.exec', execEvent);
+            newContainer
+                .setProtected('client', client)
+                .setProperty('clientWidth', client.width)
+                .setProperty('clientHeight', client.height)
+                .emit('kmud.exec', execEvent);
             MUDData.MasterObject.emit('kmud.exec', execEvent);
 
             if (!client) client = thisPlayer.client;

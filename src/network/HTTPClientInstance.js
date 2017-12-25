@@ -124,6 +124,15 @@ class HTTPClientInstance extends ClientInstance {
             }
             self.emit('kmud', data);
         });
+
+        Object.defineProperties(this, {
+            height: {
+                get: function () { return 24; }
+            },
+            width: {
+                get: function () { return 80; }
+            }
+        });
     }
 
     /**
