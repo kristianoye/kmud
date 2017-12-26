@@ -505,6 +505,36 @@
     <Compile Include="src\network\HTTPClientEndpoint.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\network\impl\ansi\TerminalColorAnsi.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\impl\kmud\KmudSoundSupport.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\impl\kmud\KmudVideoSupport.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\impl\kmud\KmudColorSupport.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\impl\MudSoundImplementation.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\impl\MudColorImplementation.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\impl\MudVideoImplementation.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\impl\xterm\TerminalColorXterm.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\impl\zmud\MudSoundProtocol.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\impl\zmud\TerminalColorZmud.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\network\NetUtil.js">
       <SubType>Code</SubType>
     </Compile>
@@ -831,6 +861,11 @@
     <Folder Include="src\compiler\" />
     <Folder Include="src\config\" />
     <Folder Include="src\features\" />
+    <Folder Include="src\network\impl\" />
+    <Folder Include="src\network\impl\ansi\" />
+    <Folder Include="src\network\impl\kmud\" />
+    <Folder Include="src\network\impl\xterm\" />
+    <Folder Include="src\network\impl\zmud\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
   </ItemGroup>

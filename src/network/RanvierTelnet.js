@@ -21,7 +21,9 @@
     WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     Changes made since "branching" from original by ShawnCPlus:
-        * Added NAWS support
+        * Made objects MUD emitters.
+        * Added NAWS support (12/24)
+        * Added TTYPE support (12/25)
 */
 'use strict';
 
@@ -271,11 +273,6 @@ class TelnetSocket extends EventEmitter {
                         case Opts.OPT_EOR:
                             this.gaMode = Seq.EOR;
                             break;
-
-                        case Opts.OPT_TTYPE:
-                            this.termType = false;
-                            break;
-
                         default:
                             /**
                              * @event TelnetSocket#DO
@@ -323,11 +320,6 @@ class TelnetSocket extends EventEmitter {
                      * @event TelnetSocket#WONT
                      * @param {number} opt
                      */
-                    switch (opt) {
-                        case Opts.OPT_TTYPE:
-                            /* weak */
-                            break;
-                    }
                     this.emit('WONT', opt);
                     i += 3;
                     break;
@@ -375,11 +367,6 @@ class TelnetSocket extends EventEmitter {
                         this.emit('window size', {
                             width: subnegBuffer.readInt16BE(0),
                             height: subnegBuffer.readInt16BE(2)
-                        });
-                    }
-                    else if (subnegOpt == Opts.OPT_TTYPE) {
-                        this.emit('terminal type', {
-
                         });
                     }
                     else {

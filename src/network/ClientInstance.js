@@ -15,6 +15,11 @@ const
     GameServer = require('../GameServer');
 
 const
+    MudColorImplementation = require('./impl/MudColorImplementation'),
+    MudSoundImplementation = require('./impl/MudSoundImplementation'),
+    MudVideoImplementation = require('./impl/MudVideoImplementation');
+
+const
     _body = Symbol('body'),
     _endpoint = Symbol('endpoint'),
     _inputstack = Symbol('_inputstack'),
@@ -70,6 +75,14 @@ class ClientInstance extends EventEmitter {
             if (evt.client === self) {
                 handleExec.call(self, evt);
             }
+        });
+
+        this.client.on('terminal type', (ttype) => {
+            self.emit('terminal type', ttype);
+        });
+
+        this.client.on('window size', (spec) => {
+            self.emit('window size', spec);
         });
     }
 

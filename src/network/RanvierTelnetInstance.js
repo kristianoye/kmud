@@ -12,68 +12,6 @@ const
     _client = Symbol('_client'),
     tripwire = false;
 
-function ANSI(c) {
-    var s = c.toString(), r = [27, 91];
-
-    for (var i = 0; i < s.length; i++) {
-        r.push(s.charCodeAt(i));
-    }
-    r.push(109);
-    return new Buffer(new Uint8Array(r)).toString('utf8');
-}
-
-function ESC(c) {
-    var s = c.toString(), r = [27];
-
-    for (var i = 0; i < s.length; i++) {
-        r.push(s.charCodeAt(i));
-    }
-    return new Buffer(new Uint8Array(r)).toString('utf8');
-}
-
-const TERMINALCOLOR = {
-    'unknown': {
-        'RESET': '',
-        'BOLD': '',
-        'BLACK': '',
-        'RED': '',
-        'BLUE': '',
-        'CYAN': '',
-        'MAGENTA': '',
-        'ORANGE': '',
-        'YELLOW': '',
-        'GREEN': '',
-        'WHITE': ''
-    },
-    'ansi': {
-        'RESET': ANSI(0),
-        'BOLD': ANSI(1),
-        'BLACK': ANSI(30),
-        'RED': ANSI(31),
-        'BLUE': ANSI(34),
-        'CYAN': ANSI(36),
-        'MAGENTA': ANSI(35),
-        'ORANGE': ANSI(33),
-        'YELLOW': ANSI(1) + ANSI(33),
-        'GREEN': ANSI(32),
-        'WHITE': ANSI(37),
-        'INITTERM': ESC("[H") + ESC("[2J")
-    },
-    'xterm': {
-        'RESET': ANSI(0),
-        'BOLD': ANSI(1),
-        'BLACK': ANSI(30),
-        'RED': ANSI(31),
-        'BLUE': ANSI(34),
-        'CYAN': ANSI(36),
-        'MAGENTA': ANSI(35),
-        'ORANGE': ANSI(33),
-        'YELLOW': ANSI(1) + ANSI(33),
-        'GREEN': ANSI(32),
-        'WHITE': ANSI(37)
-    }
-};
-
 class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, gameMaster, client) {
         super(endpoint, gameMaster, client, client.remoteAddress);
@@ -146,29 +84,6 @@ class RanvierTelnetInstance extends ClientInstance {
             this.emit('kmud.connection.closed', this, 'telnet');
             this.emit('disconnected', this);
         });
-
-        this.client.on('terminal type', (ttype) => {
-            self.emit('terminal type', ttype);
-        });
-
-        this.client.on('window size', (spec) => {
-            clientWidth = spec.width;
-            clientHeight = spec.height;
-            if ($storage) {
-                $storage.setProperty('clientHeight', clientHeight);
-                $storage.setProperty('clientWidth', clientWidth);
-            }
-            self.emit('window size', spec);
-        });
-
-        Object.defineProperties(this, {
-            height: {
-                get: function () { return clientHeight; }
-            },
-            width: {
-                get: function () { return clientWidth; }
-            }
-        });
     }
 
     eventSend(data) {
@@ -204,31 +119,6 @@ class RanvierTelnetInstance extends ClientInstance {
         return this;
     }
 
-    expandColors(s) {
-        var lookup = TERMINALCOLOR['ansi'], c = s.indexOf('%^'), d = 0;
-
-        while (c > -1 && c < s.length) {
-            var l = s.indexOf('%^', c + 2);
-            if (l > -1) {
-                var org = s.substr(c + 2, l - c - 2), m = org.toUpperCase(),
-                    r = lookup[m];
-                // Increment or decrement RESET stack to determine 
-                // how many resets to add to end
-                d += m === 'RESET' ? -1 : r ? 1 : 0;
-                r = r || org;
-                s = s.substr(0, c) + r + s.substr(l + 2);
-                c = s.indexOf('%^', c + r.length);
-            }
-            else {
-                c = s.indexOf('%^', c + 2);
-            }
-        }
-        while (d-- > 0) {
-            s += lookup['RESET'];
-        }
-        return s;
-    }
-
     setBody(body, cb) {
         return super.setBody(body, cb);
     }
@@ -237,11 +127,10 @@ class RanvierTelnetInstance extends ClientInstance {
     write(text) {
         var client = this.client;
         var active = !(this['__closed__'] || false);
-        if (active) client.write(this.expandColors(text));
+        if (active) client.write(this.caps.color.expandColors(text));
     }
 
     writeHtml(html) {
-        // TODO: This could probably be improved at some point...
         this.writeLine(html
             .replace(/<br[\/]{0,1}>/ig, '\\n')
             .replace(/<[^>]+>/g, ''));
@@ -249,7 +138,7 @@ class RanvierTelnetInstance extends ClientInstance {
 
     writeLine(text) {
         var client = this.client;
-        client.write(this.expandColors(text) + '\n');
+        client.write(this.caps.color.expandColors(text) + '\n');
     }
 }
 
