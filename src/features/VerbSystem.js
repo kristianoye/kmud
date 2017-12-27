@@ -8,6 +8,7 @@
  * in the Mudlib.
  */
 const
+    ConfigUtil = require('../ConfigUtil'),
     FeatureBase = require('./FeatureBase'),
     DriverFeature = require('../config/DriverFeature'),
     MUDData = require('../MUDData'),
@@ -865,12 +866,8 @@ class VerbSystemFeature extends FeatureBase {
         super(config, flags);
 
         this.allowHandlerParameter = config.parameters.allowHandlerParameter || false;
+        this.allowMatchRemotePlayers = config.parameters.allowMatchRemotePlayers || false;
         this.applyNamingConvention = config.parameters.applyNamingConvention || 'camelCase';
-        if (Array.isArray(this.applyNamingConvention)) {
-            this.applyNamingConvention = this.applyNamingConvention[0];
-        }
-        if (typeof this.applyNamingConvention !== 'string')
-            throw new Error(`Invalid setting for applyNamingConvention; Expected string but got ${this.applyNamingConvention}`);
 
         switch (this.applyNamingConvention.toLowerCase()) {
             case 'camelcase':
@@ -898,6 +895,12 @@ class VerbSystemFeature extends FeatureBase {
         this.container = new VerbContainer();
         this.useVerbRuleScope = typeof config.parameters.useVerbRuleScope === 'boolean' ?
             config.parameters.useVerbRuleScope : true;
+    }
+
+    assertValid() {
+        ConfigUtil.assertType(this.applyNamingConvention, `driver.features.#${this.id}.parameters.applyNamingConvention`, 'string');
+        ConfigUtil.assertType(this.allowHandlerParameter, `driver.features.#${this.id}.parameters.allowHandlerParameter`, 'boolean');
+        ConfigUtil.assertType(this.allowMatchRemotePlayers, `driver.features.#${this.id}.parameters.allowMatchRemotePlayers`, 'boolean');
     }
 
     createExternalFunctions(efunPrototype) {

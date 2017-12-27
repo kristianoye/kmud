@@ -38,6 +38,16 @@ class TerminalColorAnsi extends MudColorImplementation {
     colorMap() {
         return TerminalColorsAnsi;
     }
+
+    get supportsColor() { return true; }
+
+    /**
+     * 
+     * @param {Object.<string,boolean>} flags
+     */
+    updateSupportFlags(flags) {
+        flags.colorEnabled = true;
+    }
 }
 
 module.exports = TerminalColorAnsi;

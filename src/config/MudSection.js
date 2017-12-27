@@ -1,6 +1,6 @@
 ﻿const
     MUDPasswordPolicy = require('./MUDPasswordPolicy'),
-    { assertType } = require('./ConfigShared'),
+    ConfigUtil = require('..//ConfigUtil'),
     MudPort = require('./MudPort');
 
 class MudSection {
@@ -25,10 +25,10 @@ class MudSection {
     }
 
     assertValid() {
-        assertType(this.name, 'mud.name', 'string');
-        assertType(this.adminName, 'mud.adminName', 'string');
-        assertType(this.adminEmail, 'mud.adminEmail', 'string');
-        assertType(this.features, 'mud.features', 'object');
+        ConfigUtil.assertType(this.name, 'mud.name', 'string');
+        ConfigUtil.assertType(this.adminName, 'mud.adminName', 'string');
+        ConfigUtil.assertType(this.adminEmail, 'mud.adminEmail', 'string');
+        ConfigUtil.assertType(this.features, 'mud.features', 'object');
     }
 }
 

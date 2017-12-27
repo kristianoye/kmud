@@ -108,6 +108,7 @@ class PipelineContext {
     virtualContext(virtualData) {
         if (virtualData) {
             this.baseName = virtualData.baseName;
+            this.directory = this.baseName.slice(0, this.baseName.lastIndexOf('/'));
             this.realName = MUDData.MudPathToRealPath(virtualData.baseName);
         }
     }

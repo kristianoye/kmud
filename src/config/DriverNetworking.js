@@ -1,5 +1,5 @@
 ﻿const
-    ConfigUtil = require('./ConfigShared');
+    ConfigUtil = require('../ConfigUtil');
 
 class DriverNetworkingEndpointHandlerConfig {
     constructor(data, protoIndex, handlerIndex, protocol) {

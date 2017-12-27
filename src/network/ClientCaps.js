@@ -9,7 +9,9 @@
  *   - MXP/MSP: http://www.zuggsoft.com/zmud/mxp.htm
  */
 const
+    ClientImplementation = require('./impl/ClientImplementation'),
     MudColorImplementation = require('./impl/MudColorImplementation'),
+    MudHtmlImplementation = require('./impl/MudHtmlImplementation'),
     MudSoundImplementation = require('./impl/MudSoundImplementation'),
     MudVideoImplementation = require('./impl/MudVideoImplementation');
 
@@ -17,18 +19,23 @@ class ClientCaps {
     constructor(clientInstance) {
         let
             self = this,
-            colorEnabled = true,
+            flags = {
+                colorEnabled: true,
+                htmlEnabled: true,
+                soundEnabled: true,
+                videoEnabled: true
+            },
             client = clientInstance,
-            htmlEnabled = false,
-            soundEnabled = false, 
             terminalType = false,
             terminalTypes = [],
-            videoEnabled = false,
             height = 24,
             width = 80;
 
         /** @type {MudColorImplementation} */
         this.color = null;
+
+        /** @type {MudHtmlImplementation} */
+        this.html = null;
 
         /** @type {MudSoundImplementation} */
         this.sound = null;
@@ -39,11 +46,15 @@ class ClientCaps {
         function setTerminalType(term) {
             let newTerm = term.toLowerCase();
             if (newTerm !== terminalType) {
+                let list = [];
                 terminalType = newTerm;
 
-                client.color = self.color = MudColorImplementation.createImplementation(newTerm);
-                client.sound = self.sound = MudSoundImplementation.createImplementation(newTerm);
-                client.video = self.video = MudVideoImplementation.createImplementation(newTerm);
+                list.push(client.color = self.color = MudColorImplementation.createImplementation(newTerm));
+                list.push(client.html = self.html = MudHtmlImplementation.createImplementation(newTerm));
+                list.push(client.sound = self.sound = MudSoundImplementation.createImplementation(newTerm));
+                list.push(client.video = self.video = MudVideoImplementation.createImplementation(newTerm));
+
+                list.forEach(m => m.updateSupportFlags(flags));
             }
         }
 
@@ -70,23 +81,23 @@ class ClientCaps {
                 get: function () { return width; }
             },
             colorEnabled: {
-                get: function () { return colorEnabled; }
+                get: function () { return flags.colorEnabled; }
             },
             htmlEnabled: {
-                get: function () { return htmlEnabled; }
+                get: function () { return  flags.htmlEnabled; }
             },
             soundEnabled: {
-                get: function () { return soundEnabled; }
+                get: function () { return flags.soundEnabled; }
             },
             terminalType: {
                 get: function () { return terminalType; }
             },
             videoEnabled: {
-                get: function () { return videoEnabled; }
+                get: function () { return flags.videoEnabled; }
             }
         });
 
-        setTerminalType('unknown');
+        setTerminalType(client.defaultTerminalType);
     }
 }
 

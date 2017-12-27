@@ -1,7 +1,17 @@
-﻿
-class MudVideoImplementation {
+﻿const
+    ClientImplementation = require('./ClientImplementation');
+
+class MudVideoImplementation extends ClientImplementation {
     playVideo() {
 
+    }
+
+    /**
+     * 
+     * @param {Object.<string,boolean>} flags
+     */
+    updateSupportFlags(flags) {
+        flags.videoEnabled = false;
     }
 }
 

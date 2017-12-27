@@ -26,7 +26,7 @@ class RanvierTelnetEndpoint extends ClientEndpoint {
 
     /**
      * Binds the telnet port and listens for clients.
-     * @returns {TelnetClientEndpoint} A reference to itself
+     * @returns {RanvierTelnetEndpoint} A reference to itself
      */
     bind() {
         let self = this;

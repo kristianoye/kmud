@@ -10,6 +10,14 @@ class KmudColorSupport extends MudColorImplementation {
     expandColors(s) {
         return s;
     }
+
+    /**
+     * 
+     * @param {Object.<string,boolean>} flags
+     */
+    updateSupportFlags(flags) {
+        flags.colorEnabled = true;
+    }
 }
 
 module.exports = KmudColorSupport;

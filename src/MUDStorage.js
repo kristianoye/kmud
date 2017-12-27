@@ -149,18 +149,6 @@ class MUDStorage extends MUDEventEmitter {
         });
 
         if (!propsOnly) {
-            Object.keys(this.protected).forEach((prop, index) => {
-                if (typeof prop === 'string') {
-                    let value = this.protected[prop], uw = unwrap(value);
-                    if (Array.isArray(value)) result.protected[prop] = this.serializeArray(value);
-                    else if (uw) result.protected[prop] = this.serializeMudObject(uw);
-                    else if (typeof value === 'object') result.protected[prop] = this.serializeOtherObject(value);
-                    else {
-                        let s = this.serializeScalar(value);
-                        if (s) result.protected[prop] = s;
-                    }
-                }
-            });
             result.$environment = unwrap(this.environment, (env) => env.filename);
             result.$inventory = this.inventory.map(item => {
                 let $storage = MUDStorage.get(item);

@@ -16,11 +16,8 @@ const
     os = require('os'),
     ClientEndpoint = require('./network/ClientEndpoint'),
     EFUNProxy = require('./EFUNProxy'),
-    HTTPClientEndpoint = require('./network/HTTPClientEndpoint'),
-    TelnetClientEndpoint = require('./network/TelnetClientEndpoint'),
     MUDCompiler = require('./MUDCompiler'),
     MUDEventEmitter = require('./MUDEventEmitter'),
-    { DomainStats, DomainStatsContainer } = require('./features/DomainStats'),
     ResetInterval = MUDConfig.mudlib.objectResetInterval,
     UseLazyResets = MUDConfig.driver.useLazyResets;
 
@@ -109,9 +106,6 @@ class GameServer extends MUDEventEmitter {
         this.serverAddress = determineDefaultAddress.call(this);
 
         this.endpoints = config.mud.portBindings.map(binding => {
-            if (binding.port < 1024 || binding.port > 49151)
-                throw 'Illegal port value; Must be greater than 1024 and less than 49152';
-
             console.log(`Adding ${binding.type} ${binding.address} port ${binding.port}`);
 
             var endpointConfig = config.driver.networking.endpoints.getEndpointConfig(binding.type),

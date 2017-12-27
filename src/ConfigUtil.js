@@ -50,7 +50,7 @@ class ConfigUtil {
     }
 
     resolvePath(p1, ext) {
-        var p2 = path.join(__dirname, '..', p1);
+        var p2 = path.join(__dirname, p1);
         return p2.endsWith(ext || '.js') ? p2 : p2 + (ext || '.js');
     }
 }

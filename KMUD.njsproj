@@ -391,7 +391,7 @@
     <Compile Include="src\compiler\VMWrapper.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\config\ConfigShared.js">
+    <Compile Include="src\ConfigUtil.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\config\DriverCompilerComponent.js">
@@ -508,6 +508,9 @@
     <Compile Include="src\network\impl\ansi\TerminalColorAnsi.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\network\impl\kmud\KmudHtmlSupport.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\network\impl\kmud\KmudSoundSupport.js">
       <SubType>Code</SubType>
     </Compile>
@@ -515,6 +518,12 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\impl\kmud\KmudColorSupport.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\impl\ClientImplementation.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\impl\MudHtmlImplementation.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\impl\MudSoundImplementation.js">
@@ -545,12 +554,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\RanvierTelnetInstance.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\TelnetClientInstance.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\TelnetClientEndpoint.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\ObjectProxy.js">
@@ -589,7 +592,7 @@
     <Content Include="src\setup\BaseConfig.json">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="TODO.html">
+    <Content Include="TODO.md">
       <SubType>Code</SubType>
     </Content>
     <None Include="compilerconfig.json" />

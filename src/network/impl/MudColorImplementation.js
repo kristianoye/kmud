@@ -1,4 +1,6 @@
-﻿
+﻿const
+    ClientImplementation = require('./ClientImplementation');
+
 const TerminalColorsUnknown = {
     'RESET': '',
     'BOLD': '',
@@ -13,7 +15,7 @@ const TerminalColorsUnknown = {
     'WHITE': ''
 };
 
-class MudColorImplementation {
+class MudColorImplementation extends ClientImplementation {
     /**
      * @returns {object} A mapping of color codes and client values.
      */
@@ -48,6 +50,14 @@ class MudColorImplementation {
             s += lookup['RESET'];
         }
         return s;
+    }
+
+    /**
+     * 
+     * @param {Object.<string,boolean>} flags
+     */
+    updateSupportFlags(flags) {
+        flags.colorEnabled = false;
     }
 }
 

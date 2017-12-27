@@ -37,6 +37,14 @@ class TerminalColorXterm extends MudColorImplementation {
     colorMap() {
         return TerminalColorsXterm;
     }
+
+    /**
+     * 
+     * @param {Object.<string,boolean>} flags
+     */
+    updateSupportFlags(flags) {
+        flags.colorEnabled = true;
+    }
 }
 
 module.exports = TerminalColorXterm;

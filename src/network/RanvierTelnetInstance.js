@@ -123,22 +123,29 @@ class RanvierTelnetInstance extends ClientInstance {
         return super.setBody(body, cb);
     }
 
-
     write(text) {
-        var client = this.client;
-        var active = !(this['__closed__'] || false);
-        if (active) client.write(this.caps.color.expandColors(text));
+        let active = !(this['__closed__'] || false);
+        text = this.caps.html.renderHtml(text);
+        text = this.caps.color.expandColors(text);
+        if (active) this.client.write(text);
     }
 
+    /**
+     * @deprecated
+     * @param {any} html
+     */
     writeHtml(html) {
         this.writeLine(html
             .replace(/<br[\/]{0,1}>/ig, '\\n')
             .replace(/<[^>]+>/g, ''));
     }
 
+    /**
+     * 
+     * @param {any} text
+     */
     writeLine(text) {
-        var client = this.client;
-        client.write(this.caps.color.expandColors(text) + '\n');
+        this.write(text + '\n');
     }
 }
 

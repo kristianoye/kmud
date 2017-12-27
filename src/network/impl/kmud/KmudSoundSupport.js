@@ -9,8 +9,16 @@ class KmudSoundSupport extends MudSoundImplementation {
     playSound() {
 
     }
+
+    /**
+     * 
+     * @param {Object.<string,boolean>} flags
+     */
+    updateSupportFlags(flags) {
+        flags.soundEnabled = true;
+    }
 }
 
-module.exports = KmudSoundSupport();
+module.exports = KmudSoundSupport;
 
 

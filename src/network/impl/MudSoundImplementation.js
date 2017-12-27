@@ -6,13 +6,24 @@
  * Provides a base abstraction for playing MUD sounds and music.
  */
 
-class MudSoundImplementation {
+const
+    ClientImplementation = require('./ClientImplementation');
+
+class MudSoundImplementation extends ClientImplementation {
     playMusic() {
 
     }
 
     playSound() {
 
+    }
+
+    /**
+     * 
+     * @param {Object.<string,boolean>} flags
+     */
+    updateSupportFlags(flags) {
+        flags.soundEnabled = false;
     }
 }
 

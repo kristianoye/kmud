@@ -38,6 +38,14 @@ class TerminalColorZmud extends MudColorImplementation {
     colorMap() {
         return TerminalColorsZmud;
     }
+
+    /**
+     * 
+     * @param {Object.<string,boolean>} flags
+     */
+    updateSupportFlags(flags) {
+        flags.colorEnabled = true;
+    }
 }
 
 module.exports = TerminalColorZmud;

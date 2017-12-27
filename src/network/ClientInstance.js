@@ -48,7 +48,7 @@ class ClientInstance extends EventEmitter {
         gameMaster = _gameMaster;
 
         this.client = _client;
-        this.caps = new ClientCaps(this.client);
+        this.caps = new ClientCaps(this);
         this.endpoint = endpoint;
         this.inputStack = [];
         this.remoteAddress = _remoteAddress;
@@ -123,6 +123,11 @@ class ClientInstance extends EventEmitter {
             }
         };
     }
+
+    /**
+     * @returns {string}
+     */
+    get defaultTerminalType() { return 'unknown'; }
 
     /**
      * Associate a body with the connection.

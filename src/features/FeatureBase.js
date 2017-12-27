@@ -8,7 +8,6 @@
 const
     DriverFeature = require('../config/DriverFeature');
 
-
 class FeatureBase {
     /**
      * @param {DriverFeature} config Config data
@@ -20,17 +19,15 @@ class FeatureBase {
         this.parameters = config.parameters;
     }
 
-    createDriverApplies(gameServer, gameServerPrototype) {
-    }
+    assertValid() { }
 
-    createExternalFunctions(efunPrototype) {
-    }
+    createDriverApplies(gameServer, gameServerPrototype) { }
 
-    createGlobalData(data) {
-    }
+    createExternalFunctions(efunPrototype) { }
 
-    createMasterApplies(masterObject, masterObjectPrototype) {
-    }
+    createGlobalData(data) { }
+
+    createMasterApplies(masterObject, masterObjectPrototype) { }
 }
 
 module.exports = FeatureBase;

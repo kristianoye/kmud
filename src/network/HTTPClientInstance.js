@@ -28,6 +28,7 @@ class HTTPClientInstance extends ClientInstance {
     }
     constructor(endpoint, gameMaster, client) {
         super(endpoint, gameMaster, client, client.request.connection.remoteAddress);
+
         var self = this, body, $storage;
 
         this[_callbacks] = {};
@@ -136,12 +137,6 @@ class HTTPClientInstance extends ClientInstance {
     }
 
     /**
-     * Returns a reference to the connected client.
-     * @returns {SocketIO.Client} The underlying telnet client
-     */
-    get client() { return this[_client]; }
-
-    /**
      * Indicates this client is capable of rendering HTML
      * @returns {boolean} Flag indicating the client understands HTML
      */
@@ -182,6 +177,11 @@ class HTTPClientInstance extends ClientInstance {
         this.inputStack.push(frame);
         return this.renderPrompt(frame.data);
     }
+
+    /**
+     * @returns {string}
+     */
+    get defaultTerminalType() { return 'kmud'; }
 
     eventSend(data) {
         if (typeof data.eventType !== 'string')

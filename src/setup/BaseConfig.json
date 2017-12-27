@@ -135,11 +135,6 @@
               "file": "./network/RanvierTelnetEndpoint",
               "name": "Ranvier Telnet Server",
               "default": true
-            },
-            {
-              "id": "legacy-telnet",
-              "file": "./network/TelnetClientEndpoint",
-              "name": "Legacy Telnet Server"
             }
           ]
         }

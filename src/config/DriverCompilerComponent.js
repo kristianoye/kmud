@@ -1,6 +1,6 @@
 ﻿const
     fs = require('fs'),
-    resolvePath = require('./ConfigShared').resolvePath;
+    ConfigUtil = require('../ConfigUtil');
 
 var
     nextComponentId = 1;
@@ -19,7 +19,7 @@ class DriverCompilerComponent {
         /** @type {boolean} */
         this.enabled = typeof data.enabled === 'boolean' ? data.enabled : true;
 
-        if (!fs.existsSync(resolvePath(this.file = data.file)))
+        if (!fs.existsSync(ConfigUtil.resolvePath(this.file = data.file)))
             throw new Error(`Component ${this.name} [id ${this.id}] has invalid filename: ${this.file}`);
         nextComponentId++;
     }
