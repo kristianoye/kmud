@@ -10,6 +10,11 @@ const
     ClientImplementation = require('./ClientImplementation');
 
 class MudSoundImplementation extends ClientImplementation {
+    constructor(caps) {
+        super(caps);
+        this.caps.sound = this.caps.music = this;
+    }
+
     playMusic() {
 
     }
@@ -22,31 +27,11 @@ class MudSoundImplementation extends ClientImplementation {
      * 
      * @param {Object.<string,boolean>} flags
      */
-    updateSupportFlags(flags) {
-        flags.soundEnabled = false;
+    updateFlags(flags) {
+        flags.music = false;
+        flags.sound = false;
+        return this;
     }
 }
-
-/**
- * @param {string} terminalType The terminal type to create a sound implementation for.
- * @returns {MudSoundImplementation}
- */
-MudSoundImplementation.createImplementation = function (caps) {
-    let
-        implementationType = MudSoundImplementation;
-
-    switch (caps.terminalType) {
-        case 'kmud':
-            implementationType = require('./kmud/KmudSoundSupport');
-            break;
-
-        case 'zmud':
-        case 'cmud':
-            implementationType = require('./zmud/MudSoundProtocol');
-            break;
-    }
-
-    return new implementationType(caps);
-};
 
 module.exports = MudSoundImplementation;

@@ -24,6 +24,9 @@ class DriverNetworkingEndpointHandlerConfig {
         /** @type {string} */
         this.name = data.name;
 
+        /** @type {Object.<string,boolean>} */
+        this.options = data.options || {};
+
         /** @type {string|boolean} */
         this.type = data.type || false;
     }
@@ -89,7 +92,7 @@ class DriverNetworkingEndpointConfig {
     /**
      * 
      * @param {string} id The ID of required handler.
-     * @returns {MUDNetworkingEndpointHandlerConfig} The handler
+     * @returns {DriverNetworkingEndpointHandlerConfig} The handler
      */
     getHandler(id) {
         if (typeof id !== 'string' || id.length === 0) {
@@ -127,7 +130,7 @@ class DriverNetworkingEndpointsConfig {
     /**
      * 
      * @param {string} protocol The name of the protocol requested.
-     * @returns {MUDNetworkingEndpointConfig} Information for the specified protocol.
+     * @returns {DriverNetworkingEndpointConfig} Information for the specified protocol.
      */
     getEndpointConfig(protocol) {
         if (typeof protocol !== 'string' || protocol.length === 0)

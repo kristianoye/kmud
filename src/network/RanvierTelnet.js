@@ -29,6 +29,7 @@
 
 const
     net = require('net'),
+    zlib = require('zlib'),
     EventEmitter = require('events'),
     MUDEventEmitter = require('../MUDEventEmitter');
 
@@ -54,6 +55,10 @@ const Opts = {
     OPT_EOR: 25,
     OPT_NAWS: 31,
     OPT_ENV: 39,
+    OPT_MCP1: 85, // MCP v1
+    OPT_MCP2: 86, // MCP v2 http://www.zuggsoft.com/zmud/mcp.htm
+    OPT_MSP: 90, // MUD Sound Protocol
+    OPT_MXP: 91, // MUD eXtension Protocol
     OPT_GMCP: 201
 };
 
@@ -66,6 +71,15 @@ class TelnetSocket extends EventEmitter {
         this.maxInputLength = opts.maxInputLength || 512;
         this.echoing = true;
         this.gaMode = null;
+
+        this.mcp = 0;
+        this.msp = false;
+        this.mxp = false;
+
+        this.offerGMCP = opts.offerGMCP || false;
+        this.offerMCP = opts.offerMCP || false;
+        this.offerMSP = opts.offerMSP || false;
+        this.offerMXP = opts.offerMXP || false;
     }
 
     get readable() {
@@ -86,6 +100,32 @@ class TelnetSocket extends EventEmitter {
 
     end(string, enc) {
         this.socket.end(string, enc);
+    }
+
+    transmit(data) {
+        if (!this.socket.ended && !this.socket.finished) {
+            switch (this.mcp) {
+                case 1:
+                    {
+                        let foo = zlib.deflateSync(data);
+                        let bar = zlib.inflateSync(foo).toString('utf8');
+                        this.socket.write(foo);
+                    }
+                    break;
+
+                case 2:
+                    {
+                        let foo = zlib.gzipSync(data);
+                        let bar = zlib.gunzipSync(foo).toString('utf8');
+                        this.socket.write(foo);
+                    }
+                    break;
+
+                default:
+                    this.socket.write(data);
+                    break;
+            }
+        }
     }
 
     write(data, encoding) {
@@ -112,9 +152,7 @@ class TelnetSocket extends EventEmitter {
         }
 
         try {
-            if (!this.socket.ended && !this.socket.finished) {
-                this.socket.write(data);
-            }
+            this.transmit(data);
         } catch (e) {
             this.emit('error', e);
         }
@@ -149,7 +187,7 @@ class TelnetSocket extends EventEmitter {
             seq.push(command);
         }
 
-        this.socket.write(new Buffer(seq));
+        this.transmit(new Buffer(seq));
     }
 
     toggleEcho(flag) {
@@ -170,7 +208,7 @@ class TelnetSocket extends EventEmitter {
         const seqStartBuffer = new Buffer([Seq.IAC, Seq.SB]);
         const seqEndBuffer = new Buffer([Seq.IAC, Seq.SE]);
 
-        this.socket.write(Buffer.concat([seqStartBuffer, dataBuffer, seqEndBuffer], gmcpData.length + 4));
+        this.transmit(Buffer.concat([seqStartBuffer, dataBuffer, seqEndBuffer], gmcpData.length + 4));
     }
 
     attach(connection) {
@@ -186,7 +224,11 @@ class TelnetSocket extends EventEmitter {
 
         this.telnetCommand(Seq.DO, Opts.OPT_NAWS);
         this.telnetCommand(Seq.DO, Opts.OPT_TTYPE);
-        this.socket.write("\r\n");
+        if (this.offerMCP) this.telnetCommand(Seq.WILL, Opts.OPT_MCP2);
+        if (this.offerMCP) this.telnetCommand(Seq.WILL, Opts.OPT_MCP1);
+        if (this.offerMSP) this.telnetCommand(Seq.WILL, Opts.OPT_MSP);
+        if (this.offerMXP) this.telnetCommand(Seq.WILL, Opts.OPT_MXP);
+        this.transmit(new Buffer("\r\n"));
 
         connection.on('data', (databuf) => {
             databuf.copy(inputbuf, inputlen);
@@ -273,6 +315,23 @@ class TelnetSocket extends EventEmitter {
                         case Opts.OPT_EOR:
                             this.gaMode = Seq.EOR;
                             break;
+
+                        case Opts.OPT_MCP1:
+                            this.telnetCommand(Seq.SB, [Opts.OPT_MCP1, Seq.WILL, Seq.SE]);
+                            this.mcp = 1;
+                            break;
+
+                        case Opts.OPT_MCP2:
+                            this.telnetCommand(Seq.SB, [Opts.OPT_MCP2, Seq.IAC, Seq.SE]);
+                            this.mcp = 2;
+                            break;
+
+                        case Opts.OPT_MSP:
+                            break;
+
+                        case Opts.OPT_MXP:
+                            break;
+
                         default:
                             /**
                              * @event TelnetSocket#DO
@@ -288,6 +347,13 @@ class TelnetSocket extends EventEmitter {
                     switch (opt) {
                         case Opts.OPT_EOR:
                             this.gaMode = Seq.GA;
+                            break;
+                        case Opts.OPT_MCP1:
+                            if (this.mcp === 1) this.mcp = 0;
+                            break;
+                        case Opts.OPT_MCP2:
+                            if (this.mcp === 2) this.mcp = 0;
+                            break;
                             break;
                         default:
                             /**
@@ -306,7 +372,6 @@ class TelnetSocket extends EventEmitter {
                      */
                     switch (opt) {
                         case Opts.OPT_TTYPE:
-                            //this.telnetCommand(Seq.SB, Opts.OPT_TTYPE);
                             this.telnetCommand(Seq.SB, [Opts.OPT_TTYPE, 1, Seq.IAC, Seq.SE]);
                             break;
                     }

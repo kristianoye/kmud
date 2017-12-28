@@ -16,6 +16,11 @@ const TerminalColorsUnknown = {
 };
 
 class MudColorImplementation extends ClientImplementation {
+    constructor(caps) {
+        super(caps);
+        this.caps.color = this.client.color = this;
+    }
+
     /**
      * @returns {object} A mapping of color codes and client values.
      */
@@ -50,14 +55,6 @@ class MudColorImplementation extends ClientImplementation {
             s += lookup['RESET'];
         }
         return s;
-    }
-
-    /**
-     * 
-     * @param {Object.<string,boolean>} flags
-     */
-    updateSupportFlags(flags) {
-        flags.colorEnabled = false;
     }
 }
 

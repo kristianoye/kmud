@@ -133,16 +133,7 @@ class EFUNProxy {
 
             if ($storage) {
                 let caps = $storage.getProtected('clientCaps');
-
-                return {
-                    clientHeight: caps.clientHeight,
-                    clientWidth: caps.clientWidth,
-                    colorEnabled: caps.colorEnabled,
-                    htmlEnabled: caps.htmlEnabled,
-                    soundEnabled: caps.soundEnabled,
-                    terminalType: caps.terminalType,
-                    videoEnabled: caps.videoEnabled
-                };
+                return caps.queryCaps();
             }
         });
 

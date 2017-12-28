@@ -2,6 +2,11 @@
     ClientImplementation = require('./ClientImplementation');
 
 class MudVideoImplementation extends ClientImplementation {
+    constructor(caps) {
+        super(caps);
+        this.caps.video = this;
+    }
+
     playVideo() {
 
     }
@@ -10,8 +15,9 @@ class MudVideoImplementation extends ClientImplementation {
      * 
      * @param {Object.<string,boolean>} flags
      */
-    updateSupportFlags(flags) {
-        flags.videoEnabled = false;
+    updateFlags(flags) {
+        flags.video = false;
+        return this;
     }
 }
 

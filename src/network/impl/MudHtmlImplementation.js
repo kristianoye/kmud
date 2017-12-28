@@ -12,6 +12,10 @@ const
 
 
 class MudHtmlImplementation extends ClientImplementation {
+    constructor(caps) {
+        super(caps);
+        this.caps.html = this.client.html = this;
+    }
     /**
      * Render HTML text for a non-HTML client.
      * @param {string} text The text that may contain HTML.
@@ -24,20 +28,10 @@ class MudHtmlImplementation extends ClientImplementation {
      * 
      * @param {Object.<string,boolean>} flags
      */
-    updateSupportFlags(flags) {
-        flags.htmlEnabled = false;
+    updateFlags(flags) {
+        flags.html = false;
+        return this;
     }
-}
-
-MudHtmlImplementation.createImplementation = function (caps) {
-    let implementationType = MudHtmlImplementation;
-    switch (caps.terminalType) {
-        case 'html':
-        case 'kmud':
-            implementationType = require('./kmud/KmudHtmlSupport');
-            break;
-    }
-    return new implementationType(caps);
 }
 
 module.exports = MudHtmlImplementation;

@@ -43,8 +43,9 @@ class TerminalColorZmud extends MudColorImplementation {
      * 
      * @param {Object.<string,boolean>} flags
      */
-    updateSupportFlags(flags) {
-        flags.colorEnabled = true;
+    updateFlags(flags) {
+        flags.color = true;
+        return this;
     }
 }
 

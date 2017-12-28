@@ -20,7 +20,7 @@ class MudSection {
         /** @type {MUDPasswordPolicy} */
         this.passwordPolicy = new MUDPasswordPolicy(data.passwordPolicy || { minLength: 5 });
 
-        /** @type {MUDConfigPort[]} */
+        /** @type {MudPort[]} */
         this.portBindings = data.portBindings.map(p => new MudPort(p));
     }
 

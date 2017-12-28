@@ -38,15 +38,17 @@ class ClientEndpoint extends EventEmitter {
         this[_maxConnections] = config.maxConnections;
         this[_port] = config.port;
         this[_type] = config.type;
+
+        this.connections = [];
+        this.gameMaster = gameMaster;
+
+        /** @type {Object.<string,any>} */
+        this.options = config.options || {};
     }
 
     get address() {  return this[_address];  }
 
     get config() { return this[_config]; }
-
-    get connections() { return this[_connections];  }
-
-    get gameMaster() {  return this[_gameMaster];   }
 
     get maxConnections() {  return this[_maxConnections];  }
 

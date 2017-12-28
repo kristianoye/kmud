@@ -112,7 +112,7 @@ class GameServer extends MUDEventEmitter {
                 handlerConfig = endpointConfig.getHandler(binding.handlerType || false),
                 handlerModule = require(handlerConfig.file),
                 handlerType = handlerConfig.type ? handlerModule[handlerConfig.type] : handlerModule,
-                endpoint = new handlerType(this, binding);
+                endpoint = new handlerType(this, binding.mergeOptions(handlerConfig.options));
 
             endpoint.on('error', (error, failedEndpoint) => {
                 if (error.code === 'EADDRINUSE') {

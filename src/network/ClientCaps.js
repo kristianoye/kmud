@@ -22,11 +22,6 @@ class ClientCaps {
         let
             self = this,
             flags = {
-                colorEnabled: true,
-                exitsEnabled: false,
-                htmlEnabled: false,
-                soundEnabled: false,
-                videoEnabled: false
             },
             client = clientInstance,
             methods = {},
@@ -35,38 +30,15 @@ class ClientCaps {
             height = 24,
             width = 80;
 
-        /** @type {MudColorImplementation} */
-        this.color = null;
-
-        /** @type {MudHtmlImplementation} */
-        this.html = null;
-
-        /** @type {MudSoundImplementation} */
-        this.sound = null;
-
-        /** @type {MudVideoImplementation} */
-        this.video = null;
-
         function setTerminalType(term) {
-            try {
-                let newTerm = term.toLowerCase();
-                if (newTerm !== terminalType) {
-                    let list = [];
+            let newTerm = term.toLowerCase();
+            if (newTerm !== terminalType) {
+                let list = [];
 
-                    terminalType = newTerm;
-                    methods = {};
-
-                    list.push(client.color = self.color = MudColorImplementation.createImplementation(self));
-                    list.push(client.exits = self.exits = MudExitsImplementation.createImplementation(self));
-                    list.push(client.html = self.html = MudHtmlImplementation.createImplementation(self));
-                    list.push(client.sound = self.sound = MudSoundImplementation.createImplementation(self));
-                    list.push(client.video = self.video = MudVideoImplementation.createImplementation(self));
-
-                    list.forEach(m => m.updateSupportFlags(flags));
-                }
-            }
-            catch (x) {
-                console.log(x);
+                terminalType = newTerm;
+                flags = { color: false, html: false, sound: false, video: false };
+                methods = {};
+                ClientImplementation.create(self, flags, methods);
             }
         }
 

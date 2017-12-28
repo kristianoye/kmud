@@ -3,24 +3,17 @@ const
     ClientImplementation = require('./ClientImplementation');
 
 class MudExitsImplementation extends ClientImplementation {
-    renderExits() {
-
+    constructor(caps) {
+        super(caps);
+        this.caps.exits = this;
     }
 
-    updateSupportFlags(flags) {
-        flags.exitsEnabled = false;
+    renderExits() { }
+
+    updateFlags(flags) {
+        flags.exits = false;
+        return this;
     }
 }
-
-MudExitsImplementation.createImplementation = function (caps) {
-    let implementationType = MudExitsImplementation;
-    switch (caps.terminalType) {
-        case 'cmud':
-        case 'zmud':
-            implementationType = require('./zmud/ZmudExitSupport');
-            break;
-    }
-    return new implementationType(caps);
-};
 
 module.exports = MudExitsImplementation;

@@ -21,7 +21,6 @@ class RanvierTelnetEndpoint extends ClientEndpoint {
      */
     constructor(gameMaster, config) {
         super(gameMaster, config);
-        this[_connections] = [];
     }
 
     /**
@@ -33,7 +32,7 @@ class RanvierTelnetEndpoint extends ClientEndpoint {
 
         let server = new TelnetServer((socket) => {
             let opts = { maxInputLength: this.config.maxCommandLength || 80 };
-            let client = new TelnetSocket().attach(socket);
+            let client = new TelnetSocket(this.options).attach(socket);
             let wrapper = new RanvierTelnetInstance(self, self.gameMaster, client);
 
             self.emit('kmud.connection.new', client, 'telnet');
@@ -48,12 +47,5 @@ class RanvierTelnetEndpoint extends ClientEndpoint {
         return this;
     }
 }
-
-Object.defineProperty(RanvierTelnetEndpoint.prototype, 'connections', {
-    get: function () { return this[_connections]; },
-    set: function () { },
-    enumerable: true,
-    configurable: true
-});
 
 module.exports = RanvierTelnetEndpoint;
