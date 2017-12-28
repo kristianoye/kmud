@@ -33,7 +33,7 @@ global.unwrap = function (target, success) {
     else if (typeof target === 'object' && target instanceof MUDObject) {
         result = target;
     }
-    return result === false ? false : (success ? success(result) : result);
+    return result === false ? false : (success ? success.call(this, result) : result);
 };
 
 global.wrapper = function (_o) {

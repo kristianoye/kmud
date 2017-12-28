@@ -4,11 +4,10 @@
  * Date: October 1, 2017
  */
 var
-    { MUDConfig } = require('./MUDConfig'),
+    MUDConfig = require('./MUDConfig'),
     MUDData = require('./MUDData'),
     EFUNProxy = require('./EFUNProxy'),
     MUDCreationContext = require('./MUDCreationContext'),
-    ObjectProxy = require('./ObjectProxy'),
     vm = require('vm');
 
 const
@@ -281,6 +280,7 @@ class MUDModule {
                 async.forEach(this.children, (childName, innerCallback) => {
                     try {
                         console.log('Re-compiling ' + childName.filename);
+                        MUDData.Compiler(childName, true);
                         compileObject(childName, true);
                     }
                     catch (e)

@@ -8,9 +8,15 @@ var
 
 class MUDExecutionContext {
     constructor() {
+        this.thisObject = MUDData.ThisObject;
         this.thisPlayer = MUDData.ThisPlayer;
+        this.thisVerb = MUDData.ThisVerb;
+
+        this.truePlayer = MUDData.TruePlayer;
+
         /** @type {MUDExecutionContext } */
         this.previousContext = MUDData.CurrentContext;
+
         this.objectStack = MUDData.ObjectStack;
     }
 

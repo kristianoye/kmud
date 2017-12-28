@@ -29,9 +29,9 @@ class RanvierTelnetInstance extends ClientInstance {
 
         function dispatchInput(text) {
             let body = this.body(),
-                evt = this.createCommandEvent(text, true, commandComplete, '> ');
+                evt = this.createCommandEvent(text, commandComplete, '> ');
             try {
-                gameMaster.setThisPlayer(body);
+                gameMaster.setThisPlayer(body, true);
 
                 if (tripwire) {
                     tripwire.resetTripwire(2000, {
@@ -66,6 +66,9 @@ class RanvierTelnetInstance extends ClientInstance {
             catch (err) {
                 if (evt) evt.callback(evt);
                 MUDData.MasterObject.errorHandler(err, false);
+            }
+            finally {
+                gameMaster.setThisPlayer(false, true);
             }
         }
 

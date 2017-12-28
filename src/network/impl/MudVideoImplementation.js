@@ -15,16 +15,16 @@ class MudVideoImplementation extends ClientImplementation {
     }
 }
 
-MudVideoImplementation.createImplementation = function (terminalType, version) {
+MudVideoImplementation.createImplementation = function (caps) {
     let implementationType = MudVideoImplementation;
 
-    switch (terminalType) {
+    switch (caps.client.terminalType) {
         case 'kmud':
             implementationType = require('./kmud/KmudVideoSupport');
             break;
     }
 
-    return new implementationType();
+    return new implementationType(caps);
 };
 
 module.exports = MudVideoImplementation;

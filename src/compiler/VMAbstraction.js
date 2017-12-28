@@ -1,5 +1,5 @@
 ﻿const
-    MUDConfig = require('../MUDConfig').MUDConfig,
+    MUDConfig = require('../MUDConfig'),
     MUDData = require('../MUDData');
 
 class VMAbstraction {

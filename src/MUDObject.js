@@ -7,7 +7,7 @@ const
     MUDCreationContext = require('./MUDCreationContext'),
     MUDEventEmitter = require('./MUDEventEmitter'),
     MUDStorage = require('./MUDStorage'),
-    MUDConfig = require('./MUDConfig').MUDConfig,
+    MUDConfig = require('./MUDConfig'),
     UseLazyResets = MUDConfig.driver.useLazyResets || false,
     _environment = Symbol('_environment'),
     _filename = '_filename',  // Symbol('_filename'),
@@ -374,13 +374,13 @@ class MUDObject extends MUDEventEmitter {
     }
 
     setAdjectives(adjectives) {
-        var args = [].slice.apply(arguments),
+        var args = [].slice.call(arguments),
             list = parseIdentifierList(args, 'setAdjectives');
         return this.setProperty('adjectives', list);
     }
 
     setIdList(identifiers) {
-        var args = [].slice.apply(arguments),
+        var args = [].slice.call(arguments),
             list = parseIdentifierList(args, 'setIdList');
         return this.setProperty('idList', list);
     }

@@ -10,7 +10,8 @@
  */
 const
     path = require('path'),
-    ErrorTypes = require('./ErrorTypes');
+    ErrorTypes = require('./ErrorTypes'),
+    MUDArgs = require('./MUDArgs');
 
 var MUDData = {
     Constants: {
@@ -48,7 +49,7 @@ var MUDData = {
     },
     Clients: [],
     Compiler: function () {
-        var args = [].slice.apply(arguments);
+        var args = [].slice.call(arguments);
         return MUDData.CompilerInstance.compileObject.apply(MUDData.CompilerInstance, args);
     },
     CompilerInstance: false,
@@ -104,8 +105,9 @@ var MUDData = {
     StripBOM: function (s) {
         return s.charCodeAt(0) === 0xFEFF ? s.slice(1) : s;
     },
-    ThisObject: [],
-    ThisPlayer: false
+    ThisObject: false,
+    ThisPlayer: false,
+    TruePlayer: false
 };
 
 module.exports = MUDData;

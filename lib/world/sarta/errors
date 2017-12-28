@@ -96,3 +96,49 @@ TypeError: this.setShort(...).setLong(...).addExit is not a function
     at CreatorWrapper.movePlayer (/base/Interactive.js:390:18)
     at LoginWrapper.efuns.exec (/sys/lib/Login.js:73:38)
     at EFUNProxy.exec ([driver]\EFUNProxy.js:282:34)
+
+[2017-12-27 11:06:05]
+I is not defined
+/world/sarta/mob/Harry.js:1
+MUD.include('Base').defineObject(I.NPC, NPC => {
+                                 ^
+
+ReferenceError: I is not defined
+    at /world/sarta/mob/Harry.js:1:34
+    at ContextifyScript.Script.runInContext (vm.js:59:29)
+    at Object.runInContext (vm.js:120:6)
+    at VMWrapper.run ([driver]\compiler\VMWrapper.js:46:25)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:177:20)
+    at Object.Compiler ([driver]\MUDData.js:53:55)
+    at EFUNProxy.reloadObject ([driver]\EFUNProxy.js:783:34)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update.js:12:25)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update:5:27)
+    at CreatorWrapper.processInput (/base/Interactive.js:198:115)
+
+[2017-12-27 11:07:01]
+this.setShortDescription is not a function
+TypeError: this.setShortDescription is not a function
+    at HarryWrapper.create (/world/sarta/mob/Harry.js:6:14)
+    at HarryWrapper.create (/world/sarta/mob/Harry:5:33)
+    at MUDModule.createInstance ([driver]\MUDModule.js:93:26)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:196:51)
+    at Object.Compiler ([driver]\MUDData.js:53:55)
+    at EFUNProxy.reloadObject ([driver]\EFUNProxy.js:783:34)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update.js:12:25)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update:5:27)
+    at CreatorWrapper.processInput (/base/Interactive.js:198:115)
+    at CreatorWrapper.preprocessInput (/base/Creator.js:156:25)
+
+[2017-12-27 13:53:55]
+base is not defined
+ReferenceError: base is not defined
+    at HarryWrapper.setDisplayName (/base/GameObject.js:65:13)
+    at HarryWrapper.create (/world/sarta/mob/Harry.js:9:14)
+    at HarryWrapper.create (/world/sarta/mob/Harry:5:33)
+    at MUDModule.createInstance ([driver]\MUDModule.js:93:26)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:196:51)
+    at Object.Compiler ([driver]\MUDData.js:53:55)
+    at EFUNProxy.cloneObject ([driver]\EFUNProxy.js:171:25)
+    at SquareWrapper.reset (/world/sarta/square.js:22:31)
+    at SquareWrapper.reset (/world/sarta/square:7:31)
+    at ResetWrapper.cmd (/cmds/creator/Reset.js:12:40)

@@ -27,7 +27,7 @@ class MUDOSLoader extends MUDLoader {
             },
             call_other: {
                 value: function (target, args) {
-                    var _args = [].slice.apply(arguments),
+                    var _args = [].slice.call(arguments),
                         _target = _args.shift(),
                         _method = _args.shift();
 
@@ -88,7 +88,7 @@ class MUDOSLoader extends MUDLoader {
             },
             unique_array: {
                 value: function () {
-                    var args = [].slice.apply(arguments),
+                    var args = [].slice.call(arguments),
                         arr = args.shift(),
                         sep = args.shift(),
                         skip = args.shift() || false,
@@ -168,7 +168,7 @@ class MUDOSLoader extends MUDLoader {
     }
 
     filter_array() {
-        var args = [].slice.apply(arguments),
+        var args = [].slice.call(arguments),
             arr = args.shift(),
             filter = args.shift();
 
@@ -192,7 +192,7 @@ class MUDOSLoader extends MUDLoader {
     load_object() { return this.efuns.loadObject.apply(this.efuns, arguments); }
 
     member_array() {
-        var args = [].slice.apply(arguments),
+        var args = [].slice.call(arguments),
             item = args.shift(),
             arr = args.shift(),
             startIndex = args.shift() || 0;
@@ -208,7 +208,7 @@ class MUDOSLoader extends MUDLoader {
     pointerp(arg) { return Array.isArray(arg); }
 
     sort_array() {
-        var args = [].slice.apply(arguments),
+        var args = [].slice.call(arguments),
             arr = args.shift(),
             filter = args.shift();
 

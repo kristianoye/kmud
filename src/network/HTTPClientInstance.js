@@ -24,7 +24,7 @@ class HTTPClientInstance extends ClientInstance {
                 }
             };
         }
-        return super.createCommandEvent(input, true, callback, 'Enter a command...');
+        return super.createCommandEvent(input, callback, 'Enter a command...');
     }
     constructor(endpoint, gameMaster, client) {
         super(endpoint, gameMaster, client, client.request.connection.remoteAddress);
@@ -40,11 +40,11 @@ class HTTPClientInstance extends ClientInstance {
         }
 
         function dispatchInput(resp) {
-            let evt = self.createCommandEvent(resp.cmdline, commandComplete);
+            let evt = self.createCommandEvent(resp.cmdline, commandComplete, 'Enter a command...');
             try {
                 var body = this.body;
 
-                gameMaster.setThisPlayer(body());
+                gameMaster.setThisPlayer(body(), true);
 
                 if (tripwire) {
                     tripwire.resetTripwire(2000, {
@@ -87,6 +87,9 @@ class HTTPClientInstance extends ClientInstance {
                 });
                 if (evt) evt.callback(evt);
                 MUDData.MasterObject.errorHandler(err, false);
+            }
+            finally {
+                gameMaster.setThisPlayer(false, true);
             }
         }
 

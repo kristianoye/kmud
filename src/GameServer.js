@@ -6,7 +6,7 @@
 var
     Mudlib = require('./MudLib'),
     MUDData = require('./MUDData'),
-    { MUDConfig } = require('./MUDConfig'),
+    MUDConfig = require('./MUDConfig'),
     stack = require('callsite');
 
 const
@@ -638,12 +638,10 @@ class GameServer extends MUDEventEmitter {
         };
     }
 
-    setThisPlayer(body) {
-        try {
-            MUDData.ThisPlayer = unwrap(body);
-        }
-        catch (e) {
-            throw e;
+    setThisPlayer(body, truePlayer) {
+        MUDData.ThisPlayer = unwrap(body);
+        if (truePlayer) {
+            MUDData.TruePlayer = MUDData.ThisPlayer;
         }
     }
 

@@ -11,9 +11,11 @@
 const
     ClientImplementation = require('./impl/ClientImplementation'),
     MudColorImplementation = require('./impl/MudColorImplementation'),
+    MudExitsImplementation = require('./impl/MudExitsImplementation'),
     MudHtmlImplementation = require('./impl/MudHtmlImplementation'),
     MudSoundImplementation = require('./impl/MudSoundImplementation'),
     MudVideoImplementation = require('./impl/MudVideoImplementation');
+
 
 class ClientCaps {
     constructor(clientInstance) {
@@ -21,11 +23,13 @@ class ClientCaps {
             self = this,
             flags = {
                 colorEnabled: true,
-                htmlEnabled: true,
-                soundEnabled: true,
-                videoEnabled: true
+                exitsEnabled: false,
+                htmlEnabled: false,
+                soundEnabled: false,
+                videoEnabled: false
             },
             client = clientInstance,
+            methods = {},
             terminalType = false,
             terminalTypes = [],
             height = 24,
@@ -44,17 +48,25 @@ class ClientCaps {
         this.video = null;
 
         function setTerminalType(term) {
-            let newTerm = term.toLowerCase();
-            if (newTerm !== terminalType) {
-                let list = [];
-                terminalType = newTerm;
+            try {
+                let newTerm = term.toLowerCase();
+                if (newTerm !== terminalType) {
+                    let list = [];
 
-                list.push(client.color = self.color = MudColorImplementation.createImplementation(newTerm));
-                list.push(client.html = self.html = MudHtmlImplementation.createImplementation(newTerm));
-                list.push(client.sound = self.sound = MudSoundImplementation.createImplementation(newTerm));
-                list.push(client.video = self.video = MudVideoImplementation.createImplementation(newTerm));
+                    terminalType = newTerm;
+                    methods = {};
 
-                list.forEach(m => m.updateSupportFlags(flags));
+                    list.push(client.color = self.color = MudColorImplementation.createImplementation(self));
+                    list.push(client.exits = self.exits = MudExitsImplementation.createImplementation(self));
+                    list.push(client.html = self.html = MudHtmlImplementation.createImplementation(self));
+                    list.push(client.sound = self.sound = MudSoundImplementation.createImplementation(self));
+                    list.push(client.video = self.video = MudVideoImplementation.createImplementation(self));
+
+                    list.forEach(m => m.updateSupportFlags(flags));
+                }
+            }
+            catch (x) {
+                console.log(x);
             }
         }
 
@@ -74,6 +86,9 @@ class ClientCaps {
         }
 
         Object.defineProperties(this, {
+            client: {
+                get: function () { return client; }
+            },
             clientHeight: {
                 get: function () { return height; }
             },
@@ -82,6 +97,13 @@ class ClientCaps {
             },
             colorEnabled: {
                 get: function () { return flags.colorEnabled; }
+            },
+            flags: {
+                get: function () {
+                    let result = {};
+                    Object.keys(flags).forEach(k => result[k] = flags[k]);
+                    return result;
+                }
             },
             htmlEnabled: {
                 get: function () { return  flags.htmlEnabled; }
@@ -98,6 +120,28 @@ class ClientCaps {
         });
 
         setTerminalType(client.defaultTerminalType);
+    }
+
+    canDo(name) {
+        return this.flags[`${name}Enabled`] === true;
+    }
+
+    /**
+     * Call a feature implementation.
+     * @param {string} name The feature name.
+     * @param {string} method The feature method to invoke.
+     * @param {...any[]} args THe arguments to apply to the implementation call.
+     */
+    do(name, method, ...args) {
+        let feature = this[name];
+        if (feature) {
+            return feature[method].apply(this, args);
+        }
+        return false;
+    }
+
+    queryCaps() {
+        return this.flags;
     }
 }
 

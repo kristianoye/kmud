@@ -206,13 +206,13 @@ class LPCParser {
 
 class LPCServer extends net.Server {
     constructor() {
-        super(...[].slice.apply(arguments));
+        super(...[].slice.call(arguments));
     }
 }
 
 class LPCSocket extends net.Socket {
     constructor() {
-        super(...[].slice.apply(arguments));
+        super(...[].slice.call(arguments));
     }
 }
 

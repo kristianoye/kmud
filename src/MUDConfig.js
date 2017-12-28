@@ -171,6 +171,4 @@ Where options include:
     }
 }
 
-module.exports = {
-    MUDConfig: new MUDConfig()
-};
+module.exports = new MUDConfig();

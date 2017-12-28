@@ -1,9 +1,10 @@
 ﻿const
     MUDEventEmitter = require('./MUDEventEmitter'),
-    { MUDConfig } = require('./MUDConfig'),
+    MUDConfig = require('./MUDConfig'),
     MUDData = require('./MUDData'),
     MUDObject = require('./MUDObject'),
-    MUDCreationContext = require('./MUDCreationContext');
+    MUDCreationContext = require('./MUDCreationContext'),
+    ClientCaps = require('./network/ClientCaps');
 
 class MUDStorage extends MUDEventEmitter {
     /**
@@ -41,6 +42,22 @@ class MUDStorage extends MUDEventEmitter {
         if (ctx) this.merge(ctx);
     }
 
+    command(cmdline) {
+        let client = this.getProtected('client'), evt,
+            prevPlayer = MUDDdata.ThisPlayer;
+
+        try {
+            if (client) {
+                client.createCommandEvent(cmdline);
+            }
+            MUDData.ThisPlayer = this.owner;
+            this.emit('kmud.command', evt);
+        }
+        finally {
+            MUDData.ThisPlayer = prevPlayer;
+        }
+    }
+
     /**
      * Returns a property from the collection.
      * @param {string} prop
@@ -50,12 +67,18 @@ class MUDStorage extends MUDEventEmitter {
         return this.properties[prop] || (this.properties[prop] = defaultValue);
     }
 
+    /**
+     * Returns a protected/volatile property.
+     * @param {string} prop
+     * @param {any} defaultValue
+     */
     getProtected(prop, defaultValue) {
         if (prop in this.protected)
             return this.protected[prop];
         else if (typeof defaultValue !== 'undefined')
             return this.protected[prop] = defaultValue;
     }
+
     /**
      * Retun the value stored for the given symbol.
      * @param {Symbol} prop
@@ -78,6 +101,12 @@ class MUDStorage extends MUDEventEmitter {
         return size;
     }
 
+    /**
+     * Increment a numeric property by a specified amount.
+     * @param {string} prop
+     * @param {number} incrementBy
+     * @param {number} initialValue
+     */
     incrementProperty(prop, incrementBy, initialValue) {
         if (!(prop in this.properties))
             this.properties[prop] = parseInt(initialValue);

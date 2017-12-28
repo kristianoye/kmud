@@ -98,7 +98,7 @@ class MUDLoader {
             },
             createElement: {
                 value: function () {
-                    var children = [].slice.apply(arguments),
+                    var children = [].slice.call(arguments),
                         type = children.shift(),
                         props = children.shift();
                     if (typeof type === 'string') {
@@ -198,7 +198,7 @@ class MUDLoader {
             imports: {
                 value: function (src) {
                     var _ = this || self;
-                    [].slice.apply(arguments).forEach(exp => {
+                    [].slice.call(arguments).forEach(exp => {
                         if (typeof exp === 'string') {
                             switch (exp) {
                                 case 'lpc':
@@ -227,7 +227,7 @@ class MUDLoader {
             include: {
                 value: function (src) {
                     var _ = this || self;
-                    [].slice.apply(arguments).forEach(fn => {
+                    [].slice.call(arguments).forEach(fn => {
                         var searchPath = _.efuns.includePath(fn);
                         var fullPath = _.efuns.resolvePath(fn, _.directory);
 

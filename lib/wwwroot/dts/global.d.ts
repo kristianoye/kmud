@@ -36,8 +36,25 @@ declare class MUDObject
     /** Contains the instanceId of the object.  If > 0 then this object is a clone */
     readonly instanceId: number;
 
+    /** What objects are inside this object */
+    readonly inventory: MUDObject[];
+
     /** Contains an array of strings indicating what permissions the object has */
     readonly permissions: string[];
+
+    /**
+     *  Check to see if the object responds to a particular ID
+     * @param {string} id The ID to check.
+     * @returns {boolean}
+     */
+    matchesId(id: string): boolean;
+
+    /**
+     * Check to see if the object responds to a list of qualifiers.
+     * @param {string[]} idList The list of adjectives and identifiers to check.
+     * @returns {boolean} Returns true if the object matches all specified IDs.
+     */
+    matchesId(idList: string[]): boolean;
 }
 
 declare class MUDInfo {
@@ -520,18 +537,41 @@ declare class EFUNProxy
     writeJsonFile(filename: string, content: any, callback: (success: boolean, err: Error) => undefined): undefined;
 }
 
+declare class MUDArgs {
+    readonly length: number;
+
+    nextIs(typeName: string): boolean;
+
+    optional<T>(typeName: string): T;
+    optional<T>(typeName: string, defaultValue: T): T;
+
+    required<T>(typeName: string): T;
+    required<T>(typeName: string, defaultValue: T): T;
+}
+
 declare function unwrap(target: any): MUDObject | false;
 declare function unwrap(target: any, success: (ob: MUDObject) => MUDObject): MUDObject | false;
 
 let efuns = new EFUNProxy;
 
+declare class MUDClientCaps {
+    readonly clientHeight: number;
+    readonly clientWidth: number;
+    readonly colorEnabled: boolean;
+    readonly htmlEnabled: boolean;
+    readonly soundEnabled: boolean;
+    readonly terminalType: string;
+    readonly videoEnabled: boolean;
+}
+
 declare class MUDInputEvent {
-    readonly verb: string;
     readonly args: string[];
+    readonly caps: MUDClientCaps;
+    readonly complete: function;
     readonly error: string;
-    readonly original: string;
-    readonly callback: function;
     readonly fromHistory: boolean;
+    readonly original: string;
+    readonly verb: string;
 }
 
 let MUDEVENT_STOP = 1 << 20;

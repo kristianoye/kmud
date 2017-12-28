@@ -31,11 +31,11 @@ class MudSoundImplementation extends ClientImplementation {
  * @param {string} terminalType The terminal type to create a sound implementation for.
  * @returns {MudSoundImplementation}
  */
-MudSoundImplementation.createImplementation = function (terminalType) {
+MudSoundImplementation.createImplementation = function (caps) {
     let
         implementationType = MudSoundImplementation;
 
-    switch (terminalType) {
+    switch (caps.terminalType) {
         case 'kmud':
             implementationType = require('./kmud/KmudSoundSupport');
             break;
@@ -46,7 +46,7 @@ MudSoundImplementation.createImplementation = function (terminalType) {
             break;
     }
 
-    return new implementationType();
+    return new implementationType(caps);
 };
 
 module.exports = MudSoundImplementation;

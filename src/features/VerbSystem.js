@@ -315,8 +315,8 @@ class VerbContainer {
      * @param {any} verb The verb it executes.
      * @returns {boolean} True on success.
      */
-    addSynonym(synonym, verb) {
-        let verb = this.getVerb(verb);
+    addSynonym(synonym, verbName) {
+        let verb = this.getVerb(verbName);
 
         if (!verb)
             throw Error(`'${verb}' is not a verb!`);
@@ -886,7 +886,7 @@ class VerbSystemFeature extends FeatureBase {
         }
 
         this.efunNameParseAddRule = config.parameters.efunNameParseAddRule || false;
-        this.efunNameParseAddSynonym = config.parameters.efunNameParseSynonym || false;
+        this.efunNameParseAddSynonym = config.parameters.efunNameParseAddSynonym || false;
         this.efunNameParseInit = config.parameters.efunNameParseInit || false;
         this.efunNameParseRefresh = config.parameters.efunNameParseRefresh || false;
         this.efunNameParseSentence = config.parameters.efunNameParseSentence || false;
@@ -895,6 +895,9 @@ class VerbSystemFeature extends FeatureBase {
         this.container = new VerbContainer();
         this.useVerbRuleScope = typeof config.parameters.useVerbRuleScope === 'boolean' ?
             config.parameters.useVerbRuleScope : true;
+
+        flags.verbs = true;
+        flags.parseVerbEfun = this.efunNameParseVerb !== false;
     }
 
     assertValid() {

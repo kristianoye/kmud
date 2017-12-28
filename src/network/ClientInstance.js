@@ -10,7 +10,7 @@ const
     ClientEndpoint = require('./ClientEndpoint'),
     ClientCaps = require('./ClientCaps'),
     MUDEventEmitter = require('../MUDEventEmitter'),
-    MUDConfig = require('../MUDConfig').MUDConfig,
+    MUDConfig = require('../MUDConfig'),
     DefaultError = MUDConfig.mudlib.defaultError,
     GameServer = require('../GameServer');
 
@@ -102,26 +102,33 @@ class ClientInstance extends EventEmitter {
      * Parse a line of user input into words, a verb, etc.
      * @param {string} input
      */
-    createCommandEvent(input, isBrowser, callback, defaultPrompt) {
+    createCommandEvent(input, callback, defaultPrompt) {
         let words = input.trim().split(/\s+/g),
-            verb = words.shift();
-
-        return {
-            verb: verb.trim(),
+            verb = words.shift(), self = this;
+        let evt = {
             args: words,
             callback: callback,
+            caps: this.caps.queryCaps(),
             client: this,
+            complete: function () { },
             error: DefaultError.replace('$verb', verb),
             fromHistory: false,
             input: input.slice(verb.length).trim(),
             original: input,
-            preferHtml: isBrowser,
             prompt: {
                 type: 'text',
                 text: defaultPrompt,
                 recapture: false
-            }
+            },
+            verb: verb.trim(),
         };
+
+        evt.complete = function (eventResult) {
+            callback.call(self, evt);
+            return eventResult || 0;
+        };
+
+        return evt;
     }
 
     /**

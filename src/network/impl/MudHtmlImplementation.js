@@ -29,15 +29,15 @@ class MudHtmlImplementation extends ClientImplementation {
     }
 }
 
-MudHtmlImplementation.createImplementation = function (terminalType) {
+MudHtmlImplementation.createImplementation = function (caps) {
     let implementationType = MudHtmlImplementation;
-    switch (terminalType) {
+    switch (caps.terminalType) {
         case 'html':
         case 'kmud':
             implementationType = require('./kmud/KmudHtmlSupport');
             break;
     }
-    return new implementationType();
+    return new implementationType(caps);
 }
 
 module.exports = MudHtmlImplementation;

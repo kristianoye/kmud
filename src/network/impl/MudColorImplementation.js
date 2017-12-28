@@ -64,10 +64,10 @@ class MudColorImplementation extends ClientImplementation {
 /**
  * @returns {MudColorImplementation} A client-specific color translation implementation.
  */
-MudColorImplementation.createImplementation = function (term) {
+MudColorImplementation.createImplementation = function (caps) {
     let implementationType = MudColorImplementation;
 
-    switch (term) {
+    switch (caps.terminalType) {
         case 'ansi':
         case 'vt100':
             implementationType = require('./ansi/TerminalColorAnsi');
@@ -81,13 +81,14 @@ MudColorImplementation.createImplementation = function (term) {
             implementationType = require('./xterm/TerminalColorXterm');
             break;
 
-        case 'zmud': 
+        case 'zmud':
         case 'cmud':
             implementationType = require('./zmud/TerminalColorZmud');
             break;
     }
 
-    return new implementationType();
-}
+    return new implementationType(caps);
+};
+
 
 module.exports = MudColorImplementation;

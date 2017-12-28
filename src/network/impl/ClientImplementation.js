@@ -1,5 +1,10 @@
 ﻿
 class ClientImplementation {
+    constructor(caps) {
+        this.caps = caps;
+        this.client = caps.client;
+    }
+
     /**
      *
      * @param {Object.<string,boolean>} caps

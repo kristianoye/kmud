@@ -15,7 +15,7 @@ function extendPrototype(pt, spec) {
 (function (pt) {
     extendPrototype(pt, {
         pushDistinct: function (el) {
-            var args = [].slice.apply(arguments);
+            var args = [].slice.call(arguments);
             for (var i = 0, max = args.length; i < max; i++) {
                 var n = this.indexOf(args[i]);
                 if (n === -1) this.push(args[i]);

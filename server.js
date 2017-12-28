@@ -5,7 +5,7 @@
  */
 try {
     const
-        { MUDConfig } = require('./src/MUDConfig'),
+        MUDConfig = require('./src/MUDConfig'),
         GameServer = require('./src/GameServer'),
         MUDData = require('./src/MUDData'),
         ErrorTypes = require('./src/ErrorTypes');

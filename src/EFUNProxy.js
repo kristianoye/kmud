@@ -9,7 +9,7 @@ const
     path = require('path'),
     os = require('os'),
     sprintf = require('sprintf').sprintf,
-    { MUDConfig } = require('./MUDConfig'),
+    MUDConfig = require('./MUDConfig'),
     ErrorTypes = require('./ErrorTypes'),
     MUDExecutionContext = require('./MUDExcecutionContext'),
     util = require('util'),
@@ -232,34 +232,40 @@ class EFUNProxy {
      * Force the previous object to perform an in-game object.
      */
     command(input) {
-        let prev = this.previousObject();
-        if (prev) {
+        let thisObject = this.thisObject(),
+            prevPlayer = this.ThisPlayer;
+        if (thisObject) {
             let $storage = MUDData.Storage.get(prev),
                 client = $storage.getProtected('client'),
                 evt = client ? client.createCommandEvent(input) : false;
+            try {
+                MUDData.ThisPlayer = thisObject;
+                if (!evt) {
+                    let words = input.trim().split(/\s+/g),
+                        verb = words.shift();
 
-            if (!evt) {
-                let words = input.trim().split(/\s+/g),
-                    verb = words.shift();
-
-                evt = {
-                    verb: verb.trim(),
-                    args: words,
-                    callback: function () { },
-                    client: prev,
-                    error: 'What?',
-                    fromHistory: false,
-                    input: input.slice(verb.length).trim(),
-                    original: input,
-                    preferHtml: false,
-                    prompt: {
-                        type: 'text',
-                        text: '> ',
-                        recapture: false
-                    }
-                };
+                    evt = {
+                        verb: verb.trim(),
+                        args: words,
+                        callback: function () { },
+                        client: prev,
+                        error: 'What?',
+                        fromHistory: false,
+                        input: input.slice(verb.length).trim(),
+                        original: input,
+                        preferHtml: false,
+                        prompt: {
+                            type: 'text',
+                            text: '> ',
+                            recapture: false
+                        }
+                    };
+                }
+                $storage.emit('kmud.command', evt);
             }
-            $storage.emit('kmud.command', evt);
+            finally {
+                MUDData.ThisPlayer = prevPlayer;
+            }
         }
     }
 
@@ -271,6 +277,14 @@ class EFUNProxy {
      */
     createPassword(plainText, callback) {
         MUDData.Config.mud.passwordPolicy.hashPasword(plainText, callback);
+    }
+
+    /**
+     * Returns the currently executing verb.
+     * @returns {string|false} The current verb or false if none.
+     */
+    currentVerb() {
+        return MUDData.ThisVerb || false;
     }
 
     /**
@@ -543,10 +557,14 @@ class EFUNProxy {
      * Send a message to one or more recipients.
      * @param {string} messageType
      * @param {string|MUDHtmlComponent|number|function} expr
-     * @param {...MUDObject[]} audience
+     * @param {MUDObject[]} audience
+     * @param {MUDObject[]} excluded
      */
-    message(messageType, expr, ...audience) {
-        if (expr && MUDData.ThisPlayer) {
+    message(messageType, expr, audience, excluded) {
+        if (expr) {
+            if (!excluded) excluded = [];
+            if (!Array.isArray(excluded)) excluded = [excluded];
+            if (!Array.isArray(audience)) audience = [audience];
             if (typeof expr !== 'string') {
                 if (expr instanceof MUDHtmlComponent)
                     expr = expr.render();
@@ -558,16 +576,22 @@ class EFUNProxy {
             if (typeof expr === 'function') {
                 audience.forEach(a => {
                     if (Array.isArray(a))
-                        a.forEach((player) => this.message(messageType, expr, player));
-                    else unwrap(a, (player) => player.receive_message(messageType, expr(player)));
+                        a.forEach((player) => this.message(messageType, expr, player, excluded));
+                    else unwrap(a, (player) => {
+                        if (excluded.indexOf(player) === -1)
+                            player.receive_message(messageType, expr(player));
+                    });
                 });
             }
             else {
                 audience.forEach(a => {
                     if (Array.isArray(a)) {
-                        a.forEach((player) => this.message(messageType, expr, player));
+                        a.forEach((player) => this.message(messageType, expr, player, excluded));
                     }
-                    else unwrap(a, a => a.receive_message(messageType, expr));
+                    else unwrap(a, (player) => {
+                        if (excluded.indexOf(player) === -1)
+                            player.receive_message(messageType, expr);
+                    });
                 });
             }
         }
@@ -668,6 +692,58 @@ class EFUNProxy {
      */
     pluralize(what) {
         return MUDData.MasterEFUNS.pluralize(what);
+    }
+
+    /**
+     * 
+     */
+    present() {
+        let args = new MUDArgs(arguments),
+            objId = '', self = this;
+
+        if (args.optional('string', s => objId = s)) {
+            let targets = args.optional('object', o => [o]);
+            if (!targets) {
+                targets = [this.previousObject()];
+                targets.push(targets[0].environment);
+            }
+            let idList = objId.split(/\s+/g),
+                which = parseInt(idList[idList.length - 1]);
+
+            if (isNaN(which)) which = 0;
+            else { idList.pop(), which-- };
+
+            for (let i = 0; i < targets.length; i++) {
+                let result = unwrap(targets[i], o => {
+                    let inv = o.inventory;
+                    for (let j = 0; j < inv.length; j++) {
+                        if (inv[j].matchesId(idList) && !which--) return inv[j];
+                    }
+                });
+                if (result) return result;
+            }
+            return false;
+        }
+        else if(args.nextIs('object')) {
+            return args.required('object', target => {
+                return unwrap(target, o => {
+                    /** @type {MUDObject} */
+                    let env = args.optional('object', e => unwrap(e));
+                    if (env) {
+                        return env.inventory.indexOf(o) > -1 ? o : false;
+                    }
+                    let prev = self.thisObject();
+                    if (prev.inventory.indexOf(o) > -1)
+                        return prev;
+                    env = prev.environment;
+                    if (env) {
+                        return env.inventory.indexOf(o) > -1 ? env : false;
+                    }
+                    return false;
+                });
+            });
+        }
+        throw new Error(`Bad argument 1 to present(); Expected string or object but got ${typeof arguments[0]}`);
     }
 
     /**
@@ -808,6 +884,19 @@ class EFUNProxy {
     }
 
     /**
+     * Send exits to the client (if supported)
+     * @param {any} dirs
+     * @param {MUDObject=} target
+     */
+    sendExits(dirs, target) {
+        let $storage = MUDData.Storage.get(target || MUDData.ThisPlayer);
+        if ($storage) {
+            let clientCaps = $storage.getProtected('clientCaps');
+            clientCaps && clientCaps.do('exits', 'renderExits', dirs);
+        }
+    }
+
+    /**
      * Set the reset interval for a particular object.
      * @param {MUDObject} target
      * @param {number=} interval
@@ -837,6 +926,8 @@ class EFUNProxy {
      * @returns {MUDObject|false} The last object to interact with the MUD or false if none.
      */
     thisObject() {
+        if (MUDData.ThisObject)
+            return MUDData.ThisObject;
         var prev = this.previousObject(-1);
         return prev[0] || false;
     }

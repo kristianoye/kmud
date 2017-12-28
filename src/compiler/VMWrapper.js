@@ -3,7 +3,7 @@ const
     PipelineContext = require('./PipelineContext').PipelineContext,
     VMAbstraction = require('./VMAbstraction'),
     MUDData = require('../MUDData'),
-    MUDConfig = require('../MUDConfig').MUDConfig,
+    MUDConfig = require('../MUDConfig'),
     MUDModule = require('../MUDModule'),
     CompilerTimeout = MUDConfig.driver.compiler.maxCompileTime || -1,
     fs = require('fs'),
