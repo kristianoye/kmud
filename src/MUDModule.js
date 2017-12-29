@@ -281,7 +281,7 @@ class MUDModule {
     isRelated(module) {
         if (module === this)
             return true;
-        for (let i = 0, max = this.children; i < max; i++) {
+        for (let i = 0, max = this.children.length; i < max; i++) {
             if (this.children[i].isRelated(module))
                 return true;
         }
