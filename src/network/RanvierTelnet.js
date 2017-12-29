@@ -313,6 +313,9 @@ class TelnetSocket extends EventEmitter {
                             break;
 
                         case Opts.OPT_MXP:
+                            i += 2;
+                            subnegOpt = inputbuf[i++];
+                            subnegBuffer = Buffer.alloc(inputbuf.length - i, ' ');
                             this.mxp = true;
                             break;
 
@@ -381,6 +384,7 @@ class TelnetSocket extends EventEmitter {
                     }
 
                     switch (opt) {
+                        case Opts.OPT_MXP:
                         case Opts.OPT_TTYPE:
                             {
                                 let tte = {

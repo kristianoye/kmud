@@ -73,6 +73,7 @@ ClientImplementation.create = function (caps, flags, methods) {
             components.push(
                 require('./MudHtmlImplementation'),
                 require('./xterm/TerminalColorXterm'));
+            break;
 
         case 'zmud':
             components.push(

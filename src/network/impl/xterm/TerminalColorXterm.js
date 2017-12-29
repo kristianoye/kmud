@@ -34,12 +34,12 @@ const MudColorImplementation = require('../MudColorImplementation'),
     };
 
 class TerminalColorXterm extends MudColorImplementation {
-    constructor(client) {
-        super(client);
-    }
-
     colorMap() {
         return TerminalColorsXterm;
+    }
+
+    init() {
+        this.caps.color = this.client.color = this;
     }
 
     /**

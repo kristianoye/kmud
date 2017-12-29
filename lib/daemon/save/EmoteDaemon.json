@@ -39,6 +39,7 @@
       "merrily",
       "mortally",
       "mysteriously",
+      "petulantly",
       "politely",
       "poorly",
       "powerfully",
@@ -71,9 +72,10 @@
       "wearily",
       "weekly",
       "wildly",
+      "wisely",
       "wishfully",
       "worriedly",
-      "wisely"
+      "wretchedly"
     ],
     "emotes": {
       "grin": [
@@ -99,7 +101,9 @@
         "WRD"
       ],
       "smile": [
-        "happily"
+        "happily",
+        "WRD",
+        "WRD at LIV"
       ]
     }
   },

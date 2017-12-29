@@ -223,14 +223,14 @@ class EFUNProxy {
      * Force the previous object to perform an in-game object.
      */
     command(input) {
-        let thisObject = this.thisObject(),
-            prevPlayer = this.ThisPlayer;
-        if (thisObject) {
-            let $storage = MUDData.Storage.get(prev),
+        let _thisObject = this.ThisPlayer || this.thisObject(),
+            prevPlayer = MUDData.ThisPlayer;
+        if (_thisObject) {
+            let $storage = MUDData.Storage.get(_thisObject),
                 client = $storage.getProtected('client'),
-                evt = client ? client.createCommandEvent(input) : false;
+                evt = client ? client.createCommandEvent(_thisObject) : false;
             try {
-                MUDData.ThisPlayer = thisObject;
+                MUDData.ThisPlayer = _thisObject;
                 if (!evt) {
                     let words = input.trim().split(/\s+/g),
                         verb = words.shift();
@@ -239,7 +239,7 @@ class EFUNProxy {
                         verb: verb.trim(),
                         args: words,
                         callback: function () { },
-                        client: prev,
+                        client: client || null,
                         error: 'What?',
                         fromHistory: false,
                         input: input.slice(verb.length).trim(),
@@ -711,7 +711,7 @@ class EFUNProxy {
         if (args.optional('string', s => objId = s)) {
             let targets = args.optional('object', o => [o]);
             if (!targets) {
-                targets = [this.previousObject()];
+                targets = [this.thisObject()];
                 targets.push(targets[0].environment);
             }
             let idList = objId.split(/\s+/g),
