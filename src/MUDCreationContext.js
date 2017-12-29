@@ -15,7 +15,9 @@ class MUDCreationContext {
         this.directory = dir;
         this.forceCleanup = false;
         this.mixins = [];
+        this.private = {};
         this.props = {};
+        this.protected = {};
         this.$storage = null;
         this.shared = {};
         this.symbols = {};
@@ -28,6 +30,8 @@ class MUDCreationContext {
         if (typeof startupData === 'object') {
             this.args = startupData.args || {};
             this.props = startupData.props || {};
+            this.protected = startupData.protected || {};
+            this.private = startupData.private || {};
             this.shared = startupData.shared || {};
         }
 
@@ -102,47 +106,6 @@ class MUDCreationContext {
                 }
             }
         });
-    }
-
-    addMixin(filename, self) {
-        var resolved = MUDData.SpecialRootEfun.resolvePath(filename, this.directory),
-            module = MUDData.ModuleCache.get(resolved),
-            proto = MUDData.SpecialRootEfun.isClass(self) ? self.prototype : self.constructor.prototype,
-            mixins = proto.mixins || false;
-
-        if (!mixins) {
-            mixins = proto.mixins = {};
-        }
-        if (resolved in mixins) {
-            if (!this.isReload) {
-                return;
-            }
-        }
-
-        if (!module || this.isReload) {
-            compileObject(resolved, this.isReload);
-            module = MUDData.ModuleCache.get(resolved);
-        }
-        if (module) {
-            Object.getOwnPropertyNames(module.classRef.prototype).forEach(pn => {
-                if (ignoredMixins.indexOf(pn) === -1) {
-                    var desc = Object.getOwnPropertyDescriptor(module.classRef.prototype, pn);
-                    if ('set' in desc && 'get in desc') {
-                        Object.defineProperty(proto, pn, {
-                            get: desc.get,
-                            set: desc.set
-                        });
-                    }
-                    else {
-                        proto[pn] = module.classRef.prototype[pn];
-                    }
-                }
-            });
-            mixins[resolved] = true;
-        } else {
-            throw new Error('Failed to create required mixin: ' + m);
-        }
-        return this;
     }
 
     forceCleanUpdate(flag) {

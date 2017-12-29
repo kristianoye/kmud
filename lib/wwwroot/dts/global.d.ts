@@ -105,9 +105,6 @@ declare interface MUDCreationContext {
     /** Indicates whether the constructor was called as part of a reload or not */
     readonly isReload: boolean;
 
-    /** Adds a mixin to the resulting object */
-    addMixin(module: string): MUDCreationContext;
-
     hasArg(key: string): boolean;
 
     hasSymbol(key: symbol): boolean;

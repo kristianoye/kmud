@@ -27,6 +27,7 @@ class MUDCompiler {
         this.components = {};
         this.loaders = {};
         this.pipelines = {};
+        this.sealTypesAfterCompile = config.sealTypesAfterCompile;
         this.validExtensions = [];
 
         Object.keys(config.loaders).forEach(name => {
@@ -189,6 +190,11 @@ class MUDCompiler {
 
                     module.setClassRef(module.context.primaryExport);
                     module.singleton = isVirtual ? module.singleton || virtualData.singleton : module.context.isSingleton();
+
+                    if (this.sealTypesAfterCompile) {
+                        Object.seal(module.classRef);
+                        Object.seal(module.classRef.prototype);
+                    }
 
                     if (typeof module.classRef === 'function') {
                         try {

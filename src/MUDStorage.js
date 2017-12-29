@@ -1,4 +1,11 @@
-﻿const
+﻿/**
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ *
+ * Description: Module contains data storage for in-game objects.
+ */
+const
     MUDEventEmitter = require('./MUDEventEmitter'),
     MUDConfig = require('./MUDConfig'),
     MUDData = require('./MUDData'),
@@ -6,6 +13,12 @@
     MUDCreationContext = require('./MUDCreationContext'),
     ClientCaps = require('./network/ClientCaps');
 
+/**
+ * Storage for MUD Objects.  In-game objects do not hold their data directly.
+ * The storage object provides public, protected, and private data as well as
+ * a signal mechanism between the driver and the in-game object for important
+ * events like heartbeats and connection status (to protect against fake calls)
+ */
 class MUDStorage extends MUDEventEmitter {
     /**
      * Construct a storage object.
@@ -145,10 +158,15 @@ class MUDStorage extends MUDEventEmitter {
      * @param {MUDCreationContext} ctx The context to merge from
      */
     merge(ctx) {
+        Object.keys(ctx.private).forEach(key => {
+            this.private[key] = ctx.private[key];
+        });
         Object.keys(ctx.props).forEach(key => {
             this.properties[key] = ctx.props[key];
         });
-
+        Object.keys(ctx.protected).forEach(key => {
+            this.protected[key] = ctx.protected[key];
+        });
         Object.getOwnPropertySymbols(ctx.symbols).forEach(key => {
             this.symbols[key] = ctx.symbols[key];
         });
@@ -171,10 +189,15 @@ class MUDStorage extends MUDEventEmitter {
         return this.merge(ctx);
     }
 
+    /**
+     * Restore the storage object.  Is this used?
+     * @param {any} data
+     */
     restore(data) {
         // TODO: Restore inventory / object references
-        this.properties = data.props;
-        this.protected = data.protected;
+        this.properties = data.props || {};
+        this.protected = data.protected || {};
+        this.private = data.private || {};
         this.emit('kmud.restored', this);
     }
 

@@ -241,6 +241,7 @@ class GameServer extends MUDEventEmitter {
 
                 feature.createGlobalData(MUDData);
                 feature.createMasterApplies(this.masterObject, this.masterObject.constructor.prototype);
+                feature.createObjectApplies(MUDObject.prototype);
                 feature.createExternalFunctions(EFUNProxy.prototype);
                 feature.createDriverApplies(this, this.constructor.prototype);
 
@@ -575,6 +576,8 @@ class GameServer extends MUDEventEmitter {
         Object.freeze(this.masterObject);
         Object.freeze(this.masterObject.constructor);
         Object.freeze(this.masterObject.constructor.prototype);
+        Object.freeze(MUDObject.prototype);
+        Object.freeze(MUDObject.constructor.prototype);
     }
 
     /**

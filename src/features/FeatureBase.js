@@ -28,6 +28,8 @@ class FeatureBase {
     createGlobalData(data) { }
 
     createMasterApplies(masterObject, masterObjectPrototype) { }
+
+    createObjectApplies(objectPrototype) { }
 }
 
 module.exports = FeatureBase;

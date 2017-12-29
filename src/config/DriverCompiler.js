@@ -9,6 +9,9 @@ class DriverCompiler {
         /** @type {string} */
         this.virtualMachine = data.virtualMachine || 'vm';
 
+        /** @type {boolean} */
+        this.sealTypesAfterCompile = data.sealTypesAfterCompile || false;
+
         /** @type {DriverCompilerComponent[]} */
         this.components = Array.isArray(data.components) ? data.components.map(c => new DriverCompilerComponent(c)) : [];
 
@@ -35,6 +38,7 @@ class DriverCompiler {
         ConfigUtil.assertType(this.maxCompileTime, 'driver.compiler.maxCompileTime', 'number');
         ConfigUtil.assertType(this.maxConstructorTime, 'driver.compiler.maxConstructorTime', 'number');
         ConfigUtil.assertType(this.virtualMachine, 'driver.compiler.virtualMachine', 'string');
+        ConfigUtil.assertType(this.sealTypesAfterCompile, 'driver.compiler.sealTypesAfterCompile', 'boolean');
         if (['vm', 'vm2'].indexOf(this.virtualMachine) === -1)
             throw new Error(`driver.compiler.vm setting is invalid; Must be either 'vm' or 'vm2' and not ${this.virtualMachine}`);
     }
