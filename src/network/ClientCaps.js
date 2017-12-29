@@ -4,15 +4,13 @@
  * Date: December 25, 2017
  *
  * Describes what features the client is capable of supporting.
- *
- * See related specs for implementation details:
- *   - MXP/MSP: http://www.zuggsoft.com/zmud/mxp.htm
+ * Caps stores a collection of defined interfaces and implementation methods.
  */
 const
     ClientImplementation = require('./impl/ClientImplementation'),
     MudColorImplementation = require('./impl/MudColorImplementation'),
-    MudExitsImplementation = require('./impl/MudExitsImplementation'),
     MudHtmlImplementation = require('./impl/MudHtmlImplementation'),
+    MudRoomImplementation = require('./impl/MudRoomImplementation'),
     MudSoundImplementation = require('./impl/MudSoundImplementation'),
     MudVideoImplementation = require('./impl/MudVideoImplementation');
 
@@ -38,7 +36,12 @@ class ClientCaps {
                 terminalType = newTerm;
                 flags = { color: false, html: false, sound: false, video: false };
                 methods = {};
-                ClientImplementation.create(self, flags, methods);
+                try {
+                    ClientImplementation.create(self, flags, methods);
+                }
+                catch (err) {
+                    console.log('Could not create client implementation:', err);
+                }
             }
         }
 
@@ -67,9 +70,6 @@ class ClientCaps {
             clientWidth: {
                 get: function () { return width; }
             },
-            colorEnabled: {
-                get: function () { return flags.colorEnabled; }
-            },
             flags: {
                 get: function () {
                     let result = {};
@@ -77,38 +77,29 @@ class ClientCaps {
                     return result;
                 }
             },
-            htmlEnabled: {
-                get: function () { return  flags.htmlEnabled; }
-            },
-            soundEnabled: {
-                get: function () { return flags.soundEnabled; }
+            getMethod: {
+                value: function(method) {
+                    return methods[method] || false;
+                },
+                writable: false
             },
             terminalType: {
                 get: function () { return terminalType; }
             },
-            videoEnabled: {
-                get: function () { return flags.videoEnabled; }
-            }
         });
 
         setTerminalType(client.defaultTerminalType);
     }
 
-    canDo(name) {
-        return this.flags[`${name}Enabled`] === true;
-    }
-
     /**
      * Call a feature implementation.
-     * @param {string} name The feature name.
      * @param {string} method The feature method to invoke.
      * @param {...any[]} args THe arguments to apply to the implementation call.
      */
-    do(name, method, ...args) {
-        let feature = this[name];
-        if (feature) {
-            return feature[method].apply(this, args);
-        }
+    do(method, ...args) {
+        let implementation = this.getMethod(method);
+        if (implementation && typeof implementation === 'function')
+            return implementation(...args);
         return false;
     }
 

@@ -354,6 +354,22 @@ class EFUNProxy {
     }
 
     /**
+     * 
+     * @param {string[]} exits
+     */
+    clientExits(prefix, exits, target) {
+        let player = target || MUDData.ThisPlayer;
+        if (player) {
+            let $storage = MUDData.Storage.get(player),
+                caps = $storage.getClientCaps();
+            if (caps) {
+                return caps.do('renderRoomExits', prefix, exits);
+            }
+        }
+        return false;
+    }
+
+    /**
      * Check to see if a specific Mudlib feature is enabled or not.
      * @param {string} feature The name of the feature to check.
      * @returns {boolean} True if the feature is enabled or false if it does not exist or is disabled.
@@ -872,19 +888,6 @@ class EFUNProxy {
 
         }
         return false;
-    }
-
-    /**
-     * Send exits to the client (if supported)
-     * @param {any} dirs
-     * @param {MUDObject=} target
-     */
-    sendExits(dirs, target) {
-        let $storage = MUDData.Storage.get(target || MUDData.ThisPlayer);
-        if ($storage) {
-            let clientCaps = $storage.getProtected('clientCaps');
-            clientCaps && clientCaps.do('exits', 'renderExits', dirs);
-        }
     }
 
     /**

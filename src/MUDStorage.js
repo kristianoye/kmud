@@ -59,6 +59,13 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     /**
+     * @returns {ClientCaps} Returns the client capabilities.
+     */
+    getClientCaps() {
+        return this.protected['clientCaps'] || false;
+    }
+
+    /**
      * Returns a property from the collection.
      * @param {string} prop
      * @param {any} defaultValue

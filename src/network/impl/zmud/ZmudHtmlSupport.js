@@ -11,12 +11,6 @@ class ZmudHtmlImplementation extends MudHtmlImplementation {
         super(caps);
     }
 
-    init() {
-        this.client.writeLine(`<!ELEMENT RoomTitle FLAG='RoomDesc'>`);
-        this.client.writeLine(`<!ELEMENT RExits '<FONT COLOR="green">' FLAG='RoomExit'>`);
-        this.client.writeLine(`<!ELEMENT Ex '<SEND>'>`);
-    }
-
     renderHtml(text) {
         return text;
     }

@@ -529,7 +529,7 @@
     <Compile Include="src\network\impl\ClientImplementation.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\network\impl\MudExitsImplementation.js">
+    <Compile Include="src\network\impl\MudRoomImplementation.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\impl\MudHtmlImplementation.js">
@@ -550,10 +550,13 @@
     <Compile Include="src\network\impl\zmud\MudSoundProtocol.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\network\impl\zmud\MXPSupport.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\network\impl\zmud\TerminalColorZmud.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\network\impl\zmud\ZmudExitSupport.js">
+    <Compile Include="src\network\impl\zmud\MXPRoomSupport.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\impl\zmud\ZmudHtmlSupport.js">

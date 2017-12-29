@@ -1,4 +1,5 @@
-﻿/// <reference path="ansi/TerminalColorAnsi.js" />
+﻿const
+    SkippedExports = ['registerMethods', 'updateFlags', 'constructor'];
 
 class ClientImplementation {
     constructor(caps) {
@@ -17,13 +18,15 @@ class ClientImplementation {
      * @returns {ClientImplementation} A reference to the implementation.
      */
     registerMethods(methods) {
-        let myType = this.constructor.prototype;
+        let myType = this.constructor.prototype, self = this;
+
         Object.getOwnPropertyNames(myType)
-            .slice(1).forEach(fn => {
-                if (fn === 'registerMethods' || fn === 'updateFlags')
-                    return;
-                else if (typeof myType[fn] === 'function')
-                    methods[fn] = this;
+            .forEach(fn => {
+                if (SkippedExports.indexOf(fn) === -1 && typeof myType[fn] === 'function') {
+                    methods[fn] = function() {
+                        return self[fn].apply(self, arguments);
+                    };
+                }
             });
 
         return this;
@@ -52,9 +55,10 @@ ClientImplementation.create = function (caps, flags, methods) {
 
         case 'cmud':
             components.push(
+                require('./zmud/MXPSupport'),
                 require('./zmud/TerminalColorZmud'),
                 require('./zmud/ZmudHtmlSupport'),
-                require('./zmud/ZmudExitSupport'));
+                require('./zmud/MXPRoomSupport'));
             break;
 
         case 'kmud':

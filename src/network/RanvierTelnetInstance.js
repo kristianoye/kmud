@@ -126,6 +126,12 @@ class RanvierTelnetInstance extends ClientInstance {
         return super.setBody(body, cb);
     }
 
+    transmit(buffer) {
+        let active = !(this['__closed__'] || false);
+        let foo = buffer.toString('utf8');
+        if (active) this.client.transmit(buffer);
+    }
+
     write(text) {
         let active = !(this['__closed__'] || false);
         text = this.caps.html.renderHtml(text);
