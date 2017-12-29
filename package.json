@@ -13,7 +13,6 @@
     "bcrypt": "^1.0.3",
     "callsite": "^1.0.0",
     "monaco-editor": "^0.10.1",
-    "ranvier-telnet": "^1.0.2",
     "socket.io": "^2.0.3",
     "sprintf": "^0.1.5",
     "telnet": "0.0.1",

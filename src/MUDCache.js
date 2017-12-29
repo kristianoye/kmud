@@ -71,6 +71,11 @@ class MUDCache {
         return this;
     }
 
+    resolve(file) {
+        let path = MUDData.RealPathToMudPath(file) || file;
+        return this.get(path);
+    }
+
     store(module) {
         if (!this[module.filename]) {
             this[module.filename] = module;

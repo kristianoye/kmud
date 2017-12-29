@@ -10,19 +10,41 @@ const
     MUDConfig = require('./MUDConfig'),
     UseLazyResets = MUDConfig.driver.useLazyResets || false,
     _environment = Symbol('_environment'),
-    _filename = '_filename',  // Symbol('_filename'),
     _heartbeat = Symbol('_heartbeat'),
-    _inventory = Symbol('_inventory'),
-    _living = Symbol('_living'),
-    _permissions = '_permissions', // Symbol('_permissions'),
-    _properties = '_properties',
-    _module = '_module', // Symbol('_module'),
-    _symbols = '_symbols',
-    _thisId = '_thisId', // Symbol('_thisId')
-    _unguarded = '_unguarded'; // Symbol('_unguarded');
+    callsite = require('callsite');
 
 var
     MUDData = require('./MUDData');
+
+/**
+ * Check the stack to limit access to protected/private data.
+ * @param {string} filename
+ * @param {boolean} isPrivate
+ */
+function assertProtectedCall(filename) {
+    let module = MUDData.ModuleCache.resolve(filename),
+        frames = callsite().map(cs => {
+            return {
+                fileName: cs.getFileName() || '(unknown)',
+                methodName: cs.getMethodName() || cs.getFunctionName()
+            };
+        });
+
+    for (let i = 1, max = frames.length; i < max; i++) {
+        if (frames[i].fileName === __filename)
+            continue;
+        let file = frames[i].fileName, method = frames[i].methodName,
+            thisModule = MUDData.ModuleCache.resolve(file);
+
+        if (module.isRelated(thisModule)) {
+            //  Allows children to override
+            if (method === 'setProtected' || method === 'getProtected') continue;
+            return true;
+        }
+        throw new Error(`Method '${method}' [File: ${file}] cannot access protected data in ${filename}`);
+    }
+    return false;
+}
 
 function getEfunProxy(t) {
     var fn = t.basename,
@@ -248,6 +270,19 @@ class MUDObject extends MUDEventEmitter {
         return MUDStorage.get(this).getProperty(key, defaultValue);
     }
 
+    /**
+     * Set a protected value in the storage layer.
+     * @param {string} prop The name of the property to fetch.
+     * @param {any} defaultValue The default value if the property does not exist.
+     * @returns {any} The property value or default if not set.
+     */
+    getProtected(key, defaultValue) {
+        if (assertProtectedCall(this.filename)) {
+            let $storage = MUDStorage.get(this);
+            return $storage.getProtected(key, defaultValue);
+        }
+    }
+
     getSharedProperty(key, defaultValue) {
         return MUDData.SharedProps[this.basename][key] || defaultValue;
     }
@@ -418,6 +453,14 @@ class MUDObject extends MUDEventEmitter {
         return this;
     }
 
+    setProtected(key, value) {
+        if (assertProtectedCall(this.filename)) {
+            let $storage = MUDStorage.get(this);
+            $storage.setProtected(key, value);
+            return this;
+        }
+    }
+
     setSharedProperty(key, value) {
         MUDData.SharedProps[this.basename][key] = value;
         return this;
@@ -434,49 +477,6 @@ class MUDObject extends MUDEventEmitter {
     }
 }
 
-MUDObject.prototype.restoreObject = function (path, callback) {
-    var self = this,
-        module = MUDData.ModuleCache.get(this.filename),
-        efuns = module.efunProxy;
-    filename = path + '.json';
-
-    return efuns.readJsonFile(efuns.resolvePath(filename), (data, err) => {
-        if (!err) {
-            var props = MUDStorage.get(this).properties;
-            for (var k in data) { props[k] = data[k]; }
-            err = false;
-        }
-        if (typeof callback === 'function') callback.call(this, err);
-    }), self;
-};
-
-MUDObject.prototype.saveObject = function (path, callback) {
-    var module = MUDData.ModuleCache.get(this.filename),
-        efuns = module.efunProxy,
-        filename = efuns.resolvePath(path + '.json'),
-        data = MUDStorage.get(this).properties,
-        _async = typeof callback === 'function',
-        saveData = {};
-
-    for (var k in data) {
-        var v = data[k], uw = unwrap(v);
-        if (uw) {
-            saveData[k] = uw.exportData();
-        }
-        else {
-            saveData[k] = v;
-        }
-    }
-
-    if (this.instanceId > 0)
-        throw new ErrorTypes.SecurityError('Clones cannot use saveObject');
-
-    return efuns.writeJsonFile(filename, saveData, (success) => {
-        if (typeof callback === 'function')
-            return callback(this, success), this;
-        else return success;
-    });
-};
 
 module.exports = MUDObject;
 global.MUDObject = MUDObject;

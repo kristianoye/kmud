@@ -6,7 +6,6 @@
  * Description: This module contains core game functionality.
  */
 const
-    Telnet = require('ranvier-telnet'),
     ClientInstance = require('./ClientInstance'),
     MUDData = require('../MUDData'),
     _client = Symbol('_client'),

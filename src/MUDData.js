@@ -87,7 +87,8 @@ var MUDData = {
         return result;
     },
     RealPathToMudPath: function (fileexp) {
-        return '/' + path.relative(MUDData.MudlibPath, fileexp).replace(/\\/g, '/');
+        let result = '/' + path.relative(MUDData.MudlibPath, fileexp).replace(/\\/g, '/');
+        return result.startsWith('/') && result.indexOf('..') === -1 ? result : false;
     },
     SafeCall: function (thisObject, callback) {
         var result, args = [].slice.call(arguments, 2);

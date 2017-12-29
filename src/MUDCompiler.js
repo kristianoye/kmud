@@ -167,7 +167,7 @@ class MUDCompiler {
                     context.filename,
                     context.resolvedName,
                     context.directory,
-                    false);
+                    virtualData !== false);
 
                 if (MUDData.Config.driver.useObjectProxies) {
                     module.allowProxy = true;
@@ -185,8 +185,7 @@ class MUDCompiler {
                 module.allowProxy = module.loader.allowProxy;
 
                 if (result) {
-                    var isReload = module.loaded,
-                        parent = null;
+                    var isReload = module.loaded;
 
                     module.setClassRef(module.context.primaryExport);
                     module.singleton = isVirtual ? module.singleton || virtualData.singleton : module.context.isSingleton();

@@ -25,17 +25,33 @@ class MUDModule {
         var self = this, _classRef = null;
 
         this.allowProxy = false;
+        /** @type {MUDModule[]} */
         this.children = [];
         this.classRef = null;
         this.context = null;
         this.efunProxy = EFUNProxy.createEfunProxy(filename, mudpath);
+
+        /** @type {MUDObject[]} */
         this.instances = [null];
+
+        /** @type {string} */
         this.directory = mudpath;
+
+        /** @type {string} */
         this.filename = filename;
+
+        /** @type {string} */
         this.fullPath = fullPath;
+
+        /** @type {boolean} */
         this.isVirtual = isVirtual;
+
+        /** @type {boolean} */
         this.loaded = false;
+
         this.loader = null;
+
+        /** @type {MUDModule} */
         this.parent = null;
         this.proxies = [null];
         this.singleton = false;
@@ -259,6 +275,25 @@ class MUDModule {
     }
 
     /**
+     * 
+     * @param {MUDModule} module
+     */
+    isRelated(module) {
+        if (module === this)
+            return true;
+        for (let i = 0, max = this.children; i < max; i++) {
+            if (this.children[i].isRelated(module))
+                return true;
+        }
+        let parent = this.parent;
+        while (parent) {
+            if (parent === module) return true;
+            parent = parent.parent;
+        }
+        return false;
+    }
+
+    /**
      * Fires when a module is updated in-game.  This process makes sure that
      * all in-game instances are also updated and that child modules and
      * child instances are updated as well.
@@ -324,11 +359,18 @@ class MUDModule {
                 get: function () { return module.efunProxy.filename; }
             }
         });
-        if (cr.prototype) {
+        if (module.isVirtual) {
+            let parent = MUDData.ModuleCache.resolve(module.fullPath);
+            if (parent) {
+                module.parent = parent;
+                parent.children.pushDistinct(module);
+            }
+        }
+        else  if (cr.prototype) {
             if (cr.prototype.__proto__) {
                 if (cr.prototype.__proto__.constructor) {
                     if (cr.prototype.__proto__.constructor.filename) {
-                        var pfn = cr.prototype.__proto__.constructor.filename,
+                        let pfn = cr.prototype.__proto__.constructor.filename,
                             parent = MUDData.ModuleCache.get(pfn);
                         if (parent) {
                             module.parent = parent;
