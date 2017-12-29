@@ -31,6 +31,9 @@ class MUDStorage extends MUDEventEmitter {
         this.owner = owner;
 
         /** @type {Object.<string,any>} */
+        this.private = {};
+
+        /** @type {Object.<string,any>} */
         this.properties = {};
 
         /** @type {Object.<string,any>} */
@@ -43,7 +46,7 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     command(cmdline) {
-        let client = this.getProtected('client'), evt,
+        let client = this.getProtected('$client'), evt,
             prevPlayer = MUDDdata.ThisPlayer;
 
         try {
@@ -62,13 +65,29 @@ class MUDStorage extends MUDEventEmitter {
      * @returns {ClientCaps} Returns the client capabilities.
      */
     getClientCaps() {
-        return this.protected['clientCaps'] || false;
+        return this.protected['$clientCaps'] || false;
+    }
+
+    /**
+     * Returns a private property from the collection.
+     * @param {string} fileName The name of the file getting private data.
+     * @param {string} prop The name of the property to fetch.
+     * @param {any=} defaultValue An optional default value if property is not set.
+     */
+    getPrivate(fileName, prop, defaultValue) {
+        let exists = fileName in this.private;
+        if (!exists) {
+            if (typeof defaultValue === 'undefined')
+                return defaultValue;
+            this.private[fileName] = {};
+        }
+        return this.private[fileName][prop] || (this.private[fileName][prop] = defaultValue);
     }
 
     /**
      * Returns a property from the collection.
      * @param {string} prop
-     * @param {any} defaultValue
+     * @param {any=} defaultValue
      */
     getProperty(prop, defaultValue) {
         return this.properties[prop] || (this.properties[prop] = defaultValue);
@@ -165,6 +184,7 @@ class MUDStorage extends MUDEventEmitter {
      */
     serialize(flag, backrefs) {
         let result = {
+            private: {},
             props: {},
             protected: {}
         }, propsOnly = flag || false;
@@ -172,14 +192,43 @@ class MUDStorage extends MUDEventEmitter {
         if (!backrefs) backrefs = [this.owner];
 
         Object.keys(this.properties).forEach((prop, index) => {
-            if (typeof prop === 'string') {
-                let value = this.properties[prop], uw = unwrap(value);
+            // Values starting with $ are considered volatile and not serialized.
+            if (typeof prop === 'string' && !prop.startsWith('$')) {
+                let value = this.properties[prop],  uw = unwrap(value);
                 if (Array.isArray(value)) result.props[prop] = this.serializeArray(value, backrefs);
                 else if (uw) result.props[prop] = this.serializeMudObject(uw, backrefs);
                 else if (typeof value === 'object') result.props[prop] = this.serializeOtherObject(value, backrefs);
                 else {
                     let s = this.serializeScalar(value);
                     if (s) result.props[prop] = s;
+                }
+            }
+        });
+
+        Object.keys(this.protected).forEach((prop, index) => {
+            // Values starting with $ are considered volatile and not serialized.
+            if (typeof prop === 'string' && !prop.startsWith('$')) {
+                let value = this.protected[prop], uw = unwrap(value);
+                if (Array.isArray(value)) result.protected[prop] = this.serializeArray(value, backrefs);
+                else if (uw) result.protected[prop] = this.serializeMudObject(uw, backrefs);
+                else if (typeof value === 'object') result.protected[prop] = this.serializeOtherObject(value, backrefs);
+                else {
+                    let s = this.serializeScalar(value);
+                    if (s) result.protected[prop] = s;
+                }
+            }
+        });
+
+        Object.keys(this.private).forEach((prop, index) => {
+            // Values starting with $ are considered volatile and not serialized.
+            if (typeof prop === 'string' && !prop.startsWith('$')) {
+                let value = this.private[prop], uw = unwrap(value);
+                if (Array.isArray(value)) result.private[prop] = this.serializeArray(value, backrefs);
+                else if (uw) result.private[prop] = this.serializeMudObject(uw, backrefs);
+                else if (typeof value === 'object') result.private[prop] = this.serializeOtherObject(value, backrefs);
+                else {
+                    let s = this.serializeScalar(value);
+                    if (s) result.private[prop] = s;
                 }
             }
         });
@@ -260,6 +309,22 @@ class MUDStorage extends MUDEventEmitter {
         if (['string', 'boolean', 'number'].indexOf(vt) === -1)
             return null;
         else return v;
+    }
+
+    /**
+     * Set a "private" value.  Private values should only be accessed by the
+     * module that defines them.
+     * @param {string} file The module defining the value (must be ancestor)
+     * @param {string} key The property name to store.
+     * @param {any} val Any associated value
+     * @returns {MUDStorage} The storage object.
+     */
+    setPrivate(file, key, val) {
+        let exists = file in this.private;
+        if (!exists)
+            this.private[file] = {};
+        this.private[file][key] = val;
+        return this;
     }
 
     /**

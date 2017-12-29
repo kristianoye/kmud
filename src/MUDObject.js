@@ -17,9 +17,38 @@ var
     MUDData = require('./MUDData');
 
 /**
+ * Determine which module is storing private instance data.
+ * @param {string} filename
+ * @returns {string} The file name storing the private data.
+ */
+function assertPrivateCall(filename) {
+    let module = MUDData.ModuleCache.resolve(filename),
+        frames = callsite().map(cs => {
+            return {
+                fileName: cs.getFileName() || '(unknown)',
+                methodName: cs.getMethodName() || cs.getFunctionName()
+            };
+        });
+
+    for (let i = 1, max = frames.length; i < max; i++) {
+        if (frames[i].fileName === __filename)
+            continue;
+        let file = frames[i].fileName, method = frames[i].methodName,
+            thisModule = MUDData.ModuleCache.resolve(file);
+
+        if (module.isRelated(thisModule)) {
+            if (method === 'setPrivate' || method === 'getPrivate') continue;
+            return file;
+        }
+        throw new Error(`Method '${method}' [File: ${file}] cannot access private data in ${filename}`);
+    }
+    return false;
+}
+
+/**
  * Check the stack to limit access to protected/private data.
  * @param {string} filename
- * @param {boolean} isPrivate
+ * @returns {boolean} Returns true if the call is valid or throws an error.
  */
 function assertProtectedCall(filename) {
     let module = MUDData.ModuleCache.resolve(filename),
@@ -266,6 +295,14 @@ class MUDObject extends MUDEventEmitter {
         return this.id;
     }
 
+    getPrivate(key, defaultValue) {
+        let fileName = assertPrivateCall(this.filename);
+        if (fileName) {
+            let $storage = MUDStorage.get(this);
+            return $storage.getPrivate(fileName, key, defaultValue);
+        }
+    }
+
     getProperty(key, defaultValue) {
         return MUDStorage.get(this).getProperty(key, defaultValue);
     }
@@ -399,7 +436,7 @@ class MUDObject extends MUDEventEmitter {
     }
 
     receive_message(msgClass, text) {
-        let client = MUDData.Storage.get(this).getProtected('client');
+        let client = MUDData.Storage.get(this).getProtected('$client');
         if (client) client.write(text);
     }
 
@@ -446,6 +483,24 @@ class MUDObject extends MUDEventEmitter {
             throw new Error('Bad argument 1 to setKeyId(); Primary identifier cannot contain whitespace.');
         this.setProperty('id', id);
         return this;
+    }
+
+    /**
+     * Private properties may only be set by this type or related-types
+     * and they can only set/get data from their level in the inheritance
+     * hierarchy.
+     *
+     * @param {string} key The name of the key to store.
+     * @param {any} value Any associated value.
+     * @returns {MUDObject} A reference to the object itself.
+     */
+    setPrivate(key, value) {
+        let fileName = assertPrivateCall(this.filename);
+        if (fileName) {
+            let $storage = MUDStorage.get(this);
+            $storage.setPrivate(fileName, key, value);
+            return this;
+        }
     }
 
     setProperty(key, value) {

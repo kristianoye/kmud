@@ -486,7 +486,7 @@ class GameServer extends MUDEventEmitter {
                 .on('kmud.connection', (client) => {
                     var newLogin = MUDData.SpecialRootEfun.cloneObject(this.config.mudlib.loginObject);
                     if (newLogin) {
-                        MUDData.Storage.get(newLogin).setProtected('client', client,
+                        MUDData.Storage.get(newLogin).setProtected('$client', client,
                             ($storage, _client) => {
                                 var evt = {
                                     newBody: newLogin,

@@ -132,7 +132,7 @@ class EFUNProxy {
             let $storage = MUDData.Storage.get(ob);
 
             if ($storage) {
-                let caps = $storage.getProtected('clientCaps');
+                let caps = $storage.getProtected('$clientCaps');
                 return caps.queryCaps();
             }
         });
@@ -227,7 +227,7 @@ class EFUNProxy {
             prevPlayer = MUDData.ThisPlayer;
         if (_thisObject) {
             let $storage = MUDData.Storage.get(_thisObject),
-                client = $storage.getProtected('client'),
+                client = $storage.getProtected('$client'),
                 evt = client ? client.createCommandEvent(_thisObject) : false;
             try {
                 MUDData.ThisPlayer = _thisObject;
@@ -324,7 +324,7 @@ class EFUNProxy {
         if (MUDData.MasterObject.validExec(this, oldBody, newBody, client)) {
             var oldContainer = oldBody ? MUDData.Storage.get(oldBody) : false,
                 newContainer = MUDData.Storage.get(newBody),
-                client = oldContainer.getProtected('client'),
+                client = oldContainer.getProtected('$client'),
                 execEvent = {
                     oldBody: oldBody,
                     oldStorage: oldContainer,
@@ -335,8 +335,8 @@ class EFUNProxy {
 
             if (oldContainer) oldContainer.emit('kmud.exec', execEvent);
             newContainer
-                .setProtected('client', client)
-                .setProtected('clientCaps', client.caps)
+                .setProtected('$client', client)
+                .setProtected('$clientCaps', client.caps)
                 .emit('kmud.exec', execEvent);
             MUDData.MasterObject.emit('kmud.exec', execEvent);
 
