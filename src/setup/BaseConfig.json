@@ -2,19 +2,20 @@
   "mud": {
     "features": {
       "autoWiz": false,
-      "intermud3": true,
+      "intermud3": false,
       "webEditor": true
     },
     "passwordPolicy": {
       "allowPlainTextAuth": true,
       "minLength": 3,
       "maxLength": 100,
-      "requiredUpper": 1,
-      "requiredLower": 1,
-      "requiredSymbols": 1,
-      "requiredNumbers": 1
+      "requiredUpper": 0,
+      "requiredLower": 0,
+      "requiredSymbols": 0,
+      "requiredNumbers": 0
     },
-    "portBindings": []
+    "portBindings": [
+    ]
   },
   "mudlib": {
     "baseDirectory": "./lib",
@@ -46,19 +47,55 @@
   },
   "driver": {
     "core": "single-core",
-    "features": {
-      "creatorStats": true,
-      "domainStats": false
-    },
-    "maxCommandLength": 10240,
+    "maxCommandLength": 512,
+    "features": [
+      {
+        "id": "DomainStats",
+        "enabled": true,
+        "module": "./features/DomainStats",
+        "name": "MudOS-like Domain Stats",
+        "parameters": {
+          "applyNameAuthorFile": "authorFile",
+          "applyNameDomainFile": "domainFile",
+          "efunNameAddWorth": "add_worth",
+          "efunNameAuthorStats": "author_stats",
+          "efunNameDomainStats": "domain_stats",
+          "preserveStats": true,
+          "preserveStatsFormat": "json|mudos"
+        }
+      },
+      {
+        "id": "Verbs",
+        "enabled": true,
+        "module": "./features/VerbSystem",
+        "name": "MudOS-like Verb Support",
+        "parameters": {
+          "allowHandlerParameter": false,
+          "allowMatchRemotePlayers": true,
+          "applyNamingConvention": "camelCase",
+          "applyNameInventoryAccessible": "isInventoryAccessible",
+          "applyNameInventoryVisible": "isInventoryVisible",
+          "applyNameIsLiving": "isLiving",
+          "applyNameIsPlayer": "isPlayer",
+          "efunNameParseAddRule": "verbAddRule",
+          "efunNameParseAddSynonym": "verbAddSynonym",
+          "efunNameParseInit": false,
+          "efunNameParseRefresh": false,
+          "efunNameParseSentence": "parseSentence",
+          "efunNameParseVerb": "parseVerb",
+          "useVerbRuleScope": true
+        }
+      }
+    ],
     "resetPollingInterval": "5 seconds",
     "useLazyResets": true,
     "useObjectProxies": false,
     "useRevocableProxies": false,
     "objectCreationMethod": "fullWrapper",
     "compiler": {
-      "maxCompileTime": "1.5 seconds",
-      "maxConstructorTime": 1000,
+      "maxCompileTime": -1,
+      "maxConstructorTime": -1,
+      "sealTypesAfterCompile": true,
       "virtualMachine": "vm",
       "components": [
         {
@@ -125,16 +162,29 @@
         },
         "https": {
           "enabled": false,
-          "handlers": []
+          "handlers": [
+            {
+              "id": "default-https",
+              "file": "./network/HTTPClientEndpoint",
+              "name": "Standard Web Server (HTTP)",
+              "default": true
+            }
+          ]
         },
         "telnet": {
           "enabled": true,
           "handlers": [
             {
+              "default": true,
               "id": "ranvier-telnet",
               "file": "./network/RanvierTelnetEndpoint",
               "name": "Ranvier Telnet Server",
-              "default": true
+              "options": {
+                "offerGMCP": true,
+                "offerMCP": false,
+                "offerMSP": true,
+                "offerMXP": true
+              }
             }
           ]
         }

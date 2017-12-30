@@ -17,10 +17,20 @@ class MXPSupport extends ClientImplementation {
         return Buffer.concat([new Buffer([10, 13, 27]), new Buffer(`[${tagId}z`, 'ascii')]);
     }
 
+    /**
+     * Send a block of MXP to the client over an OPEN line.
+     * @param {string} text The text to send
+     * @returns {Buffer} The prepared buffer.
+     */
     openLine(text) {
         return Buffer.concat([this.mxpLineTag(MXP_OPEN), new Buffer(text.replace(/\n/g, ''), 'utf8'), new Buffer([10, 13])]);
     }
 
+    /**
+     * Send a block of MXP to the client over an SECURE line.
+     * @param {string} text The text to send
+     * @returns {Buffer} The prepared buffer.
+     */
     secureLine(text) {
         return Buffer.concat([this.mxpLineTag(MXP_SECURE), new Buffer(text.replace(/\n/g, ''), 'utf8'), new Buffer([10, 13])]);
     }

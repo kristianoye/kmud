@@ -48,22 +48,17 @@ class EFUNS {
         this.assertValidPath(dirname);
         var parts = dirname.split(path.sep);
 
-        if (!dirname.endsWith(path.sep)) parts.pop();
-
         if (_async) {
             var ctx = new MUDExecutionContext();
             async.eachOfSeries(parts, (item, i, cb) => {
                 var dir = parts.slice(0, i + 1).join(path.sep);
-                console.log(`Mkdir: Checking if ${dir} exists.`);
                 this.isDirectory(dir, (exists, err) => {
                     if (err)
                         cb(err);
                     else if (exists) {
-                        console.log(`\tMkdir: ${dir} already exists`);
                         cb();
                     }
                     else {
-                        console.log(`\tMkdir: ${dir} does not exist; Creating.`);
                         fs.mkdir(dir, (err) => err ? cb(err) : cb());
                     }
                 });
@@ -214,7 +209,7 @@ class EFUNS {
                         }
                     });
                 }
-                else callback(false, path + ' does not exist', path);
+                else callback(false, false, path);
             });
         }
         else {
