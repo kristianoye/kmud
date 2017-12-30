@@ -94,6 +94,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\creator\Call.js" />
+    <Compile Include="lib\sys\cmds\creator\Chmod.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\sys\cmds\creator\Edit.js">
       <SubType>Code</SubType>
     </Compile>
@@ -442,6 +445,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\features\FeatureBase.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\features\MUDEditor.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\GameServer.js">

@@ -861,6 +861,7 @@ class VerbContainer {
 class VerbSystemFeature extends FeatureBase {
     /**
      * @param {DriverFeature} config Config data
+     * @param {Object.<string,boolean>} flags Flags indicating what features are available.
      */
     constructor(config, flags) {
         super(config, flags);

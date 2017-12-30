@@ -370,6 +370,26 @@ class EFUNProxy {
     }
 
     /**
+     * Old school ed() support.
+     * @param {string} fileName
+     * @param {string|function} writeFunc
+     * @param {string|function} exitFunc
+     * @param {boolean} restrict
+     */
+    ed(fileName, writeFunc, exitFunc, restrict) {
+        let args = new MUDArgs(arguments),
+            file = args.required('string'),
+            writeCallback = args.optional('functon|string'),
+            exitCallback = args.optional('function|string'),
+            restricted = args.optional('boolean', false);
+    }
+
+    driverFeature(feature) {
+        let result = MUDData.Config.readValue(`driver.featureFlags.${feature}`, false);
+        return result === true;
+    }
+
+    /**
      * Check to see if a specific Mudlib feature is enabled or not.
      * @param {string} feature The name of the feature to check.
      * @returns {boolean} True if the feature is enabled or false if it does not exist or is disabled.
@@ -976,7 +996,7 @@ class EFUNProxy {
      * @param {any} target
      */
     wizardp(target) {
-        return MUDData.MasterObject.inGroup(target, 'admin', 'arch', 'wizard');
+        return MUDData.InGameMaster().isWizard(target);
     }
 
     /**

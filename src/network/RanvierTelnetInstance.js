@@ -44,7 +44,10 @@ class RanvierTelnetInstance extends ClientInstance {
                 if (this.inputStack.length > 0) {
                     var frame = this.inputStack.pop(), result;
                     try {
-                        if (!this.client.echoing) self.client.toggleEcho(true);
+                        if (!this.client.echoing) {
+                            self.write('\r\n');
+                            self.client.toggleEcho(true);
+                        }
                         result = frame.callback.call(body, text);
                     }
                     catch (_err) {

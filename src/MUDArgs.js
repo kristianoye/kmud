@@ -29,19 +29,23 @@ class MUDArgs {
 
     /**
      * 
-     * @param {string} typeName
+     * @param {string} typeList
      * @param {any} defaultValue
      * @return {any} 
      */
-    optional(typeName, defaultValue, transform) {
+    optional(typeList, defaultValue, transform) {
         let result = defaultValue || undefined;
         if (typeof defaultValue === 'function') {
             transform = defaultValue;
             result  = defaultValue = undefined;
         }
         if (this.pos < this.max) {
-            if (typeof this.args[this.pos] === typeName) {
-                result = this.args[this.pos++];
+            let list = typeList.split('|');
+            for (let i = 0; i < list.length; i++) {
+                let typeName = list[i];
+                if (typeof this.args[this.pos] === typeName) {
+                    result = this.args[this.pos++];
+                }
             }
         }
         if (typeof result !== 'undefined')

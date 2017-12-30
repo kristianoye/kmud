@@ -47,10 +47,11 @@
     "$arch": "r",
     "SYSTEM": "r"
   },
-  "/sys/save": {
+  "/sys/data": {
     "SYSTEM": "rw",
     "$admin": "rw",
-    "$arch": "r"
+    "$arch": "r",
+    "*": ""
   },
   "/world": {
     "*": "r"

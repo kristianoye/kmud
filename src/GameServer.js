@@ -392,14 +392,14 @@ class GameServer extends MUDEventEmitter {
     registerReset(ob, resetTime, $storage) {
         if (typeof ob().reset === 'function') {
             if (!resetTime) {
-                resetTime = new Date().getTime() + (ResetInterval / 2) + Math.random(ResetInterval / 2);
+                resetTime = new Date().getTime() + ResetInterval / 2 + Math.random(ResetInterval / 2);
             }
             if (!$storage) {
                 $storage = MUDData.Storage.get(ob);
             }
             let prev = $storage.resetTime;
 
-            resetTime = Math.floor((resetTime / 5000) * 5000);
+            resetTime = Math.floor(resetTime / 5000 * 5000);
             $storage.nextReset = resetTime;
 
             if (prev > 0 && prev in this.resetTimes) {
