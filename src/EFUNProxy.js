@@ -412,6 +412,13 @@ class EFUNProxy {
     }
 
     /**
+     * Returns the state of the MUD.
+     */
+    gameState() {
+        return MUDData.GameState;
+    }
+
+    /**
      * Return filenames matching the specified file pattern.
      * @param {string} expr The pattern to match.
      * @param {number=} flags Additional detail flags.
