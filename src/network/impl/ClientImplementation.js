@@ -41,7 +41,7 @@ class ClientImplementation {
     }
 }
 
-ClientImplementation.create = function (caps, flags, methods) {
+ClientImplementation.create = function (caps, /** @type {Object.<string,boolean>} */ flags, /** @type {Object.<string,function>} */ methods, /** @type {string[]} */ interfaces) {
     /**
      * @type {ClientImplementation[]} 
      */
@@ -91,10 +91,14 @@ ClientImplementation.create = function (caps, flags, methods) {
         /**
          *  @type {ClientImplementation}
          */
-        let impl = new comp(caps);
+        let impl = new comp(caps),
+            iface = comp.__proto__ && comp.__proto__.name !== 'ClientImplementation' ? comp.__proto__.name : comp.name;
+
         impl.updateFlags(flags)
             .registerMethods(methods)
             .init();
+
+        if (iface) interfaces.push(iface);
     });
 };
 

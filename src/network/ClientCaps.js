@@ -19,9 +19,9 @@ class ClientCaps {
     constructor(clientInstance) {
         let
             self = this,
-            flags = {
-            },
+            flags = { },
             client = clientInstance,
+            interfaces = [],
             methods = {},
             terminalType = false,
             terminalTypes = [],
@@ -33,11 +33,18 @@ class ClientCaps {
             if (newTerm !== terminalType) {
                 let list = [];
 
-                terminalType = newTerm;
-                flags = { color: false, html: false, sound: false, video: false };
+                interfaces = [];
                 methods = {};
+                flags = {
+                    color: false,
+                    html: false,
+                    sound: false,
+                    video: false
+                };
+                terminalType = newTerm;
+
                 try {
-                    ClientImplementation.create(self, flags, methods);
+                    ClientImplementation.create(self, flags, methods, interfaces);
                 }
                 catch (err) {
                     console.log('Could not create client implementation:', err);
@@ -83,6 +90,9 @@ class ClientCaps {
                 },
                 writable: false
             },
+            interfaces: {
+                get: function () { return interfaces; }
+            },
             terminalType: {
                 get: function () { return terminalType; }
             },
@@ -103,8 +113,24 @@ class ClientCaps {
         return false;
     }
 
+    /**
+     * Determines whether client has implemented a particular interface.
+     * @param {string} interfaceName The name of the interface to check for.
+     * @returns {boolean} True if the interface is available within the client.
+     */
+    implements(interfaceName) {
+        return this.interfaces.indexOf(interfaceName) > -1;
+    }
+
     queryCaps() {
-        return this.flags;
+        let result = {
+            clientHeight: this.clientHeight,
+            clientWidth: this.clientWidth,
+            flags: this.flags,
+            interfaces: this.interfaces.slice(0),
+            terminalType: this.terminalType
+        };
+        return result;
     }
 }
 
