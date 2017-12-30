@@ -50,8 +50,11 @@ class EFUNS {
 
         if (_async) {
             var ctx = new MUDExecutionContext();
-            async.eachOfSeries(parts, (item, i, cb) => {
+            async.forEachOf(parts, (item, i, cb) => {
                 var dir = parts.slice(0, i + 1).join(path.sep);
+                if (!dir)
+                    return cb();
+
                 this.isDirectory(dir, (exists, err) => {
                     if (err)
                         cb(err);
