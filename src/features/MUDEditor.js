@@ -16,6 +16,7 @@ const
     MODE_INPUT = 1,
     MODE_COMMAND = 2,
     ParseEditorCommand = /^([0-9,]*)([a-zA-Z\/=\?]{0,1})([0-9,]*)(.*)/,
+    ERROR_BADRANGE = 'Bad line range',
     ERROR_FAILED = 'Failed command',
     ERROR_NORANGE = 'Cannot use ranges with that command.',
     ERROR_SYNTAX = 'Bad command syntax.',
@@ -215,6 +216,7 @@ class EditorInstance {
 
                     case '/':
                         break;
+
                     case 'a': case 'o':
                         if (Array.isArray(rangeLeft))
                             return this.print(ERROR_NORANGE);
@@ -224,10 +226,23 @@ class EditorInstance {
                         this.mode = MODE_INPUT;
                         return;
 
+                    case 'c':
+                        if (Array.isArray(rangeRight))
+                            return this.print(ERROR_SYNTAX);
+                        this.deleteRange(rangeLeft);
+                        this.currentLine = Array.isArray(rangeLeft) ? rangeLeft[0] : rangeLeft;
+                        this.mode = MODE_INPUT;
+                        return;
+
                     case 'd':
                         if (rangeRight)
                             return this.print(ERROR_SYNTAX);
                         return this.deleteRange(rangeLeft);
+
+                    case 'g':
+                        if (rangeRight)
+                            return this.print(ERROR_SYNTAX);
+                        return this.searchExecute(rangeLeft, tokens.slice(3).join(''));
 
                     case 'h':
                         return this.showHelp(tokens.slice(3).join(''));
@@ -243,6 +258,14 @@ class EditorInstance {
 
                     case 'I':
                         return this.indentCode();
+
+                    case 'm':
+                        if (Array.isArray(rangeRight))
+                            return this.print(ERROR_SYNTAX);
+                        else if (Array.isArray(rangeLeft))
+                            return this.moveLines(rangeLeft, rangeRight || this.currentLine);
+                        else
+                            return this.moveLines([rangeLeft, rangeLeft + 1], (rangeRight || this.currentLine) + 1);
 
                     case 'n':
                         if (rangeRight)
@@ -267,8 +290,12 @@ class EditorInstance {
                     case 'Q':
                         return this.quitEditor();
 
+                    case 's':
+                        if (rangeRight)
+                            return this.print(ERROR_SYNTAX);
+                        return this.searchReplace(rangeLeft, tokens.slice(3).join('').trim());
+
                     case 't':
-                        // 1,2t  or 1,2t1
                         if (Array.isArray(rangeRight))
                             return this.print(ERROR_SYNTAX);
                         else if (Array.isArray(rangeLeft))
@@ -340,6 +367,19 @@ class EditorInstance {
         catch (err) {
             this.print(`Unable to read file '${filename}'`);
         }
+    }
+
+    /**
+     * Moves lines from one location to another.
+     * @param {number[]|number} range The range of lines to move.
+     * @param {number} pos The position to move the lines to.
+     */
+    moveLines(range, pos) {
+        if (pos >= range[0] && pos <= range[1])
+            return this.print(ERROR_BADRANGE);
+        this.buffer = this.content.splice(range[0], range[1] - range[0]);
+        this.appendBuffer(this.buffer, pos > range[0] ? pos - range[0] : pos + 1);
+        this.dirty = true;
     }
 
     /**
@@ -443,6 +483,71 @@ class EditorInstance {
     }
 
     /**
+     * Perform an action on all matching lines.
+     * @param {number[]|number} range
+     * @param {string} expr
+     */
+    searchExecute(range, expr) {
+        if (expr.charAt(0) !== '/')
+            return this.print(ERROR_SYNTAX);
+        if (!Array.isArray(range))
+            range = [range, this.content.length];
+        let searchFor, cmd, parts = [];
+        for (let i = 1, max = expr.length; i < max; i++) {
+            if (expr.charAt(i) === '/') {
+                if (expr.charAt(i - 1) === '\\' && expr.charAt(i - 2) !== '\\') continue;
+                searchFor = expr.slice(1, i);
+                cmd = expr.slice(i + 1);
+                break;
+            }
+        }
+        for (let i = range[0], re = new RegExp(searchFor), max = Math.min(this.content.length, range[1]); i < max; i++) {
+            if (this.content[i].match(re)) {
+                this.currentLine = i;
+                this.executeCommand(cmd);
+                this.currentLine = i;
+            }
+        }
+
+    }
+
+    /**
+     * Perform search and replace.
+     * @param {number[]|number} range The range in which to search and replace.
+     * @param {string} expr The search/replace pattern
+     */
+    searchReplace(range, expr) {
+        let parts = [];
+        if (expr.charAt(0) !== '/')
+            return this.print('Bad replacement in search and replace.');
+
+        for (let i = 1, p = 1, max = expr.length; i < max; i++) {
+            if (expr.charAt(i) === '/') {
+                if (expr.charAt(i - 1) === '\\' && expr.charAt(i - 2) !== '\\') continue;
+                parts.push(expr.slice(p, i));
+                p = i + 1;
+            }
+            if (i + 1 === max && p <= i) {
+                parts.push(expr.slice(p));
+            }
+        }
+        if (parts.length > 3)
+            return this.print('Bad replacement in search and replace.');
+        if (!Array.isArray(range))
+            range = [range, range + 1];
+        let flags = parts[2] || '', matches = 0,
+            regexFlags = flags.split('').map(s => 'igmuy'.indexOf(s) === -1 ? '' : s).join('');
+        for (let i = range[0], re = new RegExp(parts[0], regexFlags); i < range[1]; i++) {
+            if (this.content[i].match(re)) matches++; // TODO - Combine into replace function to increase performance.
+            this.content[i] = this.content[i].replace(re, parts[1]);
+        }
+        if (matches === 0)
+            return this.print('String substitution failed.');
+        if (flags.indexOf('p') > -1)
+            return this.printLines(range[0], range[1] - range[0]);
+    }
+
+    /**
      * Display help to the user.
      * @param {string=} topic The optional specific topic  to search for.
      */
@@ -500,6 +605,20 @@ class EditorInstance {
                     'Command: q [force quit]',
                     'Usage: q\n',
                     '\tWill discard any unsaved changes and exit the editor.');
+
+            case 's':
+                return this.print(
+                    'Command: s [search and replace]',
+                    'Usage: s/[look for]/[replace with]/[optional flags]\n',
+                    '\tPerforms search and replace on one or more lines.',
+                    '\t[look for] can be a regular expression.',
+                    '\t[replace with] is the replacement text and may contain $1...$99 backreferences.',
+                    '\tOptional flags include:',
+                    '\t\tg - Perform search and replace for all matches in line.',
+                    '\t\tp - Print lines once search and replace is complete.',
+                    '\t\ti - Ignore case',
+                    '\t\tm - Multiline - TODO',
+                    '\t\tu - Treat pattern as unicode code points - See MDN.\n');
 
             default:
                 return this.print(`Help topic '${topic}' not found.`);

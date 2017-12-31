@@ -1032,7 +1032,9 @@ class EFUNProxy {
                 MUDExecutionContext.awaiter(callback),
                 overwrite);
         }
-        throw new Error('Permission denied: ' + _filename);
+        let err = new Error('Permission denied: ' + _filename);
+        MUDData.CleanError(err);
+        throw err;
     }
 
     writeJsonFile(filename, data, callback, replacer) {

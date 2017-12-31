@@ -27,12 +27,18 @@
     "*": "r"
   },
   "/log": {
-    "*": "r"
+    "*": "r",
+    "$admin": "rw",
+    "$arch": "rw"
   },
   "/realms": {
     "$admin": "rw",
     "$arch": "rw",
     "*": "r"
+  },
+  "/realms/*": {
+    "~${0}": "rw",
+    "${0}": "rw"
   },
   "/sys": {
     "$admin": "rw",
