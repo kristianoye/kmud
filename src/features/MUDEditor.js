@@ -1,13 +1,60 @@
 ﻿const
     DriverFeature = require('../config/DriverFeature'),
+    ConfigUtil = require('../ConfigUtil'),
     EFUNProxy = require('../EFUNProxy'),
     FeatureBase = require('./FeatureBase'),
     MUDData = require('../MUDData'),
     MUDObject = require('../MUDObject'),
     MUDStorage = require('../MUDStorage'),
     MODE_INPUT = 0,
-    MODE_COMMAND = 1;
+    MODE_COMMAND = 1,
+    ParseEditorCommand = /^([0-9,]*)([a-zA-Z]*)(.*)$/,
+    ERROR_NORANGE = 'Cannot use ranges with that command.',
+    ERROR_SYNTAX = 'Bad command syntax.';
 
+const
+    HelpText = `
+        Help for Ed(itor)  [Version 1.0]
+---------------------------------------------------------------------
+        by Kriton [30 December 2017]
+
+Commands:
+/       search forward for pattern
+?       search backward for a pattern
+=       show current line number
+a       append text starting after this line
+A       like 'a' but with inverse autoindent mode
+c       change current line, query for replacement text
+d       delete line(s)
+e       replace this file with another file
+E       same as 'e' but works if file has been modified
+f       show/change current file name
+g       Search and execute command on any matching line.
+h       help file (display this message)
+i       insert text starting before this line
+I       indent the entire code (Qixx version 1.0)
+j       join lines together
+k       mark this line with a character - later referenced as 'a
+l       list line(s) with control characters displayed
+m       move line(s) to specified line
+n       toggle line numbering
+O       same as 'i'
+o       same as 'a'
+p       print line(s) in range
+q       quit editor
+Q       quit editor even if file modified and not saved
+r       read file into editor at end of file or behind the given line
+s       search and replace
+set     query, change or save option settings
+t       move copy of line(s) to specified line
+v       Search and execute command on any non-matching line.
+x       save file and quit
+w       write to current file (or specified file)
+W       like the 'w' command but appends instead
+z       display 19 lines, possible args are . + - --
+Z       display 24 lines, possible args are . + - --
+`;
+    
 class EditorInstance {
     /**
      * Create an editor instance
@@ -16,6 +63,8 @@ class EditorInstance {
     constructor(options) {
         /** @type {string[]} */
         this.buffer = [];
+
+        this.caps = options.caps || false;
 
         /** @type {string[]} */
         this.content = options.content || [];
@@ -33,7 +82,10 @@ class EditorInstance {
         this.filename = options.filename || '##tmp##';
 
         /** @type {number} */
-        this.mode = MODE_INPUT;
+        this.height = options.height || 18;
+
+        /** @type {number} */
+        this.mode = options.mode || MODE_INPUT;
 
         /** @type {function} */
         this.onComplete = function () { };
@@ -41,11 +93,29 @@ class EditorInstance {
         /** @type {MUDObject} */
         this.owner = options.owner;
 
+        //  Number of lines reserved for editor prompt, etc, at bottom of screen.
+        /** @type {number} */
+        this.reserveLines = options.reserveLines || 2;
+
         /** @type {boolean} */
         this.restricted = options.resticted;
 
         /** @type {boolean} */
         this.showLineNumbers = options.showLineNumbers || false;
+
+        /** @type {number} */
+        this.width = options.width || 80;
+
+        if (this.caps) {
+            this.caps.on('kmud', evt => {
+                switch (evt.eventType) {
+                    case 'windowSize':
+                        this.height = evt.eventData.height;
+                        this.width = evt.eventData.width;
+                        break;
+                }
+            });
+        }
     }
 
     /**
@@ -60,14 +130,26 @@ class EditorInstance {
         this.buffer = [];
     }
 
+    deleteRange(range) {
+        if (Array.isArray(range)) {
+            this.content = this.content.slice(0, range[0]).concat(this.content.slice(range[1] + 1));
+        }
+        else {
+            this.content = this.content.slice(0, range).concat(this.content.slice(range + 1));
+        }
+        this.dirty = true;
+    }
+
     /**
-     *  
+     * Process an editor command.
      * @param {string} cmd
+     * @param {number[]=} range
      * @returns {string}
      */
-    executeCommand(cmd) {
+    executeCommand(cmd, range) {
         if (this.mode === MODE_INPUT) {
             if (cmd === '.') {
+                if (this.buffer.length > 0) this.dirty = true;
                 this.appendBuffer(this.buffer);
                 this.mode = MODE_COMMAND;
             }
@@ -79,44 +161,94 @@ class EditorInstance {
             }
         }
         else {
-            let c = cmd.charAt(0) || '';
-            switch (c) {
-                case 'a':
-                    break;
+            let tokens = ParseEditorCommand.exec(cmd);
 
-                case 'n':
-                    this.showLineNumbers = !this.showLineNumbers;
-                    this.owner.writeLine(`Line numbers ${(this.showLineNumbers ? 'on' : 'off')}`);
-                    break;
+            if (tokens) {
+                let command = tokens[2] || 'p',
+                    rangeLeft = this.parseRange(tokens[1]),
+                    rangeRight = this.parseRange(tokens[3]);
 
-                case 'q': case 'quit':
-                    if (this.dirty) {
-                        this.owner.writeLine(`Type 'Q' to exit editor without saving.`);
-                    }
-                    return this.onComplete();
+                if (rangeLeft === false)
+                    rangeLeft = this.currentLine;
 
-                case 'Q':
-                    return this.onComplete();
+                switch (command) {
+                    case 'a': case 'o':
+                        if (Array.isArray(rangeLeft))
+                            return this.owner.writeLine(ERROR_NORANGE);
+                        else if (rangeRight)
+                            return this.owner.writeLine(ERROR_SYNTAX);
+                        this.currentLine = rangeLeft + 1;
+                        this.mode = MODE_INPUT;
+                        return;
 
-                case 'z':
-                    let page = this.content.slice(this.currentLine, this.height);
-                    if (this.showLineNumbers) {
-                        this.owner.writeLine(page.map((line, n) => `${(this.currentLine + n)}  ${line}`).join('\n'));
-                    }
-                    else {
-                        this.owner.writeLine(page.join('\n'));
-                    }
-                    this.currentLine += page.length;
-                    break;
+                    case 'd':
+                        if (rangeRight)
+                            return this.owner.writeLine(ERROR_SYNTAX);
+                        return this.deleteRange(rangeLeft);
 
-                default:
-                    let line = parseInt(cmd) - 1;
-                    if (line > -1) {
-                        this.currentLine = line;
-                        this.owner.writeLine(this.content[this.currentLine]);
-                    }
+                    case 'h':
+                        return this.owner.writeLine(HelpText);
+
+                    case 'i': case 'O':
+                        if (Array.isArray(rangeLeft))
+                            return this.owner.writeLine(ERROR_NORANGE);
+                        else if (rangeRight)
+                            return this.owner.writeLine(ERROR_SYNTAX);
+                        this.mode = MODE_INPUT;
+                        return;
+
+
+                    case 'n':
+                        if (rangeRight)
+                            return this.owner.writeLine(ERROR_SYNTAX);
+                        this.showLineNumbers = !this.showLineNumbers;
+                        return this.owner.writeLine(`Line numbers are ${(this.showLineNumbers ? 'on' : 'off')}`);
+
+                    case 'p':
+                        if (rangeRight)
+                            return this.owner.writeLine(ERROR_SYNTAX);
+                        if (Array.isArray(rangeLeft))
+                            return this.printLines(rangeLeft[0], rangeLeft[1]);
+                        else
+                            return this.printLines(rangeLeft, 1);
+
+                    case 'q':
+                        if (this.dirty) {
+                            return this.owner.writeLine(`Type 'Q' to exit editor without saving.`);
+                        }
+                        return this.onComplete();
+
+                    case 'Q':
+                        return this.onComplete();
+
+                    case 'w':
+                        this.dirty = false;
+                        break;
+
+                    case 'z':
+                        if (Array.isArray(rangeLeft))
+                            return this.printLines(rangeLeft[0], 19);
+                        else
+                            return this.printLines(rangeLeft, 19);
+
+                    case 'Z':
+                        if (Array.isArray(rangeLeft))
+                            return this.printLines(rangeLeft[0], this.height - this.reserveLines);
+                        else
+                            return this.printLines(rangeLeft, this.height - this.reserveLines);
+                }
             }
+            return this.owner.writeLine('Unrecognized command.');
         }
+    }
+
+    /**
+     * Format a line number for display.
+     * @param {number} n
+     */
+    formatLineNumber(n) {
+        let s = n.toString(), p = 5 - s.length;
+        return '  ' + s + Array(p).join(' ');
     }
 
     /**
@@ -135,6 +267,37 @@ class EditorInstance {
     }
 
     /**
+     * Parse a string into a line number or range.
+     * @param {string} str The token to parse.
+     * @returns {number[]|number} A single line number or a range.
+     */
+    parseRange(str) {
+        if (!str || str.length === 0) return false;
+        let parts = str.split(',', 2).map(s => parseInt(s) - 1);
+        return parts.length === 2 ? parts : parts[0];
+    }
+
+    /**
+     * Print a line range
+     * @param {number} start The line to start printing from
+     * @param {number} lineCount The number of lines to try and print.
+     */
+    printLines(start, lineCount) {
+        let page = this.content.slice(start, start + lineCount);
+        if (page.length === 0) {
+            this.owner.writeLine('At end of file.');
+        }
+        else if (this.showLineNumbers) {
+
+            this.owner.writeLine(page.map((line, n) => `${this.formatLineNumber(n + start + 1)}  ${line}`).join('\n'));
+        }
+        else {
+            this.owner.writeLine(page.join('\n'));
+        }
+        this.currentLine = start + page.length;
+    }
+
+    /**
      * Query the state of the editor.
      * @param {object=} state
      */
@@ -149,6 +312,10 @@ class EditorInstance {
             state.filename = this.filename;
         }
         return result;
+    }
+
+    showHelp() {
+        
     }
 
     start(completed) {
@@ -182,8 +349,24 @@ class MUDEditorFeature extends FeatureBase {
             this.efunNameEdStart = config.parameters.efunNameEdStart || 'editorStart';
             this.efunNameEdCommand = config.parameters.efunNameEdCommand || 'editorCmd';
             this.efunNameQueryEdMode = config.parameters.efunNameQueryEdMode || 'queryEditorMode';
+            this.lineNumberPadding = config.parameters.lineNumberPadding || 5;
+            this.maxFileSize = config.parameters.maxFileSize || 500 * 1024;
         }
         flags.editor = true;
+    }
+
+    assertValid() {
+        ConfigUtil.assertType(this.maxFileSize, 'maxFileSize', 'number');
+        ConfigUtil.assertType(this.lineNumberPadding, 'lineNumberPadding', 'number');
+        ConfigUtil.assertType(this.enableOldEditor, 'enableOldEditor', 'boolean');
+        if (this.enableOldEditor) {
+            ConfigUtil.assertType(this.efunNameEd, 'efunNameEd', 'string');
+        }
+        else {
+            ConfigUtil.assertType(this.efunNameEdCommand, 'efunNameEdCommand', 'string');
+            ConfigUtil.assertType(this.efunNameEdStart, 'efunNameEdStart', 'string');
+            ConfigUtil.assertType(this.efunNameQueryEdMode, 'efunNameQueryEdMode', 'string');
+        }
     }
 
     createExternalFunctions(efunPrototype) {
@@ -207,18 +390,23 @@ class MUDEditorFeature extends FeatureBase {
                 if (editorState === -1) {
                     let thisEditor = this.thisPlayer(),
                         $storage = MUDStorage.get(thisEditor),
+                        caps = $storage.getClientCaps(),
                         options = optionsIn || {};
 
+                    options.caps = caps;
                     options.efuns = this;
                     options.filename = file && file.length > 0 ? file : false;
                     options.owner = thisEditor;
-                    options.height = $storage.getClientCaps().clientHeight || 24;
-                    options.width = $storage.getClientCaps().clientWidth || 80;
+                    options.height = caps && caps.clientHeight || 24;
+                    options.width = caps && caps.clientWidth || 80;
                     options.restricted = restricted || options.restricted || false;
 
                     let $editor = new EditorInstance(options);
 
-                    if (options.filename) $editor.loadFile(options.filename);
+                    if (options.filename) {
+                        $editor.loadFile(options.filename);
+                        options.mode = MODE_COMMAND;
+                    }
                     else if (options.content) {
                         if (!Array.isArray(options.content)) {
                             $editor.appendBuffer(options.content.split('\n'));

@@ -12,11 +12,13 @@ const
     MudHtmlImplementation = require('./impl/MudHtmlImplementation'),
     MudRoomImplementation = require('./impl/MudRoomImplementation'),
     MudSoundImplementation = require('./impl/MudSoundImplementation'),
-    MudVideoImplementation = require('./impl/MudVideoImplementation');
+    MudVideoImplementation = require('./impl/MudVideoImplementation'),
+    MUDEventEmitter = require('../MUDEventEmitter');
 
 
-class ClientCaps {
+class ClientCaps extends MUDEventEmitter {
     constructor(clientInstance) {
+        super();
         let
             self = this,
             flags = { },
@@ -59,11 +61,21 @@ class ClientCaps {
                         n = terminalTypes.indexOf(tty);
                     if (n === -1) terminalTypes.push(tty);
                     setTerminalType(tty);
+
+                    self.emit('kmud', {
+                        eventType: 'terminalType',
+                        eventData: tty
+                    });
                 }
             });
             client.on('window size', (term) => {
                 height = term.height;
                 width = term.width;
+
+                self.emit('kmud', {
+                    eventType: 'windowSize',
+                    eventData: term
+                });
             });
         }
 
