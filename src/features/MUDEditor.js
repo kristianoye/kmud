@@ -262,10 +262,10 @@ class EditorInstance {
                         if (this.dirty) {
                             return this.print(`Type 'Q' to exit editor without saving.`);
                         }
-                        return this.onComplete();
+                        return this.quitEditor();
 
                     case 'Q':
-                        return this.onComplete();
+                        return this.quitEditor();
 
                     case 't':
                         // 1,2t  or 1,2t1
@@ -277,8 +277,11 @@ class EditorInstance {
                             return this.copyLines([rangeLeft, rangeLeft+1], (rangeRight || this.currentLine - 1));
 
                     case 'w':
-                        this.dirty = false;
-                        break;
+                        return this.writeFile(tokens.slice(3).join('').trim());
+
+                    case 'x':
+                        this.writeFile();
+                        return this.quitEditor();
 
                     case 'z':
                         if (Array.isArray(rangeLeft))
@@ -400,6 +403,16 @@ class EditorInstance {
     }
 
     /**
+     * Clean up and exit the editor.
+     */
+    quitEditor() {
+        this.content = false;
+        this.buffer = false;
+
+        return this.onComplete();
+    }
+
+    /**
      * Search for the specified pattern.
      * @param {number} dir
      * @param {string} term
@@ -495,6 +508,18 @@ class EditorInstance {
 
     start(completed) {
         this.onComplete = completed;
+    }
+
+    /**
+     * Write to file
+     * @param {string=} filename
+     */
+    writeFile(filename) {
+        let bc = 0;
+        this.efuns.writeFile(filename || this.filename,
+            this.content.map(s => (bc += s.length, s)).join('\n'), false, true);
+        this.dirty = false;
+        return this.print(`Wrote ${this.content.length} line(s) to ${(filename || this.filename)} [${bc} byte(s)]`);
     }
 }
 
