@@ -1,4 +1,11 @@
-﻿const
+﻿/**
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ *
+ * Description: Provides line editor support for non-browser clients.
+ */
+const
     DriverFeature = require('../config/DriverFeature'),
     ConfigUtil = require('../ConfigUtil'),
     EFUNProxy = require('../EFUNProxy'),
@@ -6,11 +13,17 @@
     MUDData = require('../MUDData'),
     MUDObject = require('../MUDObject'),
     MUDStorage = require('../MUDStorage'),
-    MODE_INPUT = 0,
-    MODE_COMMAND = 1,
-    ParseEditorCommand = /^([0-9,]*)([a-zA-Z]*)(.*)$/,
+    MODE_INPUT = 1,
+    MODE_COMMAND = 2,
+    ParseEditorCommand = /^([0-9,]*)([a-zA-Z\/=\?]{0,1})([0-9,]*)(.*)/,
+    ERROR_FAILED = 'Failed command',
     ERROR_NORANGE = 'Cannot use ranges with that command.',
-    ERROR_SYNTAX = 'Bad command syntax.';
+    ERROR_SYNTAX = 'Bad command syntax.',
+    SEARCH_FORWARD = 1,
+    SEARCH_BACKWARD = 2;
+
+const
+    beautify = require('js-beautify').js_beautify;
 
 const
     HelpText = `
@@ -100,6 +113,9 @@ class EditorInstance {
         /** @type {boolean} */
         this.restricted = options.resticted;
 
+        /** @type {RegExp} */
+        this.searchExpression = false;
+
         /** @type {boolean} */
         this.showLineNumbers = options.showLineNumbers || false;
 
@@ -109,6 +125,10 @@ class EditorInstance {
         if (this.caps) {
             this.caps.on('kmud', evt => {
                 switch (evt.eventType) {
+                    case 'disconnect':
+                        // TODO: Save to deadedit file
+                        break;
+
                     case 'windowSize':
                         this.height = evt.eventData.height;
                         this.width = evt.eventData.width;
@@ -121,18 +141,30 @@ class EditorInstance {
     /**
      * Append at the specified position
      * @param {string[]} lines The lines to append.
+     * @param {number} pos The index at which to insert the buffer.
      */
-    appendBuffer(lines, atLine) {
-        let newContent = new Array(), pos = atLine || this.currentLine;
-        newContent = newContent.concat(this.content.slice(0, pos), lines, this.content.slice(pos));
-        this.content = newContent;
-        this.currentLine = pos + lines.length;
+    appendBuffer(lines, pos) {
+        this.content = this.content.slice(0, pos || this.currentLine).concat(lines, this.content.slice(pos || this.currentLine));
+        this.currentLine = (pos || this.currentLine) + lines.length;
         this.buffer = [];
     }
 
+    /**
+     * Copy lines
+     * @param {number|number[]} range
+     * @param {number=} pos
+     */
+    copyLines(range, pos) {
+        this.appendBuffer(this.content.slice(range[0], range[1]), pos);
+    }
+
+    /**
+     * Delete a range of lines.
+     * @param {number|number[]} range
+     */
     deleteRange(range) {
         if (Array.isArray(range)) {
-            this.content = this.content.slice(0, range[0]).concat(this.content.slice(range[1] + 1));
+            this.content = this.content.slice(0, range[0]).concat(this.content.slice(range[1]));
         }
         else {
             this.content = this.content.slice(0, range).concat(this.content.slice(range + 1));
@@ -172,41 +204,55 @@ class EditorInstance {
                     rangeLeft = this.currentLine;
 
                 switch (command) {
+                    case '/':
+                        return this.search(SEARCH_FORWARD, tokens.slice(3).join(''));
+
+                    case '?':
+                        return this.search(SEARCH_BACKWARD, tokens.slice(3).join(''));
+
+                    case '=':
+                        return this.print(`Current line: ${(this.currentLine + 1)}`);
+
+                    case '/':
+                        break;
                     case 'a': case 'o':
                         if (Array.isArray(rangeLeft))
-                            return this.owner.writeLine(ERROR_NORANGE);
+                            return this.print(ERROR_NORANGE);
                         else if (rangeRight)
-                            return this.owner.writeLine(ERROR_SYNTAX);
+                            return this.print(ERROR_SYNTAX);
                         this.currentLine = rangeLeft + 1;
                         this.mode = MODE_INPUT;
                         return;
 
                     case 'd':
                         if (rangeRight)
-                            return this.owner.writeLine(ERROR_SYNTAX);
+                            return this.print(ERROR_SYNTAX);
                         return this.deleteRange(rangeLeft);
 
                     case 'h':
-                        return this.owner.writeLine(HelpText);
+                        return this.showHelp(tokens.slice(3).join(''));
 
                     case 'i': case 'O':
                         if (Array.isArray(rangeLeft))
-                            return this.owner.writeLine(ERROR_NORANGE);
+                            return this.print(ERROR_NORANGE);
                         else if (rangeRight)
-                            return this.owner.writeLine(ERROR_SYNTAX);
+                            return this.print(ERROR_SYNTAX);
+                        this.currentLine = rangeLeft;
                         this.mode = MODE_INPUT;
                         return;
 
+                    case 'I':
+                        return this.indentCode();
 
                     case 'n':
                         if (rangeRight)
-                            return this.owner.writeLine(ERROR_SYNTAX);
+                            return this.print(ERROR_SYNTAX);
                         this.showLineNumbers = !this.showLineNumbers;
-                        return this.owner.writeLine(`Line numbers are ${(this.showLineNumbers ? 'on' : 'off')}`);
+                        return this.print(`Line numbers are ${(this.showLineNumbers ? 'on' : 'off')}`);
 
                     case 'p':
                         if (rangeRight)
-                            return this.owner.writeLine(ERROR_SYNTAX);
+                            return this.print(ERROR_SYNTAX);
                         if (Array.isArray(rangeLeft))
                             return this.printLines(rangeLeft[0], rangeLeft[1]);
                         else
@@ -214,12 +260,21 @@ class EditorInstance {
 
                     case 'q':
                         if (this.dirty) {
-                            return this.owner.writeLine(`Type 'Q' to exit editor without saving.`);
+                            return this.print(`Type 'Q' to exit editor without saving.`);
                         }
                         return this.onComplete();
 
                     case 'Q':
                         return this.onComplete();
+
+                    case 't':
+                        // 1,2t  or 1,2t1
+                        if (Array.isArray(rangeRight))
+                            return this.print(ERROR_SYNTAX);
+                        else if (Array.isArray(rangeLeft))
+                            return this.copyLines(rangeLeft, rangeRight || this.currentLine);
+                        else
+                            return this.copyLines([rangeLeft, rangeLeft+1], (rangeRight || this.currentLine - 1));
 
                     case 'w':
                         this.dirty = false;
@@ -238,7 +293,7 @@ class EditorInstance {
                             return this.printLines(rangeLeft, this.height - this.reserveLines);
                 }
             }
-            return this.owner.writeLine('Unrecognized command.');
+            return this.print('Unrecognized command.');
         }
     }
 
@@ -252,17 +307,35 @@ class EditorInstance {
     }
 
     /**
+     * Format the code.
+     */
+    indentCode() {
+        try {
+            this.content = beautify(this.content.join('\n'),
+                { indent_size: 2 })
+                .split('\n');
+            this.dirty = true;
+            return this.print('Formatting complete.');
+        }
+        catch (err) {
+            this.print(`Formatting failure: ${err.message}`)
+        }
+    }
+
+    /**
      * Loads a file into the editor.
      * @param {string} filename The file to read
+     * @param {number=} pos the position to set after the file is appended.
      */
-    loadFile(filename) {
+    loadFile(filename, pos) {
         try {
             if (this.efuns.isFile(filename)) {
                 this.appendBuffer(this.efuns.readFile(filename).split('\n'));
+                this.currentLine = 1;
             }
         }
         catch (err) {
-            this.owner.writeLine(`Unable to read file '${filename}'`);
+            this.print(`Unable to read file '${filename}'`);
         }
     }
 
@@ -274,7 +347,15 @@ class EditorInstance {
     parseRange(str) {
         if (!str || str.length === 0) return false;
         let parts = str.split(',', 2).map(s => parseInt(s) - 1);
-        return parts.length === 2 ? parts : parts[0];
+        return parts.length === 2 ? [parts[0], parts[1]+1] : parts[0];
+    }
+
+    /**
+     * Print text to the user.
+     * @param {...string[]} str The message to print to the user.
+     */
+    print(...str) {
+        return this.owner.writeLine(str.join('\n'));
     }
 
     /**
@@ -285,14 +366,15 @@ class EditorInstance {
     printLines(start, lineCount) {
         let page = this.content.slice(start, start + lineCount);
         if (page.length === 0) {
-            this.owner.writeLine('At end of file.');
+            this.currentLine = this.content.length;
+            return this.print('At end of file.');
         }
         else if (this.showLineNumbers) {
 
-            this.owner.writeLine(page.map((line, n) => `${this.formatLineNumber(n + start + 1)}  ${line}`).join('\n'));
+            this.print(page.map((line, n) => `${this.formatLineNumber(n + start + 1)}  ${line}`).join('\n'));
         }
         else {
-            this.owner.writeLine(page.join('\n'));
+            this.print(page.join('\n'));
         }
         this.currentLine = start + page.length;
     }
@@ -303,19 +385,112 @@ class EditorInstance {
      */
     queryState(state) {
         let result = 0;
+
         if (this.mode === MODE_INPUT) 
-            result = this.currentLine;
+            result = this.currentLine + 1;
+
         if (typeof state === 'object') {
-            state.line = this.currentLine;
+            state.line = this.currentLine + 1 + this.buffer.length;
             state.lineTotal = this.content.length;
             state.dirty = this.dirty;
             state.filename = this.filename;
+            state.showLineNumbers = this.showLineNumbers;
         }
         return result;
     }
 
-    showHelp() {
-        
+    /**
+     * Search for the specified pattern.
+     * @param {number} dir
+     * @param {string} term
+     */
+    search(dir, term) {
+        if (term && term.length > 0)
+            this.searchExpression = new RegExp(term);
+
+        if (!this.searchExpression)
+            return this.print(ERROR_FAILED);
+
+        if (dir === SEARCH_FORWARD) {
+            for (let i = this.currentLine, max = this.content.length; i < max; i++) {
+                if (this.content[i].match(this.searchExpression)) {
+                    this.currentLine = i;
+                    return this.printLines(this.currentLine, 1);
+                }
+            }
+        } else {
+            for (let i = this.currentLine-2; i > -1; i--) {
+                if (this.content[i].match(this.searchExpression)) {
+                    this.currentLine = i;
+                    return this.printLines(this.currentLine, 1);
+                }
+            }
+        }
+        return this.print(`Search failed: ${this.searchExpression}`);
+    }
+
+    /**
+     * Display help to the user.
+     * @param {string=} topic The optional specific topic  to search for.
+     */
+    showHelp(topic) {
+        if (!topic) {
+            this.print(HelpText);
+        }
+        switch (topic) {
+            case '/':
+                return this.print(
+                    'Command: /',
+                    'Usage: /[pattern]\n',
+                    '\tSearches the remaining lines in the file for the specified regular expression pattern.',
+                    '\tIf no pattern is specified it will use the last search expression [if set]');
+
+            case '?':
+                return this.print(
+                    'Command: ?',
+                    'Usage: ?[pattern]\n',
+                    '\tSearches the previous lines in the file for the specified regular expression pattern.',
+                    '\tIf no pattern is specified it will use the last search expression [if set]');
+
+            case '=':
+                return this.print(
+                    'Command: =',
+                    'Usage: =\n',
+                    '\tPrints the current line number.');
+
+            case 'a':
+                return this.print(
+                    'Command: a [append]',
+                    'Usage: a or <line #>a\n',
+                    '\tWill put editor into append mode after the current or specified line.');
+
+            case 'i':
+                return this.print(
+                    'Command: i [append]',
+                    'Usage: i or <line #>i\n',
+                    '\tWill put editor into input mode at the current or specified line.');
+
+            case 'I':
+                return this.print(
+                    'Command: I [format code]',
+                    'Usage: I\n',
+                    '\tAttempts to format the code [this only works on Javascript code at the moment].');
+
+            case 'q':
+                return this.print(
+                    'Command: q [quit]',
+                    'Usage: q\n',
+                    '\tWill exit the editor provided there are no pending changes.');
+
+            case 'Q':
+                return this.print(
+                    'Command: q [force quit]',
+                    'Usage: q\n',
+                    '\tWill discard any unsaved changes and exit the editor.');
+
+            default:
+                return this.print(`Help topic '${topic}' not found.`);
+        }
     }
 
     start(completed) {

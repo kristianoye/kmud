@@ -12,6 +12,7 @@
     "async": "^2.5.0",
     "bcrypt": "^1.0.3",
     "callsite": "^1.0.0",
+    "js-beautify": "^1.7.5",
     "monaco-editor": "^0.10.1",
     "socket.io": "^2.0.3",
     "sprintf": "^0.1.5",

@@ -3,7 +3,7 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  *
- * Description: This module contains core game functionality.
+ * Description: Provides a common interface for driver features.
  */
 const
     DriverFeature = require('../config/DriverFeature');
