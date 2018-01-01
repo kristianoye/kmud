@@ -42,6 +42,13 @@ class MUDLoader {
                     this[val.name] = val;
                 }
                 else {
+                    let setOn = [ val ];
+                    setOn.forEach(_ => {
+                        Object.defineProperty(_, 'filename', {
+                            value: _efuns.filename,
+                            writable: false
+                        });
+                    });
                     _exports[val.name] = val;
                 }
             }
@@ -50,8 +57,12 @@ class MUDLoader {
                 this.primaryExport = val;
                 _isSingleton = true;
             }
-            else
+            else {
+                if (val && typeof val === 'function' && val.toString().startsWith('class')) {
+                    val.prototype.filename = _efuns.filename;
+                }
                 _exports[name] = val;
+            }
         }
 
         Object.defineProperties(this, {
@@ -169,6 +180,12 @@ class MUDLoader {
             },
             filename: {
                 value: _efuns.filename,
+                writable: false
+            },
+            getType: {
+                value: function (typeName) {
+                    return _exports[typeName] || false;
+                },
                 writable: false
             },
             require: {
@@ -377,16 +394,6 @@ class MUDLoader {
                 writable: false
             }
         });
-    }
-
-    get loaderEnabled() {
-        return this[sLoaderEnabled] || false;
-    }
-
-    createInstance(callback) {
-        if (this[sLoaderEnabled]) {
-            return callback.call(this, this[sEfuns], this[sArgs]);
-        }
     }
 }
 

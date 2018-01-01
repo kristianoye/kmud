@@ -30,6 +30,20 @@ class MudSection {
         ConfigUtil.assertType(this.adminEmail, 'mud.adminEmail', 'string');
         ConfigUtil.assertType(this.features, 'mud.features', 'object');
     }
+
+    getAdminEmail(flag) {
+        if (flag && this.adminEmail.startsWith('#'))
+            return '(protected)';
+        else
+            return this.adminEmail;
+    }
+
+    getAdminName(flag) {
+        if (flag && this.adminName.startsWith('#'))
+            return '(protected)';
+        else
+            return this.adminName;
+    }
 }
 
 module.exports = MudSection;

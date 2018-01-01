@@ -208,6 +208,9 @@ class GameServer extends MUDEventEmitter {
         }
     }
 
+    /**
+     * Preload some common objects to decrease in-game load times while running.
+     */
     createPreloads() {
         if (this.applyGetPreloads !== false) {
             this.preloads = this.applyGetPreloads.apply(this.masterObject);
@@ -232,6 +235,9 @@ class GameServer extends MUDEventEmitter {
         }
     }
 
+    /**
+     * Expand the functionality of the driver by loading additional functionality.
+     */
     enableFeatures() {
         console.log('Bootstrap: Initializing driver features');
         this.features = this.config.driver.features.map((featureConfig) => {

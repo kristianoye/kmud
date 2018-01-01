@@ -2,7 +2,16 @@
   "private": {},
   "props": {},
   "protected": {
-    "routerList": []
+    "routerList": {
+      "*kmud": {
+        "id": "*kmud",
+        "address": "192.168.1.216",
+        "port": 8787,
+        "password": -553402937,
+        "$$type": "I3RouterEntry",
+        "$$file": "/daemon/I3Daemon"
+      }
+    }
   },
   "$environment": false,
   "$inventory": [],

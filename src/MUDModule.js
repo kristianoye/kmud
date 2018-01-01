@@ -8,6 +8,7 @@ var
     MUDData = require('./MUDData'),
     EFUNProxy = require('./EFUNProxy'),
     MUDCreationContext = require('./MUDCreationContext'),
+    MUDLoader = require('./MUDLoader'),
     vm = require('vm');
 
 const
@@ -49,6 +50,7 @@ class MUDModule {
         /** @type {boolean} */
         this.loaded = false;
 
+        /** @type {MUDLoader} */
         this.loader = null;
 
         /** @type {MUDModule} */
@@ -220,6 +222,15 @@ class MUDModule {
             })(this.instances[n]);
         }
         return proxy;
+    }
+
+    /**
+     * Get a type defined within the module.
+     * @param {string} name
+     * @returns {object}
+     */
+    getType(name) {
+        return this.loader && this.loader.getType(name);
     }
 
     getWrapper(n, isReload) {

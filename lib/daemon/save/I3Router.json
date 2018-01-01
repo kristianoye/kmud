@@ -1,11 +1,96 @@
 {
-  "private": {},
+  "private": {
+    "E:\\KLF\\KMUD\\lib\\daemon\\I3Router.js": {}
+  },
   "props": {},
   "protected": {
-    "mudList": {},
+    "mudList": {
+      "Emerald MUD": {
+        "sessions": {},
+        "state": -1,
+        "name": "Emerald MUD",
+        "password": -553402937,
+        "playerPort": 8000,
+        "tcpPort": 8888,
+        "udpPort": 8889,
+        "mudlib": "Emerald MUD 2.0",
+        "baseMudlib": "KMUD v0.3.1",
+        "driver": "Node.js v8.9.3",
+        "mudType": "RPG",
+        "openStatus": "mudlib development",
+        "adminEmail": "kristianoye@gmail.com",
+        "services": {
+          "tell": 1,
+          "emoteto": 1,
+          "who": 1,
+          "finger": 1,
+          "locate": 1,
+          "channel": 1,
+          "auth": 1,
+          "ucache": 1
+        },
+        "otherData": {
+          "architecture": "win32",
+          "hardware": "Intel(R) Core(TM) i7-5960X CPU @ 3.00GHz x 16",
+          "memoryUsage": "17.69MB",
+          "memoryTotal": "23.17MB",
+          "systemMemUsed": "17.39GB",
+          "systemMemTotal": "50.23GB",
+          "os build": "Windows_NT 10.0.15063",
+          "uptime": 51,
+          "web client address": "http://thor:8080/"
+        },
+        "address": "192.168.1.216",
+        "oldMudListId": 1514839168,
+        "$$type": "I3MUD",
+        "$$file": "/daemon/I3Router"
+      },
+      "Emerald MUD DS": {
+        "name": "Emerald MUD DS",
+        "password": 314705188,
+        "oldMudListId": 1,
+        "playerPort": 5000,
+        "tcpPort": 5006,
+        "udpPort": 5008,
+        "mudlib": "Dead Souls 3.8.6",
+        "baseMudlib": "Dead Souls 3.8.6",
+        "driver": "FluffOS v2.23-ds03",
+        "mudType": "LPMud",
+        "openStatus": "mudlib development",
+        "adminEmail": "kristianoye@gmail.com",
+        "services": {
+          "channel": 1,
+          "mail": 1,
+          "ftp": 4999,
+          "tell": 1,
+          "finger": 1,
+          "who": 1,
+          "auth": 1,
+          "oob": 5006,
+          "locate": 1,
+          "emoteto": 1,
+          "http": 5001
+        },
+        "otherData": {
+          "upsince": "Sat Dec 30 11:36:43 2017",
+          "ip": "127.0.0.1",
+          "next boot": "EST Sat Jan  6 08:36:43 2018",
+          "architecture": "Linux",
+          "os build": "unix",
+          "oob port": 5006,
+          "native version": "3.8.6"
+        },
+        "sessions": {},
+        "state": -1,
+        "$$type": "I3MUD",
+        "$$file": "/daemon/I3Router"
+      }
+    },
     "channels": {},
     "port": 8787,
-    "routerName": "*kmud"
+    "routerName": "*kmud",
+    "address": "192.168.1.216",
+    "mudListVersion": 1514839218
   },
   "$environment": false,
   "$inventory": [],

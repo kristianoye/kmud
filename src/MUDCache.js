@@ -46,11 +46,22 @@ class MUDCache {
      */
     getOrCreate(filename, fullPath, muddir, isVirtual) {
         filename = this.normalize(filename);
-        var module = this[filename];
+        let module = this[filename];
         if (!module) {
             this[filename] = module = new MUDModule(filename, fullPath, muddir, isVirtual);
         }
         return module;
+    }
+
+    /**
+     * Attempt to fetch a class definition.
+     * @param {string} file The module that defines the type.
+     * @param {string} typeName The name of the class being referenced.
+     */
+    getType(file, typeName) {
+        let filename = this.normalize(file),
+            module = this.get(filename) || MUDData.CompilerInstance.compileObject(filename);
+        return module && module.getType(typeName);
     }
 
     /**

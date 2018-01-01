@@ -664,6 +664,8 @@ class EFUNProxy {
                 }
                 return r.join('');
             })(),
+            mudAdmin: MUDData.Config.mud.getAdminName(true),
+            mudAdminEmail: MUDData.Config.mud.getAdminEmail(true),
             mudlibName: 'KMUD',
             mudlibBaseVersion: MUDData.Config.mudlib.getVersion(),
             mudlibVersion: 'Emerald MUD 2.0',

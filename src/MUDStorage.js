@@ -194,11 +194,69 @@ class MUDStorage extends MUDEventEmitter {
      * @param {any} data
      */
     restore(data) {
-        // TODO: Restore inventory / object references
+        let backRefs = [this.owner];
+
         this.properties = data.props || {};
-        this.protected = data.protected || {};
+        this.protected = this.restoreObject(data.protected || {}, backRefs);
         this.private = data.private || {};
         this.emit('kmud.restored', this);
+    }
+
+    restoreX(item, backRefs) {
+        if (Array.isArray(item)) {
+            return this.restoreArray(item, backRefs);
+        }
+        else if (typeof item === 'object') {
+            return this.restoreObject(item, backRefs);
+        }
+        else if (typeof item === 'string' && item.startsWith('OBJREF:')) {
+            let refId = parseInt(item.slice(7));
+            if (refId > backRefs.length)
+                throw new Error(`restore() failure; Reference ${item} does not exist.`);
+            return backRefs[refId];
+        }
+        else {
+            return item;
+        }
+    }
+    /**
+     * Restore an array.
+     * @param {any[]} data
+     * @param {object[]} backrefs
+     */
+    restoreArray(data, backRefs) {
+        return data.map((item, index) => this.restoreX(item, backRefs));
+    }
+
+    /**
+     * Restore an object.
+     * @param {Object.<string,any>} data An object being restored.
+     * @param {object[]} backrefs Reference to objects already created.
+     */
+    restoreObject(data, backRefs) {
+        let r = {};
+        if (data.$$type && data.$$file) {
+            let ttype = MUDData.ModuleCache.getType(data.$$file, data.$$type);
+
+            if (ttype && typeof ttype.restore === 'function') {
+                r = ttype.restore(data);
+            }
+            else if (ttype) {
+                r = new ttype(data);
+                delete data['$$type'];
+                delete data['$$file'];
+                Object.keys(data).forEach((key, index) => {
+                    r[key] = this.restoreX(data[key], backRefs);
+                });
+            }
+            if (typeof r !== 'object' || r === null)
+                throw new Error(`restore() failure; Could not create type '${data.$$type}'`);
+            backRefs.push(r);
+        }
+        else {
+            Object.keys(data).forEach((key, index) => { r[key] = this.restoreX(data[key], backRefs); });
+        }
+        return r;
     }
 
     /**
@@ -295,7 +353,7 @@ class MUDStorage extends MUDEventEmitter {
      * @param {MUDObject} o The object to serialize
      */
     serializeMudObject(o, backrefs) {
-        let index = backrefs.indexOf(o) > -1;
+        let index = backrefs.indexOf(o);
         if (index > -1) return `OBJREF:${index}`;
         let $storage = MUDStorage.get(o);
         if ($storage) {
@@ -310,12 +368,16 @@ class MUDStorage extends MUDEventEmitter {
         if (o === null)
             return null;
 
+        let index = backrefs.indexOf(o);
+        if (index > -1)
+            return `OBJREF:${index}`;
+
         let result = {},
             type = o.constructor ? o.constructor.name : '$anonymous',
             file = o.constructor ? o.constructor.filename : false;
 
         Object.keys(o).forEach((prop, index) => {
-            if (typeof prop === 'string') {
+            if (typeof prop === 'string' && !prop.startsWith('$')) {
                 let value = o[prop], uw = unwrap(value);
 
                 if (Array.isArray(value)) result[prop] = this.serializeArray(value, backrefs);
@@ -327,9 +389,9 @@ class MUDStorage extends MUDEventEmitter {
                 }
             }
         });
-        if (type && file) {
+        if (type && file && type !== 'Object') {
             result.$$type = type;
-            result.$$file = o.constructor.filename;
+            result.$$file = file;
         }
         return result;
     }

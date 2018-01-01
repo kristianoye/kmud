@@ -63,6 +63,8 @@ declare class MUDInfo {
     readonly cpuUsage: string;
     readonly gameDriver: string;
     readonly hardware: string;
+    readonly mudAdminName: string;
+    readonly mudAdminEmail: string;
     readonly mudlibName: string;
     readonly mudlibBaseVersion: string;
     readonly mudMemoryTotal: string;
