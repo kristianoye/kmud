@@ -15,6 +15,9 @@ class MudlibSection {
         this.defaultError = data.defaultError || 'What?';
 
         /** @type {string} */
+        this.defaultSaveExtension = data.defaultSaveExtension || '.json';
+
+        /** @type {string} */
         this.heartbeatInterval = ConfigUtil.parseTime(data.heartbeatInterval) || 1000;
 
         /** @type {string[]} */

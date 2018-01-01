@@ -147,7 +147,7 @@ function extendPrototype(pt, spec) {
             Object.getOwnPropertyNames(target).forEach(key => {
                 var result = callback.call(target, key, target[key], c++);
                 if (typeof result !== 'undefined') {
-                    if (result instanceof Array && result.length === 2) {
+                    if (Array.isArray(result) && result.length === 2) {
                         if (typeof result[0] !== 'string')
                             throw new Error('Key must be a string');
                         obj[result[0]] = result[1];

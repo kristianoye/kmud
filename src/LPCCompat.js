@@ -102,7 +102,7 @@ class LPCParser {
                     break;
 
                 case TOKEN_COMMA:
-                    if (cur instanceof Array) {
+                    if (Array.isArray(cur)) {
                         if (lvalue.length > 0) {
                             var lv = lvalue.pop();
                             if ('value' in lv) cur.push(lv.value);
@@ -170,7 +170,7 @@ class LPCParser {
             result = "0";
         }
         else if (Array.isArray(o)) {
-            var fun = o instanceof Array;
+            var fun = Array.isArray(o);
             var foo = o.map((v, i) => { return this.serialize(v) });
             result = '({' + foo.join(',') + (foo.length > 0 ? ',' : '') + '})';
         }

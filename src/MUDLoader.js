@@ -175,12 +175,16 @@ class MUDLoader {
                 value: function (exp) {
                     if (typeof exp === 'string') {
                         switch (exp) {
+                            case 'crypto':
+                                return self[exp] = require('crypto');
+                                break;
+
                             case 'lpc':
-                                self[exp] = require('./LPCCompat');
+                                return self[exp] = require('./LPCCompat');
                                 break;
 
                             case 'net':
-                                self[exp] = require(exp);
+                                return self[exp] = require(exp);
                                 break;
 
                             default:

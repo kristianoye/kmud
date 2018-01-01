@@ -216,7 +216,7 @@ class GameServer extends MUDEventEmitter {
             console.log('Creating preloads...');
             this.preloads.forEach(function (file, i) {
                 var t0 = new Date().getTime();
-                var foo = file instanceof Array ?
+                var foo = Array.isArray(file) ?
                     MUDData.Compiler(file[0], undefined, undefined, file.slice(1)) :
                     MUDData.Compiler(file);
                 var t1 = new Date().getTime();

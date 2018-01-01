@@ -245,14 +245,21 @@ class MUDStorage extends MUDEventEmitter {
         Object.keys(this.private).forEach((prop, index) => {
             // Values starting with $ are considered volatile and not serialized.
             if (typeof prop === 'string' && !prop.startsWith('$')) {
-                let value = this.private[prop], uw = unwrap(value);
-                if (Array.isArray(value)) result.private[prop] = this.serializeArray(value, backrefs);
-                else if (uw) result.private[prop] = this.serializeMudObject(uw, backrefs);
-                else if (typeof value === 'object') result.private[prop] = this.serializeOtherObject(value, backrefs);
-                else {
-                    let s = this.serializeScalar(value);
-                    if (s) result.private[prop] = s;
-                }
+                let data = this.private[prop],
+                    priv = result.private[prop] = {};
+
+                Object.keys(data).forEach((innerProp, index2) => {
+                    if (typeof innerProp === 'string' && !innerProp.startsWith('$')) {
+                        let value = data[innerProp], uw = unwrap(value);
+                        if (Array.isArray(value)) priv[innerProp] = this.serializeArray(value, backrefs);
+                        else if (uw) priv[innerProp] = this.serializeMudObject(uw, backrefs);
+                        else if (typeof value === 'object') priv[innerProp] = this.serializeOtherObject(value, backrefs);
+                        else {
+                            let s = this.serializeScalar(value);
+                            if (s) priv[innerProp] = s;
+                        }
+                    }
+                });
             }
         });
 

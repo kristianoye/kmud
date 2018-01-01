@@ -12,6 +12,7 @@ const
     MUDConfig = require('./MUDConfig'),
     ErrorTypes = require('./ErrorTypes'),
     MUDExecutionContext = require('./MUDExcecutionContext'),
+    SaveExtension = MUDConfig.mudlib.defaultSaveExtension,
     util = require('util'),
     fs = require('fs'),
     vm = require('vm');
@@ -866,22 +867,31 @@ class EFUNProxy {
         return typeof callback === 'function' ? callback(result) : result;
     }
 
+    /**
+     * Restores the state of an object from file.
+     * @param {string} path The file to read properties from.
+     */
     restoreObject(path) {
         let result = false;
         try {
             let prev = this.thisObject();
             if (prev) {
-                let data = this.readJsonFile(path);
-                if (data) {
-                    let $storage = MUDData.Storage.get(prev);
-                    $storage && $storage.restore(data);
-                    result = true;
+                if (!path.endsWith(SaveExtension))
+                    path += SaveExtension;
+                if (this.isFile(path)) {
+                    let data = this.readJsonFile(path);
+                    if (data) {
+                        let $storage = MUDData.Storage.get(prev);
+                        $storage && $storage.restore(data);
+                        result = true;
+                    }
                 }
             }
         }
-        finally {
-            return result;
+        catch (err) {
+            console.log(err);
         }
+        return result;
     }
 
     rm(path, callback) {
@@ -902,17 +912,23 @@ class EFUNProxy {
         throw new ErrorTypes.SecurityError();
     }
 
+    /**
+     * 
+     * @param {string} path The path to save to.
+     */
     saveObject(path) {
         try {
-            let prev = this.previousObject();
+            let prev = this.thisObject() || this.previousObject();
 
             if (prev) {
+                if (!path.endsWith(SaveExtension))
+                    path += SaveExtension;
                 this.writeJsonFile(path, prev.serializeObject());
                 return true;
             }
         }
         catch (err) {
-
+            console.log(err);
         }
         return false;
     }
