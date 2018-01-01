@@ -610,6 +610,9 @@
     <Compile Include="src\setup\SectionSetup.js">
       <SubType>Code</SubType>
     </Compile>
+    <Content Include="lib\sys\etc\accessEx.json">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\setup\BaseConfig.json">
       <SubType>Code</SubType>
     </Content>

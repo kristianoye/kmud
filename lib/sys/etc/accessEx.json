@@ -1,0 +1,33 @@
+﻿{
+  "/": {
+    "$admin": "rw",
+    "$arch": "rw",
+    "$default": "r"
+  },
+  "log": {
+    "$default": "r",
+    "errors": {
+      "^([a-z0-9A-Z]+)\\.log$": {
+        "$0": "rw",
+        "^0": "rw"
+      }
+    }
+  },
+  "sys": {
+    "$admin": "rw",
+    "SYSTEM": "rw",
+    "$default": "r",
+    "data": {
+      "$default": ""
+    },
+    "etc": {
+      "$arch": "r"
+    },
+    "lib": {
+      "$mudlib": "rw",
+    },
+    "save": {
+      "SYSTEM": "rw"
+    }
+  }
+}

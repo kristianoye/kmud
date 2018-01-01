@@ -274,6 +274,7 @@ class GameServer extends MUDEventEmitter {
                 program: '',
                 object: null,
                 line: 0,
+                stack: err.stack,
                 trace: []
             }, firstFrame = true;
 
@@ -281,7 +282,10 @@ class GameServer extends MUDEventEmitter {
                 let parts = line.split(/\s+/g).filter(s => s.length);
                 if (parts[0] === 'at') {
                     let func = parts[1].split('.'), inst = null;
-                    let [filename, line, cindex] = parts[2].slice(1, parts[2].length - 1).split(':');
+                    if (typeof parts[2] !== 'string') {
+                        return false;
+                    }
+                    let [filename, line, cindex] = parts[2].slice(0, parts[2].length - 1).split(':');
 
                     if (filename.indexOf('.') === -1) {
                         let fparts = filename.split('#'),
@@ -309,7 +313,7 @@ class GameServer extends MUDEventEmitter {
                     }
                     return frame;
                 }
-            });
+            }).filter(f => typeof f === 'object');
 
             this.applyErrorHandler.call(this.masterObject, error, caught);
         }

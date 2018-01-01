@@ -142,3 +142,21 @@ ReferenceError: base is not defined
     at SquareWrapper.reset (/world/sarta/square.js:22:31)
     at SquareWrapper.reset (/world/sarta/square:7:31)
     at ResetWrapper.cmd (/cmds/creator/Reset.js:12:40)
+
+[2017-12-31 16:18:44]
+Room is not defined
+/world/sarta/square.js:9
+class Square extends Room {
+                     ^
+
+ReferenceError: Room is not defined
+    at /world/sarta/square.js:9:22
+    at ContextifyScript.Script.runInContext (vm.js:59:29)
+    at Object.runInContext (vm.js:120:6)
+    at VMWrapper.run ([driver]\compiler\VMWrapper.js:46:25)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:178:20)
+    at Object.Compiler ([driver]\MUDData.js:53:55)
+    at EFUNProxy.reloadObject ([driver]\EFUNProxy.js:831:34)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update.js:12:25)
+    at UpdateWrapper.cmd (/sys/cmds/creator/Update:5:27)
+    at CreatorWrapper.processInput (/base/Interactive.js:246:121)

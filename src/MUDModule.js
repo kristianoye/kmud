@@ -315,8 +315,7 @@ class MUDModule {
                 async.forEach(this.children, (childName, innerCallback) => {
                     try {
                         console.log('Re-compiling ' + childName.filename);
-                        MUDData.Compiler(childName, true);
-                        compileObject(childName, true);
+                        MUDData.Compiler(childName.filename, true);
                     }
                     catch (e)
                     {

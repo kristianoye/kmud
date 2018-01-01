@@ -963,11 +963,10 @@ class EFUNProxy {
      * @returns {any} The result of the unguarded call.
      */
     unguarded(callback) {
-        var result = false,
-            context = new MUDExecutionContext();
+        var result = false, context = new MUDExecutionContext();
         try {
             MUDData.ObjectStack = MUDData.ObjectStack.slice(0, 1);
-            result = callback();
+            result = context.run(callback);
         }
         catch (err) {
             throw err;

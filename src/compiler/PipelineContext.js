@@ -13,7 +13,7 @@ class PipelineContext {
      * @param {string} filename The name of the file to be compiled.
      */
     constructor(filename) {
-        var n = filename.lastIndexOf('.');
+        var n = filename && filename.lastIndexOf('.') || -1;
 
         filename = filename.replace(/\\/g, '/');
 
