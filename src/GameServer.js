@@ -38,7 +38,7 @@ class GameServer extends MUDEventEmitter {
 
         this.setSimulEfunPath(config.mudlib.simulEfuns);
 
-        MUDData.MasterObject = MUDData.MasterObject = this;
+        MUDData.DriverObject = MUDData.DriverObject = this;
         MUDData.GameState = MUDData.Constants.GAMESTATE_INITIALIZING;
 
         this.connections = [];
@@ -240,8 +240,8 @@ class GameServer extends MUDEventEmitter {
      */
     enableFeatures() {
         console.log('Bootstrap: Initializing driver features');
-        this.features = this.config.driver.features.map((featureConfig) => {
-            if (featureConfig.enabled) {
+        this.features = this.config.driver.forEachFeature((featureConfig, pos, id) => {
+            if(featureConfig.enabled) {
                 console.log(`\tEnabling driver feature: ${featureConfig.name}`);
                 let feature = featureConfig.initialize();
 
@@ -250,6 +250,8 @@ class GameServer extends MUDEventEmitter {
                 feature.createObjectApplies(MUDObject.prototype);
                 feature.createExternalFunctions(EFUNProxy.prototype);
                 feature.createDriverApplies(this, this.constructor.prototype);
+
+                feature.initialize(this, this.masterObject);
 
                 return feature;
             }
@@ -349,7 +351,7 @@ class GameServer extends MUDEventEmitter {
         }
         catch (err) {
             console.log('Error in executeHeartbeat: ' + err);
-            MUDData.MasterObject.errorHandler(err, false);
+            MUDData.DriverObject.errorHandler(err, false);
         }
     }
 

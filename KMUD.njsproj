@@ -447,6 +447,9 @@
     <Compile Include="src\features\FeatureBase.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\features\SecurityFileACL.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\features\MUDEditor.js">
       <SubType>Code</SubType>
     </Compile>
@@ -611,6 +614,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Content Include="lib\sys\etc\accessEx.json">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\sys\etc\accessMk3.json">
       <SubType>Code</SubType>
     </Content>
     <Content Include="src\setup\BaseConfig.json">

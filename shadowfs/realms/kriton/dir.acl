@@ -1,0 +1,14 @@
+{
+  "directory": "/realms/kriton/",
+  "files": {
+    "errors": {},
+    "test": {},
+    "Work.js": {},
+    "Workroom.js": {}
+  },
+  "owner": "SYSTEM",
+  "permissions": {
+    "~kriton": 635,
+    "kriton": 1663
+  }
+}

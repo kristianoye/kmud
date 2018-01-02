@@ -216,7 +216,7 @@ class MUDObject extends MUDEventEmitter {
         try {
             if (flag) {
                 if (callback) {
-                    MUDData.MasterObject.removeListener('kmud.heartbeat', callback);
+                    MUDData.DriverObject.removeListener('kmud.heartbeat', callback);
                 }
                 callback = (ticks, total) => {
                     let env = MUDStorage.get($storage.environment);
@@ -226,18 +226,18 @@ class MUDObject extends MUDEventEmitter {
                     }
                 };
                 this.setSymbol(_heartbeat, callback);
-                MUDData.MasterObject.addListener('kmud.heartbeat', callback);
+                MUDData.DriverObject.addListener('kmud.heartbeat', callback);
                 MUDData.Livings.push(thisObject);
             }
             else {
-                if (listener) MUDData.MasterObject.removeListener('kmud.heartbeat', callback);
+                if (listener) MUDData.DriverObject.removeListener('kmud.heartbeat', callback);
                 this.setSymbol(_heartbeat, false);
                 MUDData.Livings.removeValue(thisObject);
             }
         }
         catch (e) {
             if (callback) {
-                MUDData.MasterObject.off('kmud.heartbeat', callback);
+                MUDData.DriverObject.off('kmud.heartbeat', callback);
             }
         }
     }
@@ -392,7 +392,7 @@ class MUDObject extends MUDEventEmitter {
                 if (typeof target().reset === 'function') {
                     if ($target.nextReset < new Date().getTime()) {
                         target().reset();
-                        MUDData.MasterObject.registerReset(target, false, $target);
+                        MUDData.DriverObject.registerReset(target, false, $target);
                     }
                 }
             }

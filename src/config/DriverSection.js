@@ -4,9 +4,11 @@
     DriverCompiler = require('./DriverCompiler'),
     DriverFeature = require('./DriverFeature');
 
-/**
- * The driver section controls the nuts and bolts of the game.
+/** 
+ * @module DriverSection
+ * @local forEachFeatureCallback
  */
+
 class DriverSection {
     constructor(data) {
         /** @type {string} */
@@ -15,9 +17,14 @@ class DriverSection {
         /**@type {Object.<string,boolean>} */
         this.featureFlags = {};
 
-        /** @type {DriverFeature[]} */
-        this.features = (Array.isArray(data.features) ? data.features : [])
-            .map((spec, pos) => new DriverFeature(spec, pos, this.featureFlags));
+        /** @type {Object.<string,DriverFeature>} */
+        this.features = {};
+
+        if (typeof data.features === 'object') {
+            Object.keys(data.features).forEach((id, pos) => {
+                this.features[id] = new DriverFeature(id, data.features[id], pos, this.featureFlags);
+            });
+        }
 
         /** @type {number} */
         this.maxCommandLength = data.maxCommandLength || 1024;
@@ -48,11 +55,20 @@ class DriverSection {
         if (['inline', 'thinWrapper', 'fullWrapper'].indexOf(this.objectCreationMethod) === -1) {
             throw new Error(`Invalid setting for driver.objectCreationMethod: Got ${data.objectCreationMethod} [valid values: inline, thinWrapper, fullWrapper`);
         }
-        this.features.forEach((feature) => feature.assertValid());
+        this.forEachFeature((feature, index) => feature.assertValid());
         this.compiler.assertValid();
         this.networking.assertValid();
         ConfigUtil.assertRange(this.maxCommandLength, 'driver.maxCommandLength', 100, 1024 * 4);
         return this;
+    }
+
+    /**
+     * Iterate through all of the features and do some action.
+     * @param {function(string, number, DriverFeature):DriverFeature} callback
+     * @returns {DriverFeature[]}
+     */
+    forEachFeature(callback) {
+        return Object.keys(this.features).map((id, index) => callback(this.features[id], index, id));
     }
 
     /**

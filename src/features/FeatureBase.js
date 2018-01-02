@@ -30,6 +30,8 @@ class FeatureBase {
     createMasterApplies(masterObject, masterObjectPrototype) { }
 
     createObjectApplies(objectPrototype) { }
+
+    initialize(driver, masterObject) { }
 }
 
 module.exports = FeatureBase;

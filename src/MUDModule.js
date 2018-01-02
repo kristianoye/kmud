@@ -59,7 +59,7 @@ class MUDModule {
         this.singleton = false;
         this.wrappers = [null];
 
-        MUDData.MasterObject.preCompile(this);
+        MUDData.DriverObject.preCompile(this);
     }
 
     /**
@@ -122,7 +122,7 @@ class MUDModule {
                     enumerable: false
                 });
 
-                MUDData.MasterObject.registerReset(instanceWrapper, false, store);
+                MUDData.DriverObject.registerReset(instanceWrapper, false, store);
 
                 return instanceWrapper;
             }
@@ -330,7 +330,7 @@ class MUDModule {
                     }
                     catch (e)
                     {
-                        MUDData.MasterObject.errorHandler(e, false);
+                        MUDData.DriverObject.errorHandler(e, false);
                     }
                     innerCallback();
                 }, err => {

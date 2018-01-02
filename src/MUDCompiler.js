@@ -200,7 +200,7 @@ class MUDCompiler {
                         try {
                             var instance = module.createInstance(0, isReload, constructorArgs);
 
-                            if (!MUDData.MasterObject.validObject(instance())) {
+                            if (!MUDData.DriverObject.validObject(instance())) {
                                 throw new Error(`Could not load ${context.filename} [Illegal Object]`);
                             }
 
@@ -243,7 +243,7 @@ class MUDCompiler {
                 MUDData.ModuleCache.delete(context.filename);
             }
             MUDData.CleanError(err);
-            MUDData.MasterObject.logError(context.filename, err);
+            MUDData.DriverObject.logError(context.filename, err);
             throw err;
         }
         finally {

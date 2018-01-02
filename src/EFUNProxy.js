@@ -61,11 +61,11 @@ class EFUNProxy {
     }
 
     adminp(target) {
-        return MUDData.MasterObject.inGroup(target, 'admin');
+        return MUDData.DriverObject.inGroup(target, 'admin');
     }
 
     archp(target) {
-        return MUDData.MasterObject.inGroup(target, 'arch', 'admin');
+        return MUDData.DriverObject.inGroup(target, 'arch', 'admin');
     }
 
     arrayToSentence(list, useOr, consolidate, useNumbers) {
@@ -157,7 +157,7 @@ class EFUNProxy {
         let args = [].slice.call(arguments),
             filename = this.resolvePath(args[0], this.directory + '/');
 
-        if (MUDData.MasterObject.validRead(this, filename)) {
+        if (MUDData.DriverObject.validRead(this, filename)) {
             var module = MUDData.ModuleCache.get(filename);
             if (!module || !module.loaded) {
                 MUDData.Compiler(filename);
@@ -322,7 +322,7 @@ class EFUNProxy {
             callback = client;
             client = false;
         }
-        if (MUDData.MasterObject.validExec(this, oldBody, newBody, client)) {
+        if (MUDData.DriverObject.validExec(this, oldBody, newBody, client)) {
             var oldContainer = oldBody ? MUDData.Storage.get(oldBody) : false,
                 newContainer = MUDData.Storage.get(newBody),
                 client = oldContainer.getProtected('$client'),
@@ -339,11 +339,11 @@ class EFUNProxy {
                 .setProtected('$client', client)
                 .setProtected('$clientCaps', client.caps)
                 .emit('kmud.exec', execEvent);
-            MUDData.MasterObject.emit('kmud.exec', execEvent);
+            MUDData.DriverObject.emit('kmud.exec', execEvent);
 
             if (!client) client = thisPlayer.client;
             if (typeof client === 'object') {
-                if (MUDData.MasterObject.exec(oldBody, newBody, client)) {
+                if (MUDData.DriverObject.exec(oldBody, newBody, client)) {
                     if (typeof callback === 'function')
                         callback.call(oldBody, newBody);
                     return true;
@@ -448,7 +448,7 @@ class EFUNProxy {
     getDir(expr, flags, cb) {
         if (typeof flags === 'function') (cb = flags), (flags = 0);
         return this.resolvePath(expr, (fullpath) => {
-            if (MUDData.MasterObject.validRead(this, fullpath)) {
+            if (MUDData.DriverObject.validRead(this, fullpath)) {
                 return MUDData.MasterEFUNS.getDir(
                     MUDData.MasterEFUNS.mudPathToAbsolute(fullpath), flags,
                     MUDExecutionContext.awaiter(cb));
@@ -488,7 +488,7 @@ class EFUNProxy {
      * @param {...string[]} files One or more files to locate.
      */
     includePath (...files) {
-        let includePath = MUDData.MasterObject.includePath, result = [];
+        let includePath = MUDData.DriverObject.includePath, result = [];
 
         files.forEach(fn => {
             includePath.forEach(dir => {
@@ -497,7 +497,7 @@ class EFUNProxy {
                 result.push(path);
             });
         });
-        return files.length === 0 ? MUDData.MasterObject.includePath : result;
+        return files.length === 0 ? MUDData.DriverObject.includePath : result;
     }
 
     /**
@@ -507,7 +507,7 @@ class EFUNProxy {
      * @returns {boolean} True if the path resolves to a directory.
      */
     isDirectory  (dirpath, callback) {
-        if (MUDData.MasterObject.validRead(this, dirpath)) {
+        if (MUDData.DriverObject.validRead(this, dirpath)) {
             return MUDData.MasterEFUNS.isDirectory(MUDData.MasterEFUNS.mudPathToAbsolute(dirpath), callback);
         }
         throw new Error('Permission denied: ' + dirpath);
@@ -550,7 +550,7 @@ class EFUNProxy {
      * @param {function=} cb An optional callback for async operation.
      */
     isFile (filepath, cb) {
-        if (MUDData.MasterObject.validRead(this, filepath)) {
+        if (MUDData.DriverObject.validRead(this, filepath)) {
             return MUDData.MasterEFUNS.isFile(MUDData.MasterEFUNS.mudPathToAbsolute(filepath), cb);
         }
         throw new ErrorTypes.SecurityError();
@@ -572,7 +572,7 @@ class EFUNProxy {
      */
     loadObject(path, args) {
         var filename = this.resolvePath(path);
-        if (MUDData.MasterObject.validRead(this, filename)) {
+        if (MUDData.DriverObject.validRead(this, filename)) {
             var module = MUDData.ModuleCache.get(filename);
             if (module && module.loaded) {
                 if (module.instances[0])
@@ -640,7 +640,7 @@ class EFUNProxy {
      */
     mkdir(path, callback) {
         var filename = this.resolvePath(path);
-        if (MUDData.MasterObject.validWrite(this, filename)) {
+        if (MUDData.DriverObject.validWrite(this, filename)) {
             var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
             return MUDData.MasterEFUNS.mkdir(absPath, callback);
         }
@@ -671,13 +671,13 @@ class EFUNProxy {
             mudlibVersion: 'Emerald MUD 2.0',
             mudMemoryTotal: this.getMemSizeString(process.memoryUsage().heapTotal),
             mudMemoryUsed: this.getMemSizeString(process.memoryUsage().heapUsed),
-            name: MUDData.MasterObject.mudName,
+            name: MUDData.DriverObject.mudName,
             osbuild: os.type() + ' ' + os.release(),
-            serverAddress: MUDData.MasterObject.serverAddress,
+            serverAddress: MUDData.DriverObject.serverAddress,
             systemMemoryUsed: this.getMemSizeString(os.totalmem() - os.freemem()),
             systemMemoryPercentUsed: ((os.totalmem() - os.freemem()) / os.totalmem()) * 100.0,
             systemMemoryTotal: this.getMemSizeString(os.totalmem()),
-            uptime: MUDData.MasterObject.uptime()
+            uptime: MUDData.DriverObject.uptime()
         };
     }
 
@@ -790,7 +790,7 @@ class EFUNProxy {
      * @returns {any} A value from the config if permitted by the master object.
      */
     readConfig(key, defaultValue) {
-        if (MUDData.MasterObject.validReadConfig(this.thisObject(), key))
+        if (MUDData.DriverObject.validReadConfig(this.thisObject(), key))
             return MUDData.Config.readValue(key, defaultValue);
         return false;
     }
@@ -802,7 +802,7 @@ class EFUNProxy {
      * @returns {string|void} Reads the file contents if read synchronously.
      */
     readFile(filename, callback) {
-        if (MUDData.MasterObject.validRead(this, filename)) {
+        if (MUDData.DriverObject.validRead(this, filename)) {
             let result = MUDData.MasterEFUNS.readFile(
                 MUDData.MasterEFUNS.mudPathToAbsolute(this.resolvePath(filename)),
                 MUDExecutionContext.awaiter(callback));
@@ -830,7 +830,7 @@ class EFUNProxy {
 
     reloadObject(path) {
         var filename = this.resolvePath(path);
-        if (MUDData.MasterObject.validRead(this, filename)) {
+        if (MUDData.DriverObject.validRead(this, filename)) {
             var result = MUDData.Compiler(filename, true);
             return result === false ? false : true;
         }
@@ -898,7 +898,7 @@ class EFUNProxy {
 
     rm(path, callback) {
         var filename = this.resolvePath(path);
-        if (MUDData.MasterObject.validWrite(this, filename)) {
+        if (MUDData.DriverObject.validWrite(this, filename)) {
             var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
             return MUDData.MasterEFUNS.rm(absPath);
         }
@@ -907,7 +907,7 @@ class EFUNProxy {
 
     rmdir(path, callback) {
         var filename = this.resolvePath(path);
-        if (MUDData.MasterObject.validWrite(this, filename)) {
+        if (MUDData.DriverObject.validWrite(this, filename)) {
             var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
             return MUDData.MasterEFUNS.rmdir(absPath);
         }
@@ -946,12 +946,12 @@ class EFUNProxy {
                 interval = MUDConfig.mudlib.objectResetInterval;
                 interval = (interval / 2) + Math.random(interval / 2);
             }
-            MUDData.MasterObject.registerResetTime(ob, new Date().getTime() + interval);
+            MUDData.DriverObject.registerResetTime(ob, new Date().getTime() + interval);
         });
     }
 
     shutdown(errCode, reason) {
-        if (MUDData.MasterObject.validShutdown(this)) {
+        if (MUDData.DriverObject.validShutdown(this)) {
             process.exit(errCode || 0);
         }
     }
@@ -1044,7 +1044,7 @@ class EFUNProxy {
             content = content();
         }
 
-        if (MUDData.MasterObject.validWrite(this, _filename)) {
+        if (MUDData.DriverObject.validWrite(this, _filename)) {
             return MUDData.MasterEFUNS.writeFile(_absfile, content,
                 MUDExecutionContext.awaiter(callback),
                 overwrite);
@@ -1162,8 +1162,8 @@ EFUNProxy.createEfunProxy = function (filename) {
     if (MUDData.InGameMaster) {
         perms = MUDData.InGameMaster().getPermissions(filename);
     }
-    else if (MUDData.MasterObject) {
-        if (filename === MUDData.MasterObject.masterFilename) {
+    else if (MUDData.DriverObject) {
+        if (filename === MUDData.DriverObject.masterFilename) {
             perms = ['ROOT'];
         }
     }

@@ -1,0 +1,60 @@
+﻿{
+  "/": {
+    "$admin": "ALL",
+    "SYSTEM": "ALL",
+    "$arch": "READ WRITE LOAD UNLOAD GERPERMS",
+    "*default": "READ LIST"
+  },
+  "/base": {
+    "$mudlib": "READ WRITE CREATE DELETE LOAD UNLOAD",
+    "*default": "LOAD"
+  },
+  "/cmds/": {
+    "$mudlib": "READ WRITE CREATE DELETE LOAD UNLOAD",
+    "*default": "LOAD"
+  },
+  "/doc/": {
+    "*default": "NOLOAD READ"
+  },
+  "/log/": {
+    "*default": "NOINHERIT LIST",
+    "$arch": "READ LIST",
+    "$mudlib": "READ LIST"
+  },
+  "/log/errors/([\\w]+)": {
+    "$1": "READ WRITE"
+  },
+  "/realms/([\\w]+)/": {
+    "~$1": "READ WRITE LOAD UNLOAD GRANT CREATE",
+    "$1": "ALL"
+  },
+  "/sys": {
+    "$arch": "READ LIST"
+  },
+  "/sys/cmds/": {
+    "$mudlib": "READ WRITE CREATE DELETE LOAD UNLOAD",
+    "*default": "LOAD LIST"
+  },
+  "/sys/cmds/admin/": {
+    "*default": "NOINHERIT NONE"
+  },
+  "/sys/cmds/arch/": {
+    "*default": "NOINHERIT NONE",
+    "$mudlib": "READ"
+  },
+  "/sys/etc/": {
+    "*default": "NONE NOINHERIT",
+    "SYSTEM": "READ WRITE CREATE LIST",
+    "$arch": "READ LIST",
+    "$admin": "READ WRITE CREATE LIST"
+  },
+  "/world/([^\\/]+)/": {
+    "^$1": "READ WRITE LOAD UNLOAD DELETE CREATE",
+    "$mudlib": "READ WRITE LOAD UNLOAD"
+  },
+  "/wwwroot/": {
+    "*default": "NOINHERIT NONE",
+    "*arch": "READ LIST",
+    "*admin": "READ WRITE LIST"
+  }
+}

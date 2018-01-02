@@ -67,7 +67,7 @@ class RanvierTelnetInstance extends ClientInstance {
             }
             catch (err) {
                 if (evt) evt.callback(evt);
-                MUDData.MasterObject.errorHandler(err, false);
+                MUDData.DriverObject.errorHandler(err, false);
             }
             finally {
                 gameMaster.setThisPlayer(false, true);

@@ -5,7 +5,7 @@
     path = require('path');
 
 class DriverFeature {
-    constructor(data, pos, driverFlags) {
+    constructor(id, data, pos, driverFlags) {
         /** @type {Object.<string,boolean>} */
         this.driverFlags = driverFlags;
 
@@ -16,7 +16,7 @@ class DriverFeature {
         this.instance = null;
 
         /** @type {string} */
-        this.id = data.id;
+        this.id = id;
 
         /** @type {string} */
         this.name = data.name;
