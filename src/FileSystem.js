@@ -29,12 +29,17 @@ class FileSystem extends MUDEventEmitter {
     }
 
     assertAsync(code) {
-        if (!this.isAsync) throw new Error(`Filesystem type ${this.type} does not support asyncrononous I/O`);
+        if (!this.isAsync) throw new Error(`Filesystem type ${this.type} does not support asyncrononous I/O.`);
         return code.call(this);
     }
 
+    assertDirectories(code) {
+        if (!this.hasDirectories) throw new Error(`Filesystem type ${this.type} does not support directories.`);
+        return code ? code.call(this) : true;
+    }
+
     assertSync(code) {
-        if (!this.isSync) throw new Error(`Filesystem type ${this.type} does not support syncrononous I/O`);
+        if (!this.isSync) throw new Error(`Filesystem type ${this.type} does not support syncrononous I/O.`);
         return code.call(this);
     }
 
@@ -78,16 +83,12 @@ class FileSystem extends MUDEventEmitter {
      * @param {function=} callback
      */
     createDirectory(path, callback) {
-        if (!this.hasDirectories)
-            throw new Error(`Filesystem type ${this.type} does not support directories!`);
-
+        this.assertDirectories();
         if (typeof callback === 'function') {
-            if (!this.isAsync) throw new Error(`Filesystem type ${this.type} does not support asyncrononous I/O`);
-            return this.createDirectoryAsync(path, MUDExecutionContext.awaiter(callback));
+            return this.assertAsync(() => this.createDirectoryAsync(path, MUDExecutionContext.awaiter(callback)));
         }
         else {
-            if (!this.isSync) throw new Error(`Filesystem type ${this.type} does not support syncrononous I/O`);
-            return this.createDirectorySync(path, content);
+            return this.assertSync(() => this.createDirectorySync(path, content));
         }
     }
 

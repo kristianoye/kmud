@@ -17,6 +17,7 @@ class FileManager extends MUDEventEmitter {
         /** @type {Object.<string,FileSystem>} */
         this.fileSystems = {};
 
+        // TODO: Add security abstraction
         this.security = null;
     }
 
@@ -26,14 +27,19 @@ class FileManager extends MUDEventEmitter {
      * @returns {FileSystem} The filesystem supporting the specified path.
      */
     getFileSystem(path) {
-        let parts = path.split('/');
+        let parts = path.split('/'),
+            result = this.fileSystems['/'] || false;
         while (parts.length) {
             let dir = '/' + parts.join('/');
-            if (dir in this.fileSystems)
-                return this.fileSystems[dir];
+            if (dir in this.fileSystems) {
+                result = this.fileSystems[dir];
+                break;
+            }
             parts.pop();
         }
-        return this.filesystems['/'];
+        if (!result)
+            throw new Error('Fatal: Could not locate filesystem');
+        return result;
     }
 
     appendFile(path, content, callback) {
@@ -44,6 +50,10 @@ class FileManager extends MUDEventEmitter {
     createDirectory(path, callback) {
         let fs = this.getFileSystem(path);
         return fs.createDirectory(path, callback);
+    }
+
+    createFile(path, content, callback) {
+
     }
 }
 
