@@ -1,6 +1,7 @@
 ﻿
 class MUDEventEmitter {
     constructor() {
+        /** @type {Object.<string,Function>} */
         this.events = {};
     }
 
@@ -21,6 +22,11 @@ class MUDEventEmitter {
         return this;
     }
 
+    /**
+     * Emit an event that listeners can detect and act on.
+     * @param {string} eventName The name of the event being fired.
+     * @param {...any[]} args Arguments related to the event.
+     */
     emit(eventName, ...args) {
         let event = this.events[eventName];
         if (event) {

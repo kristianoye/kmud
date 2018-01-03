@@ -453,6 +453,12 @@
     <Compile Include="src\features\MUDEditor.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\FileManager.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\FileSystem.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\GameServer.js">
       <SubType>Code</SubType>
     </Compile>

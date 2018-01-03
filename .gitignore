@@ -8,3 +8,4 @@ lib/sys/data/
 mudconfig.json
 runOnce.json
 runAlways.json
+shadowfs/

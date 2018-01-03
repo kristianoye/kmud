@@ -285,7 +285,7 @@ class SecurityFileACLFeature extends FeatureBase {
             if (this.applyNameValidRead.indexOf('->') > -1)
                 throw new Error('Parameter applyNameValidRead cannot be aliased.');
             driverPrototype[this.applyNameValidRead] = function (caller, path, perms) {
-
+                let acl = AclCache.get(path);
             };
         }
         if (this.applyNameValidWrite) {
