@@ -12,14 +12,7 @@ class MUDError extends Error {
     }
 }
 
-class SecurityError extends MUDError
-{
-    constructor(e) {
-        super(e);
-    }
-}
-
-class BadModuleError extends MUDError {
+class SecurityError extends MUDError {
     constructor(e) {
         super(e);
     }
@@ -27,14 +20,20 @@ class BadModuleError extends MUDError {
 
 class MissingConfigError extends MUDError {
     constructor(e) {
-        super(e);
+        super(`Configuration parameter ${e} was not defined.`);
+    }
+}
+
+class NotImplementedError extends MUDError {
+    constructor(method) {
+        super(`Method ${method} is not implemented.`);
     }
 }
 
 
 module.exports = {
-    BadModuleError: BadModuleError,
-    MissingConfigError: MissingConfigError,
-    MUDError: MUDError,
-    SecurityError: SecurityError
+    MUDError,
+    MissingConfigError,
+    NotImplementedError,
+    SecurityError,
 };

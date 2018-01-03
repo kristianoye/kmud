@@ -1,16 +1,19 @@
 ﻿const
-    FileSystem = require('../FileSystem'),
+    FileSystem = require('../FileSystem').FileSystem,
     path = require('path'),
     fs = require('fs');
 
-class DefaultFS extends FileSystem {
+class DefaultFileSystem extends FileSystem {
     constructor(config) {
         super();
         /** @type {string} */
         this.root = config.root;
 
         /** @type {number} */
-        this.modes = FileSystem.FS_ASYNC | FileSystem.FS_ASYNC | FileSystem.FS_DIRECTORIES;
+        this.flags = FileSystem.FS_ASYNC |
+            FileSystem.FS_ASYNC |
+            FileSystem.FS_DIRECTORIES |
+            FileSystem.FS_WILDCARDS;
 
         /** @type {RegExp} */
         this.translator = new RegExp(/\//g);
@@ -36,7 +39,10 @@ class DefaultFS extends FileSystem {
      */
     appendFileAsync(expr, content, callback) {
         let filepath = this.translatePath(expr);
-        return fs.writeFile(filepath, content, callback);
+        return fs.writeFile(filepath, content, {
+            encoding: this.encoding || 'utf8',
+            flag: 'a'
+        }, callback);
     }
 
     /**
@@ -46,7 +52,10 @@ class DefaultFS extends FileSystem {
      */
     appendFileSync(expr, content) {
         let filepath = this.translatePath(expr);
-        return fs.writeFileSync(filepath, content);
+        return fs.writeFileSync(filepath, content, {
+            encoding: this.encoding || 'utf8',
+            flag: 'a'
+        });
     }
 
     createDirectoryAsync(expr, callback) {
@@ -58,6 +67,22 @@ class DefaultFS extends FileSystem {
         let filepath = this.translatePath(expr);
         return fs.mkdirSync(filepath);
     }
+
+    writeFileAsync(expr, content, callback) {
+        let filepath = this.translatePath(expr);
+        return fs.writeFile(filepath, content, {
+            encoding: this.encoding || 'utf8',
+            flag: 'w'
+        }, callback);
+    }
+
+    writeFileSync(expr, content) {
+        let filepath = this.translatePath(expr);
+        return fs.writeFileSync(filepath, content, {
+            encoding: this.encoding || 'utf8',
+            flag: 'w'
+        });
+    }
 }
 
-module.exports = DefaultFS;
+module.exports = DefaultFileSystem;

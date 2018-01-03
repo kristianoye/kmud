@@ -8,9 +8,52 @@
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
     MUDExecutionContext = require('./MUDExcecutionContext'),
-    FS_SYNC = 1 << 0,        // The filesystem supports syncronous I/O.
-    FS_ASYNC = 1 << 2,       // The filesystem supports asyncronous I/O.
-    FS_DIRECTORIES = 1 << 3; // The filesystem supports directories.
+    { NotImplementedError } = require('./ErrorTypes'),
+    FS_NONE = 0,            // No flags set
+    FS_SYNC = 1 << 0,       // The filesystem supports syncronous I/O.
+    FS_ASYNC = 1 << 2,      // The filesystem supports asyncronous I/O.
+    FS_DIRECTORIES = 1 << 3,// The filesystem supports directories.
+    FS_READONLY = 1 << 4,   // The filesystem is read-only
+    FS_WILDCARDS = 1 << 5,  // The filesystem supports use of wildcards.
+    FT_UNKNOWN = 0,
+    FT_FILE = 1 << 0,
+    FT_DIRECTORY = 1 << 1,
+    fs = require('fs'),
+    path = require('path');
+
+class FileSystemStat {
+    constructor(data) {
+        /** @type {boolean} */
+        this.exists = data.exists || false;
+
+        /** @type {FileSystemStat} */
+        this.parent = data.parent || false;
+
+        /** @type {Object.<string,number>} */
+        this.perms = data.perms || {};
+
+        /** @type {number} */
+        this.type = data.perms || FT_UNKNOWN; 
+    }
+
+    /**
+     * Creates a deep clone of the stat that is safe to return to the MUD.
+     */
+    clone() {
+        let result = {
+            exists: this.exists,
+            parent: this.parent ? this.parent.clone() : null,
+            perms: {},
+            type: this.type
+        };
+
+        Object.keys(this.perms).forEach(k => {
+            result.perms[k] = this.perms[k];
+        });
+
+        return result;
+    }
+}
 
 /**
  * @class
@@ -18,29 +61,44 @@ const
  * multiple filesystem types (disk-based, SQL-based, etc).
  */
 class FileSystem extends MUDEventEmitter {
-    constructor() {
+    constructor(opts) {
         super();
 
+        /** @type {string} */
+        this.encoding = opts.encoding || 'utf8';
+
         /** @type {number} */
-        this.flags = FS_SYNC | FS_ASYNC;
+        this.flags = opts.flags || FS_NONE;
 
         /** @type {string} */
-        this.type = 'unknown';
+        this.mp = opts.mountPoint || '';
+
+        /** @type {string} */
+        this.type = opts.type || 'unknown';
     }
 
     assertAsync(code) {
-        if (!this.isAsync) throw new Error(`Filesystem type ${this.type} does not support asyncrononous I/O.`);
+        if (!this.isAsync)
+            throw new Error(`Filesystem type ${this.type} does not support asyncrononous I/O.`);
         return code.call(this);
     }
 
     assertDirectories(code) {
-        if (!this.hasDirectories) throw new Error(`Filesystem type ${this.type} does not support directories.`);
+        if (!this.hasDirectories)
+            throw new Error(`Filesystem type ${this.type} does not support directories.`);
         return code ? code.call(this) : true;
     }
 
     assertSync(code) {
-        if (!this.isSync) throw new Error(`Filesystem type ${this.type} does not support syncrononous I/O.`);
-        return code.call(this);
+        if (!this.isSync)
+            throw new Error(`Filesystem type ${this.type} does not support syncrononous I/O.`);
+        return code ? code.call(this) : true;
+    }
+
+    assertWritable(code) {
+        if (this.isReadOnly())
+            throw new Error(`Filesystem ${this.mp} [type ${this.type}] is read-only.`);
+        return code ? code.call(this) : true;
     }
 
     /**
@@ -65,7 +123,7 @@ class FileSystem extends MUDEventEmitter {
      * @param {function(Error):void} callback
      */
     appendFileAsync(path, content, callback) {
-        throw new Error('appendFileAsync() not implemented.');
+        throw new NotImplementedError('appendFileAsync');
     }
 
     /**
@@ -74,7 +132,7 @@ class FileSystem extends MUDEventEmitter {
      * @param {any} content
      */
     appendFileSync(path, content) {
-        throw new Error('appendFileSync() not implemented.');
+        throw new NotImplementedError('appendFileSync');
     }
 
     /**
@@ -93,11 +151,11 @@ class FileSystem extends MUDEventEmitter {
     }
 
     createDirectoryAsync(path, callback) {
-        throw new Error('createDirectoryAsync() not implemented');
+        throw new NotImplementedError('createDirectoryAsync');
     }
 
     createDirectorySync(path) {
-        throw new Error('createDirectorySync() not implemented');
+        throw new NotImplementedError('createDirectorySync');
     }
 
     createFile(path, content, callback) {
@@ -112,19 +170,74 @@ class FileSystem extends MUDEventEmitter {
     }
 
     createFileAsync(path, content, callback) {
-        throw new Error('createFileAsync() not implemented');
+        throw new NotImplementedError('createFileAsync');
     }
 
     createFileSync(path, content) {
         throw new Error('createFileSync() not implemented');
     }
 
-    deleteDirectory(path, recursive, callback) {
-        throw new Error('deleteDirectory() not implemented.');
+    /**
+     * @returns {FileSystemStat} The final stat object.
+     */
+    createPermsResult(expr, perms, parent) {
+        return new FileSystemStat({
+            fileName: expr,
+            perms: perms || {},
+            parent: parent || null
+        });
     }
 
-    deleteFile(path, callback) {
-        throw new Error('deleteFile() not implemented.');
+    deleteDirectory(path, recursive, callback) {
+        if (typeof callback === 'function') {
+            return this.assertAsync(() => this.deleteDirectoryAsync(expr, recursive, MUDExecutionContext.awaiter(callback)));
+        }
+        else {
+            return this.assertSync(() => this.deleteDirectorySync(expr, recursive));
+        }
+    }
+
+    deleteDirectoryAsync(expr, recursive, callback) {
+        throw new NotImplementedError('deleteDirectoryAsync');
+    }
+
+    deleteDirectorySync(expr, recursive) {
+        throw new NotImplementedError('deleteDirectorySync');
+    }
+
+    deleteFile(expr, callback) {
+        if (typeof callback === 'function') {
+            return this.assertAsync(() => this.deleteFileAsync(expr, MUDExecutionContext.awaiter(callback)));
+        }
+        else {
+            return this.assertSync(() => this.deleteFileSync(expr));
+        }
+    }
+
+    deleteFileAsync(expr, callback) {
+        throw new NotImplementedError('deleteFileAsync');
+    }
+
+    deleteFileSync(expr) {
+        throw new NotImplementedError('deleteFileSync');
+    }
+
+    getFiles(expr, flags, callback) {
+        if (typeof flags === 'function') {
+            callback = flags;
+            flags = 0;
+        }
+        return typeof callback === 'function' ?
+            this.assertAsync(() => this.getFilesAsync(expr, flags, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.getFilesSync(expr, flags));
+    }
+
+    getFilesAsync(expr, flags, callback) {
+        throw new NotImplementedError('getFilesAsync');
+    }
+
+    getFilesSync(expr, flags) {
+        throw new NotImplementedError('getFilesSync');
     }
 
     /**
@@ -137,20 +250,59 @@ class FileSystem extends MUDEventEmitter {
      */
     get isAsync() { return (this.flags & FS_ASYNC) > 0; }
 
+    get isReadOnly() { return (this.flags & FS_READONLY) > 0; }
     /**
      * @returns {boolean} Returns true if the filesystem supports syncronous I/O
      */
     get isSync() { return (this.flags & FS_SYNC) > 0; }
 
-    stat(path, callback) {
+    /**
+     * Stat a file within the filesystem.
+     * @param {string} expr The file expression to evaluate.s
+     * @param {function(FileSystemStat,Error):void} callback An optional callback for async mode.
+     * @returns {FileSystemStat} The filesystem stat info.
+     */
+    stat(expr, callback) {
         if (typeof callback === 'function') {
-            if (!this.isAsync) 
-                throw new Error()
+            return this.assertAsync(() => this.statAsync(expr, MUDExecutionContext.awaiter(callback)));
+        }
+        else {
+            return this.assertSync(() => this.statSync(expr));
         }
     }
 
-    writeFile(path) {
-        throw new Error('writeFile() not implemented.');
+    /**
+     * Stat a file asyncronously.
+     * @param {string} expr The file expression to stat.
+     * @param {function(FileSystemStat,Error):void} callback
+     */
+    statAsync(expr, callback) {
+        throw new NotImplementedError('statAsync');
+    }
+
+    /**
+     * Stat a file syncronously.
+     * @param {string} expr The file expression to stat.
+     */
+    statSync(expr) {
+        throw new NotImplementedError('statSync');
+    }
+
+    writeFile(expr, content, callback) {
+        if (typeof callback === 'function') {
+            return this.assertAsync(() => this.writeFileAsync(expr, content, MUDExecutionContext.awaiter(callback)));
+        }
+        else {
+            return this.assertSync(() => this.writeFileSync(expr, content));
+        }
+    }
+
+    writeFileAsync(expr, content, callback) {
+        throw new NotImplementedError('writeFileAsync');
+    }
+
+    writeFileSync(expr, content) {
+        throw new NotImplementedError('writeFileSync');
     }
 }
 
@@ -163,9 +315,20 @@ FileSystem.FS_ASYNC = FS_ASYNC;
  */
 FileSystem.FS_DIRECTORIES = FS_DIRECTORIES;
 /**
+ * Filesystem is read-only.
+ */
+FileSystem.FS_READONLY = FS_READONLY;
+/**
  * Filesystem supports syncronous operations.
  */
 FileSystem.FS_SYNC = FS_SYNC;
+/**
+ * Filesystem supports the use of wildcards.
+ */
+FileSystem.FS_WILDCARDS = FS_WILDCARDS;
 
-module.exports = FileSystem;
+module.exports = {
+    FileSystem,
+    FileSystemStat
+};
 

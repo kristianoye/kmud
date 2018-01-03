@@ -456,9 +456,16 @@
     <Compile Include="src\FileManager.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\FileSecurity.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\FileSystem.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\fs\DefaultFileSystem.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\fs\DefaultFileSecurity.js" />
     <Compile Include="src\GameServer.js">
       <SubType>Code</SubType>
     </Compile>
@@ -905,6 +912,7 @@
     <Folder Include="src\network\impl\kmud\" />
     <Folder Include="src\network\impl\xterm\" />
     <Folder Include="src\network\impl\zmud\" />
+    <Folder Include="src\fs\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
   </ItemGroup>
