@@ -2,15 +2,14 @@
 const
     PipelineContext = require('./PipelineContext').PipelineContext,
     VMAbstraction = require('./VMAbstraction'),
-    MUDData = require('../MUDData'),
     MUDConfig = require('../MUDConfig'),
     MUDModule = require('../MUDModule'),
-    CompilerTimeout = MUDConfig.driver.compiler.maxCompileTime || -1,
     fs = require('fs'),
     vm = require('vm');
 
 var
-    ExtensionText = MUDData.StripBOM(fs.readFileSync('src/Extensions.js', 'utf8'));
+    CompilerTimeout = 0,
+    ExtensionText = '';
 
 class VMWrapper extends VMAbstraction {
     constructor() {
@@ -49,4 +48,9 @@ class VMWrapper extends VMAbstraction {
     }
 }
 
-module.exports = new VMWrapper();
+VMWrapper.configureForRuntime = function (driver) {
+    ExtensionText = MUDConfig.stripBOM(fs.readFileSync('src/Extensions.js', 'utf8'));
+    CompilerTimeout = MUDConfig.get().driver.compiler.maxCompileTime;
+};
+
+module.exports = VMWrapper;

@@ -1,18 +1,29 @@
+/// <reference path="../dts/GameServer.d.ts"/>
+/// <reference path="../dts/EFUNProxy.d.ts"/>
 const
-    FileSecurity = require('../FileSecurity');
+    FileSecurity = require('../FileSecurity'),
+    { SecurityError } = require('../ErrorTypes');
 
 class DefaultFileSecurity extends FileSecurity {
-    constructor() {
-        super();
+    /**
+     * Generate a security error or just indicate failure quietly.
+     * @param {any} verb The verb being denied (e.g. read, write, append, etc).
+     * @param {function=} callback An optional callback 
+     * @returns {false}
+     */
+    denied(verb, expr, callback) {
+        if (this.throwSecurityExceptions)
+            throw new SecurityError(`Permission denied: Could not ${verb} '${expr}'`);
+        return typeof callback === 'function' ? callback(false, `Permission denied: Could not ${verb} '${expr}'`) : false;
     }
 
     /**
      * Default security does not distinguish creating a file from writing.
-     * @param {any} caller
+     * @param {any} efuns
      * @param {string} expr
      */
-    validCreateFile(caller, expr) {
-        return this.validWrite(caller, expr);
+    validCreateFile(efuns, expr) {
+        return this.validWrite(efuns, expr);
     }
 
     /**
@@ -25,6 +36,15 @@ class DefaultFileSecurity extends FileSecurity {
     }
 
     /**
+     * Default security does not restrict object destruction.
+     * @param {any} caller
+     * @param {any} expr
+     */
+    validDestruct(caller, expr) {
+        return true;
+    }
+
+    /**
      * Default security system does not support granting permissions.
      */
     validGrant(caller, expr) {
@@ -32,29 +52,48 @@ class DefaultFileSecurity extends FileSecurity {
     }
 
     /**
-     * Default security does not distinguish between loading and reading.
-     * @param {any} caller
-     * @param {string} expr
+     * Default security does not enforce object loading or cloning.
+     * @param {EFUNProxy} efuns External functions making the call.
+     * @param {string} expr The path to load the object from.
      */
-    validLoadFile(caller, expr) {
-        return this.validRead(caller, expr);
+    validLoadObject(efuns, expr) {
+        return this.validReadFile(efuns, expr);
+    }
+
+    /**
+     * Default security does not distinguish between file and directory reads.
+     * @param {EFUNProxy} efuns The proxy requesting the directory listing.
+     * @param {string} expr The path expression to try and read.
+     */
+    validReadDirectory(efuns, expr) {
+        return this.validReadFile(efuns, expr);
     }
 
     /**
      * Determine if the caller has permission to read a particular file.
-     * @param {any} caller
-     * @param {any} expr
+     * @param {EFUNProxy} efuns
+     * @param {string} expr
      */
-    validReadFile(caller, expr) {
+    validReadFile(efuns, expr) {
+        return true;
+    }
+
+    /**
+     * Default security treats filestat as a normal read operation.
+     * @param {EFUNProxy} efuns
+     * @param {string} expr
+     */
+    validStatFile(efuns, expr) {
+        return this.validReadFile(efuns, expr);
     }
 
     /**
      * Determine if the caller has permission to write to the filesystem.
-     * @param {any} caller
+     * @param {EFUNProxy} efuns
      * @param {string} expr
      */
-    validWriteFile(caller, expr) {
-
+    validWriteFile(efuns, expr) {
+        return true;
     }
 }
 

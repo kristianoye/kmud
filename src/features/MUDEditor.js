@@ -12,7 +12,7 @@ const
     FeatureBase = require('./FeatureBase'),
     MUDData = require('../MUDData'),
     MUDObject = require('../MUDObject'),
-    MUDStorage = require('../MUDStorage'),
+    MUDStorage = require('../MUDStorage').MUDStorageContainer,
     MODE_INPUT = 1,
     MODE_COMMAND = 2,
     ParseEditorCommand = /^([0-9,]*)([a-zA-Z\/=\?]{0,1})([0-9,]*)(.*)/,

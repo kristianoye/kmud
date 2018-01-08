@@ -27,8 +27,11 @@ class MUDLoader {
             _isSingleton = false,
             _loaderEnabled = false,
             _primaryExport = false,
-            _oldEfuns = _efuns,
-            self = this;
+            _oldEfuns = _efuns;
+        var
+            self = (/** @returns {MUDLoader} */ function (t) {
+                return t;
+            })(this);
 
         this.console = console;
 
@@ -206,7 +209,7 @@ class MUDLoader {
 
                             default:
                                 var filename = self.efuns.resolvePath(exp, self.efuns.directory),
-                                    module = MUDData.Compiler(filename);
+                                    module = driver.compiler.compileObject(filename);
                                 if (!module)
                                     throw new Error('Failed to load parent module: ' + filename);
                                 return module.importScope(self);
@@ -221,6 +224,7 @@ class MUDLoader {
                     var _ = this || self;
                     [].slice.call(arguments).forEach(exp => {
                         if (typeof exp === 'string') {
+                            //  TODO: Add valid_external apply to let master decide which objects can use external node modules.
                             switch (exp) {
                                 case 'lpc':
                                     _[exp] = require('./LPCCompat');
@@ -233,7 +237,7 @@ class MUDLoader {
 
                                 default:
                                     var filename = _.efuns.resolvePath(src, _.efuns.directory),
-                                        module = MUDData.Compiler(filename);
+                                        module = driver.compiler.compileObject(src, false, _efuns.directory);
                                     if (!module)
                                         throw new Error('Failed to load parent module: ' + filename);
                                     module.importScope(_);
@@ -247,35 +251,26 @@ class MUDLoader {
             },
             include: {
                 value: function (src) {
-                    var _ = this || self;
                     [].slice.call(arguments).forEach(fn => {
-                        var searchPath = _.efuns.includePath(fn);
-                        var fullPath = _.efuns.resolvePath(fn, _.directory);
+                        let searchPath = self.efuns.includePath(fn);
 
-                        if (!fullPath.endsWith('.js'))
-                            fullPath += '.js';
-
-                        searchPath.unshift(fullPath);
-
-                        for (var i = 0, max = searchPath.length; i < max; i++) {
-                            var includedFile = searchPath[i];
-                            if (_.efuns.isFile(includedFile)) {
-                                var content = _includeCache[includedFile] || false;
-                                try {
-                                    if (!content) {
-                                        content = MUDData.StripBOM(_.efuns.readFile(includedFile));
-                                    }
-                                    var ctx = vm.createContext(_);
-                                    var result = vm.runInContext(content, ctx, {
-                                        filename: MUDData.MudPathToRealPath(searchPath[i]),
+                        for (let i = 0, max = searchPath.length; i < max; i++) {
+                            if (self.efuns.isFile(searchPath[i])) {
+                                let content = self.efuns.readFile(searchPath[i]);
+                                if (content) {
+                                    //let result = vm.runInThisContext(content, {
+                                    //    filename: searchPath[i],
+                                    //    lineOffset: 0,
+                                    //    displayErrors: true
+                                    //});
+                                    //var ctx = vm.createContext(_);
+                                    var result = vm.runInContext(content, self, {
+                                        filename: searchPath[i],
                                         lineOffset: 0,
                                         displayErrors: true
                                     });
+                                    return true;
                                 }
-                                catch (x) {
-                                    console.log(x);
-                                }
-                                return;
                             }
                         }
                         throw new Error('Failed to locate include file: ' + fn);
@@ -304,7 +299,7 @@ class MUDLoader {
                         _extending = target;
                         var ctx = vm.createContext(_);
                         var result = vm.runInContext(content, ctx, {
-                            filename: MUDData.MudPathToRealPath(file),
+                            filename: driver.fileManager.toRealPath(file),
                             lineOffset: 0,
                             displayErrors: true
                         });
@@ -382,6 +377,9 @@ class MUDLoader {
             setTimeout: {
                 value: global.setTimeout,
                 writable: false
+            },
+            String: {
+                value: global.String
             },
             thisPlayer: {
                 get: function () { return MUDData.ThisPlayer; }

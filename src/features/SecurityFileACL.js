@@ -125,7 +125,7 @@ class FileAclCache {
                 directory: directoryName,
                 permissions: data
             });
-            fs.readdirSync(MUDData.MudPathToRealPath(directoryName)).forEach(name => {
+            fs.readdirSync(driver.fileManager.toRealPath(directoryName)).forEach(name => {
                 result.addFile(name);
             });
             dirty = true;
@@ -194,7 +194,7 @@ class FileAclCache {
     }
 
     stat(filename) {
-        let realPath = MUDData.MudPathToRealPath(filename);
+        let realPath = driver.fileManager.toRealPath(filename);
         if (fs.existsSync(realPath)) {
             let result = fs.statSync(realPath);
             if (!result.isDirectory())

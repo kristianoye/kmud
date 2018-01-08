@@ -3,23 +3,30 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-var
-    Mudlib = require('./MudLib'),
-    MUDData = require('./MUDData'),
+const
     MUDConfig = require('./MUDConfig'),
     stack = require('callsite');
 
 const
-    _config = '_CONFIG_',
     fs = require('fs'),
     path = require('path'),
     os = require('os'),
     ClientEndpoint = require('./network/ClientEndpoint'),
-    EFUNProxy = require('./EFUNProxy'),
-    MUDCompiler = require('./MUDCompiler'),
     MUDEventEmitter = require('./MUDEventEmitter'),
-    ResetInterval = MUDConfig.mudlib.objectResetInterval,
-    UseLazyResets = MUDConfig.driver.useLazyResets;
+    ExecutionContext = require('./ExecutionContext');
+
+const
+    FileSecurity = require('./FileSecurity'),
+    FileManager = require('./FileManager'),
+    Extensions = require('./Extensions'),
+    MUDStorage = require('./MUDStorage');
+
+var
+    Instance,
+    MUDCompiler,
+    MUDObject,
+    ResetInterval = 1000 * 60 * 60 * 2,
+    UseLazyResets = false;
 
 class GameServer extends MUDEventEmitter {
     /**
@@ -29,33 +36,46 @@ class GameServer extends MUDEventEmitter {
     constructor(config) {
         super();
 
-        this[_config] = config;
+        global.driver = Instance = this;
+
+        /** @type {MUDConfig} */
+        this.config = config;
+
+        ResetInterval = config.mudlib.objectResetInterval;
+        UseLazyResets = config.driver.useLazyResets;
 
 
         if (!this.config) {
-            throw new Error('Arg!');
+            throw new Error('FATAL: GameServer created without configuration!');
         }
 
-        this.setSimulEfunPath(config.mudlib.simulEfuns);
-
-        MUDData.DriverObject = MUDData.DriverObject = this;
-        MUDData.GameState = MUDData.Constants.GAMESTATE_INITIALIZING;
+        if (!(this.gameState = GAMESTATE_STARTING))
+            throw new Error('Unable to set game state!');
 
         this.connections = [];
         this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
+        this.simulEfunPath = config.mudlib.simulEfuns;
+
         this.startTime = new Date().getTime();
 
         this.addressList = { '127.0.0.1': true };
-        this.compiler = MUDData.CompilerInstance = new MUDCompiler(config.driver.compiler);
         this.endpoints = [];
+
+        /** @type {FileManager} */
+        this.fileManager = null;
         this.heartbeatCounter = 0;
         this.includePath = config.mudlib.includePath || [];
         this.masterFilename = config.mudlib.inGameMaster.path;
         this.mudName = config.mud.name;
         this.nextResetTime = 0;
+        this.players = [];
         this.preCompilers = [];
         this.resetStack = [];
         this.resetTimes = {};
+
+        /** @type {FileSecurity} */
+        this.securityManager = null;
+
         this.preloads = [];
 
         this.heartbeatInterval = config.mudlib.heartbeatInterval;
@@ -125,34 +145,31 @@ class GameServer extends MUDEventEmitter {
         });
     }
 
-    /**
-     * @returns {MUDConfig}
-     */
-    get config() {
-        return this[_config];
-    }
-
     addPlayer(body) {
-        var _body = body ? unwrap(body) : false;
-        if (_body && typeof _body.save === 'function') {
-            MUDData.Players.pushDistinct(body);
-        }
-        return this;
+        return unwrap(body, player => {
+            if (typeof player.save === 'function') {
+                let n = this.players.indexOf(body);
+                if (n === -1) this.players.push(body);
+            }
+        });
     }
 
     createMasterObject() {
         let config = this.config.mudlib, self = this,
             startupArgs = {
-                args: Object.extend({ driver: this, resolver: MUDData.MudPathToRealPath }, config.inGameMaster.parameters)
+                args: Object.extend({
+                    driver: this,
+                    resolver: driver.fileManager.toRealPath
+                }, config.inGameMaster.parameters)
             };
 
-        let _inGameMaster = MUDData.Compiler(config.inGameMaster.path, false, undefined, startupArgs);
-
+        let _inGameMaster = this.compiler.compileObject(config.inGameMaster.path, false, undefined, startupArgs);
         if (!_inGameMaster) {
             throw new Error('In-game master could not be loaded; Abort!');
         }
-
-        this.masterObject = unwrap(MUDData.InGameMaster = _inGameMaster.getWrapper(0));
+        this.masterWrapper = _inGameMaster.getWrapper(0);
+        /** @type {MasterObject} */
+        this.masterObject = _inGameMaster.instances[0];
 
         function locateApply(name, required) {
             let func = self.masterObject[config.applyNames[name] || name];
@@ -172,7 +189,6 @@ class GameServer extends MUDEventEmitter {
         this.applyValidShutdown = locateApply('validShutdown', true);
         this.applyValidWrite = locateApply('validWrite', true);
 
-
         this.rootUid = typeof this.masterObject.get_root_uid === 'function' ?
             this.masterObject.get_root_uid() || 'ROOT' : 'ROOT';
 
@@ -184,8 +200,10 @@ class GameServer extends MUDEventEmitter {
 
     mergeEfuns(simul) {
         if (simul) {
-            var wrapper = simul.wrapper;
-            var proto = simul.constructor.prototype;
+            let wrapper = simul.wrapper;
+            let proto = simul.constructor.prototype;
+            let EFUNProxy = require('./EFUNProxy');
+
             Object.getOwnPropertyNames(proto).forEach(function (method) {
                 if (typeof proto[method] !== 'function') return;
                 if (method === 'constructor') return;
@@ -209,6 +227,48 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
+     * Removes absolute paths from a stack trace if possible.
+     * @param {Error} e
+     */
+    cleanError(e) {
+        var s = e.stack,
+            mp = this.fileManager.mudlibAbsolute,
+            mpl = mp.length,
+            p = s.indexOf(mp),
+            v = /[a-zA-Z0-9\\\/\._]/;
+        while (p > -1) {
+            var chunk = s.slice(p, s.indexOf(':', p + mpl));
+            for (var i = 3; i < chunk.length; i++) {
+                if (!chunk.charAt(i).match(v)) break;
+            }
+            var repl = chunk.slice(0, i).replace(/\\\//g, path.sep);
+            if (s.indexOf(repl) === -1) {
+                console.log('Could not clean stack trace; Giving up...');
+                break;
+            }
+            s = s.replace(repl, this.fileManager.toMudPath(repl));
+            p = s.indexOf(mp);
+        }
+        p = s.indexOf(this.config.driver.driverPath);
+        while (p > -1) {
+            s = s.replace(this.config.driver.driverPath, '[driver]');
+            p = s.indexOf(this.config.driver.driverPath);
+        }
+        e.stack = s;
+        return e;
+    }
+
+    /**
+     * Initializes the filesystem.
+     */
+    createFileSystem() {
+        let fsconfig = this.config.mudlib.fileSystem;
+
+        this.fileManager = fsconfig.createFileManager(this);
+        fsconfig.eachFileSystem(config => this.fileManager.addFileSystem(config));
+    }
+
+    /**
      * Preload some common objects to decrease in-game load times while running.
      */
     createPreloads() {
@@ -217,11 +277,11 @@ class GameServer extends MUDEventEmitter {
         }
         if (this.preloads.length > 0) {
             console.log('Creating preloads...');
-            this.preloads.forEach(function (file, i) {
+            this.preloads.forEach((file, i) => {
                 var t0 = new Date().getTime();
                 var foo = Array.isArray(file) ?
-                    MUDData.Compiler(file[0], undefined, undefined, file.slice(1)) :
-                    MUDData.Compiler(file);
+                    this.compiler.compileObject(file[0], undefined, undefined, file.slice(1)) :
+                    this.compiler.compileObject(file);
                 var t1 = new Date().getTime();
                 console.log('\tPreload: {0}: {1} [{2} ms]'.fs(file, foo ? '[OK]' : '[Failure]', t1 - t0));
             });
@@ -229,23 +289,83 @@ class GameServer extends MUDEventEmitter {
 
     }
 
+    /**
+     * Create the simul efuns object.
+     */
     createSimulEfuns() {
         if (this.simulEfunPath) {
-            MUDData.Compiler(this.simulEfunPath);
+            this.compiler.compileObject(this.simulEfunPath);
         }
+    }
+
+    /**
+     * Configure the various components attached to the driver.
+     */
+    configureRuntime() {
+        const
+            ClientInstance = require('./network/ClientInstance'),
+            MUDCache = require('./MUDCache'),
+            MUDCompiler = require('./MUDCompiler'),
+            MUDObject = require('./MUDObject'),
+            EFUNProxy = require('./EFUNProxy'),
+            MUDModule = require('./MUDModule'),
+            MUDStorage = require('./MUDStorage');
+
+        EFUNProxy.configureForRuntime(this);
+        MUDCompiler.configureForRuntime(this);
+        MUDModule.configureForRuntime(this);
+        ClientInstance.configureForRuntime(this);
+        MUDStorage.configureForRuntime(this);
+
+        global.MUDObject = MUDObject;
+        this.cache = new MUDCache();
+        this.compiler = new MUDCompiler(this, this.config.driver.compiler);
+
+        global.unwrap = function (target, success) {
+            var result = false;
+            if (typeof target === 'function' && target._isWrapper === true) {
+                result = target() instanceof MUDObject ? target() : false;
+            }
+            else if (typeof target === 'object' && target instanceof MUDObject) {
+                result = target;
+            }
+            return result === false ? false : (success ? success.call(this, result) : result);
+        };
+
+        global.wrapper = function (_o) {
+            if (typeof _o === 'function' && _o._isWrapper === true) return _w;
+            else if (typeof _o === 'object' && typeof _o.wrapper === 'function') return _o.wrapper;
+            else if (_o instanceof MUDObject) {
+                throw new Error('wrapper() failed');
+            }
+            return false;
+        };
+
+        require('./MUDCache').configureForRuntime(this);
+    }
+
+    /**
+     * Create a context.
+     */
+    createContext() {
+        let stack = this.getObjectStack();
+        return new ExecutionContext(this, stack);
     }
 
     /**
      * Expand the functionality of the driver by loading additional functionality.
      */
     enableFeatures() {
+        const
+            MUDObject = require('./MUDObject'),
+            EFUNProxy = require('./EFUNProxy');
+
         console.log('Bootstrap: Initializing driver features');
         this.features = this.config.driver.forEachFeature((featureConfig, pos, id) => {
             if(featureConfig.enabled) {
                 console.log(`\tEnabling driver feature: ${featureConfig.name}`);
                 let feature = featureConfig.initialize();
 
-                feature.createGlobalData(MUDData);
                 feature.createMasterApplies(this.masterObject, this.masterObject.constructor.prototype);
                 feature.createObjectApplies(MUDObject.prototype);
                 feature.createExternalFunctions(EFUNProxy.prototype);
@@ -264,6 +384,9 @@ class GameServer extends MUDEventEmitter {
         this.preCompilers = this.features.filter((feature) => typeof feature.preCompile === 'function');
     }
 
+    /**
+     * Trap unhandled errors to prevent possible game crashes.
+     */
     enableGlobalErrorHandler() {
         this.globalErrorHandler = true;
         return this;
@@ -276,7 +399,7 @@ class GameServer extends MUDEventEmitter {
      */
     errorHandler(err, caught) {
         if (this.applyErrorHandler) {
-            MUDData.CleanError(err);
+            this.cleanError(err);
             let error = {
                 error: err.message,
                 program: '',
@@ -297,7 +420,7 @@ class GameServer extends MUDEventEmitter {
 
                     if (filename.indexOf('.') === -1) {
                         let fparts = filename.split('#'),
-                            module = MUDData.ModuleCache.get(fparts[0]);
+                            module = this.cache.get(fparts[0]);
                         if (module) {
                             inst = module.instances[fparts.length === 2 ? parseInt(fparts[1]) : 0];
                         }
@@ -327,6 +450,14 @@ class GameServer extends MUDEventEmitter {
         }
     }
 
+    /**
+     * Switch an interactives body
+     * @deprecated
+     * @param {any} oldBody
+     * @param {any} newBody
+     * @param {any} client
+     * @param {any} callback
+     */
     exec(oldBody, newBody, client, callback) {
         var result = false;
         try {
@@ -351,7 +482,7 @@ class GameServer extends MUDEventEmitter {
         }
         catch (err) {
             console.log('Error in executeHeartbeat: ' + err);
-            MUDData.DriverObject.errorHandler(err, false);
+            this.errorHandler(err, false);
         }
     }
 
@@ -374,7 +505,7 @@ class GameServer extends MUDEventEmitter {
     }
 
     inGroup(target, groups) {
-        if (MUDData.GameState < MUDData.Constants.GAMESTATE_RUNNING) return true;
+        if (this.gameState < GAMESTATE_RUNNING) return true;
         else return MUDData.InGameMaster().inGroup(target, [].slice.call(arguments, 1));
     }
 
@@ -463,11 +594,13 @@ class GameServer extends MUDEventEmitter {
                 process.on('uncaughtException', this.errorHandler);
             }
         }
+        this.createFileSystem();
+        this.configureRuntime();
         this.createSimulEfuns();
         this.createMasterObject();
         this.enableFeatures();
 
-        MUDData.GameState = MUDData.Constants.GAMESTATE_STARTING;
+        this.gameState = GAMESTATE_STARTING;
 
         this.sealProtectedTypes();
         this.createPreloads();
@@ -537,15 +670,15 @@ class GameServer extends MUDEventEmitter {
         if (typeof callback === 'function') callback.call(this);
         var startupTime = new Date().getTime() - this.startTime, startSeconds = startupTime / 1000;
         console.log('Startup took {0} seconds [{1} ms]'.fs(startSeconds, startupTime));
-        MUDData.GameState = MUDData.Constants.GAMESTATE_RUNNING;
+        this.gameState = GAMESTATE_RUNNING;
 
-        if (MUDConfig.mudlib.heartbeatInterval > 0) {
+        if (this.config.mudlib.heartbeatInterval > 0) {
             this.heartbeatTimer = setInterval(() => {
                 this.executeHeartbeat();
-            }, MUDConfig.mudlib.heartbeatInterval);
+            }, this.config.mudlib.heartbeatInterval);
         }
 
-        if (MUDConfig.mudlib.objectResetInterval > 0 && MUDConfig.driver.useLazyResets === false) {
+        if (this.config.mudlib.objectResetInterval > 0 && this.config.driver.useLazyResets === false) {
             this.resetTimer = setInterval(() => {
                 let n = 0;
                 for (let i = 0, now = new Date().getTime(); i < this.resetStack.length; i++) {
@@ -585,6 +718,7 @@ class GameServer extends MUDEventEmitter {
      * Try to make sure no evil code tries to redefine important in-game security features..
      */
     sealProtectedTypes() {
+        let MUDObject = require('./MUDObject');
         Object.freeze(this.masterObject);
         Object.freeze(this.masterObject.constructor);
         Object.freeze(this.masterObject.constructor.prototype);
@@ -632,11 +766,6 @@ class GameServer extends MUDEventEmitter {
         return this;
     }
 
-    setSimulEfunPath(sim) {
-        this.simulEfunPath = '/sys/lib/SimulEfuns';
-        return this;
-    }
-
     setHeartbeatInterval(delay) {
         this.heartbeatInterval = delay;
         return this;
@@ -672,22 +801,25 @@ class GameServer extends MUDEventEmitter {
     }
 
     validExec(oldBody, newBody) {
-        if (MUDData.GameState < MUDData.Constants.GAMESTATE_RUNNING)
+        if (this.gameState < GAMESTATE_RUNNING)
             return false;
         else if (this.applyValidExec === false) return true;
         else return this.applyValidExec.apply(this.masterObject, arguments);
     }
 
-    validObject(ob) {
-        if (ob.filename === this.simulEfunPath) {
-            console.log('\tRe-merging SimulEfuns...');
-            this.mergeEfuns(ob);
-            return true;
-        }
-        else if (MUDData.GameState === MUDData.Constants.GAMESTATE_INITIALIZING)
-            return true;
-        else if (this.applyValidObject === false) return true;
-        else return this.applyValidObject.apply(this.masterObject, arguments);
+    validObject(arg) {
+        let result = unwrap(arg, ob => {
+            if (ob.filename === this.simulEfunPath) {
+                console.log('\tRe-merging SimulEfuns...');
+                this.mergeEfuns(ob);
+                return true;
+            }
+            else if (this.gameState <  GAMESTATE_INITIALIZING)
+                return true;
+            else if (this.applyValidObject === false) return true;
+            else return this.applyValidObject.apply(this.masterObject, arguments);
+        });
+        return result !== false;
     } 
 
     getObjectStack() {
@@ -703,7 +835,7 @@ class GameServer extends MUDEventEmitter {
             }
             if (fileParts !== false) {
                 let instanceId = fileParts.length > 1 ? parseInt(fileParts[1]) : 0,
-                    module = MUDData.ModuleCache.get(fileParts[0]);
+                    module = this.cache.get(fileParts[0]);
 
                 if (module) {
                     let frame = {
@@ -739,10 +871,10 @@ class GameServer extends MUDEventEmitter {
      * @returns {boolean} Returns true if the read operation should be permitted.
      */
     validReadConfig(caller, key) {
-        if (MUDData.GameState === MUDData.Constants.GAMESTATE_STARTING)
+        if (this.gameState < GAMESTATE_RUNNING)
             return true;
         else if (!this.applyValidReadConfig) return true;
-        else return MUDData.InGameMaster().validReadConfig(caller, key);
+        else return this.masterObject.validReadConfig(caller, key);
     }
 
     /**
@@ -752,19 +884,20 @@ class GameServer extends MUDEventEmitter {
      * @returns {boolean} Returns true if the read operation should be permitted.
      */
     validRead(efuns, path) {
-        if (MUDData.GameState < MUDData.Constants.GAMESTATE_RUNNING)
+        if (this.gameState < GAMESTATE_RUNNING)
             return true;
         else if (efuns.filename === '/') return true;
         else {
             let checkObjects = this.getObjectStack();
             if (checkObjects.length > 0) {
                 for (let i = 0; i < checkObjects.length; i++) {
-                    if (!this.applyValidRead.call(this.masterObject, path, checkObjects[i].object, checkObjects[i].func))
+                    if (!this.applyValidRead.call(this.masterObject, path,
+                            checkObjects[i].object, checkObjects[i].func))
                         return false;
                 }
                 return true;
             }
-            let module = MUDData.ModuleCache.get(efuns.filename),
+            let module = this.cache.get(efuns.filename),
                 cs = stack().map(cs => cs.getFileName()),
                 inst = module.instances[0];
             if (inst)
@@ -779,10 +912,10 @@ class GameServer extends MUDEventEmitter {
      * @returns {boolean} Returns true if the shutdown may proceed.
      */
     validShutdown(efuns) {
-        if (MUDData.GameState !== MUDData.Constants.GAMESTATE_RUNNING)
+        if (this.gameState !== GAMESTATE_RUNNING)
             return true;
         else if (!this.applyValidShutdown) return true;
-        else return MUDData.InGameMaster().validShutdown(efuns);
+        else return this.masterObject.validShutdown(efuns);
     }
 
     /**
@@ -792,7 +925,7 @@ class GameServer extends MUDEventEmitter {
      * @returns {boolean} Returns true if the write operation should be permitted.
      */
     validWrite(efuns, path) {
-        if (MUDData.GameState < MUDData.Constants.GAMESTATE_INITIALIZING)
+        if (this.gameState < GAMESTATE_INITIALIZING)
             return true;
         else if (efuns.filename === '/') return true;
         else {
@@ -810,5 +943,11 @@ class GameServer extends MUDEventEmitter {
         }
     }
 }
+
+/**
+ * @returns {GameServer} The dreiver instance. */
+GameServer.get = function () {
+    return Instance;
+};
 
 module.exports = GameServer;

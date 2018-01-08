@@ -1,4 +1,11 @@
 ﻿const
+    Extensions = require('./Extensions'),
+    GAMESTATE_STARTING = 1,
+    GAMESTATE_INITIALIZING = 2,
+    GAMESTATE_RUNNING = 3,
+    GAMESTATE_SHUTDOWN = 4;
+
+const
     bcrypt = require('bcrypt'),
     fs = require('fs'),
     path = require('path'),
@@ -13,9 +20,17 @@ const
     MudlibSection = require('./config/MudlibSection'),
     MUDPasswordPolicy = require('./config/MUDPasswordPolicy');
 
+var
+    configInstance = false;
+
 class MUDConfig {
     constructor() {
+        if (configInstance) {
+            throw new Error('Use MUDConfig.get() instead.');
+        }
+        /** @type {boolean} */
         this.singleUser = false;
+
         /** @type {boolean} */
         this.skipStartupScripts = false;
 
@@ -42,7 +57,6 @@ class MUDConfig {
             this.mud.features.intermud = false;
             this.mud.portBindings.forEach(binding => binding.address = '127.0.0.1');
         }
-        MUDData.Config = this;
     }
 
     assertConfig(path, val, callback) {
@@ -144,6 +158,26 @@ class MUDConfig {
         return typeof ptr === 'undefined' ? defaultValue : ptr;
     }
 
+    run() {
+        if (!this.setupMode) {
+            this.assertValid();
+            let gameDriverType = require('./GameServer');
+            let gameMaster = new gameDriverType(this);
+
+            /** @type {GameServer} The game server instance */
+            gameMaster
+                .setLoginObject('/sys/lib/Login')
+                .enableGlobalErrorHandler()
+                .run(() => {
+                    console.log('Done with startup');
+                });
+        }
+    }
+
+    stripBOM(s) {
+        return s && s.charCodeAt(0) === 0xFEFF ? s.slice(1) : s;
+    }
+
     showHelp(exit) {
         console.log(`
 Usage: server.js [options]
@@ -171,4 +205,39 @@ Where options include:
     }
 }
 
-module.exports = new MUDConfig();
+/**
+ * Returns the active instance of the config.
+ * @returns {MUDConfig}
+ */
+MUDConfig.get = function () {
+    return configInstance;
+};
+
+/**
+ * Strip off the utf8 byte order mark if it exists.
+ * @param {string} s A string.
+ * @returns {string} The string without the BOM. */
+MUDConfig.stripBOM = function (s) {
+    return s && s.charCodeAt(0) === 0xFEFF ? s.slice(1) : s;
+}
+
+/**
+ * Indicates the game is starting but has not begun to initialize
+ * @type {number}  */
+MUDConfig.GAMESTATE_STARTING = global.GAMESTATE_STARTING = GAMESTATE_STARTING;
+
+/**
+ * The game driver is initiating the runtime environment and preparing to run.
+ * @type {number} */
+MUDConfig.GAMESTATE_INITIALIZING = global.GAMESTATE_INITIALIZING = GAMESTATE_INITIALIZING;
+/**
+ * The game driver is running mode and able to load objects and enforce security.
+ * @type {number} */
+MUDConfig.GAMESTATE_RUNNING = global.GAMESTATE_RUNNING = GAMESTATE_RUNNING;
+/**
+ * The game is shutting down.  No new objects should be created.
+ * @type {number} */
+MUDConfig.GAMESTATE_SHUTDOWN = global.GAMESTATE_SHUTDOWN = GAMESTATE_SHUTDOWN;
+
+module.exports = MUDConfig;
+

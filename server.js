@@ -5,24 +5,11 @@
  */
 try {
     const
-        MUDConfig = require('./src/MUDConfig'),
-        GameServer = require('./src/GameServer'),
-        MUDData = require('./src/MUDData'),
-        ErrorTypes = require('./src/ErrorTypes');
+        MUDConfig = require('./src/MUDConfig');
 
     try {
-        if (!MUDConfig.setupMode) {
-            MUDConfig.assertValid();
-            var gameMaster = new GameServer(MUDConfig);
-
-            /** @type {GameServer} The game server instance */
-            gameMaster
-                .setLoginObject('/sys/lib/Login')
-                .enableGlobalErrorHandler()
-                .run(function () {
-                    console.log('Done with startup');
-                });
-        }
+        let config = new MUDConfig();
+        config.run();
     }
     catch (e) {
         console.error(e.message);

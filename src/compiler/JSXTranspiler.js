@@ -2,8 +2,7 @@
     PipelineComponent = require('./PipelineComponent'),
     PipeContext = require('./PipelineContext'),
     PipelineContext = PipeContext.PipelineContext,
-    acorn = require('acorn-jsx'),
-    MUDData = require('../MUDData');
+    acorn = require('acorn-jsx');
 
 class JSXTranspiler extends PipelineComponent {
     /**

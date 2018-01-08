@@ -1,5 +1,4 @@
 ﻿const
-    MUDData = require('../MUDData'),
     PipelineComponent = require('./PipelineComponent'),
     PipeContext = require('./PipelineContext');
 

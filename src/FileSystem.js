@@ -13,8 +13,10 @@ const
     FS_SYNC = 1 << 0,       // The filesystem supports syncronous I/O.
     FS_ASYNC = 1 << 2,      // The filesystem supports asyncronous I/O.
     FS_DIRECTORIES = 1 << 3,// The filesystem supports directories.
-    FS_READONLY = 1 << 4,   // The filesystem is read-only
+    FS_READONLY = 1 << 4,   // The filesystem is read-only.
     FS_WILDCARDS = 1 << 5,  // The filesystem supports use of wildcards.
+    FS_DATAONLY = 1 << 6,   // The filesystem only supports structured data.
+    FS_OBJECTS = 1 << 7,    // The filesystem does not allow objects to be created.
     FT_UNKNOWN = 0,
     FT_FILE = 1 << 0,
     FT_DIRECTORY = 1 << 1,
@@ -35,6 +37,8 @@ class FileSystemStat {
         /** @type {number} */
         this.type = data.perms || FT_UNKNOWN; 
     }
+
+    assertValid() { return this; }
 
     /**
      * Creates a deep clone of the stat that is safe to return to the MUD.
@@ -61,8 +65,17 @@ class FileSystemStat {
  * multiple filesystem types (disk-based, SQL-based, etc).
  */
 class FileSystem extends MUDEventEmitter {
-    constructor(opts) {
+    /**
+     * 
+     * @param {FileManager} fileManager
+     * @param {any} opts
+     * @param {FileSecurity} securityManager
+     */
+    constructor(fileManager, opts, securityManager) {
         super();
+
+        /** @type {GameServer} */
+        this.driver = fileManager.driver;
 
         /** @type {string} */
         this.encoding = opts.encoding || 'utf8';
@@ -70,11 +83,22 @@ class FileSystem extends MUDEventEmitter {
         /** @type {number} */
         this.flags = opts.flags || FS_NONE;
 
+        this.manager = fileManager;
+
         /** @type {string} */
         this.mp = opts.mountPoint || '';
 
+        /** @type {FileSecurity} */
+        this.securityManager = securityManager;
+
         /** @type {string} */
         this.type = opts.type || 'unknown';
+    }
+
+    assert(flags, error) {
+        if ((this.flags & flags) !== flags)
+            throw new Error(error);
+        return true;
     }
 
     assertAsync(code) {
@@ -108,12 +132,9 @@ class FileSystem extends MUDEventEmitter {
      * @param {Function=} callback
      */
     appendFile(path, content, callback) {
-        if (typeof callback === 'function') {
-            return this.assertAsync(() => this.appendFileAsync(path, content, MUDExecutionContext.awaiter(callback)));
-        }
-        else {
-            return this.assertSync(() => this.appendFileSync(path, content));
-        }
+        return typeof callback === 'function' ?
+            this.assertAsync(() => this.appendFileAsync(path, content, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.appendFileSync(path, content));
     }
 
     /**
@@ -140,33 +161,25 @@ class FileSystem extends MUDEventEmitter {
      * @param {string} path
      * @param {function=} callback
      */
-    createDirectory(path, callback) {
+    createDirectory(expr, callback) {
         this.assertDirectories();
-        if (typeof callback === 'function') {
-            return this.assertAsync(() => this.createDirectoryAsync(path, MUDExecutionContext.awaiter(callback)));
-        }
-        else {
-            return this.assertSync(() => this.createDirectorySync(path, content));
-        }
+        return typeof callback === 'function' ?
+            this.assertAsync(() => this.createDirectoryAsync(expr, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.createDirectorySync(expr, content));
     }
 
-    createDirectoryAsync(path, callback) {
+    createDirectoryAsync(expr, callback) {
         throw new NotImplementedError('createDirectoryAsync');
     }
 
-    createDirectorySync(path) {
+    createDirectorySync(expr) {
         throw new NotImplementedError('createDirectorySync');
     }
 
-    createFile(path, content, callback) {
-        if (typeof callback === 'function') {
-            if (!this.isAsync) throw new Error(`Filesystem type ${this.type} does not support asyncrononous I/O`);
-            return this.createFileAsync(path, content, MUDExecutionContext.awaiter(callback));
-        }
-        else {
-            if (!this.isSync) throw new Error(`Filesystem type ${this.type} does not support syncrononous I/O`);
-            return this.createFileSync(path, content);
-        }
+    createFile(expr, content, callback) {
+        return typeof callback === 'function' ?
+            this.assertAsync(() => this.createFileAsync(expr, content, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.createFileSync(expr, content));
     }
 
     createFileAsync(path, content, callback) {
@@ -189,12 +202,9 @@ class FileSystem extends MUDEventEmitter {
     }
 
     deleteDirectory(path, recursive, callback) {
-        if (typeof callback === 'function') {
-            return this.assertAsync(() => this.deleteDirectoryAsync(expr, recursive, MUDExecutionContext.awaiter(callback)));
-        }
-        else {
-            return this.assertSync(() => this.deleteDirectorySync(expr, recursive));
-        }
+        return typeof callback === 'function' ?
+            this.assertAsync(() => this.deleteDirectoryAsync(expr, recursive, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.deleteDirectorySync(expr, recursive));
     }
 
     deleteDirectoryAsync(expr, recursive, callback) {
@@ -206,12 +216,9 @@ class FileSystem extends MUDEventEmitter {
     }
 
     deleteFile(expr, callback) {
-        if (typeof callback === 'function') {
-            return this.assertAsync(() => this.deleteFileAsync(expr, MUDExecutionContext.awaiter(callback)));
-        }
-        else {
-            return this.assertSync(() => this.deleteFileSync(expr));
-        }
+        return typeof callback === 'function' ?
+            this.assertAsync(() => this.deleteFileAsync(expr, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.deleteFileSync(expr));
     }
 
     deleteFileAsync(expr, callback) {
@@ -222,23 +229,19 @@ class FileSystem extends MUDEventEmitter {
         throw new NotImplementedError('deleteFileSync');
     }
 
-    getFiles(expr, flags, callback) {
-        if (typeof flags === 'function') {
-            callback = flags;
-            flags = 0;
-        }
-        return typeof callback === 'function' ?
-            this.assertAsync(() => this.getFilesAsync(expr, flags, MUDExecutionContext.awaiter(callback))) :
-            this.assertSync(() => this.getFilesSync(expr, flags));
-    }
+    /**
+     * Converts the expression into the "real" underlying path.
+     * @param {string} expr The path to translate.
+     * @returns {string} The "real" path.
+     */
+    getRealPath(expr) { return expr; }
 
-    getFilesAsync(expr, flags, callback) {
-        throw new NotImplementedError('getFilesAsync');
-    }
-
-    getFilesSync(expr, flags) {
-        throw new NotImplementedError('getFilesSync');
-    }
+    /**
+     * Translate an absolute path back into a virtual path.
+     * @param {string} expr The absolute path to translate.
+     * @returns {string|false} The virtual path if the expression exists in this filesystem or false if not.
+     */
+    getVirtualPath(expr) { return false; }
 
     /**
      * @returns {boolean} Returns true if the filesystem supports directory structures.
@@ -251,10 +254,116 @@ class FileSystem extends MUDEventEmitter {
     get isAsync() { return (this.flags & FS_ASYNC) > 0; }
 
     get isReadOnly() { return (this.flags & FS_READONLY) > 0; }
+
     /**
      * @returns {boolean} Returns true if the filesystem supports syncronous I/O
      */
     get isSync() { return (this.flags & FS_SYNC) > 0; }
+
+    /**
+     * Loads an object from storage.
+     * @param {string} expr The path to load the object from.
+     * @param {any} args Optional constructor args.
+     * @param {function=} callback
+     */
+    loadObject(expr, args, callback) {
+        return typeof callback === 'function' ?
+            this.assertAsync(() => this.loadObjectAsync(expr, args, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.loadObjectSync(expr, args));
+    }
+
+    /**
+     * Loads an object from storage.
+     * @param {string} expr The path to load the object from.
+     * @param {any} args Optional constructor args.
+     * @param {function=} callback
+     * @returns {MUDObject}
+     */
+    loadObjectAsync(expr, args, callback) {
+        throw new NotImplementedError('loadObjectAsync');
+    }
+
+    /**
+     * Loads an object from storage.
+     * @param {string} expr The path to load the object from.
+     * @param {any} args Optional constructor args.
+     * @returns {MUDObject}
+     */
+    loadObjectSync(expr, args) {
+        throw new NotImplementedError('loadObjectSync');
+    }
+
+    /**
+     * Reads a directory listing from the disk.
+     * @param {string} muddir The directory part of the request.
+     * @param {string} expr The file expression part of the request.
+     * @param {numeric} flags Numeric flags indicating requests for additional detail.
+     * @param {function(string[], Error):void} callback Optional callback for async mode.
+     */
+    readDirectory(muddir, expr, flags, callback) {
+        if (typeof flags === 'function') {
+            callback = flags;
+            flags = 0;
+        }
+        return typeof callback === 'function' ?
+            this.assertAsync(() => this.readDirectoryAsync(muddir, expr, flags, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.readDirectorySync(muddir, expr, flags));
+    }
+
+    /**
+     * Reads a directory listing from the disk.
+     * @param {string} muddir The directory part of the request.
+     * @param {string} expr The path expression being read.
+     * @param {numeric} flags Numeric flags indicating requests for additional detail.
+     * @param {function(string[], Error):void} callback Optional callback for async mode.
+     */
+    readDirectoryAsync(muddir, expr, flags, callback) {
+        throw new NotImplementedError('readDirectoryAsync');
+    }
+
+    /**
+     * Reads a directory listing from the disk.
+     * @param {string} muddir The directory part of the request.
+     * @param {string} expr The path expression being read.
+     * @param {numeric} flags Numeric flags indicating requests for additional detail.
+     * @param {function(string[], Error):void} callback Optional callback for async mode.
+     */
+    readDirectorySync(muddir, expr, flags) {
+        throw new NotImplementedError('readDirectorySync');
+    }
+
+    /**
+     * Read a file from the filesystem;
+     * @param {any} expr
+     * @param {any} callback
+     */
+    readFile(expr, callback) {
+        return typeof callback === 'function' ?
+            this.assertAsync(() => this.readFileAsync(expr, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.readFileSync(expr));
+    }
+
+    readFileAsync(expr, callback) {
+        throw new NotImplementedError('readFileAsync');
+    }
+
+    readFileSync(expr) {
+        throw new NotImplementedError('readFileSync');
+    }
+
+    readJsonFile(expr, callback) {
+        return typeof callback === 'function' ?
+            this.assertAsync(() => this.readJsonFileAsync(expr, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.readJsonFileSync(expr));
+    }
+
+    readJsonFileAsync(expr, callback) {
+        throw new NotImplementedError('readJsonFileAsync');
+    }
+
+    readJsonFileSync(expr) {
+        throw new NotImplementedError('readJsonFileSync');
+    }
 
     /**
      * Stat a file within the filesystem.
@@ -263,12 +372,9 @@ class FileSystem extends MUDEventEmitter {
      * @returns {FileSystemStat} The filesystem stat info.
      */
     stat(expr, callback) {
-        if (typeof callback === 'function') {
-            return this.assertAsync(() => this.statAsync(expr, MUDExecutionContext.awaiter(callback)));
-        }
-        else {
-            return this.assertSync(() => this.statSync(expr));
-        }
+        return typeof callback === 'function' ?
+            this.assertAsync(() => this.statAsync(expr, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.statSync(expr));
     }
 
     /**
@@ -289,12 +395,9 @@ class FileSystem extends MUDEventEmitter {
     }
 
     writeFile(expr, content, callback) {
-        if (typeof callback === 'function') {
-            return this.assertAsync(() => this.writeFileAsync(expr, content, MUDExecutionContext.awaiter(callback)));
-        }
-        else {
-            return this.assertSync(() => this.writeFileSync(expr, content));
-        }
+        return typeof callback === 'function' ?
+            this.assertAsync(() => this.writeFileAsync(expr, content, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.writeFileSync(expr, content));
     }
 
     writeFileAsync(expr, content, callback) {
@@ -310,18 +413,32 @@ class FileSystem extends MUDEventEmitter {
  * Filesystem supports asyncronous operations.
  */
 FileSystem.FS_ASYNC = FS_ASYNC;
+
+/**
+ * Filesystem ONLY supports structured data.
+ */
+FileSystem.FS_DATAONLY = FS_DATAONLY;
+
 /**
  * Filesystem supports directories.
  */
 FileSystem.FS_DIRECTORIES = FS_DIRECTORIES;
+
+/**
+ * Filesystem supports the loading and compiling of MUD objects.
+ */
+FileSystem.FS_OBJECTS = FS_OBJECTS;
+
 /**
  * Filesystem is read-only.
  */
 FileSystem.FS_READONLY = FS_READONLY;
+
 /**
  * Filesystem supports syncronous operations.
  */
 FileSystem.FS_SYNC = FS_SYNC;
+
 /**
  * Filesystem supports the use of wildcards.
  */

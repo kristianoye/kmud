@@ -3,28 +3,37 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-
 const
-    MUDData = require('./MUDData'),
-    MUDLoader = require('./MUDLoader'),
-    MUDOSLoader = require('./MUDOSLoader'),
     acorn = require('acorn-jsx'),
     fs = require('fs'),
-    ExtensionText = fs.readFileSync('src/Extensions.js', 'utf8'),
+    ExtensionText = fs.readFileSync('src/Extensions.js', 'utf8');
+
+const
+    MUDLoader = require('./MUDLoader'),
     PipeContext = require('./compiler/PipelineContext'),
     PipelineContext = PipeContext.PipelineContext,
     CompilerPipeline = require('./compiler/CompilerPipeline'),
     VMAbstraction = require('./compiler/VMAbstraction'),
+    GameServer = require('./GameServer'),
     MUDModule = require('./MUDModule'),
-    VM = VMAbstraction.getImplementation();
+    MUDCache = require('./MUDCache');
+
+var
+    VM;
 
 class MUDCompiler {
-    constructor(config) {
+    /**
+     * 
+     * @param {GameServer} driver
+     * @param {any} config
+     */
+    constructor(driver, config) {
         var comps = 0,
             self = this,
             vm = false;
 
         this.components = {};
+        this.driver = driver;
         this.loaders = {};
         this.pipelines = {};
         this.sealTypesAfterCompile = config.sealTypesAfterCompile;
@@ -88,6 +97,11 @@ class MUDCompiler {
         });
     }
 
+    /**
+     * Returns the directory portion of a virtual filename.
+     * @param {string} path The full path to the file.
+     * @returns {string} The directory portion of the path.
+     */
     dirname(path) {
         return path.slice(0, path.lastIndexOf('/') + 1);
     }
@@ -128,15 +142,15 @@ class MUDCompiler {
             return false;
 
         var context = new PipeContext.PipelineContext(filename),
-            /** @type {MUDModule} */ module = MUDData.ModuleCache.get(context.basename),
+            module = this.driver.cache.get(context.basename),
             t0 = new Date().getTime(), virtualData = false;
 
         if (module && !reload && module.loaded === true)
             return module;
 
-        if (MUDData.InGameMaster)
+        if (this.driver.masterObject) 
         {
-            virtualData = MUDData.InGameMaster().compileVirtualObject(filename);
+            virtualData = this.driver.masterObject.compileVirtualObject(filename);
             context.virtualContext(virtualData);
         }
         if (!context.validExtension()) {
@@ -144,7 +158,7 @@ class MUDCompiler {
                 if (context.validExtension(this.validExtensions[i])) break;
             }
             if (!context.exists) {
-                if (MUDData.InGameMaster === false)
+                if (!this.driver.masterObject)
                     throw new Error('Could not load in-game master object!');
                 throw new Error(`Could not load ${context.filename} [File not found]`);
             }
@@ -164,13 +178,13 @@ class MUDCompiler {
                 if (!context.content)
                     throw new Error(`Could not load ${context.filename} [empty file?]`);
 
-                module = MUDData.ModuleCache.getOrCreate(
+                module = this.driver.cache.getOrCreate(
                     context.filename,
                     context.resolvedName,
                     context.directory,
                     virtualData !== false);
 
-                if (MUDData.Config.driver.useObjectProxies) {
+                if (driver.config.driver.useObjectProxies) {
                     module.allowProxy = true;
                 }
 
@@ -193,19 +207,18 @@ class MUDCompiler {
 
                     if (this.sealTypesAfterCompile) {
                         Object.seal(module.classRef);
-                        Object.seal(module.classRef.prototype);
                     }
 
                     if (typeof module.classRef === 'function') {
                         try {
                             var instance = module.createInstance(0, isReload, constructorArgs);
 
-                            if (!MUDData.DriverObject.validObject(instance())) {
+                            if (!this.driver.validObject(instance)) {
                                 throw new Error(`Could not load ${context.filename} [Illegal Object]`);
                             }
 
                             module.loaded = true;
-                            MUDData.ModuleCache.store(module);
+                            this.driver.cache.store(module);
 
                             if (isReload) {
                                 module.recompiled();
@@ -213,7 +226,7 @@ class MUDCompiler {
                             return module;
                         }
                         catch (e) {
-                            throw MUDData.CleanError(e);
+                            throw this.driver.cleanError(e);
                         }
                     }
                     else {
@@ -240,10 +253,10 @@ class MUDCompiler {
                 module.stats.errors++;
             }
             if (module && !module.loaded) {
-                MUDData.ModuleCache.delete(context.filename);
+                MUDCache.delete(context.filename);
             }
-            MUDData.CleanError(err);
-            MUDData.DriverObject.logError(context.filename, err);
+            this.driver.cleanError(err);
+            this.driver.logError(context.filename, err);
             throw err;
         }
         finally {
@@ -254,5 +267,23 @@ class MUDCompiler {
     }
 }
 
-module.exports = MUDCompiler;
+MUDCompiler.configureForRuntime = function (driver) {
+    let implementation = false;
 
+    switch (driver.config.driver.compiler.virtualMachine) {
+        case 'vm':
+            implementation = require('./compiler/VMWrapper');
+            break;
+
+        case 'vm2':
+            implementation = require('./compiler/VM2Wrapper');
+            break;
+
+        default:
+            throw new Error(`Unrecognized virtual machine type: ${driver.config.driver.compiler.virtualMachine}`);
+    }
+    VM = new implementation(driver.config.driver.compiler.virtualMachineOptions || {});
+    return MUDCompiler;
+};
+
+module.exports = MUDCompiler;

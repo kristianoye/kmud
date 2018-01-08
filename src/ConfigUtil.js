@@ -6,9 +6,23 @@
  * Description: Module contains helpers to parse and validate MUD config.
  */
 const
-    path = require('path');
+    path = require('path'),
+    fs = require('fs');
 
 class ConfigUtil {
+    /**
+     * Check to see if the specified directory exists.
+     * @param {any} path
+     */
+    assertExists(...expr) {
+        expr.unshift(__dirname);
+        let fileToCheck = path.join(...expr);
+        if (!fileToCheck.endsWith('.js')) fileToCheck += '.js';
+        if (!fs.existsSync(fileToCheck)) {
+            throw new Error(`File ${fileToCheck} does not exist!`);
+        }
+    }
+
     assertType(val, key, ...typeList) {
         for (let i = 0, myType = typeof val; i < typeList.length; i++) {
             if (myType === typeList[i]) return true;

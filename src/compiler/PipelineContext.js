@@ -1,11 +1,13 @@
 ﻿const
-    MUDData = require('../MUDData'),
     CTX_INIT = -1,
     CTX_RUNNING = 1,
     CTX_STOPPED = 2,
     CTX_ERRORED = 3,
     CTX_FINISHED = 4,
     fs = require('fs');
+
+const
+    GameServer = require('../GameServer');
 
 class PipelineContext {
     /**
@@ -20,7 +22,7 @@ class PipelineContext {
         this.extension = n > -1 ? filename.slice(n) : false
         this.basename = n > -1 ? filename.slice(0, n) : filename;
         this.filename = filename;
-        this.realName = MUDData.MudPathToRealPath(this.filename);
+        this.realName = driver.fileManager.toRealPath(this.filename);
         this.resolvedName = false;
         this.content = '';
         this.errors = [];
@@ -80,7 +82,7 @@ class PipelineContext {
 
     update(state, content) {
         if (state !== this.state && state === CTX_RUNNING) {
-            this.content = MUDData.StripBOM(fs.readFileSync(this.resolvedName, 'utf8') || '');
+            this.content = driver.config.stripBOM(fs.readFileSync(this.resolvedName, 'utf8') || '');
         }
         if(content) this.content = content;
         return (this.state = state), this;
@@ -109,7 +111,7 @@ class PipelineContext {
         if (virtualData) {
             this.baseName = virtualData.baseName;
             this.directory = this.baseName.slice(0, this.baseName.lastIndexOf('/'));
-            this.realName = MUDData.MudPathToRealPath(virtualData.baseName);
+            this.realName = driver.fileManager.toRealPath(virtualData.baseName);
         }
     }
 }

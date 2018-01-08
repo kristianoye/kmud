@@ -8,13 +8,15 @@ const
     MUDEventEmitter = require('./MUDEventEmitter'),
     MUDStorage = require('./MUDStorage'),
     MUDConfig = require('./MUDConfig'),
-    UseLazyResets = MUDConfig.driver.useLazyResets || false,
     _environment = Symbol('_environment'),
     _heartbeat = Symbol('_heartbeat'),
     callsite = require('callsite');
 
+const
+    GameServer = require('./GameServer');
+
 var
-    MUDData = require('./MUDData');
+    UseLazyResets = false;
 
 /**
  * Determine which module is storing private instance data.
@@ -22,7 +24,7 @@ var
  * @returns {string} The file name storing the private data.
  */
 function assertPrivateCall(filename) {
-    let module = MUDData.ModuleCache.resolve(filename),
+    let module =driver.cache.resolve(filename),
         frames = callsite().map(cs => {
             return {
                 fileName: cs.getFileName() || '(unknown)',
@@ -34,7 +36,7 @@ function assertPrivateCall(filename) {
         if (frames[i].fileName === __filename)
             continue;
         let file = frames[i].fileName, method = frames[i].methodName,
-            thisModule = MUDData.ModuleCache.resolve(file);
+            thisModule = driver.cache.resolve(file);
 
         if (module.isRelated(thisModule)) {
             if (method === 'setPrivate' || method === 'getPrivate') continue;
@@ -51,7 +53,7 @@ function assertPrivateCall(filename) {
  * @returns {boolean} Returns true if the call is valid or throws an error.
  */
 function assertProtectedCall(filename) {
-    let module = MUDData.ModuleCache.resolve(filename),
+    let module = driver.cache.resolve(filename),
         frames = callsite().map(cs => {
             return {
                 fileName: cs.getFileName() || '(unknown)',
@@ -63,9 +65,9 @@ function assertProtectedCall(filename) {
         if (frames[i].fileName === __filename)
             continue;
         let file = frames[i].fileName, method = frames[i].methodName,
-            thisModule = MUDData.ModuleCache.resolve(file);
+            thisModule = driver.cache.resolve(file);
 
-        if (module.isRelated(thisModule)) {
+        if (module === thisModule || module.isRelated(thisModule)) {
             //  Allows children to override
             if (method === 'setProtected' || method === 'getProtected') continue;
             return true;
@@ -136,11 +138,7 @@ class MUDObject extends MUDEventEmitter {
             console.log('Illegal constructor call');
             throw new Error('Illegal constructor call');
         }
-
-        if (this.filename && !MUDData.InstanceProps[this.filename])
-            MUDData.SharedProps[this.basename] = {};
-
-        ctx.$storage = MUDStorage.create(this, ctx);
+        ctx.$storage = global.driver.storage.create(this, ctx);
     }
 
     addAction(verb, callback) {
@@ -429,7 +427,7 @@ class MUDObject extends MUDEventEmitter {
     get pluralIds() {
         var result = this.getProperty('pluralIdList', []);
         if (result.length === 0) {
-            result = this.idList.map(id => MUDData.SpecialRootEfun.pluralize(id));
+            result = this.idList.map(id => driver.efuns.pluralize(id));
             this.setProperty('pluralIdList', result);
         }
         return result.slice(0);
@@ -441,7 +439,7 @@ class MUDObject extends MUDEventEmitter {
     }
 
     serializeObject() {
-        let $storage = MUDData.Storage.get(this);
+        let $storage = driver.storage.get(this);
         return $storage.serialize();
     }
 

@@ -11,7 +11,6 @@ const
     ClientCaps = require('./ClientCaps'),
     MUDEventEmitter = require('../MUDEventEmitter'),
     MUDConfig = require('../MUDConfig'),
-    DefaultError = MUDConfig.mudlib.defaultError,
     GameServer = require('../GameServer');
 
 const
@@ -26,6 +25,7 @@ const
     _remoteAddress = Symbol('_remoteAddress');
 
 var
+    DefaultError = 'What?',
     gameMaster;
 
 /**
@@ -145,5 +145,14 @@ class ClientInstance extends EventEmitter {
     setBody(body, cb) {
     }
 }
+
+/**
+ * Initializes the client with runtime configuration data.
+ * @param {GameServer} driver
+ */
+ClientInstance.configureForRuntime = function(driver) {
+    DefaultError = driver.config.mudlib.defaultError || 'What?';
+    gameMaster = driver;
+};
 
 module.exports = ClientInstance;

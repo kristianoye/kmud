@@ -3,6 +3,9 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
+
+/// <reference path="dts/GameServer.d.ts"/>
+
 const
     stack = require('callsite'),
     async = require('async'),
@@ -10,9 +13,8 @@ const
     os = require('os'),
     sprintf = require('sprintf').sprintf,
     MUDConfig = require('./MUDConfig'),
-    ErrorTypes = require('./ErrorTypes'),
+    { SecurityError } = require('./ErrorTypes'),
     MUDExecutionContext = require('./MUDExcecutionContext'),
-    SaveExtension = MUDConfig.mudlib.defaultSaveExtension,
     util = require('util'),
     fs = require('fs'),
     vm = require('vm');
@@ -25,19 +27,12 @@ const
     _unguarded = '_unguarded';
 
 var
-    MUDData = require('./MUDData'),
+    MUDStorage = require('./MUDStorage').MUDStorageContainer,
     EFUNS = require('./EFUNS'),
-    { MUDHtmlComponent } = require('./MUDHtml'),
-    _ruleCache = {};
-
-MUDData.MasterEFUNS = new EFUNS();
+    SaveExtension = '.json',
+    { MUDHtmlComponent } = require('./MUDHtml');
 
 class EFUNProxy {
-    constructor(_thisObject)
-    {
-        this._thisObject = _thisObject;
-    }
-
     /**
      * Return an absolute value
      * @param {number} n The signed value to get an ansolute value for.
@@ -61,11 +56,11 @@ class EFUNProxy {
     }
 
     adminp(target) {
-        return MUDData.DriverObject.inGroup(target, 'admin');
+        return driver.inGroup(target, 'admin');
     }
 
     archp(target) {
-        return MUDData.DriverObject.inGroup(target, 'arch', 'admin');
+        return driver.inGroup(target, 'arch', 'admin');
     }
 
     arrayToSentence(list, useOr, consolidate, useNumbers) {
@@ -125,7 +120,7 @@ class EFUNProxy {
      * @returns {boolean} True if the password matches false if not.
      */
     checkPassword(plain, crypto, callback) {
-        return MUDData.Config.mud.passwordPolicy.checkPassword(plain, crypto, callback);
+        return driver.config.mud.passwordPolicy.checkPassword(plain, crypto, callback);
     }
 
     clientCaps(target) {
@@ -157,7 +152,7 @@ class EFUNProxy {
         let args = [].slice.call(arguments),
             filename = this.resolvePath(args[0], this.directory + '/');
 
-        if (MUDData.DriverObject.validRead(this, filename)) {
+        if (driver.validRead(this, filename)) {
             var module = MUDData.ModuleCache.get(filename);
             if (!module || !module.loaded) {
                 MUDData.Compiler(filename);
@@ -165,12 +160,12 @@ class EFUNProxy {
             }
             if (module) {
                 if (module.singleton)
-                    throw new ErrorTypes.SecurityError(filename + ' is a singleton and cannot be cloned');
+                    throw new SecurityError(filename + ' is a singleton and cannot be cloned');
                 return module.createInstance(-1, false, args[1]);
             }
             return false;
         }
-        throw new ErrorTypes.SecurityError();
+        throw new SecurityError();
     }
 
     /**
@@ -268,7 +263,7 @@ class EFUNProxy {
      * @returns {string|void} Returns void if async or an encrypted string.
      */
     createPassword(plainText, callback) {
-        MUDData.Config.mud.passwordPolicy.hashPasword(plainText, callback);
+        return driver.config.mud.passwordPolicy.hashPasword(plainText, callback);
     }
 
     /**
@@ -322,7 +317,7 @@ class EFUNProxy {
             callback = client;
             client = false;
         }
-        if (MUDData.DriverObject.validExec(this, oldBody, newBody, client)) {
+        if (driver.validExec(this, oldBody, newBody, client)) {
             var oldContainer = oldBody ? MUDData.Storage.get(oldBody) : false,
                 newContainer = MUDData.Storage.get(newBody),
                 client = oldContainer.getProtected('$client'),
@@ -339,11 +334,11 @@ class EFUNProxy {
                 .setProtected('$client', client)
                 .setProtected('$clientCaps', client.caps)
                 .emit('kmud.exec', execEvent);
-            MUDData.DriverObject.emit('kmud.exec', execEvent);
+            driver.emit('kmud.exec', execEvent);
 
             if (!client) client = thisPlayer.client;
             if (typeof client === 'object') {
-                if (MUDData.DriverObject.exec(oldBody, newBody, client)) {
+                if (driver.exec(oldBody, newBody, client)) {
                     if (typeof callback === 'function')
                         callback.call(oldBody, newBody);
                     return true;
@@ -361,7 +356,7 @@ class EFUNProxy {
     clientExits(prefix, exits, target) {
         let player = target || MUDData.ThisPlayer;
         if (player) {
-            let $storage = MUDData.Storage.get(player),
+            let $storage = MUDStorage.get(player),
                 caps = $storage.getClientCaps();
             if (caps) {
                 return caps.do('renderRoomExits', prefix, exits);
@@ -386,7 +381,7 @@ class EFUNProxy {
     }
 
     driverFeature(feature) {
-        let result = MUDData.Config.readValue(`driver.featureFlags.${feature}`, false);
+        let result = driver.config.readValue(`driver.featureFlags.${feature}`, false);
         return result === true;
     }
 
@@ -396,7 +391,7 @@ class EFUNProxy {
      * @returns {boolean} True if the feature is enabled or false if it does not exist or is disabled.
      */
     featureEnabled(feature) {
-        let result = MUDData.Config.readValue(`mud.features.${feature}`, false);
+        let result = driver.config.readValue(`mud.features.${feature}`, false);
         return result === true;
     }
 
@@ -434,27 +429,21 @@ class EFUNProxy {
 
     /**
      * Returns the state of the MUD.
+     * @returns {number} The state of the MUD.
      */
     gameState() {
-        return MUDData.GameState;
+        return driver.gameState;
     }
 
     /**
      * Return filenames matching the specified file pattern.
      * @param {string} expr The pattern to match.
      * @param {number=} flags Additional detail flags.
-     * @param {function=} cb An optional callback for async operation.
+     * @param {function=} callback An optional callback for async operation.
      */
-    getDir(expr, flags, cb) {
-        if (typeof flags === 'function') (cb = flags), (flags = 0);
-        return this.resolvePath(expr, (fullpath) => {
-            if (MUDData.DriverObject.validRead(this, fullpath)) {
-                return MUDData.MasterEFUNS.getDir(
-                    MUDData.MasterEFUNS.mudPathToAbsolute(fullpath), flags,
-                    MUDExecutionContext.awaiter(cb));
-            }
-            throw new Error('Permission denied: ' + expr);
-        });
+    getDir(expr, flags, callback) {
+        if (typeof flags === 'function') (callback = flags), (flags = 0);
+        return driver.fileManager.readDirectory(this, this.resolvePath(expr), flags, callback);
     }
 
     /**
@@ -488,7 +477,7 @@ class EFUNProxy {
      * @param {...string[]} files One or more files to locate.
      */
     includePath (...files) {
-        let includePath = MUDData.DriverObject.includePath, result = [];
+        let includePath = driver.includePath.slice(0).concat([this.directory]), result = [];
 
         files.forEach(fn => {
             includePath.forEach(dir => {
@@ -497,7 +486,7 @@ class EFUNProxy {
                 result.push(path);
             });
         });
-        return files.length === 0 ? MUDData.DriverObject.includePath : result;
+        return files.length === 0 ? driver.includePath : result;
     }
 
     /**
@@ -507,7 +496,7 @@ class EFUNProxy {
      * @returns {boolean} True if the path resolves to a directory.
      */
     isDirectory  (dirpath, callback) {
-        if (MUDData.DriverObject.validRead(this, dirpath)) {
+        if (driver.validRead(this, dirpath)) {
             return MUDData.MasterEFUNS.isDirectory(MUDData.MasterEFUNS.mudPathToAbsolute(dirpath), callback);
         }
         throw new Error('Permission denied: ' + dirpath);
@@ -546,14 +535,23 @@ class EFUNProxy {
 
     /**
      * Determines whether the path expression represents a normal file.
-     * @param {string} filepath The file expression to check.
-     * @param {function=} cb An optional callback for async operation.
+     * @param {string} expr The file expression to check.
+     * @param {number=} flags Optional flags to request additional details.
+     * @param {function=} callback An optional callback for async operation.
      */
-    isFile (filepath, cb) {
-        if (MUDData.DriverObject.validRead(this, filepath)) {
-            return MUDData.MasterEFUNS.isFile(MUDData.MasterEFUNS.mudPathToAbsolute(filepath), cb);
+    isFile(expr, flags, callback) {
+        let filePath = this.resolvePath(expr);
+        if (typeof flags === 'function') {
+            callback = flags;
+            flags = 0;
         }
-        throw new ErrorTypes.SecurityError();
+        if (typeof callback === 'function') {
+            this.stat(filePath, flags, (fs, err) => {
+                return callback(!err && fs.isFile, err);
+            });
+        }
+        let stat = driver.fileManager.stat(this, filePath, flags);
+        return stat && stat.isFile;
     }
 
     /**
@@ -567,13 +565,17 @@ class EFUNProxy {
 
     /**
      * Attempts to find the specified object.  If not found then the object is compiled and returned.
-     * @param {string} path The filename of the object to try and load.
+     * @param {string} expr The filename of the object to try and load.
      * @param {any} args If the object is not found then these arguments are passed to the constructor.
+     * @param {function=} callback The optional callback if loading asyncronously.
      */
-    loadObject(path, args) {
-        var filename = this.resolvePath(path);
-        if (MUDData.DriverObject.validRead(this, filename)) {
-            var module = MUDData.ModuleCache.get(filename);
+    loadObject(expr, args, callback) {
+        let [filePart, instanceId] = expr.split('#', 2);
+        let result = driver.fileManager.loadObject(this, expr, args, callback);
+
+        var filename = this.resolvePath(expr);
+        if (driver.validRead(this, filename)) {
+            var module = driver.cache.get(filename);
             if (module && module.loaded) {
                 if (module.instances[0])
                     return module.getWrapper(0);
@@ -581,11 +583,11 @@ class EFUNProxy {
                     return module.createInstance(0, false, args);
             }
             else {
-                module = MUDData.Compiler(filename, false, undefined, args);
+                module = driver.compiler.compileObject(filename, false, undefined, args);
                 return module ? module.getWrapper(0) : false;
             }
         }
-        throw new ErrorTypes.SecurityError();
+        throw new SecurityError();
     }
 
     /**
@@ -634,20 +636,18 @@ class EFUNProxy {
 
     /**
      * Create a directory in the MUD filesystem.
-     * @param {string} path The file expression to turn into a directory.
+     * @param {string} expr The file expression to turn into a directory.
      * @param {function=} callback An optional callback for async mode.
      * @returns {boolean} True if the directory was created (or already exists)
      */
-    mkdir(path, callback) {
-        var filename = this.resolvePath(path);
-        if (MUDData.DriverObject.validWrite(this, filename)) {
-            var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
-            return MUDData.MasterEFUNS.mkdir(absPath, callback);
-        }
-        throw new ErrorTypes.SecurityError();
+    mkdir(expr, callback) {
+        return callback ?
+            this.securityManager.createDirectory(this, expr, callback) :
+            this.securityManager.createDirectory(this, expr);
     }
 
-    mudInfo () {
+    mudInfo() {
+        let config = driver.config;
         return {
             arch: os.arch(),
             architecture: os.platform(),
@@ -664,20 +664,20 @@ class EFUNProxy {
                 }
                 return r.join('');
             })(),
-            mudAdmin: MUDData.Config.mud.getAdminName(true),
-            mudAdminEmail: MUDData.Config.mud.getAdminEmail(true),
+            mudAdmin: config.mud.getAdminName(true),
+            mudAdminEmail: config.mud.getAdminEmail(true),
             mudlibName: 'KMUD',
-            mudlibBaseVersion: MUDData.Config.mudlib.getVersion(),
+            mudlibBaseVersion: config.mudlib.getVersion(),
             mudlibVersion: 'Emerald MUD 2.0',
             mudMemoryTotal: this.getMemSizeString(process.memoryUsage().heapTotal),
             mudMemoryUsed: this.getMemSizeString(process.memoryUsage().heapUsed),
-            name: MUDData.DriverObject.mudName,
+            name: driver.mudName,
             osbuild: os.type() + ' ' + os.release(),
-            serverAddress: MUDData.DriverObject.serverAddress,
+            serverAddress: driver.serverAddress,
             systemMemoryUsed: this.getMemSizeString(os.totalmem() - os.freemem()),
             systemMemoryPercentUsed: ((os.totalmem() - os.freemem()) / os.totalmem()) * 100.0,
             systemMemoryTotal: this.getMemSizeString(os.totalmem()),
-            uptime: MUDData.DriverObject.uptime()
+            uptime: driver.uptime()
         };
     }
 
@@ -686,7 +686,7 @@ class EFUNProxy {
      * @returns {string} The MUD name.
      */
     mudName() {
-        return MUDData.Config.mud.name;
+        return driver.config.mud.name;
     }
 
     /**
@@ -715,10 +715,8 @@ class EFUNProxy {
      * @returns {MUDObject[]} Player objects currently in the game.
      */
     players(showAll) {
-        return MUDData.Players.map(p => unwrap(p)).filter((player) => {
-            if (!player.connected && !showAll)
-                return false;
-            return true;
+        return driver.players.map(p => unwrap(p)).filter(player => {
+            return player.connected || showAll;
         });
     }
 
@@ -790,8 +788,8 @@ class EFUNProxy {
      * @returns {any} A value from the config if permitted by the master object.
      */
     readConfig(key, defaultValue) {
-        if (MUDData.DriverObject.validReadConfig(this.thisObject(), key))
-            return MUDData.Config.readValue(key, defaultValue);
+        if (driver.validReadConfig(this.thisObject(), key))
+            return driver.config.readValue(key, defaultValue);
         return false;
     }
 
@@ -802,39 +800,25 @@ class EFUNProxy {
      * @returns {string|void} Reads the file contents if read synchronously.
      */
     readFile(filename, callback) {
-        if (MUDData.DriverObject.validRead(this, filename)) {
-            let result = MUDData.MasterEFUNS.readFile(
-                MUDData.MasterEFUNS.mudPathToAbsolute(this.resolvePath(filename)),
-                MUDExecutionContext.awaiter(callback));
-            return result ? MUDData.StripBOM(result) : undefined;
-        }
-        throw new Error('Permission denied: ' + filename);
+        return driver.fileManager.readFile(this, this.resolvePath(filename), callback);
     }
 
     /**
-     * 
-     * @param {string} filename
-     * @param {function=} callback
+     * Attempt to read JSON data from a file.
+     * @param {string} filename The file to try and read.
+     * @param {function=} callback An optional callback for async reads.
      */
     readJsonFile(filename, callback) {
-        if (typeof callback === 'function') {
-            return this.readFile(this.resolvePath(filename), (content) => {
-                var result = JSON.parse(content);
-                callback(result, false);
-            });
-        }
-        else {
-            return JSON.parse(this.readFile(this.resolvePath(filename)));
-        }
+        return driver.fileManager.readJsonFile(this, this.resolvePath(filename), callback);
     }
 
     reloadObject(path) {
         var filename = this.resolvePath(path);
-        if (MUDData.DriverObject.validRead(this, filename)) {
+        if (driver.validRead(this, filename)) {
             var result = MUDData.Compiler(filename, true);
             return result === false ? false : true;
         }
-        throw new ErrorTypes.SecurityError();
+        throw new SecurityError();
     }
 
     /**
@@ -842,6 +826,7 @@ class EFUNProxy {
      * @param {string} expr
      * @param {string} expr2
      * @param {any} callback
+     * @returns {string}
      */
     resolvePath(expr, expr2, callback) {
         if (typeof expr2 === 'function') {
@@ -883,7 +868,7 @@ class EFUNProxy {
                 if (this.isFile(path)) {
                     let data = this.readJsonFile(path);
                     if (data) {
-                        let $storage = MUDData.Storage.get(prev);
+                        let $storage = driver.storage.get(prev);
                         $storage && $storage.restore(data);
                         result = true;
                     }
@@ -896,22 +881,23 @@ class EFUNProxy {
         return result;
     }
 
-    rm(path, callback) {
-        var filename = this.resolvePath(path);
-        if (MUDData.DriverObject.validWrite(this, filename)) {
-            var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
-            return MUDData.MasterEFUNS.rm(absPath);
-        }
-        throw new ErrorTypes.SecurityError();
+    /**
+     * Removes a file from the filesystem.
+     * @param {string} expr The file to unlink from the filesystem.
+     * @param {function(boolean,Error):void} callback Optional callback for async mode.
+     * @returns {boolean|void}
+     */
+    rm(expr, callback) {
+        return driver.fileManager.deleteFile(expr, callback);
     }
 
     rmdir(path, callback) {
         var filename = this.resolvePath(path);
-        if (MUDData.DriverObject.validWrite(this, filename)) {
+        if (driver.validWrite(this, filename)) {
             var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
             return MUDData.MasterEFUNS.rmdir(absPath);
         }
-        throw new ErrorTypes.SecurityError();
+        throw new SecurityError();
     }
 
     /**
@@ -943,15 +929,25 @@ class EFUNProxy {
     setResetInterval(target, interval) {
         unwrap(target, (ob) => {
             if (!interval) {
-                interval = MUDConfig.mudlib.objectResetInterval;
+                interval = driver.config.mudlib.objectResetInterval;
                 interval = (interval / 2) + Math.random(interval / 2);
             }
-            MUDData.DriverObject.registerResetTime(ob, new Date().getTime() + interval);
+            driver.registerResetTime(ob, new Date().getTime() + interval);
         });
     }
 
+    /**
+     * Determines whether the path expression represents a normal file.
+     * @param {string} filepath The file expression to check.
+     * @param {number=} flags Optional flags to request additional details.
+     * @param {function(FileStat,Error):void} callback An optional callback for async operation.
+     */
+    stat(filepath, flags, callback) {
+        return driver.fileManager.statFile(this, filepath, flags, callback);
+    }
+
     shutdown(errCode, reason) {
-        if (MUDData.DriverObject.validShutdown(this)) {
+        if (driver.validShutdown(this)) {
             process.exit(errCode || 0);
         }
     }
@@ -960,13 +956,18 @@ class EFUNProxy {
         return sprintf.apply(sprintf, args);
     }
 
+    stripBOM(content) {
+        if (content.charCodeAt(0) === 0xFEFF) {
+            content = content.slice(1);
+        }
+        return content;
+    }
+
     /**
      * Returns the upper-most object on the stack.
      * @returns {MUDObject|false} The last object to interact with the MUD or false if none.
      */
     thisObject() {
-        if (MUDData.ThisObject)
-            return MUDData.ThisObject;
         var prev = this.previousObject(-1);
         return prev[0] || false;
     }
@@ -1005,7 +1006,7 @@ class EFUNProxy {
      * @returns {boolean} True if the password complies with the policy or false if too weak.
      */
     validPassword(str) {
-        return MUDData.Config.mud.passwordPolicy.validPassword(str);
+        return driver.config.mud.passwordPolicy.validPassword(str);
     }
 
     /**
@@ -1028,30 +1029,13 @@ class EFUNProxy {
      * Write text to file.
      * @param {string} filename The file to write to.
      * @param {string} content The content to write.
-     * @param {function=} callback Optional callback for async mode.
-     * @param {boolean} overwrite A flag indicating the file should be overwritten.
+     * @param {function(boolean,Error):void} callback Optional callback for async mode.
      */
     writeFile(filename, content, callback, overwrite) {
-        var _async = typeof callback === 'function',
-            _filename = this.resolvePath(filename),
-            _absfile = MUDData.MasterEFUNS.mudPathToAbsolute(_filename);
-
-        if (typeof content === 'object') {
-            content = JSON.stringify(content);
-            overwrite = true;
-        }
-        else if (typeof content === 'function') {
-            content = content();
-        }
-
-        if (MUDData.DriverObject.validWrite(this, _filename)) {
-            return MUDData.MasterEFUNS.writeFile(_absfile, content,
-                MUDExecutionContext.awaiter(callback),
-                overwrite);
-        }
-        let err = new Error('Permission denied: ' + _filename);
-        MUDData.CleanError(err);
-        throw err;
+        return driver.fileManager.writeFile(this,
+            this.resolvePath(filename),
+            content,
+            callback);
     }
 
     writeJsonFile(filename, data, callback, replacer) {
@@ -1090,106 +1074,122 @@ Object.defineProperties(EFUNProxy.prototype, {
                 (typeof o.client === 'object') &&
                 (o.client.isBrowser === true);
         }
-    },
-    previousObject: {
-        value: (function () {
-            if (MUDConfig.driver.useObjectProxies) {
-                //  If useObjectProxies is on then the driver maintains an object stack.
-                return function (n) {
-                    let thisObject = MUDData.ObjectStack[0] || false,
-                        index = (n || 0) + 1, prev = null;
-                    if (n === -1) {
-                        return MUDData.ObjectStack.slice(0)
-                            .filter(o => o === prev ? false : (prev = o), true);
-                    }
-                    return MUDData.ObjectStack[index] || thisObject || false;
-                };
-            }
-            else if (MUDConfig.driver.objectCreationMethod === 'inline') {
-                //  If objects are created inline without a wrapper class then it is 
-                //  impossible to determine the instance of the calling object unless
-                //  safe mode is turned off... which seems unlikely.
-                return function (n) {
-                    let objectStack = [], index = (n || 0) + 1;
-                    stack().forEach((cs, i) => {
-                        let fn = cs.getFileName();
-                        if (typeof fn === 'string' && !fn.startsWith(MUDData.DriverPath)) {
-                            let mudPath = MUDData.RealPathToMudPath(fn);
-                            let module = MUDData.ModuleCache.get(mudPath);
-                            if (module) {
-                                let ob = unwrap(module.getWrapper(0));
-                                if (objectStack[0] !== ob) objectStack.unshift(ob);
-                            }
-                        }
-                    });
-                    return n === -1 ? objectStack.reverse() : objectStack[index];
-                };
-            }
-            else /* creation method must be one of the wrapper varities */ {
-                return function (n) {
-                    let objectStack = [], index = (n || 0) + 1;
-                    stack().forEach((cs, i) => {
-                        let fn = cs.getFileName() || '[no file]',
-                            func = cs.getFunctionName();
-
-                        if (typeof fn === 'string' && !fn.startsWith(MUDData.DriverPath)) {
-                            let fileParts = fn.split('#');
-                            let module = MUDData.ModuleCache.get(fileParts[0]),
-                                instanceId = fileParts.length === 1 ? 0 : parseInt(fileParts[1]);
-                            if (module) {
-                                let ob = unwrap(module.getWrapper(instanceId));
-                                if (objectStack[0] !== ob) objectStack.unshift(ob);
-                            }
-                        }
-                    });
-                    return n === -1 ? objectStack.reverse() : objectStack[index];
-                };
-            }
-        })(),
-        writable: false
     }
 });
 
 /**
  * @param {string} filename File to create proxy for.
+ * @param {string} directory The directory portion of the filename.
  */
-EFUNProxy.createEfunProxy = function (filename) {
-    var wrapper = new EFUNProxy(),
-        parts = filename.length > 1 ? filename.split('/') : [],
-        directory = parts.length > 1 ? parts.slice(0, parts.length - 1).join('/') : '/',
-        perms = [];
+EFUNProxy.createEfunProxy = function (filename, directory) {
+    let wrapper = new EFUNProxy(), perms = [];
 
-    if (MUDData.InGameMaster) {
-        perms = MUDData.InGameMaster().getPermissions(filename);
+    if (driver.masterObject) {
+        perms = driver.masterObject.getPermissions(filename);
     }
-    else if (MUDData.DriverObject) {
-        if (filename === MUDData.DriverObject.masterFilename) {
-            perms = ['ROOT'];
+    else if (!driver.masterObject) {
+        if (filename === '/') {
+            perms = [driver.config.mudlib.rootUid];
         }
-    }
-    else if (filename === '/') {
-        perms = ['ROOT'];
+        else {
+            perms = [driver.config.mudlib.backboneUid];
+        }
     }
     return (function (w, fn, p) {
         var hd = directory;
+
         p.forEach(function (s, i) {
             if (s.startsWith('REALM:'))
                 hd = '/realms/' + s.slice(6);
             else if (s.startsWith('DOMAIN:'))
                 hd = '/world/' + s.slice(7);
         });
+
         Object.defineProperties(w, {
-            directory: { value: directory, writable: false, enumerable: true },
-            filename: { value: fn, writable: false, enumerable: true },
-            homeDirectory: { value: hd, writable: false, enumerable: true },
-            permissions: { value: p, writable: false, enumerable: true }
+            directory: {
+                value: directory,
+                writable: false,
+                enumerable: true
+            },
+            filename: {
+                value: fn,
+                writable: false,
+                enumerable: true
+            },
+            homeDirectory: {
+                value: hd,
+                writable: false,
+                enumerable: true
+            }, // TODO: Make this dynamic call to master object.
+            permissions: {
+                value: p,
+                writable: false,
+                enumerable: true
+            }
         });
         return Object.seal(w);
     })(wrapper, filename, perms);
 
 };
 
-MUDData.SpecialRootEfun = EFUNProxy.createEfunProxy('/');
+/**
+ * Configure the EFUNProxy based on configuration
+ * @param {GameServer} driver
+ */
+EFUNProxy.configureForRuntime = function (driver) {
+    SaveExtension = driver.config.mudlib.defaultSaveExtension;
+    driver.efuns = EFUNProxy.createEfunProxy('/', '/');
+
+    if (driver.config.driver.useObjectProxies) {
+        EFUNProxy.prototype.previousObject = function (n) {
+            let thisObject = MUDData.ObjectStack[0] || false,
+                index = (n || 0) + 1, prev = null;
+            if (n === -1) {
+                return MUDData.ObjectStack.slice(0)
+                    .filter(o => o === prev ? false : (prev = o), true);
+            }
+            return MUDData.ObjectStack[index] || thisObject || false;
+        };
+    }
+    else if (driver.config.driver.objectCreationMethod === 'inline') {
+        EFUNProxy.prototype.previousObject = function (n) {
+            let objectStack = [], index = (n || 0) + 1;
+            stack().forEach((cs, i) => {
+                let fn = cs.getFileName();
+                if (typeof fn === 'string' && !fn.startsWith(driver.config.driver.driverPath)) {
+                    let mudPath = driver.fileManager.toMudPath(fn);
+                    let module = driver.cache.get(mudPath);
+                    if (module) {
+                        let ob = unwrap(module.getWrapper(0));
+                        if (objectStack[0] !== ob) objectStack.unshift(ob);
+                    }
+                }
+            });
+            return n === -1 ? objectStack.reverse() : objectStack[index];
+        };
+    }
+    else {
+        EFUNProxy.prototype.previousObject = function (n) {
+            let objectStack = [], index = (n || 0) + 1;
+            stack().forEach((cs, i) => {
+                let fn = cs.getFileName() || '[no file]',
+                    func = cs.getFunctionName();
+
+                if (typeof fn === 'string' && !fn.startsWith(driver.config.driver.driverPath)) {
+                    let [modulePath, instanceStr] = fn.split('#', 2);
+                    let module = driver.cache.get(modulePath),
+                        instanceId = instanceStr ? parseInt(instanceStr) : 0;
+
+                    if (module) {
+                        let ob = unwrap(module.getWrapper(instanceId));
+                        if (objectStack[0] !== ob) objectStack.unshift(ob);
+                    }
+                }
+            });
+            return n === -1 ? objectStack.reverse() : objectStack[index];
+        };
+    }
+};
 
 module.exports = EFUNProxy;
 

@@ -1,7 +1,10 @@
 ﻿
 class MudlibMasterObject {
     constructor(data) {
+        /** @type {string} */
         this.path = data.path;
+
+        /** @type {Object.<string,any>} */
         this.parameters = data.parameters || {};
     }
 

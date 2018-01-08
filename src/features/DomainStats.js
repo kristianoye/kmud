@@ -94,6 +94,9 @@ class DomainStatsFeature extends FeatureBase {
         this.efunNameAuthorStats = config.parameters.efunNameAuthorStats || false;
         this.efunNameAddWorth = config.parameters.efunNameAddWorth || false;
         this.efunNameDomainStats = config.parameters.efunNameDomainStats || false;
+
+        flags.authorStats = this.efunNameAuthorStats !== false;
+        flags.domainStats = this.efunNameDomainStats !== false;
     }
 
     createDriverApplies(driver, driverProto) {

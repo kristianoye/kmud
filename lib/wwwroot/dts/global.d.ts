@@ -1,28 +1,4 @@
-﻿declare class MUDLoader {
-    include(path: ...string[]): MUD;
-
-    /**
-     * Imports one or more modules
-     * @param {...string[]} path
-     */
-    imports(path: ...string[]): MUD;
-
-    /**
-     * Returns true if the primary type is a singleton (e.g. cannot be cloned).
-     * @returns {boolean} If true then copies of the object cannot be made with cloneObject().
-     */
-    isSingleton(): boolean;
-
-    /**
-     * Sets the singleton flag.
-     * @param {boolean} flag The value of the singleton flag.  If true then the item may not be cloned.
-     */
-    isSingleton(flag: boolean): boolean;
-}
-
-let MUD = new MUDLoader;
-
-declare class MUDObject
+﻿declare class MUDObject
 {
     /** Basename is like filename except the clone number is not attached */
     readonly basename: string;

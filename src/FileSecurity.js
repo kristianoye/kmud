@@ -1,64 +1,137 @@
 ﻿const
     MUDEventEmitter = require('./MUDEventEmitter'),
-    { NotImplementedError } = require('./ErrorTypes');
+    { NotImplementedError } = require('./ErrorTypes'),
+    FileManager = require('./FileManager'),
+    GameServer = require('./GameServer');
 
 class FileSecurity extends MUDEventEmitter {
-    constructor() {
+    /**
+     * Construct a file security model that acts as a firewall
+     * between mudlib and filesystem.
+     * @param {FileManager} fileManager A reference to the file manager.
+     * @param {Object.<string,any>} options
+     */
+    constructor(fileManager, options) {
         super();
+
+        /** @type {GameServer} */
+        this.driver = fileManager.driver;
+
+        /** @type {FileManager} */
+        this.fileManager = fileManager;
+
+        /** @type  {Object.<string,any>} */
+        this.options = options || {};
+
+        /** @type {boolean} */
+        this.throwSecurityExceptions = this.options.throwSecurityExceptions || false;
     }
 
-    validCreateDirectory(caller, expr) {
+    assertValid() { return this; }
+
+    /**
+     * Attempt to create a directory.
+     * @param {EFUNProxy} efuns The efuns instance creating the directory.
+     * @param {string} expr The path being created.
+     * @param {function=} callback
+     */
+    createDirectory(efuns, expr, callback) {
+        throw new NotImplementedError('createDirectory');
+    }
+
+    /**
+     * Loads an object from disk.
+     * @param {EFUNProxy} efuns
+     * @param {string} expr
+     * @param {object=} args
+     * @param {function=} callback
+     */
+    loadObject(efuns, expr, args, callback) {
+        throw new NotImplementedError('loadObject');
+    }
+
+    /**
+     * Attempt to read a file.
+     * @param {EFUNProxy} efuns
+     * @param {string} expr
+     * @param {function=} callback
+     */
+    readFile(efuns, expr, callback) {
+        throw new NotImplementedError('readFile');
+    }
+
+    readJsonFile(efuns, expr, callback) {
+        throw new NotImplementedError('readJsonFile');
+    }
+
+    /**
+     * Writes a file to disk.
+     * @param {EFUNProxy} efuns
+     * @param {string} expr
+     * @param {Buffer|string} content
+     * @param {function=} callback
+     */
+    writeFile(efuns, expr, content, callback) {
+        throw new NotImplementedError('writeFile');
+    }
+
+    validCreateDirectory(expr) {
         throw new NotImplementedError('validCreateDirectory');
     }
 
-    validCreateFile(caller, expr) {
+    validCreateFile(expr) {
         throw new NotImplementedError('validCreateFile');
     }
 
-    validDelete(caller, expr) {
+    validDeleteFile(expr) {
         throw new NotImplementedError('validDelete');
     }
 
-    validDeleteDirectory(caller, expr) {
+    validDeleteDirectory(expr) {
         throw new NotImplementedError('validDeleteDirectory');
     }
 
-    validDestruct(caller, expr) {
+    validDestruct(expr) {
         throw new NotImplementedError('validDestruct');
     }
 
-    validGrant(caller, expr) {
+    validGrant(expr) {
         throw new NotImplementedError('validGrant');
     }
 
-    validListDirectory(caller, expr) {
+    validListDirectory(expr) {
         throw new NotImplementedError('validListDirectory');
     }
 
-    validLoadFile(caller, expr) {
+    /**
+     * Default security does not enforce object loading or cloning.
+     * @param {EFUNProxy} caller External functions making the call.
+     * @param {string} expr The path to load the object from.
+     * @returns {boolean}
+     */
+    validLoadObject(caller, expr) {
         throw new NotImplementedError('validLoadFile');
     }
 
-    validRead(caller, expr) {
-        throw new NotImplementedError('validRead');
-    }
-
-    validReadDir(caller, expr) {
+    validReadDirectory(expr) {
         throw new NotImplementedError('validReadDir');
     }
 
-    validReadPermissions(caller, expr) {
+    validReadFile(expr) {
+        throw new NotImplementedError('validRead');
+    }
+
+    validReadPermissions(expr) {
         throw new NotImplementedError('validReadPermissions');
     }
 
     /**
      * Validate the request to stat a file.
-     * @param {any} caller The object or filename requesting the stat.
      * @param {string} expr The file expression to stat.
      * @param {number=} flags Optional detail flags
      * @returns {boolean} True if the caller has permission to perform the operation.
      */
-    validStatFile(caller, expr, flags) {
+    validStatFile(expr, flags) {
         throw new NotImplementedError('validStatFile');
     }
 
@@ -67,7 +140,7 @@ class FileSecurity extends MUDEventEmitter {
      * @param {any} caller The caller attempting to write.
      * @param {string} expr The file expression to try and write to.
      */
-    validWrite(caller, expr) {
+    validWrite(expr) {
         throw new NotImplementedError('validWrite');
     }
 }

@@ -8,8 +8,6 @@
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
     MUDConfig = require('./MUDConfig'),
-    MUDData = require('./MUDData'),
-    MUDObject = require('./MUDObject'),
     MUDCreationContext = require('./MUDCreationContext'),
     ClientCaps = require('./network/ClientCaps');
 
@@ -236,7 +234,7 @@ class MUDStorage extends MUDEventEmitter {
     restoreObject(data, backRefs) {
         let r = {};
         if (data.$$type && data.$$file) {
-            let ttype = MUDData.ModuleCache.getType(data.$$file, data.$$type);
+            let ttype = driver.cache.getType(data.$$file, data.$$type);
 
             if (ttype && typeof ttype.restore === 'function') {
                 r = ttype.restore(data);
@@ -454,40 +452,63 @@ class MUDStorage extends MUDEventEmitter {
     }
 }
 
-if (MUDConfig.readValue('driver.objectCreationMethod', 'inline') === 'inline') {
-    MUDStorage.create = function (/** @type {MUDObject} */ ob, /** @type {MUDCreationContext} */ ctx) {
-        return ctx.isReload ? MUDStorage.reload(ob, ctx) : MUDStorage.instances[ob._propKeyId] = new MUDStorage(ob, ctx);
-    };
-} else {
-    MUDStorage.create = function (/** @type {MUDObject} */ ob, /** @type {MUDCreationContext} */ ctx) {
-        return MUDStorage.get(ob).reload(ob, ctx);
-    };
+class MUDStorageContainer {
+    constructor() {
+        /** @type {Object.<string,MUDStorage>} */
+        this.storage = {};
+    }
+
+    /**
+     * @param {MUDObject} ob
+     * @param {MUDCreationContext} ctx
+     */
+    create(ob, ctx) {
+        return unwrap(ob, item => {
+            return this.storage[item._propKeyId] = new MUDStorage(item, ctx);
+        });
+    }
+
+    createForId(filename, id) {
+        let instanceId = `${filename}.${id}`;
+        return this.storage[instanceId] = new MUDStorage(null, null);
+    }
+
+    /**
+     * Fetch storage for the specified argument.
+     * @param {MUDObject} ob The file to fetch storage for.
+     * @returns {MUDStorage} The storage object for the item or false.
+     */
+    get(ob) {
+        return unwrap(ob, item => this.storage[item._propKeyId] || false);
+    }
+
+    /**
+     * Re-assocate the storage with the new instance reference.
+     * @param {MUDObject} item
+     * @param {MUDCreationContext} ctx
+     */
+    reload(item, ctx) {
+        return unwrap(item, ob => this.storage[ob._propKeyId].reload(item, ctx));
+    }
 }
 
-MUDStorage.createForId = function (/** @type {string}, */ filename, /** @type {number} */ id) {
-    let instanceId = `${filename}.${id}`;
-    return MUDStorage.instances[instanceId] = new MUDStorage(null, null);
+/**
+ * @param {GameServer} driver
+ * @returns {MUDStorageContainer}
+ */
+MUDStorage.configureForRuntime = function (driver) {
+    let manager = new MUDStorageContainer();
+
+    driver.storage = manager;
+
+    /**
+     * @param {MUDObject} ob
+     * @returns {MUDStorage}
+     */
+    MUDStorage.get = function (ob) {
+        return manager.get(ob);
+    };
 };
 
-/**
- * @returns {MUDStorage} The storage object for the specified object.
- */
-MUDStorage.get = function (/** @type {MUDObject} */ ob) {
-    if (typeof ob === 'function') ob = ob();
-    return MUDStorage.instances[unwrap(ob)._propKeyId];
-};
-
-/**
- * @type {Object.<string,MUDStorage>}
- */
-MUDStorage.instances = {};
-
-/**
- * @returns {MUDStorage} Called if the object instance is reloaded.
- */
-MUDStorage.reload = function (/** @type {MUDObject} */ ob, /** @type {MUDCreationContext} */ ctx) {
-    return MUDStorage.get(ob).reload(ob, ctx);
-};
-
-MUDData.Storage = MUDStorage;
 module.exports = MUDStorage;
+

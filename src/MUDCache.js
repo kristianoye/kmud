@@ -3,11 +3,13 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-var
-    MUDData = require('./MUDData'),
-    MUDModule = require('./MUDModule');
+const
+    MUDModule = require('./MUDModule'),
+    GameServer = require('./GameServer'),
+    path = require('path');
 
 /**
+ * @class
  * Contains information about all loaded MUD modules.
  */
 class MUDCache {
@@ -60,7 +62,7 @@ class MUDCache {
      */
     getType(file, typeName) {
         let filename = this.normalize(file),
-            module = this.get(filename) || MUDData.CompilerInstance.compileObject(filename);
+            module = this.get(filename) || driver.compiler.compileObject(filename);
         return module && module.getType(typeName);
     }
 
@@ -82,9 +84,14 @@ class MUDCache {
         return this;
     }
 
+    /**
+     * 
+     * @param {string} file
+     */
     resolve(file) {
-        let path = MUDData.RealPathToMudPath(file) || file;
-        return this.get(path);
+        let expr = driver.fileManager.toMudPath(file) || file,
+            norm = expr && expr.replace(new RegExp('/' + path.sep + '/', 'g'), '/');
+        return norm && this.get(norm);
     }
 
     store(module) {
@@ -96,5 +103,40 @@ class MUDCache {
     }
 }
 
-module.exports = MUDData.ModuleCache = new MUDCache();
+/**
+ * @param {GameServer} driver 
+ */
+MUDCache.configureForRuntime = function (driver) {
+    /**
+     * Delete a module entry from the cache.
+     * @param {string} name The module to delete from the cache.
+     */
+    MUDCache.delete = function (name) {
+        return driver.cache.delete(name);
+    };
 
+    /**
+     * Returns the singleton instance of the MUD cache.
+     * @param {string} name The name of the module to fetch.
+     * @returns {MUDModule} */
+    MUDCache.get = function (name) {
+        return driver.cache.get(name);
+    };
+
+    /**
+     * Passthru
+     */
+    MUDCache.getOrCreate = function (filename, fullPath, muddir, isVirtual) {
+        return driver.cache.getOrCreate(filename, fullPath, muddir, isVirtual);
+    };
+
+    /**
+     * Stores a compiled module.
+     * @param {MUDModule} module The module to store.
+     */
+    MUDCache.store = function (module) {
+        return driver.cache.store(module);
+    };
+};
+
+module.exports = MUDCache;

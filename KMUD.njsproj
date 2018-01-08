@@ -415,6 +415,9 @@
     <Compile Include="src\config\DriverSection.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\config\MudlibFileSystem.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\config\MudlibMasterObject.js">
       <SubType>Code</SubType>
     </Compile>
@@ -441,6 +444,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\ErrorTypes.js" />
+    <Compile Include="src\ExecutionContext.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\features\DomainStats.js">
       <SubType>Code</SubType>
     </Compile>
@@ -913,6 +919,7 @@
     <Folder Include="src\network\impl\xterm\" />
     <Folder Include="src\network\impl\zmud\" />
     <Folder Include="src\fs\" />
+    <Folder Include="src\dts\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
   </ItemGroup>
@@ -924,6 +931,34 @@
     <TypeScriptCompile Include="lib\wwwroot\dts\base\GameObject.d.ts" />
     <TypeScriptCompile Include="lib\wwwroot\dts\base\Room.d.ts" />
     <TypeScriptCompile Include="lib\wwwroot\dts\global.d.ts" />
+    <TypeScriptCompile Include="src\dts\EFUNProxy.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\FileManager.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\GameServer.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\FileSecurity.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\MasterObject.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\MUDCache.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\MUDCompiler.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\MUDLoader.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\MUDModule.d.ts" />
+    <TypeScriptCompile Include="src\dts\MUDStorageContainer.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
   </ItemGroup>
   <!-- Do not delete the following Import Project.  While this appears to do nothing it is a marker for setting TypeScript properties before our import that depends on them. -->
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TypeScript\Microsoft.TypeScript.targets" Condition="False" />

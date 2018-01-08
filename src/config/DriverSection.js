@@ -2,7 +2,8 @@
     ConfigUtil = require('../ConfigUtil'),
     { DriverNetworking } = require('./DriverNetworking'),
     DriverCompiler = require('./DriverCompiler'),
-    DriverFeature = require('./DriverFeature');
+    DriverFeature = require('./DriverFeature'),
+    path = require('path');
 
 /** 
  * @module DriverSection
@@ -13,6 +14,9 @@ class DriverSection {
     constructor(data) {
         /** @type {string} */
         this.core = data.core;
+
+        /** @type {string} */
+        this.driverPath = path.resolve(__dirname, '..');
 
         /**@type {Object.<string,boolean>} */
         this.featureFlags = {};
