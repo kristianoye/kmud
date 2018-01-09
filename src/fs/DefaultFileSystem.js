@@ -9,10 +9,9 @@ class DefaultFileSystem extends FileSystem {
      * 
      * @param {FileManager} fm
      * @param {Object.<string,any>} options
-     * @param {FileSecurity} securityManager
      */
-    constructor(fm, options, securityManager) {
-        super(fm, options, securityManager);
+    constructor(fm, options) {
+        super(fm, options);
 
         /** @type {string} */
         this.root = path.resolve(fm.mudlibRoot, options.path);

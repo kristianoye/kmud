@@ -8,7 +8,7 @@ class Who extends Command {
             count = players.length,
             tp = thisPlayer;
 
-        tp.writeLine('There are {0} player(s) on-line:'.fs(count));
+        tp.writeLine(`There are ${count} player(s) on-line:`);
         players.forEach((player, i) => {
             tp.writeLine(player.getTitle());
         });

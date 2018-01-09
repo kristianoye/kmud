@@ -18,6 +18,15 @@ class DefaultFileSecurity extends FileSecurity {
     }
 
     /**
+     * Determine whether the caller is allowed to create a directory.
+     * @param {EFUNProxy} efuns The object attempting to create a directory.
+     * @param {string} mudpath The directory being created.
+     */
+    validCreateDirectory(efuns, mudpath) {
+        return this.validWriteFile(efuns, mudpath);
+    }
+
+    /**
      * Default security does not distinguish creating a file from writing.
      * @param {any} efuns
      * @param {string} expr

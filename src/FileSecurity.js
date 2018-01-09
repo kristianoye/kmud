@@ -1,7 +1,6 @@
 ﻿const
     MUDEventEmitter = require('./MUDEventEmitter'),
     { NotImplementedError } = require('./ErrorTypes'),
-    FileManager = require('./FileManager'),
     GameServer = require('./GameServer');
 
 class FileSecurity extends MUDEventEmitter {
@@ -9,9 +8,10 @@ class FileSecurity extends MUDEventEmitter {
      * Construct a file security model that acts as a firewall
      * between mudlib and filesystem.
      * @param {FileManager} fileManager A reference to the file manager.
+     * @param {FileSystem} fileSystem A reference to the filesystem this object manages.
      * @param {Object.<string,any>} options
      */
-    constructor(fileManager, options) {
+    constructor(fileManager, fileSystem, options) {
         super();
 
         /** @type {GameServer} */
@@ -20,14 +20,19 @@ class FileSecurity extends MUDEventEmitter {
         /** @type {FileManager} */
         this.fileManager = fileManager;
 
+        /** @type {FileSystem} */
+        this.fileSystem = fileSystem;
+
         /** @type  {Object.<string,any>} */
         this.options = options || {};
 
         /** @type {boolean} */
         this.throwSecurityExceptions = this.options.throwSecurityExceptions || false;
+
+        fileSystem.addSecurityManager(this);
     }
 
-    assertValid() { return this; }
+    // #region FileSystem Implementation
 
     /**
      * Attempt to create a directory.
@@ -74,6 +79,10 @@ class FileSecurity extends MUDEventEmitter {
     writeFile(efuns, expr, content, callback) {
         throw new NotImplementedError('writeFile');
     }
+
+    // #endregion
+
+    // #region Security valid* Applies
 
     validCreateDirectory(expr) {
         throw new NotImplementedError('validCreateDirectory');
@@ -143,6 +152,8 @@ class FileSecurity extends MUDEventEmitter {
     validWrite(expr) {
         throw new NotImplementedError('validWrite');
     }
+
+    // #endregion
 }
 
 module.exports = FileSecurity;

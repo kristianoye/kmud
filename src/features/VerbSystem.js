@@ -757,16 +757,12 @@ class VerbContainer {
         });
         if (direct.which === -1) {
             if (direct.howMany > directMatches) {
-                errors.push('There are only {0} {1} here.'.fs(
-                    efuns.cardinal(indirectMatches),
-                    efuns.plurlize(direct.identifiers.join(' '))));
+                errors.push(`There are only ${efuns.cardinal(indirectMatches)} ${(efuns.plurlize(direct.identifiers.join(' ')))} here.`);
                 return false;
             }
         }
         else if (direct.which >= result[direct.index].length) {
-            errors.push('There is no {0} {1}'.fs(
-                efuns.ordinal(direct.which + 1),
-                direct.identifiers.join(' ')));
+            errors.push(`There is no ${(efuns.ordinal(direct.which + 1))} ${(direct.identifiers.join(' '))}`);
             return false;
         }
         else {
@@ -790,9 +786,7 @@ class VerbContainer {
             });
             if (indirect.multi) {
                 if (indirect.howMany > indirectMatches) {
-                    errors.push('There are only {0} {1} here.'.fs(
-                        efuns.ordinal(indirectMatches),
-                        efuns.plurlize(indirect.identifiers.join(' '))));
+                    errors.push(`There are only ${efuns.ordinal(indirectMatches)} ${efuns.plurlize(indirect.identifiers.join(' '))} here.`);
                     return false;
                 }
             }

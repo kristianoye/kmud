@@ -11,7 +11,6 @@ const ClientInstance = require('./ClientInstance'),
 const
     _client = Symbol('client'),
     _callbacks = Symbol('callbacks'),
-    MUDData = require('../MUDData'),
     MUDEventEmitter = require('../MUDEventEmitter');
 
 class HTTPClientInstance extends ClientInstance {
@@ -86,7 +85,7 @@ class HTTPClientInstance extends ClientInstance {
                     }
                 });
                 if (evt) evt.callback(evt);
-                MUDData.DriverObject.errorHandler(err, false);
+                driver.errorHandler(err, false);
             }
             finally {
                 gameMaster.setThisPlayer(false, true);

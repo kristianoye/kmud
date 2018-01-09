@@ -160,7 +160,7 @@ function extendPrototype(pt, spec) {
                 }
             });
             if (ac > 0 && oc > 0) {
-                throw new Error('Object.forEach returned {0} object key/value pairs and {1} array elements; Must be all of one type.'.fs(oc, ac));
+                throw new Error(`Object.forEach returned ${oc} object key/value pairs and ${ac} array elements; Must be all of one type.`);
             }
             return ac > 0 ? arr : obj;
         };

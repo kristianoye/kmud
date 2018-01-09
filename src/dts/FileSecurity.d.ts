@@ -22,6 +22,13 @@
     throwSecurityExceptions: boolean;
 
     /**
+     * Determine whether the caller is allowed to create a directory.
+     * @param efuns The object attempting to create a directory.
+     * @param mudpath The directory being created.
+     */
+    validCreateDirectory(efuns: EFUNProxy, mudpath: string): boolean;
+
+    /**
      * Determine if the caller has permission to unlink a file.
      * @param efuns The object making the delete request.
      * @param mudpath The path to unlink from the filesystme.

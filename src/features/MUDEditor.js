@@ -8,18 +8,14 @@
 const
     DriverFeature = require('../config/DriverFeature'),
     ConfigUtil = require('../ConfigUtil'),
-    EFUNProxy = require('../EFUNProxy'),
     FeatureBase = require('./FeatureBase'),
-    MUDData = require('../MUDData'),
-    MUDObject = require('../MUDObject'),
-    MUDStorage = require('../MUDStorage').MUDStorageContainer,
-    MODE_INPUT = 1,
-    MODE_COMMAND = 2,
     ParseEditorCommand = /^([0-9,]*)([a-zA-Z\/=\?]{0,1})([0-9,]*)(.*)/,
     ERROR_BADRANGE = 'Bad line range',
     ERROR_FAILED = 'Failed command',
     ERROR_NORANGE = 'Cannot use ranges with that command.',
     ERROR_SYNTAX = 'Bad command syntax.',
+    MODE_INPUT = 1,
+    MODE_COMMAND = 2,
     SEARCH_FORWARD = 1,
     SEARCH_BACKWARD = 2;
 
@@ -646,7 +642,7 @@ class EditorInstance {
  * @returns {EditorInstance}
  */
 EditorInstance.get = function (ob) {
-    let $storage = MUDStorage.get(ob);
+    let $storage = driver.storage.get(ob);
     return $storage && $storage.getProtected('$editor');
 };
 
@@ -708,7 +704,7 @@ class MUDEditorFeature extends FeatureBase {
                 let editorState = this[feature.efunNameQueryEdMode].call(this);
                 if (editorState === -1) {
                     let thisEditor = this.thisPlayer(),
-                        $storage = MUDStorage.get(thisEditor),
+                        $storage = driver.storage.get(thisEditor),
                         caps = $storage.getClientCaps(),
                         options = optionsIn || {};
 

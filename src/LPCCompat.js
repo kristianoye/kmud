@@ -44,11 +44,11 @@ class LPCParser {
             }
             else if (s[n] === '}') {
                 if (s[++n] === ')') return n++ , { id: TOKEN_ENDARRAY, pos: n };
-                else throw new Error('Unexpected character at %d', n);
+                else throw new Error(`Unexpected character at ${n}`);
             }
             else if (s[n] === ']') {
                 if (s[++n] === ')') return n++ , { id: TOKEN_ENDMAPPING, pos: n };
-                else throw new Error('Unexpected character at %d', n);
+                else throw new Error(`Unexpected character at ${n}`);
             }
             else if (s[n] === ',') {
                 return n++ , { id: TOKEN_COMMA, pos: n };
@@ -56,7 +56,7 @@ class LPCParser {
             else if (s[n] === '"') {
                 bs = ++n, d = false, sl = 0;
                 do {
-                    if (n++ >= l) throw new Error('Unexepcted end of string starting at {0}'.fs(bs));
+                    if (n++ >= l) throw new Error(`Unexepcted end of string starting at ${bs}`);
                     if (s[n] === '"') d = s[n - 1] !== '\\';
                     if (!d) sl++;
                 }
@@ -75,14 +75,14 @@ class LPCParser {
                 TOKEN_NUMERICUNIQUE.forEach(function (c, i) {
                     var cs = String.fromCharCode(c);
                     if (sv.indexOf(cs) !== sv.lastIndexOf(cs)) {
-                        throw new Error('Invalid numeric expression starting at {0}'.fs(bs));
+                        throw new Error(`Invalid numeric expression starting at ${bs}`);
                     }
                 });
                 var nv = parseFloat(sv);
                 return { id: TOKEN_NUMBER, value: nv, pos: n };
             }
             else if ((n + 1) < l)
-                throw new Error('Unexpected character "{0}" at position {1}'.fs(s[n], n));
+                throw new Error(`Unexpected character "${s[n]}" at position ${n}`);
             return false;
         }
         while (token = nextToken()) {
@@ -116,7 +116,7 @@ class LPCParser {
                                 cur[key.value] = val.value;
                             }
                             else if (lvalue.length > 0)
-                                throw new Error('Unexpected mapping format near position {0}'.fs(lvalue[lvalue.length - 1].pos))
+                                throw new Error(`Unexpected mapping format near position ${(lvalue[lvalue.length - 1].pos)}`)
                         }
                     }
                     break;
@@ -138,7 +138,7 @@ class LPCParser {
             }
         }
         if (lvalue.length !== 1)
-            throw new Error('Unexpected LPC result contained {0} element(s)'.fs(lvalue.length));
+            throw new Error(`Unexpected LPC result contained ${(lvalue.length)} element(s)`);
         var result = lvalue.pop();
         if ('value' in result)
             return result.value;

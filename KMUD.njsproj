@@ -517,6 +517,9 @@
     <Compile Include="src\MUDOSLoader.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\MUDPromise.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\MUDStorage.js">
       <SubType>Code</SubType>
     </Compile>
@@ -935,6 +938,9 @@
       <SubType>Code</SubType>
     </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\FileManager.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\FileSystem.d.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\GameServer.d.ts">

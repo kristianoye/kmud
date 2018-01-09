@@ -7,7 +7,6 @@
  */
 const
     ClientInstance = require('./ClientInstance'),
-    MUDData = require('../MUDData'),
     _client = Symbol('_client'),
     tripwire = false;
 
@@ -67,7 +66,7 @@ class RanvierTelnetInstance extends ClientInstance {
             }
             catch (err) {
                 if (evt) evt.callback(evt);
-                MUDData.DriverObject.errorHandler(err, false);
+                driver.errorHandler(err, false);
             }
             finally {
                 gameMaster.setThisPlayer(false, true);

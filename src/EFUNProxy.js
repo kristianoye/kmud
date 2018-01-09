@@ -80,11 +80,8 @@ class EFUNProxy {
                 uniq[s]++;
             });
             if (count === 0) return '';
-            list = Object.mapEach(uniq, (k, v) => {
-                return '{0} {1}'.fs(
-                    useNumbers ? v.toString() : this.cardinal(v),
-                    v > 1 ? this.pluralize(k) : k);
-            });
+            list = Object.mapEach(uniq, (k, v) => 
+                `${(useNumbers ? v.toString() : this.cardinal(v))} ${(v > 1 ? this.pluralize(k) : k)}`);
         }
         var len = list.length;
         if (len === 0)
@@ -125,7 +122,7 @@ class EFUNProxy {
 
     clientCaps(target) {
         let result = unwrap(target, (ob) => {
-            let $storage = MUDData.Storage.get(ob);
+            let $storage = driver.storage.get(ob);
 
             if ($storage) {
                 let caps = $storage.getProtected('$clientCaps');
@@ -153,10 +150,9 @@ class EFUNProxy {
             filename = this.resolvePath(args[0], this.directory + '/');
 
         if (driver.validRead(this, filename)) {
-            var module = MUDData.ModuleCache.get(filename);
+            var module = driver.cache.get(filename);
             if (!module || !module.loaded) {
-                MUDData.Compiler(filename);
-                module = MUDData.ModuleCache.get(filename);
+                module = driver.compiler.compileObject(filename);
             }
             if (module) {
                 if (module.singleton)
@@ -180,7 +176,7 @@ class EFUNProxy {
             colCount = 0,
             colWidth = 0;
 
-        width = (width || this.clientCaps(MUDData.ThisPlayer).clientWidth || 80) -2;
+        width = (width || this.clientCaps(driver.thisPlayer).clientWidth || 80) -2;
 
         list.forEach(i => { let n = i.length; longest = n > longest ? n : longest; });
         colWidth = longest + 2;
@@ -220,13 +216,13 @@ class EFUNProxy {
      */
     command(input) {
         let _thisObject = this.ThisPlayer || this.thisObject(),
-            prevPlayer = MUDData.ThisPlayer;
+            prevPlayer = driver.thisPlayer;
         if (_thisObject) {
-            let $storage = MUDData.Storage.get(_thisObject),
+            let $storage = driver.storage.get(_thisObject),
                 client = $storage.getProtected('$client'),
                 evt = client ? client.createCommandEvent(_thisObject) : false;
             try {
-                MUDData.ThisPlayer = _thisObject;
+                driver.thisPlayer = _thisObject;
                 if (!evt) {
                     let words = input.trim().split(/\s+/g),
                         verb = words.shift();
@@ -251,7 +247,7 @@ class EFUNProxy {
                 $storage.emit('kmud.command', evt);
             }
             finally {
-                MUDData.ThisPlayer = prevPlayer;
+                driver.thisPlayer = prevPlayer;
             }
         }
     }
@@ -271,7 +267,7 @@ class EFUNProxy {
      * @returns {string|false} The current verb or false if none.
      */
     currentVerb() {
-        return MUDData.ThisVerb || false;
+        return driver.currentVerb || false;
     }
 
     /**
@@ -318,8 +314,8 @@ class EFUNProxy {
             client = false;
         }
         if (driver.validExec(this, oldBody, newBody, client)) {
-            var oldContainer = oldBody ? MUDData.Storage.get(oldBody) : false,
-                newContainer = MUDData.Storage.get(newBody),
+            var oldContainer = oldBody ? driver.storage.get(oldBody) : false,
+                newContainer = driver.storage.get(newBody),
                 client = oldContainer.getProtected('$client'),
                 execEvent = {
                     oldBody: oldBody,
@@ -354,7 +350,7 @@ class EFUNProxy {
      * @param {string[]} exits
      */
     clientExits(prefix, exits, target) {
-        let player = target || MUDData.ThisPlayer;
+        let player = target || driver.thisPlayer;
         if (player) {
             let $storage = MUDStorage.get(player),
                 caps = $storage.getClientCaps();
@@ -403,7 +399,7 @@ class EFUNProxy {
         var parts = filename.split('#', 2),
             basename = parts[0],
             instanceId = parts.length === 1 ? 0 : parseInt(parts[1]),
-            module = MUDData.ModuleCache.get(basename);
+            module = driver.cache.get(basename);
 
         if (module) {
             return module.wrappers[instanceId] || false;
@@ -418,11 +414,11 @@ class EFUNProxy {
      */
     findPlayer(name, partial) {
         if (typeof name !== 'string')
-            throw new Error('Bad argument 1 to findPlayer; Expects string got {0}'.fs(typeof name));
+            throw new Error(`Bad argument 1 to findPlayer; Expects string got ${(typeof name)}`);
 
         let search = name.toLowerCase().replace(/[^a-zA-Z0-9]+/g, ''),
             len = search.length,
-            matches = MUDData.Players.filter(p => p().getName() === search || (partial && p().getName().slice(0, len) === search));
+            matches = driver.players.filter(p => p().getName() === search || (partial && p().getName().slice(0, len) === search));
 
         return matches.length === 1 ? matches[0] : false;
     }
@@ -641,9 +637,7 @@ class EFUNProxy {
      * @returns {boolean} True if the directory was created (or already exists)
      */
     mkdir(expr, callback) {
-        return callback ?
-            this.securityManager.createDirectory(this, expr, callback) :
-            this.securityManager.createDirectory(this, expr);
+        return driver.fileManager.createDirectory(this, expr, callback);
     }
 
     mudInfo() {
@@ -696,7 +690,7 @@ class EFUNProxy {
      */
     normalizeName(name) {
         if (typeof name !== 'string')
-            throw new Error('Bad argument 1 to normalizeName; Expected string got {0}'.fs(typeof name));
+            throw new Error(`Bad argument 1 to normalizeName; Expected string got ${(typeof name)}`);
         return name.toLowerCase().replace(/[^a-z0-9]+/g, '');
     }
 
@@ -842,7 +836,9 @@ class EFUNProxy {
                 expr = '/realms/' + m[2] + expr.slice(m[2].length + 1);
             }
             else if (expr[1] === '/' || expr === '~') {
-                expr = MUDData.ThisPlayer ? '/realms/' + MUDData.ThisPlayer.getName() + expr.slice(1) : self.homeDirectory + expr.slice(1);
+                expr = driver.thisPlayer ?
+                    '/realms/' + driver.thisPlayer.getName() + expr.slice(1) :
+                    self.homeDirectory + expr.slice(1);
             }
             else if (m.length === 3 && !m[1]) {
                 expr = '/realms/' + expr.slice(1);
@@ -973,7 +969,7 @@ class EFUNProxy {
     }
 
     thisPlayer(flag) {
-        return flag ? MUDData.TruePlayer || MUDData.ThisPlayer : MUDData.ThisPlayer;
+        return flag ? driver.truePlayer || driver.thisPlayer : driver.thisPlayer;
     }
 
     /**
@@ -984,7 +980,6 @@ class EFUNProxy {
     unguarded(callback) {
         var result = false, context = new MUDExecutionContext();
         try {
-            MUDData.ObjectStack = MUDData.ObjectStack.slice(0, 1);
             result = context.run(callback);
         }
         catch (err) {
@@ -1022,7 +1017,7 @@ class EFUNProxy {
      * @param {any} expr
      */
     write(expr) {
-        this.message('write', expr, MUDData.ThisPlayer);
+        this.message('write', expr, driver.thisPlayer);
         return true;
     }
     /**
@@ -1046,7 +1041,7 @@ class EFUNProxy {
 Object.defineProperties(EFUNProxy.prototype, {
     getProxy: {
         value: function (n) {
-            var module = MUDData.ModuleCache.get(this.filename);
+            var module = driver.cache.get(this.filename);
             return module.getProxy(n);
         },
         writable: false

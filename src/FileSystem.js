@@ -3,7 +3,7 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  *
- * Description: Provides an abstraction for the MUD filesystem.
+ * Description: Provides an abstraction for the MUD filesystems.
  */
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
@@ -15,11 +15,11 @@ const
     FS_DIRECTORIES = 1 << 3,// The filesystem supports directories.
     FS_READONLY = 1 << 4,   // The filesystem is read-only.
     FS_WILDCARDS = 1 << 5,  // The filesystem supports use of wildcards.
-    FS_DATAONLY = 1 << 6,   // The filesystem only supports structured data.
-    FS_OBJECTS = 1 << 7,    // The filesystem does not allow objects to be created.
-    FT_UNKNOWN = 0,
-    FT_FILE = 1 << 0,
-    FT_DIRECTORY = 1 << 1,
+    FS_DATAONLY = 1 << 6,   // The filesystem only supports structured data files (JSON).
+    FS_OBJECTS = 1 << 7,    // The filesystem supports objects loading via the compiler.
+    FT_UNKNOWN = 0,         // Symbolic links, Windows Junctions, file sockets, and other currently unsuppported types.
+    FT_FILE = 1 << 0,       // The target is a regular file.
+    FT_DIRECTORY = 1 << 1,  // The target is a directory.
     fs = require('fs'),
     path = require('path');
 
@@ -62,16 +62,15 @@ class FileSystemStat {
 /**
  * @class
  * Provides a filesystem abstraction to allow implementation of
- * multiple filesystem types (disk-based, SQL-based, etc).
+ * multiple filesystem types (disk-based, SQL-based, ... whatever).
  */
 class FileSystem extends MUDEventEmitter {
     /**
      * 
      * @param {FileManager} fileManager
      * @param {any} opts
-     * @param {FileSecurity} securityManager
      */
-    constructor(fileManager, opts, securityManager) {
+    constructor(fileManager, opts) {
         super();
 
         /** @type {GameServer} */
@@ -83,16 +82,25 @@ class FileSystem extends MUDEventEmitter {
         /** @type {number} */
         this.flags = opts.flags || FS_NONE;
 
+        /** @type {FileManager} */
         this.manager = fileManager;
 
         /** @type {string} */
         this.mp = opts.mountPoint || '';
 
         /** @type {FileSecurity} */
-        this.securityManager = securityManager;
+        this.securityManager = null;
 
         /** @type {string} */
         this.type = opts.type || 'unknown';
+    }
+
+    /**
+     * Sets the security manager.
+     * @param {FileSecurity} manager The security manager.
+     */
+    addSecurityManager(manager) {
+        this.securityManager = manager;
     }
 
     assert(flags, error) {
@@ -165,7 +173,7 @@ class FileSystem extends MUDEventEmitter {
         this.assertDirectories();
         return typeof callback === 'function' ?
             this.assertAsync(() => this.createDirectoryAsync(expr, MUDExecutionContext.awaiter(callback))) :
-            this.assertSync(() => this.createDirectorySync(expr, content));
+            this.assertSync(() => this.createDirectorySync(expr));
     }
 
     createDirectoryAsync(expr, callback) {

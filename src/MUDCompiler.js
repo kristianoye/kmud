@@ -23,9 +23,9 @@ var
 
 class MUDCompiler {
     /**
-     * 
-     * @param {GameServer} driver
-     * @param {any} config
+     * Construct the in-game script compiler.
+     * @param {GameServer} driver A reference to the game driver/server
+     * @param {any} config Optional settings from the config file.
      */
     constructor(driver, config) {
         var comps = 0,
@@ -34,6 +34,7 @@ class MUDCompiler {
 
         this.components = {};
         this.driver = driver;
+        /** @type {Object.<string,MUDLoader>} */
         this.loaders = {};
         this.pipelines = {};
         this.sealTypesAfterCompile = config.sealTypesAfterCompile;
@@ -261,7 +262,7 @@ class MUDCompiler {
         }
         finally {
             var t1 = new Date().getTime();
-            console.log('\t\tLoad timer: {0} [{1} ms]'.fs(filename, t1 - t0));
+            console.log(`\t\tLoad timer: ${filename} [${(t1 - t0)} ms]`);
         }
         return false;
     }

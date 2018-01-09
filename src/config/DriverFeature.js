@@ -1,7 +1,6 @@
 ﻿const
     ConfigUtil = require('../ConfigUtil'),
     FeatureBase = require('../features/FeatureBase'),
-    MUDData = require('../MUDData'),
     path = require('path');
 
 class DriverFeature {

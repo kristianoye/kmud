@@ -67,19 +67,6 @@ class FileManager extends MUDEventEmitter {
         FileManagerInstance = this;
     }
 
-    /**
-     * Mount the specified filesystem.
-     * @param {MudlibFileMount} fsconfig The filesystem to mount.
-     */
-    addFileSystem(fsconfig) {
-        let fileSystemType = require(path.join(__dirname, fsconfig.type)),
-            securityManagerType = require(path.join(__dirname, fsconfig.securityManager)),
-            securityManager = new securityManagerType(this, fsconfig.securityManagerOptions),
-            fileSystem = this.fileSystems[fsconfig.mountPoint] =
-                    new fileSystemType(this, fsconfig.options, securityManager);
-        return fileSystem;
-    }
-
     assertValid() { return this; }
 
     /**
@@ -97,7 +84,7 @@ class FileManager extends MUDEventEmitter {
      * @param {function(FileSystemRequest):any} callback An optional callback.
      * @returns {FileSystemRequest} The filesystem supporting the specified path.
      */
-    getFileSystem(expr, callback) {
+    createFileRequest(expr, callback) {
         let parts = expr.split('/'),
             result = this.fileSystems['/'] || false,
             relParts = [], relPath = expr.slice(1);
@@ -119,14 +106,35 @@ class FileManager extends MUDEventEmitter {
             new FileSystemRequest(relPath, expr, result);
     }
 
+    /**
+     * Create the specified filesystem.
+     * @param {MudlibFileMount} fsconfig The filesystem to mount.
+     */
+    createFileSystem(fsconfig) {
+        let fileSystemType = require(path.join(__dirname, fsconfig.type)),
+            securityManagerType = require(path.join(__dirname, fsconfig.securityManager)),
+            fileSystem = this.fileSystems[fsconfig.mountPoint] = new fileSystemType(this, fsconfig.options),
+            securityManager = new securityManagerType(this, fileSystem, fsconfig.securityManagerOptions);
+        return fileSystem;
+    }
+
     appendFile(path, content, callback) {
-        let fs = this.getFileSystem(path);
+        let fs = this.createFileRequest(path);
         return fs.appendFile(path, content, callback);
     }
 
-    createDirectory(expr, callback) {
-        let fs = this.getFileSystem(expr);
-        return fs.createDirectory(expr, callback);
+    /**
+     * Create a directory in the MUD filesystem.
+     * @param {EFUNProxy} efuns The object creating the directory.
+     * @param {string} expr The path to create.
+     * @param {function(boolean,Error):void} callback A callback to fire if async
+     */
+    createDirectory(efuns, expr, callback) {
+        return this.createFileRequest(expr, req => {
+            return req.securityManager.validCreateDirectory(efuns, req.fullPath) ?
+                req.filesystem.createDirectory(req.relativePath, callback) :
+                req.securityManager.denied('createDirectory', req.fullPath);
+        });
     }
 
     createFile(expr, content, callback) {
@@ -139,7 +147,7 @@ class FileManager extends MUDEventEmitter {
      * @param {callback(boolean, Error):void} callback Callback for async deletion.
      */
     deleteFile(efuns, expr, callback) {
-        return this.getFileSystem(expr, req => {
+        return this.createFileRequest(expr, req => {
             return req.securityManager.validDeleteFile(efuns, req.fullPath) ?
                 req.filesystem.deleteFile(req.relativePath, callback) :
                 req.securityManager.denied('delete', req.fullPath);
@@ -154,7 +162,7 @@ class FileManager extends MUDEventEmitter {
      * @param {function=} callback
      */
     loadObject(efuns, mudpath, args, callback) {
-        return this.getFileSystem(mudpath, req => {
+        return this.createFileRequest(mudpath, req => {
             return req.securityManager.validLoadObject(efuns, req.fullPath) ?
                 req.filesystem.loadObject(req.relativePath, args, callback) :
                 req.securityManager.denied('load', req.fullPath);
@@ -172,7 +180,7 @@ class FileManager extends MUDEventEmitter {
         let muddir = mudpath.endsWith('/') ? mudpath : mudpath.slice(0, mudpath.lastIndexOf('/')),
             filePart = mudpath.slice(muddir.length);
 
-        return this.getFileSystem(muddir, req => {
+        return this.createFileRequest(muddir, req => {
             return req.securityManager.validReadDirectory(efuns, muddir) ?
                 req.filesystem.readDirectory(req.relativePath, filePart, flags, callback) :
                 req.securityManager.denied('list', req.fullPath);
@@ -186,7 +194,7 @@ class FileManager extends MUDEventEmitter {
      * @param {function=} callback An optional callback for async mode.
      */
     readFile(efuns, expr, callback) {
-        return this.getFileSystem(expr, req => {
+        return this.createFileRequest(expr, req => {
             return req.securityManager.validReadFile(efuns, req.fullPath) ?
                 req.filesystem.readFile(req.relativePath, callback) :
                 req.securityManager.denied('read', req.fullPath);
@@ -200,7 +208,7 @@ class FileManager extends MUDEventEmitter {
      * @param {function=} callback An optional callback for async mode.
      */
     readJsonFile(efuns, expr, callback) {
-        return this.getFileSystem(expr, req => {
+        return this.createFileRequest(expr, req => {
             return req.securityManager.validReadFile(efuns, req.fullPath) ?
                 req.filesystem.readJsonFile(req.relativePath, callback) :
                 req.securityManager.denied('read', req.fullPath);
@@ -215,7 +223,7 @@ class FileManager extends MUDEventEmitter {
      * @param {function(FileStat,Error):void} callback
      */
     stat(efuns, expr, flags, callback) {
-        return this.getFileSystem(expr, req => {
+        return this.createFileRequest(expr, req => {
             return req.securityManager.validReadFile(efuns, req.fullPath) ?
                 req.filesystem.stat(req.relativePath, flags, callback) :
                 req.securityManager.denied('stat', req.fullPath);
@@ -243,7 +251,7 @@ class FileManager extends MUDEventEmitter {
      * @returns {string} The absolute path.
      */
     toRealPath(expr) {
-        return this.getFileSystem(expr, req => {
+        return this.createFileRequest(expr, req => {
             return req.filesystem.getRealPath(req.relativePath);
         });
     }
@@ -256,7 +264,7 @@ class FileManager extends MUDEventEmitter {
      * @param {any} callback
      */
     writeFile(efuns, expr, content, callback) {
-        return this.getFileSystem(expr, req => {
+        return this.createFileRequest(expr, req => {
             return req.securityManager.validWriteFile(efuns, req.fullPath) ?
                 req.filesystem.writeFile(req.relativePath, content, callback) :
                 req.securityManager.denied('write', req.fullPath);

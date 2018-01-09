@@ -53,7 +53,10 @@ class GameServer extends MUDEventEmitter {
             throw new Error('Unable to set game state!');
 
         this.connections = [];
+        this.currentVerb = '';
         this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
+        /** @type {EFUNProxy} */
+        this.efuns = null;
         this.simulEfunPath = config.mudlib.simulEfuns;
 
         this.startTime = new Date().getTime();
@@ -64,22 +67,20 @@ class GameServer extends MUDEventEmitter {
         /** @type {FileManager} */
         this.fileManager = null;
         this.heartbeatCounter = 0;
+        this.heartbeatInterval = config.mudlib.heartbeatInterval;
         this.includePath = config.mudlib.includePath || [];
+        this.logDirectory = config.mudlib.logDirectory;
         this.masterFilename = config.mudlib.inGameMaster.path;
         this.mudName = config.mud.name;
         this.nextResetTime = 0;
         this.players = [];
         this.preCompilers = [];
+        this.preloads = [];
         this.resetStack = [];
         this.resetTimes = {};
 
         /** @type {FileSecurity} */
         this.securityManager = null;
-
-        this.preloads = [];
-
-        this.heartbeatInterval = config.mudlib.heartbeatInterval;
-        this.logDirectory = config.mudlib.logDirectory;
 
         function determineDefaultAddress() {
             var _addressList = [],
@@ -154,6 +155,38 @@ class GameServer extends MUDEventEmitter {
         });
     }
 
+    /**
+     * Removes absolute paths from a stack trace if possible.
+     * @param {Error} e
+     */
+    cleanError(e) {
+        var s = e.stack,
+            mp = this.fileManager.mudlibAbsolute,
+            mpl = mp.length,
+            p = s.indexOf(mp),
+            v = /[a-zA-Z0-9\\\/\._]/;
+        while (p > -1) {
+            var chunk = s.slice(p, s.indexOf(':', p + mpl));
+            for (var i = 3; i < chunk.length; i++) {
+                if (!chunk.charAt(i).match(v)) break;
+            }
+            var repl = chunk.slice(0, i).replace(/\\\//g, path.sep);
+            if (s.indexOf(repl) === -1) {
+                console.log('Could not clean stack trace; Giving up...');
+                break;
+            }
+            s = s.replace(repl, this.fileManager.toMudPath(repl));
+            p = s.indexOf(mp);
+        }
+        p = s.indexOf(this.config.driver.driverPath);
+        while (p > -1) {
+            s = s.replace(this.config.driver.driverPath, '[driver]');
+            p = s.indexOf(this.config.driver.driverPath);
+        }
+        e.stack = s;
+        return e;
+    }
+
     createMasterObject() {
         let config = this.config.mudlib, self = this,
             startupArgs = {
@@ -198,74 +231,14 @@ class GameServer extends MUDEventEmitter {
         return this;
     }
 
-    mergeEfuns(simul) {
-        if (simul) {
-            let wrapper = simul.wrapper;
-            let proto = simul.constructor.prototype;
-            let EFUNProxy = require('./EFUNProxy');
-
-            Object.getOwnPropertyNames(proto).forEach(function (method) {
-                if (typeof proto[method] !== 'function') return;
-                if (method === 'constructor') return;
-                (function (name, impl) {
-                    if (Reflect.has(EFUNProxy.prototype, name)) {
-                        Reflect.deleteProperty(EFUNProxy.prototype, name);
-                    }
-                    try {
-                        Object.defineProperty(EFUNProxy.prototype, name, {
-                            value: function (...args) {
-                                return wrapper()[name].apply(this, args);
-                            }
-                        });
-                    }
-                    catch (x) {
-                        console.log('Error merging efuns: ' + x);
-                    }
-                })(method, proto[method]);
-            });
-        }
-    }
-
-    /**
-     * Removes absolute paths from a stack trace if possible.
-     * @param {Error} e
-     */
-    cleanError(e) {
-        var s = e.stack,
-            mp = this.fileManager.mudlibAbsolute,
-            mpl = mp.length,
-            p = s.indexOf(mp),
-            v = /[a-zA-Z0-9\\\/\._]/;
-        while (p > -1) {
-            var chunk = s.slice(p, s.indexOf(':', p + mpl));
-            for (var i = 3; i < chunk.length; i++) {
-                if (!chunk.charAt(i).match(v)) break;
-            }
-            var repl = chunk.slice(0, i).replace(/\\\//g, path.sep);
-            if (s.indexOf(repl) === -1) {
-                console.log('Could not clean stack trace; Giving up...');
-                break;
-            }
-            s = s.replace(repl, this.fileManager.toMudPath(repl));
-            p = s.indexOf(mp);
-        }
-        p = s.indexOf(this.config.driver.driverPath);
-        while (p > -1) {
-            s = s.replace(this.config.driver.driverPath, '[driver]');
-            p = s.indexOf(this.config.driver.driverPath);
-        }
-        e.stack = s;
-        return e;
-    }
-
     /**
      * Initializes the filesystem.
      */
-    createFileSystem() {
+    createFileSystems() {
         let fsconfig = this.config.mudlib.fileSystem;
 
         this.fileManager = fsconfig.createFileManager(this);
-        fsconfig.eachFileSystem(config => this.fileManager.addFileSystem(config));
+        fsconfig.eachFileSystem(config => this.fileManager.createFileSystem(config));
     }
 
     /**
@@ -283,7 +256,7 @@ class GameServer extends MUDEventEmitter {
                     this.compiler.compileObject(file[0], undefined, undefined, file.slice(1)) :
                     this.compiler.compileObject(file);
                 var t1 = new Date().getTime();
-                console.log('\tPreload: {0}: {1} [{2} ms]'.fs(file, foo ? '[OK]' : '[Failure]', t1 - t0));
+                console.log(`\tPreload: ${file}: ${(file, foo ? '[OK]' : '[Failure]')} [${(t1 - t0)} ms]`);
             });
         }
 
@@ -461,7 +434,7 @@ class GameServer extends MUDEventEmitter {
     exec(oldBody, newBody, client, callback) {
         var result = false;
         try {
-            if (MUDData.Clients.indexOf(client) > -1) {
+            if (driver.connections.indexOf(client) > -1) {
                 result = client.setBody(newBody);
                 if (result && typeof callback === 'function')
                     callback.call(oldBody, newBody);
@@ -519,6 +492,34 @@ class GameServer extends MUDEventEmitter {
             console.log(error.stack);
         }
         else this.applyLogError.apply(this.masterObject, arguments);
+    }
+
+    mergeEfuns(simul) {
+        if (simul) {
+            let wrapper = simul.wrapper;
+            let proto = simul.constructor.prototype;
+            let EFUNProxy = require('./EFUNProxy');
+
+            Object.getOwnPropertyNames(proto).forEach(function (method) {
+                if (typeof proto[method] !== 'function') return;
+                if (method === 'constructor') return;
+                (function (name, impl) {
+                    if (Reflect.has(EFUNProxy.prototype, name)) {
+                        Reflect.deleteProperty(EFUNProxy.prototype, name);
+                    }
+                    try {
+                        Object.defineProperty(EFUNProxy.prototype, name, {
+                            value: function (...args) {
+                                return wrapper()[name].apply(this, args);
+                            }
+                        });
+                    }
+                    catch (x) {
+                        console.log('Error merging efuns: ' + x);
+                    }
+                })(method, proto[method]);
+            });
+        }
     }
 
     preCompile(module) {
@@ -594,7 +595,7 @@ class GameServer extends MUDEventEmitter {
                 process.on('uncaughtException', this.errorHandler);
             }
         }
-        this.createFileSystem();
+        this.createFileSystems();
         this.configureRuntime();
         this.createSimulEfuns();
         this.createMasterObject();
@@ -630,20 +631,20 @@ class GameServer extends MUDEventEmitter {
             this.endpoints[i]
                 .bind()
                 .on('kmud.connection', (client) => {
-                    var newLogin = MUDData.SpecialRootEfun.cloneObject(this.config.mudlib.loginObject);
+                    var newLogin = this.efuns.cloneObject(this.config.mudlib.loginObject);
                     if (newLogin) {
-                        MUDData.Storage.get(newLogin).setProtected('$client', client,
+                        driver.storage.get(newLogin).setProtected('$client', client,
                             ($storage, _client) => {
                                 var evt = {
                                     newBody: newLogin,
-                                    newStorage: MUDData.Storage.get(newLogin),
+                                    newStorage: driver.storage.get(newLogin),
                                     client: _client
                                 };
                                 self.emit('kmud.exec', evt);
                                 $storage.emit('kmud.exec', evt);
                             });
-
-                        MUDData.Clients.push(client);
+                        if (driver.connections.indexOf(client) === -1)
+                            driver.connections.push(client);
                     }
                     else {
                         client.writeLine('Sorry, something is very wrong right now; Please try again later.');
@@ -652,12 +653,11 @@ class GameServer extends MUDEventEmitter {
                 })
                 .on('kmud.connection.new', function (client, protocol) {
                     console.log(`New ${protocol} connection from ${client.remoteAddress}`);
-                    self.connections.push(client);
+                    driver.connections.push(client);
                 })
                 .on('kmud.connection.closed', function (client, protocol) {
                     console.log(`${protocol} connection from ${client.remoteAddress} closed.`);
-                    MUDData.Clients.removeValue(client);
-                    self.connections.removeValue(client);
+                    driver.connections.removeValue(client);
                 })
                 .on('kmud.connection.full', function (c) {
                     c.write('The game is all full, sorry; Please try again later.\n');
@@ -669,7 +669,7 @@ class GameServer extends MUDEventEmitter {
         }
         if (typeof callback === 'function') callback.call(this);
         var startupTime = new Date().getTime() - this.startTime, startSeconds = startupTime / 1000;
-        console.log('Startup took {0} seconds [{1} ms]'.fs(startSeconds, startupTime));
+        console.log(`Startup took ${startSeconds} seconds [${startupTime} ms]`);
         this.gameState = GAMESTATE_RUNNING;
 
         if (this.config.mudlib.heartbeatInterval > 0) {
@@ -689,7 +689,7 @@ class GameServer extends MUDEventEmitter {
                         list.forEach((item, index) => {
                             unwrap(item, (ob) => {
                                 try {
-                                    let $storage = MUDData.Storage.get(ob);
+                                    let $storage = driver.storage.get(ob);
                                     if ($storage.nextReset < now) {
                                         ob.reset();
                                         this.registerReset(item, false);
@@ -782,11 +782,23 @@ class GameServer extends MUDEventEmitter {
         };
     }
 
-    setThisPlayer(body, truePlayer) {
-        MUDData.ThisPlayer = unwrap(body);
-        if (truePlayer) {
-            MUDData.TruePlayer = MUDData.ThisPlayer;
+    /**
+     * Set the active player
+     * @param {any} body
+     * @param {any} truePlayer
+     * @param {any} verb
+     */
+    setThisPlayer(body, truePlayer, verb) {
+        if (typeof truePlayer === 'string') {
+            verb = truePlayer;
+            truePlayer = false;
         }
+        this.currentVerb = verb;
+        return unwrap(body, player => {
+            this.thisPlayer = player;
+            if (truePlayer)
+                this.truePlayer = player;
+        });
     }
 
     setVirtualPrefix(path) {
@@ -795,7 +807,7 @@ class GameServer extends MUDEventEmitter {
     }
 
     unguarded(callback, thisObject, args) {
-        MUDData.SpecialRootEfun.unguarded(() => {
+        this.efuns.unguarded(() => {
             return callback.apply(thisObject || this, args || []);
         });
     }

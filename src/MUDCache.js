@@ -73,7 +73,7 @@ class MUDCache {
      */
     normalize(filename) {
         if (typeof filename !== 'string') {
-            throw new Error('Bad argument 0 to normalize; Expected string got {0}'.fs(typeof filename));
+            throw new Error(`Bad argument 0 to normalize; Expected string got ${(typeof filename)}`);
         }
         filename = (filename || '').replace(/\/{2,}/g, '/');
         if (filename.endsWith('.js')) filename = filename.slice(0, filename.length - 3);
