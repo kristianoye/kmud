@@ -3,9 +3,6 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-var
-    MUDData = require('./MUDData');
-
 const
     ignoredMixins = ['constructor', 'permissions', 'basename', 'directory', 'filename'];
 

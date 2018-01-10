@@ -6,13 +6,15 @@
     GAMESTATE_SHUTDOWN = 4;
 
 const
+    MUDLogger = require('./MUDLogger'),
+    MUDGlobals = require('./MUDGlobals');
+
+const
     bcrypt = require('bcrypt'),
     fs = require('fs'),
     path = require('path'),
-    MUDData = require('./MUDData'),
     ErrorTypes = require('./ErrorTypes'),
-    GameSetup = require('./setup/GameSetup'),
-    NetUtil = require('./network/NetUtil');
+    GameSetup = require('./setup/GameSetup');
 
 const
     MudSection = require('./config/MudSection'),
@@ -43,10 +45,10 @@ class MUDConfig {
         if (!this.setupMode && !exists)
             throw new ErrorTypes.MissingConfigError(`File ${options.configFile} not found!`);
         else if (exists) {
-            raw = JSON.parse(MUDData.StripBOM(fs.readFileSync(options.configFile, 'utf8')));
+            raw = JSON.parse(this.stripBOM(fs.readFileSync(options.configFile, 'utf8')));
         }
         else {
-            raw = JSON.parse(MUDData.StripBOM(fs.readFileSync(path.resolve(__dirname, './setup/BaseConfig.json'), 'utf8')));
+            raw = JSON.parse(this.stripBOM(fs.readFileSync(path.resolve(__dirname, './setup/BaseConfig.json'), 'utf8')));
         }
         this.configFile = options.configFile;
         this['mudlibSection'] = new MudlibSection(raw.mudlib);
@@ -116,7 +118,7 @@ class MUDConfig {
                         if (typeof (options.configFile = process.argv[++i]) !== 'string') {
                             throw new Error(`KMUD: Option ${arg} is missing parameter [filename]`);
                         }
-                        console.log(`Using config file ${options.configFile}`);
+                        logger.log(`Using config file ${options.configFile}`);
                         break;
 
                     case 'help':
@@ -124,7 +126,7 @@ class MUDConfig {
                         break;
 
                     case 'setup':
-                        console.log('Running setup...');
+                        logger.log('Running setup...');
                         this.runSetup = new GameSetup();
                         this.setupMode = true;
                         break;
@@ -169,7 +171,7 @@ class MUDConfig {
                 .setLoginObject('/sys/lib/Login')
                 .enableGlobalErrorHandler()
                 .run(() => {
-                    console.log('Done with startup');
+                    logger.log('Done with startup');
                 });
         }
     }
@@ -179,7 +181,7 @@ class MUDConfig {
     }
 
     showHelp(exit) {
-        console.log(`
+        logger.log(`
 Usage: server.js [options]
 
 Where options include:

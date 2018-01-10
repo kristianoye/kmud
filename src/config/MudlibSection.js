@@ -5,7 +5,7 @@
 
 class MudlibSection {
     constructor(data) {
-        console.log('MudlibSection constructor called.');
+        logger.log('MudlibSection constructor called.');
 
         /** @type {Object.<string,string>} */
         this.applyNames = data.applyNames;

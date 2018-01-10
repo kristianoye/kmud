@@ -3,6 +3,27 @@
 /// <reference path="MUDLoader.d.ts"/>
 /// <reference path="MasterObject.d.ts"/>
 
+declare class MUDGlobals {
+    /**
+     * Transfer the collected globals to the MUDLoader object.
+     * @param loader
+     */
+    modifyLoader(loader: MUDLoader): void;
+}
+
+let mudglobal = new MUDGlobals;
+
+declare class MUDObjectStack {
+    /** The object reference */
+    object: MUDObject;
+
+    /** The name of the file the object was created from */
+    file: string;
+
+    /** The name of the method from the stack */
+    func: string;
+}
+
 declare class GameServer {
     /** The in-game master called when an error occurs */
     applyErrorHandler: function(Error, boolean) | false;
@@ -12,14 +33,31 @@ declare class GameServer {
     /** Information about the currently loaded game objects */
     cache: MUDCache;
 
+    /**
+     * Strips out potentially private path information.
+     * @param err
+     */
+    cleanError(err: Error): Error;
+
     /** In-game compiler */
     compiler: MUDCompiler;
+
+    /** The current execution context */
+    currentContext: MXC;
+
+    /** The current verb */
+    currentVerb: string;
 
     /** Special instance of efuns for driver */
     efuns: EFUNProxy;
 
     /** The MUD filesystem */
     fileManager: FileManager;
+
+    /**
+     * Fetch the current object stack.
+     */
+    getObjectStack(): MUDObjectStack[];
 
     /** This value indicates whether the game is starting, running, or shutting down */
     gameState: number;
@@ -35,6 +73,9 @@ declare class GameServer {
 
     /** The directory to which log files are written */
     logDirectory: string;
+
+    /** Writes to the system log */
+    logger: MUDLogger;
 
     /** The in-game master object */
     masterObject: MasterObject;

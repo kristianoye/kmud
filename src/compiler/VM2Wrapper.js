@@ -2,7 +2,6 @@
     { NodeVM, VMScript } = require('vm2'),
     PipelineContext = require('./PipelineContext').PipelineContext,
     VMAbstraction = require('./VMAbstraction'),
-    MUDData = require('../MUDData'),
     MUDModule = require('../MUDModule'),
     path = require('path');
 

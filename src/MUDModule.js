@@ -323,19 +323,19 @@ class MUDModule {
         async.forEach(this.instances, (item, callback) => {
             var instanceId = item.instanceId;
             if (instanceId > 0) {
-                console.log('Updating instance...');
+                logger.log('Updating instance...');
                 this.createInstance(instanceId, true, []);
             }
             callback();
         }, err => {
             if (err) {
-                console.log('There was an error during re-compile: ' + err);
+                logger.log('There was an error during re-compile: ' + err);
             }
             else {
-                console.log('All instances updated, recompiling children...');
+                logger.log('All instances updated, recompiling children...');
                 async.forEach(this.children, (childName, innerCallback) => {
                     try {
-                        console.log('Re-compiling ' + childName.filename);
+                        logger.log('Re-compiling ' + childName.filename);
                         driver.compiler.compileObject(childName.filename, true);
                     }
                     catch (e) {
@@ -343,7 +343,7 @@ class MUDModule {
                     }
                     innerCallback();
                 }, err => {
-                    console.log('All children of ' + this.filename + ' have been updated');
+                    logger.log('All children of ' + this.filename + ' have been updated');
                 });
             }
         });

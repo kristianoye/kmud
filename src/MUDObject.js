@@ -135,7 +135,7 @@ class MUDObject extends MUDEventEmitter {
             });
         }
         else {
-            console.log('Illegal constructor call');
+            logger.log('Illegal constructor call');
             throw new Error('Illegal constructor call');
         }
         ctx.$storage = global.driver.storage.create(this, ctx);
@@ -380,7 +380,7 @@ class MUDObject extends MUDEventEmitter {
             target = wrapper(destination) || efuns.loadObject(destination);
 
         if (target && typeof target() !== 'object') {
-            console.log('Unable to move object: Bad destination!');
+            logger.log('Unable to move object: Bad destination!');
             self.emit('kmud.item.badmove', destination);
         }
         else if (!environment || environment.canReleaseItem(this)) {

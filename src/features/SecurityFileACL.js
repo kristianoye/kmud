@@ -378,11 +378,11 @@ class SecurityFileACLFeature extends FeatureBase {
             accessFile = path.resolve(__dirname, this.accessDataFile);
 
         if (!fs.existsSync(accessFile)) {
-            console.log(`Could not locate specified access file '${accessFile}'`);
+            logger.log(`Could not locate specified access file '${accessFile}'`);
         }
 
         if (!fs.existsSync(shadowDir)) {
-            console.log(`Initializing shadow filesystem in ${shadowDir}...`)
+            logger.log(`Initializing shadow filesystem in ${shadowDir}...`)
             fs.mkdirSync(shadowDir);
         }
 

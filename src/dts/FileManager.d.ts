@@ -1,4 +1,42 @@
 ﻿
+declare enum GetDirFlags {
+    /** Return files in the result set */
+    Files = 1 << 1,
+
+    /** Return subdirectories in the result set */
+    Dirs = 1 << 2,
+
+    /** Return permissions for each item in the result */
+    Perms = 1 << 3,
+
+    /** Include hidden system files in the result */
+    System = 1 << 4,
+
+    /** Include file size information in the result */
+    Size = 1 << 0
+}
+
+declare enum MkdirFlags {
+    /** If set then mkdir() will try and create the entire directory struct.
+      Any missing or incomplete part will be created and no errors will be
+      generated even if the entire path already exists. */
+    EnsurePath = 1
+}
+
+declare enum StatFlags {
+    /** No additional flags requested. */
+    None = 0,
+
+    /** Retrieve file size information. */
+    Size = 1 << 0,
+
+    /** Fetch the permissions from security manager */
+    Perms = 1 << 1,
+
+    /** Return the parent(s) object stat in the result */
+    Parent = 1 << 2,
+}
+
 declare class FileStat {
     /** Indicates whether the path exists. */
     readonly exists: boolean;
@@ -16,9 +54,33 @@ declare class FileStat {
     readonly parent: FileStat;
 }
 
+declare class MkDirOptions {
+    /** Optional flags for creating the directory */
+    flags: MkdirFlags;
+}
+
+
 declare class FileManager {
     /** A reference to the game server/driver */
     readonly driver: GameServer;
+
+    /**
+     * Creates a directory on the filesystem.
+     * @param efuns The caller requesting the new directory.
+     * @param expr The path expression to create.
+     * @param opts Extra information used to create the directory.
+     * @param callback An optional callback for async mode.
+     */
+    createDirectory(efuns: EFUNProxy, expr: string, opts: MkDirOptions, callback: (success: boolean, err: Error) => void): boolean;
+
+    /**
+     * Removes a directory from the filesystem.
+     * @param efuns The caller requesting to remove the directory.
+     * @param expr The path expression to remove.
+     * @param opts Extra information (currently unused)
+     * @param callback An optional callback for async mode.
+     */
+    deleteDirectory(efuns: EFUNProxy, expr: string, opts: any, callback: (success: boolean, err: Error) => void): boolean;
 
     /**
      * Load an object syncronously.

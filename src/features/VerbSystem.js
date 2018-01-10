@@ -10,9 +10,7 @@
 const
     ConfigUtil = require('../ConfigUtil'),
     FeatureBase = require('./FeatureBase'),
-    DriverFeature = require('../config/DriverFeature'),
-    MUDData = require('../MUDData'),
-    MUDObject = require('../MUDObject');
+    DriverFeature = require('../config/DriverFeature');
 
 const
     MATCH_ALLOW_MULTIPLE = 1,

@@ -49,7 +49,7 @@ class ClientCaps extends MUDEventEmitter {
                     ClientImplementation.create(self, flags, methods, interfaces);
                 }
                 catch (err) {
-                    console.log('Could not create client implementation:', err);
+                    logger.log('Could not create client implementation:', err);
                 }
             }
         }

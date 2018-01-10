@@ -134,7 +134,7 @@ class MUDLoader {
                             return callback.call(this, _efuns, _context);
                         }
                         catch (x) {
-                            console.log(x);
+                            logger.log(x);
                             throw x;
                         }
                     }
@@ -313,6 +313,10 @@ class MUDLoader {
                 },
                 writable: false
             },
+            logger: {
+                value: global.logger,
+                writable: false
+            },
             master: {
                 get: function () { return MUDData.InGameMaster; }
             },
@@ -394,5 +398,13 @@ class MUDLoader {
         });
     }
 }
+
+/**
+ * Configure the loader for runtime.
+ * @param {GameServer} driver
+ */
+MUDLoader.configureForRuntime = function (driver) {
+    mudglobal.modifyLoader(MUDLoader.prototype);
+};
 
 module.exports = MUDLoader;

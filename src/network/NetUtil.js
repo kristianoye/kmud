@@ -66,7 +66,7 @@ class NetUtil extends EventEmitter {
                 }
 
                 if (alias >= 1) {
-                    console.log(ifname + ':' + alias, iface.address);
+                    logger.log(ifname + ':' + alias, iface.address);
                 } else {
                     this.networks.push(new NetworkInterface({
                         address: iface.address,

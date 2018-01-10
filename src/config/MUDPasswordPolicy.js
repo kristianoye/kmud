@@ -65,7 +65,7 @@ class MUDPasswordPolicy {
             });
         }
         else if (str === enc && this.allowPlainTextAuth) {
-            console.log('WARNING: Plain-text password detected!!!');
+            logger.log('WARNING: Plain-text password detected!!!');
             return true;
         }
         else

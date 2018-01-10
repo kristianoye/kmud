@@ -33,7 +33,7 @@ var MUDData = {
             }
             var repl = chunk.slice(0, i).replace(/\\\//g, path.sep);
             if (s.indexOf(repl) === -1) {
-                console.log('Could not clean stack trace; Giving up...');
+                logger.log('Could not clean stack trace; Giving up...');
                 break;
             }
             s = s.replace(repl, MUDData.RealPathToMudPath(repl));
@@ -81,7 +81,7 @@ var MUDData = {
         catch (x) {
             MUDData.ObjectStack.shift();
             if (MUDData.ObjectStack.length === 0)
-                console.log('Object stack back to zero');
+                logger.log('Object stack back to zero');
             throw x;
         }
         return result;

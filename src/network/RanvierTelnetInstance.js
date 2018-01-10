@@ -29,7 +29,7 @@ class RanvierTelnetInstance extends ClientInstance {
             let body = this.body(),
                 evt = this.createCommandEvent(text, commandComplete, '> ');
             try {
-                gameMaster.setThisPlayer(body, true);
+                gameMaster.setThisPlayer(body, true, evt.verb);
 
                 if (tripwire) {
                     tripwire.resetTripwire(2000, {

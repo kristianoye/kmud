@@ -90,14 +90,46 @@ class DefaultFileSystem extends FileSystem {
         return expr.match(/[\*\?]+/);
     }
 
-    createDirectoryAsync(expr, callback) {
+    /**
+     * Create a directory asyncronously.
+     * @param {string} expr
+     * @param {MkDirOptions} opts
+     * @param {function(boolean, Error):void} callback
+     */
+    createDirectoryAsync(expr, opts, callback) {
         let filepath = this.translatePath(expr);
         return fs.mkdir(filepath, callback);
     }
 
-    createDirectorySync(expr) {
-        let filepath = this.translatePath(expr);
-        return fs.mkdirSync(filepath);
+    /**
+     * Create a directory syncronously.
+     * @param {string} expr The directory expression to create.
+     * @param {MkDirOptions} opts Additional options for createDirectory.
+     */
+    createDirectorySync(expr, opts) {
+        return this.translatePath(expr, filePath => {
+            let parts = path.relative(this.root, filePath).split(path.sep),
+                ensure = (opts.flags & MkdirFlags.EnsurePath) === MkdirFlags.EnsurePath;
+
+            for (let i = 0, max = parts.length; i < max; i++) {
+                let dir = this.root + path.sep + parts.slice(0, i).join(path.sep),
+                    stat = this.statSync(dir);
+
+                if (stat.exists) {
+                    if (!ensure) return false;
+                }
+                else if ((i + 1) === max) {
+                    fs.mkdirSync(dir);
+                    return true;
+                }
+                else if (!ensure)
+                    return false;
+                else
+                    fs.mkdirSync(dir);
+            }
+            return true;
+
+        });
     }
 
     /**
@@ -193,12 +225,24 @@ class DefaultFileSystem extends FileSystem {
         });
     }
 
+    /**
+     * Read JSON/structured data from a file asyncronously.
+     * @param {string} expr The path to read from.
+     * @param {function(any,Error):void} callback The callback to fire when the data is loaded.
+     */
     readJsonFileAsync(expr, callback) {
-        let filepath = this.translatePath(expr);
+        return this.readFileAsync(expr, (content, err) => {
+            try {
+                let data = content && JSON.parse(content);
+                return callback(data, err);
+            }
+            catch (e) {
+                callback(false, e);
+            }
+        });
     }
 
     readJsonFileSync(expr) {
-        let filepath = this.translatePath(expr);
         return this.translatePath(expr, filePath => {
             try {
                 let content = this.readFile(expr);
@@ -262,6 +306,8 @@ class DefaultFileSystem extends FileSystem {
      * @returns {string} The absolute filesystem path.
      */
     translatePath(expr, callback) {
+        if (expr.startsWith(this.root) && expr.indexOf('..') === -1)
+            return callback ? callback(expr) : expr;
         let result = path.join(this.root, expr);
         if (!result.startsWith(this.root))
             throw new Error('Access violation');

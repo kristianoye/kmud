@@ -502,10 +502,16 @@
     <Compile Include="src\MUDExcecutionContext.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\MUDGlobals.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\MUDHtml.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\MUDLoader.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\MUDLogger.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\MUDModule.js">
@@ -959,6 +965,9 @@
       <SubType>Code</SubType>
     </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\MUDLoader.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\MUDLogger.d.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\MUDModule.d.ts" />

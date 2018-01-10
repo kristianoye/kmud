@@ -26,6 +26,11 @@ const
     TeraByte = GigaByte * 1000,
     _unguarded = '_unguarded';
 
+const
+    PLURAL_SUFFIX = 1,
+    PLURAL_SAME = 2,
+    PLURAL_CHOP = 2;
+
 var
     MUDStorage = require('./MUDStorage').MUDStorageContainer,
     EFUNS = require('./EFUNS'),
@@ -487,15 +492,23 @@ class EFUNProxy {
 
     /**
      * Determines whether the specified path expression is a directory.
-     * @param {string} dirpath The path expression to check.
-     * @param {function=} callback Optional callback for async operation.
+     * @param {string} expr The path expression to check.
+     * @param {function(boolean,Error):void} callback Optional callback for async operation.
      * @returns {boolean} True if the path resolves to a directory.
      */
-    isDirectory  (dirpath, callback) {
-        if (driver.validRead(this, dirpath)) {
-            return MUDData.MasterEFUNS.isDirectory(MUDData.MasterEFUNS.mudPathToAbsolute(dirpath), callback);
+    isDirectory  (expr, callback) {
+        let dirPath = this.resolvePath(expr);
+        if (typeof flags === 'function') {
+            callback = flags;
+            flags = 0;
         }
-        throw new Error('Permission denied: ' + dirpath);
+        if (typeof callback === 'function') {
+            this.stat(dirPath, flags, (fs, err) => {
+                return callback(!err && fs.isDirectory, err);
+            });
+        }
+        let stat = driver.fileManager.stat(this, dirPath, StatFlags.None);
+        return stat && stat.isDirectory;
     }
 
     /**
@@ -533,7 +546,7 @@ class EFUNProxy {
      * Determines whether the path expression represents a normal file.
      * @param {string} expr The file expression to check.
      * @param {number=} flags Optional flags to request additional details.
-     * @param {function=} callback An optional callback for async operation.
+     * @param {function(boolean,Error):void} callback An optional callback for async operation.
      */
     isFile(expr, flags, callback) {
         let filePath = this.resolvePath(expr);
@@ -633,11 +646,19 @@ class EFUNProxy {
     /**
      * Create a directory in the MUD filesystem.
      * @param {string} expr The file expression to turn into a directory.
+     * @param {MkDirOptions=} opts Optional flags to pass to createDirectory.
      * @param {function=} callback An optional callback for async mode.
      * @returns {boolean} True if the directory was created (or already exists)
      */
-    mkdir(expr, callback) {
-        return driver.fileManager.createDirectory(this, expr, callback);
+    mkdir(expr, opts, callback) {
+        if (typeof opts === 'function') {
+            callback = opts;
+            opts = 0;
+        }
+        else if (typeof opts === 'number') {
+            opts = { opts };
+        }
+        return driver.fileManager.createDirectory(this, expr, opts || {}, callback);
     }
 
     mudInfo() {
@@ -715,12 +736,348 @@ class EFUNProxy {
     }
 
     /**
-     * Returns the pluralized version of a string.
-     * @param {string} what The string to pluralize. e.g. "Sword of Truth"
-     * @returns {string} The pluralized version of the string.  e.g. "Swords of Truth"
+     * Based on MudOS pluralize() + a few bug fixes.  Converts a string to the pluralized version.
+     * Examples: child -> children, fox -> foxes.
+     *
+     * @param {string} what The string to pluralize.
+     * @returns {string} A pluralized form of the string.
      */
     pluralize(what) {
-        return MUDData.MasterEFUNS.pluralize(what);
+        var o = unwrap(what),
+            result;
+
+        if (o) {
+            var _p = _o.getPluralizedName();
+            if (_p) return _p;
+            return this.pluralize(o.getPrimaryName());
+        }
+        if (typeof what !== 'string')
+            throw new Error(`Bad argument 1 to pluralize(); Expected string|object got ${typeof what}`);
+
+        var m = / of /i.exec(what);
+        if (m && m.index > 0) {
+            return this.pluralize(what.slice(0, m.index)) + what.slice(m.index);
+        }
+        if (what.match(/a /i))
+            return this.pluralize(what.slice(2));
+        else if (what.match(/an /i))
+            return this.pluralize(what.slice(3));
+
+        if (what.indexOf(' ') > -1) {
+            var lastIndex = what.lastIndexOf(' ');
+            return what.slice(0, lastIndex + 1) + this.pluralize(what.slice(lastIndex + 1));
+        }
+
+        var found = 0,
+            suffix = 's',
+            toUpper = what.toUpperCase() === what,
+            whatLC = what.toLowerCase();
+
+        switch (what.charAt(0).toLowerCase()) {
+            case 'a':
+                if (whatLC === 'are') {
+                    found = PLURAL_CHOP + 3;
+                    suffix = "is";
+                }
+                break;
+
+            case 'b':
+                if (whatLC === 'bus') {
+                    found = PLURAL_SUFFIX;
+                    suffix = "es";
+                }
+                else if (what.match(/^bonus/i)) {
+                    found = PLURAL_SUFFIX;
+                    suffix = "es";
+                }
+                break;
+
+            case 'c':
+                if (whatLC === 'child') {
+                    found = PLURAL_SUFFIX;
+                    suffix = "ren";
+                }
+                else if (what.match(/^cliff/i)) {
+                    found = PLURAL_SUFFIX;
+                    suffix = "s";
+                }
+                break;
+
+            case 'd':
+                if (whatLC === 'datum') {
+                    found = PLURAL_CHOP + 2;
+                    suffix = 'a';
+                }
+                else if (whatLC === 'die') {
+                    found = PLURAL_CHOP + 1;
+                    suffix = 'ce';
+                }
+                else if (whatLC === 'deer') {
+                    found = PLURAL_SAME;
+                }
+                else if (whatLC === 'do') {
+                    found = PLURAL_SUFFIX;
+                    suffix = 'es';
+                }
+                else if (whatLC === 'dynamo') {
+                    found = PLURAL_SUFFIX;
+                }
+                break;
+
+            case 'f':
+                if (whatLC === 'foot') {
+                    found = PLURAL_CHOP + 3;
+                    suffix = 'feet';
+                }
+                else if (whatLC === 'fish') {
+                    found = PLURAL_SAME;
+                }
+                else if (whatLC === 'forum') {
+                    found = PLURAL_CHOP + 2;
+                    suffix = 'a';
+                }
+                else if (whatLC === 'fife') {
+                    found = PLURAL_SUFFIX;
+                }
+
+            case 'g':
+                switch (whatLC) {
+                    case 'gum':
+                    case 'giraffe':
+                        found = PLURAL_SUFFIX;
+                        break;
+                    case 'glasses':
+                        found = PLURAL_SAME;
+                        break;
+                    case 'goose':
+                        found = PLURAL_CHOP + 4;
+                        suffix = 'eese';
+                        break;
+                    case 'go':
+                        found = PLURAL_SUFFIX;
+                        suffix = 'es';
+                        break;
+                }
+                break;
+
+            case 'h':
+                if (whatLC === 'human')
+                    found = PLURAL_SUFFIX;
+                else if (whatLC === 'have')
+                    found = PLURAL_CHOP + 2;
+                break;
+
+            case 'i':
+                if (whatLC === 'index') {
+                    found = PLURAL_CHOP + 2;
+                    suffix = 'ices';
+                }
+                break;
+
+            case 'l':
+                if (whatLC === 'louse') {
+                    found = PLURAL_CHOP + 4;
+                    suffix = 'ice';
+                }
+                else if (whatLC === 'lotus')
+                    found = PLURAL_SUFFIX;
+                break;
+
+            case 'm':
+                switch (whatLC) {
+                    case 'mackerel':
+                    case 'moose':
+                        found = PLURAL_SAME;
+                        break;
+                    case 'mouse':
+                        found = PLURAL_CHOP + 4;
+                        suffix = 'ice';
+                        break;
+                    case 'matrix':
+                        found = PLURAL_CHOP + 1;
+                        suffix = 'ces';
+                        break;
+                    case 'mech':
+                        found = PLURAL_SUFFIX;
+                        break;
+                }
+                break;
+
+            case 'o':
+                if (whatLC === 'ox') {
+                    found = PLURAL_SUFFIX;
+                    suffix = 'en';
+                }
+                break;
+
+            case 'p':
+                if (whatLC === 'pants')
+                    found = PLURAL_SAME;
+                break;
+
+            case 'q':
+                if (whatLC === 'quaff')
+                    found = PLURAL_SUFFIX;
+                break;
+
+            case 'r':
+                switch (whatLC) {
+                    case 'remains':
+                        found = PLURAL_SAME;
+                        break;
+                    case 'roof':
+                        found = PLURAL_SUFFIX;
+                        break;
+                }
+                break;
+
+            case 's':
+                switch (whatLC) {
+                    case 'sniff':
+                    case 'safe':
+                    case 'shaman':
+                        found = PLURAL_SUFFIX;
+                        break;
+                    case 'sheep':
+                        found = PLURAL_SAME;
+                        break;
+                    case 'sphinx':
+                        found = PLURAL_CHOP + 1;
+                        suffix = 'ges';
+                        break;
+                    case 'staff':
+                        found = PLURAL_CHOP + 2;
+                        suffix = 'ves';
+                }
+                break;
+
+            case 't':
+                switch (whatLC) {
+                    case 'thief':
+                        found = PLURAL_CHOP + 1;
+                        suffix = 'ves';
+                        break;
+                    case 'tooth':
+                        found = PLURAL_CHOP + 4;
+                        suffix = 'eeth';
+                        break;
+                    case 'talisman':
+                        found = PLURAL_SUFFIX;
+                        break;
+                }
+                break;
+
+            case 'v':
+                switch (whatLC) {
+                    case 'vax':
+                        found = PLURAL_SUFFIX;
+                        suffix = 'en';
+                        break;
+                    case 'virus':
+                        found = PLURAL_SUFFIX;
+                        suffix = 'es';
+                        break;
+                }
+                break;
+
+            case 'w':
+                switch (whatLC) {
+                    case 'was':
+                        found = PLURAL_CHOP + 2;
+                        suffix = 'ere';
+                        break;
+                }
+                break;
+        }
+
+        if (!found) {
+            function getEnd(n) {
+                var a = [].slice.call(arguments, 1),
+                    r = whatLC.slice(whatLC.length - n);
+                if (a.length) return a.filter(_ => _ === r).length > 0;
+                return r;
+            }
+            switch (getEnd(1)) {
+                case 'e':
+                    if (whatLC.endsWith('fe')) {
+                        found = PLURAL_CHOP + 2;
+                        suffix = 'ves';
+                    }
+                    break;
+                case 'f':
+                    if (whatLC.endsWith('ef'))
+                        break;
+                    else {
+                        found = PLURAL_CHOP + 1;
+                        if (whatLC.endsWith('ff')) suffix = 'ves';
+                    }
+                    break;
+                case 'h':
+                    if (whatLC.endsWith('sh') || whatLC.endsWith('ch'))
+                        suffix = 'es';
+                    break;
+                case 'm':
+                    if (whatLC.endsWith('mu')) {
+                        found = PLURAL_CHOP + 2;
+                        suffix = 'a';
+                    }
+                    break;
+                case 'n':
+                    if (whatLC.endsWith('man')) {
+                        found = PLURAL_CHOP + 3;
+                        suffix = 'man';
+                    }
+                    break;
+                case 'o':
+                    if (whatLC.endsWith('oo')) {
+                        found = PLURAL_CHOP + 2;
+                        suffix = 'es';
+                    }
+                    break;
+                case 's':
+                    if (whatLC.endsWith('is')) {
+                        found = PLURAL_CHOP + 2;
+                        suffix = 'es';
+                    }
+                    else if (whatLC.endsWith('us')) {
+                        found = PLURAL_CHOP + 2;
+                        suffix = 'i';
+                    }
+                    else if (whatLC.endsWith('as') || whatLC.endsWith('es') || whatLC.endsWith('os'))
+                        suffix = 'ses';
+                    else
+                        suffix = 'es';
+                    break;
+                case 'x':
+                    suffix = 'es';
+                    break;
+                case 'y':
+                    if (!whatLC.match(/[aeiou]y$/i)) {
+                        found = PLURAL_CHOP + 1;
+                        suffix = 'ies';
+                    }
+                    break;
+                case 'z':
+                    if (whatLC.match(/[aeiou]z$/i))
+                        suffix = 'zes';
+                    else
+                        suffix = 'es';
+                    break;
+            }
+        }
+        switch (found) {
+            case PLURAL_SAME:
+                result = what;
+                break;
+
+            default:
+                what = what.slice(0, what.length - found - PLURAL_CHOP + 1);
+
+            case 0:
+            case PLURAL_SUFFIX:
+                result = what + suffix;
+        }
+        return toUpper ? result.toUpperCase() : result;
     }
 
     /**
@@ -809,7 +1166,7 @@ class EFUNProxy {
     reloadObject(path) {
         var filename = this.resolvePath(path);
         if (driver.validRead(this, filename)) {
-            var result = MUDData.Compiler(filename, true);
+            var result = driver.compiler.compileObject(filename, true);
             return result === false ? false : true;
         }
         throw new SecurityError();
@@ -872,7 +1229,7 @@ class EFUNProxy {
             }
         }
         catch (err) {
-            console.log(err);
+            logger.log(err);
         }
         return result;
     }
@@ -888,6 +1245,7 @@ class EFUNProxy {
     }
 
     rmdir(path, callback) {
+        return driver.fileManager
         var filename = this.resolvePath(path);
         if (driver.validWrite(this, filename)) {
             var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
@@ -912,7 +1270,7 @@ class EFUNProxy {
             }
         }
         catch (err) {
-            console.log(err);
+            logger.log(err);
         }
         return false;
     }
@@ -1009,7 +1367,9 @@ class EFUNProxy {
      * @param {any} target
      */
     wizardp(target) {
-        return MUDData.InGameMaster().isWizard(target);
+        return unwrap(target, player => {
+            return player.filename.startsWith('/v/sys/data/creators/');
+        });
     }
 
     /**
@@ -1137,13 +1497,7 @@ EFUNProxy.configureForRuntime = function (driver) {
 
     if (driver.config.driver.useObjectProxies) {
         EFUNProxy.prototype.previousObject = function (n) {
-            let thisObject = MUDData.ObjectStack[0] || false,
-                index = (n || 0) + 1, prev = null;
-            if (n === -1) {
-                return MUDData.ObjectStack.slice(0)
-                    .filter(o => o === prev ? false : (prev = o), true);
-            }
-            return MUDData.ObjectStack[index] || thisObject || false;
+            throw new Error('Not implemented yet');
         };
     }
     else if (driver.config.driver.objectCreationMethod === 'inline') {

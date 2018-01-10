@@ -29,6 +29,13 @@
     validCreateDirectory(efuns: EFUNProxy, mudpath: string): boolean;
 
     /**
+     * Determine if the caller has permission to unlink a directory.
+     * @param efuns The object making the delete request.
+     * @param mudpath The path to unlink from the filesystme.
+     */
+    validDeleteDirectory(efuns: EFUNProxy, mudpath: string): boolean;
+    
+    /**
      * Determine if the caller has permission to unlink a file.
      * @param efuns The object making the delete request.
      * @param mudpath The path to unlink from the filesystme.

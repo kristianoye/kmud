@@ -62,7 +62,7 @@ class MUDCompiler {
             });
         }
         if (comps === 0) {
-            console.log('INFORMATION: No compiler components defined in config.');
+            logger.log('INFORMATION: No compiler components defined in config.');
         }
         Object.keys(config.languages).forEach(ext => {
             var language = config.languages[ext];
@@ -262,7 +262,7 @@ class MUDCompiler {
         }
         finally {
             var t1 = new Date().getTime();
-            console.log(`\t\tLoad timer: ${filename} [${(t1 - t0)} ms]`);
+            logger.log(`\t\tLoad timer: ${filename} [${(t1 - t0)} ms]`);
         }
         return false;
     }

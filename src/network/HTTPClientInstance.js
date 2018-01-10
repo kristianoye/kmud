@@ -113,7 +113,7 @@ class HTTPClientInstance extends ClientInstance {
                     }
                     finally {
                         var te = new Date().getTime() - t0;
-                        console.log(`Command took ${te} ms to execute.`);
+                        logger.log(`Command took ${te} ms to execute.`);
                     }
 
                 default:

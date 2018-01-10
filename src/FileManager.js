@@ -13,6 +13,26 @@ const
     path = require('path'),
     fs = require('fs');
 
+mudglobal.GetDirFlags = {
+    None: 0,
+    Files: 1 << 1,
+    Dirs: 1 << 2,
+    Perms: 1 << 3,
+    System: 1 << 4,
+    Size: 1 << 0
+};
+
+mudglobal.MkdirFlags = {
+    EnsurePath: 1
+};
+
+mudglobal.StatFlags = {
+    None: 0,
+    Size: 1 << 0,
+    Perms: 1 << 3,
+    Parent: 1 << 4
+};
+
 var
     /** @type {FileManager} */
     FileManagerInstance = false;
@@ -127,12 +147,13 @@ class FileManager extends MUDEventEmitter {
      * Create a directory in the MUD filesystem.
      * @param {EFUNProxy} efuns The object creating the directory.
      * @param {string} expr The path to create.
+     * @param {number} flags Optional flags to pass to the mkdir method.
      * @param {function(boolean,Error):void} callback A callback to fire if async
      */
-    createDirectory(efuns, expr, callback) {
+    createDirectory(efuns, expr, flags, callback) {
         return this.createFileRequest(expr, req => {
             return req.securityManager.validCreateDirectory(efuns, req.fullPath) ?
-                req.filesystem.createDirectory(req.relativePath, callback) :
+                req.filesystem.createDirectory(req.relativePath, flags, callback) :
                 req.securityManager.denied('createDirectory', req.fullPath);
         });
     }
@@ -212,6 +233,21 @@ class FileManager extends MUDEventEmitter {
             return req.securityManager.validReadFile(efuns, req.fullPath) ?
                 req.filesystem.readJsonFile(req.relativePath, callback) :
                 req.securityManager.denied('read', req.fullPath);
+        });
+    }
+
+    /**
+     * Remove a directory from the filesystem.
+     * @param {EFUNProxy} efuns
+     * @param {string} expr
+     * @param {any} flags
+     * @param {function(boolean,Error):void} callback
+     */
+    removeDirectory(efuns, expr, flags, callback) {
+        return this.createFileRequest(expr, req => {
+            return req.securityManager.validDeleteDirectory(efuns, req.fullPath) ?
+                req.filesystem.deleteDirectory(req, flags, callback) :
+                req.securityManager.denied('removeDirectory', req.fullPath);
         });
     }
 

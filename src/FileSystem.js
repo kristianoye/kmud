@@ -166,21 +166,22 @@ class FileSystem extends MUDEventEmitter {
 
     /**
      * Create a directory in the filesystem.
-     * @param {string} path
+     * @param {string} expr The directory expression to create.
+     * @param {MkDirOptions} opts Optional flags for createDirectory()
      * @param {function=} callback
      */
-    createDirectory(expr, callback) {
+    createDirectory(expr, opts, callback) {
         this.assertDirectories();
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.createDirectoryAsync(expr, MUDExecutionContext.awaiter(callback))) :
-            this.assertSync(() => this.createDirectorySync(expr));
+            this.assertAsync(() => this.createDirectoryAsync(expr, opts, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.createDirectorySync(expr, opts));
     }
 
-    createDirectoryAsync(expr, callback) {
+    createDirectoryAsync(expr, flags, callback) {
         throw new NotImplementedError('createDirectoryAsync');
     }
 
-    createDirectorySync(expr) {
+    createDirectorySync(expr, flags) {
         throw new NotImplementedError('createDirectorySync');
     }
 
@@ -209,17 +210,34 @@ class FileSystem extends MUDEventEmitter {
         });
     }
 
-    deleteDirectory(path, recursive, callback) {
+    /**
+     * Removes a directory from the filesystem.
+     * @param {string} expr The path of the directory to remove.
+     * @param {any} flags TBD
+     * @param {function(boolean,Error):void} callback Callback for async operation
+     */
+    deleteDirectory(expr, flags, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.deleteDirectoryAsync(expr, recursive, MUDExecutionContext.awaiter(callback))) :
-            this.assertSync(() => this.deleteDirectorySync(expr, recursive));
+            this.assertAsync(() => this.deleteDirectoryAsync(expr, flags, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.deleteDirectorySync(expr, flags));
     }
 
-    deleteDirectoryAsync(expr, recursive, callback) {
+    /**
+     * Removes a directory from the filesystem.
+     * @param {string} expr The path of the directory to remove.
+     * @param {any} flags TBD
+     * @param {function(boolean,Error):void} callback Callback for async operation
+     */
+    deleteDirectoryAsync(expr, flags, callback) {
         throw new NotImplementedError('deleteDirectoryAsync');
     }
 
-    deleteDirectorySync(expr, recursive) {
+    /**
+     * Removes a directory from the filesystem.
+     * @param {string} expr The path of the directory to remove.
+     * @param {any} flags TBD
+     */
+    deleteDirectorySync(expr, flags) {
         throw new NotImplementedError('deleteDirectorySync');
     }
 

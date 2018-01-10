@@ -56,19 +56,31 @@ class MUDStorage extends MUDEventEmitter {
         if (ctx) this.merge(ctx);
     }
 
+    /**
+     * 
+     * @param {string} cmdline
+     */
     command(cmdline) {
         let client = this.getProtected('$client'), evt,
-            prevPlayer = MUDDdata.ThisPlayer;
+            prevPlayer = driver.thisPlayer;
 
         try {
             if (client) {
                 client.createCommandEvent(cmdline);
             }
-            MUDData.ThisPlayer = this.owner;
+            else {
+                let words = cmdline.split(/\s+/g),
+                    verb = words.shift();
+                evt = {
+                    verb: verb,
+                    args: words
+                };
+            }
+            driver.setThisPlayer(this.owner, false, evt.verb);
             this.emit('kmud.command', evt);
         }
         finally {
-            MUDData.ThisPlayer = prevPlayer;
+            driver.setThisPlayer(prevPlayer, false);
         }
     }
 
