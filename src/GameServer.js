@@ -157,9 +157,10 @@ class GameServer extends MUDEventEmitter {
 
     addLiving(body) {
         return unwrap(body, living => {
-            let n = this.livings.indexOf(living);
+            let w = living.wrapper,
+                n = this.livings.indexOf(w);
             if (n === -1) {
-                this.livings.push(living.wrapper);
+                this.livings.push(w);
                 return true;
             }
             return false;
@@ -190,9 +191,10 @@ class GameServer extends MUDEventEmitter {
     addPlayer(body) {
         return unwrap(body, player => {
             if (typeof player.save === 'function') {
-                let n = this.players.indexOf(body);
+                let w = player.wrapper,
+                    n = this.players.indexOf(w);
                 if (n === -1) {
-                    this.players.push(body.wrapper);
+                    this.players.push(w);
                     return true;
                 }
                 return false;

@@ -334,7 +334,7 @@ class MUDStorage extends MUDEventEmitter {
         if (!propsOnly) {
             result.$environment = unwrap(this.environment, (env) => env.filename);
             result.$inventory = this.inventory.map(item => {
-                let $storage = MUDStorage.get(item);
+                let $storage = driver.storage.get(item);
                 return $storage ? $storage.serialize() : false;
             }).filter(s => s !== false);
         }
@@ -365,7 +365,7 @@ class MUDStorage extends MUDEventEmitter {
     serializeMudObject(o, backrefs) {
         let index = backrefs.indexOf(o);
         if (index > -1) return `OBJREF:${index}`;
-        let $storage = MUDStorage.get(o);
+        let $storage = driver.storage.get(o);
         if ($storage) {
             let data = $storage.serialize(false, backrefs);
             data.$$type = o.filename;
@@ -527,14 +527,6 @@ MUDStorage.configureForRuntime = function (driver) {
     let manager = new MUDStorageContainer();
 
     driver.storage = manager;
-
-    /**
-     * @param {MUDObject} ob
-     * @returns {MUDStorage}
-     */
-    MUDStorage.get = function (ob) {
-        return manager.get(ob);
-    };
 };
 
 module.exports = MUDStorage;

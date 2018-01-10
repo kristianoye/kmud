@@ -357,7 +357,7 @@ class EFUNProxy {
     clientExits(prefix, exits, target) {
         let player = target || driver.thisPlayer;
         if (player) {
-            let $storage = MUDStorage.get(player),
+            let $storage = driver.storage.get(player),
                 caps = $storage.getClientCaps();
             if (caps) {
                 return caps.do('renderRoomExits', prefix, exits);

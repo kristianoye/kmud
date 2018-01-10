@@ -49,8 +49,8 @@ class VMWrapper extends VMAbstraction {
 }
 
 VMWrapper.configureForRuntime = function (driver) {
-    ExtensionText = MUDConfig.stripBOM(fs.readFileSync('src/Extensions.js', 'utf8'));
-    CompilerTimeout = MUDConfig.get().driver.compiler.maxCompileTime;
+    ExtensionText = driver.config.stripBOM(fs.readFileSync('src/Extensions.js', 'utf8'));
+    CompilerTimeout = driver.config.driver.compiler.maxCompileTime;
 };
 
 module.exports = VMWrapper;
