@@ -529,6 +529,9 @@
     <Compile Include="src\MUDStorage.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\MXC.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\network\ClientCaps.js">
       <SubType>Code</SubType>
     </Compile>
@@ -962,6 +965,9 @@
       <SubType>Code</SubType>
     </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\MUDCompiler.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\MUDConfig.d.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\MUDLoader.d.ts">

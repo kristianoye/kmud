@@ -7,6 +7,11 @@ declare class MUDStorageContainer {
      * @param ctx The object's constructor context.
      */
     create(ob: MUDObject, ctx: MUDCreationContext): MUDStorage;
+    /**
+     * Delete an object's data from storage.
+     * @param {MUDObject} ob
+     */
+    delete(ob: MUDObject): boolean;
 
     /**
      * Get the storage object for the specified object instance.

@@ -6,7 +6,6 @@
 const
     MUDCreationContext = require('./MUDCreationContext'),
     MUDEventEmitter = require('./MUDEventEmitter'),
-    MUDStorage = require('./MUDStorage'),
     MUDConfig = require('./MUDConfig'),
     _environment = Symbol('_environment'),
     _heartbeat = Symbol('_heartbeat'),
@@ -79,7 +78,7 @@ function assertProtectedCall(filename) {
 
 function getEfunProxy(t) {
     var fn = t.basename,
-        module = MUDData.ModuleCache.get(fn),
+        module = driver.cache.get(fn),
         efuns = module ? module.efunProxy : false;
     return efuns;
 }
@@ -150,7 +149,7 @@ class MUDObject extends MUDEventEmitter {
 
     addInventory(item) {
         var wrapped = wrapper(item),
-            inv = MUDStorage.get(this).inventory;
+            inv = driver.storage.get(this).inventory;
 
         if (!wrapped) return false;
         else if (wrapped() === this) return false;
@@ -185,28 +184,30 @@ class MUDObject extends MUDEventEmitter {
         this.__destroyed = true;
         if (this.environment) this.emit('kmud.item.removed', this.environment);
         if (this.isPlayer()) {
-            var wrapped = wrapper(this);
-            MUDData.Players.removeValue(wrapped);
+            driver.removePlayer(this);
         }
         this.removeAllListeners();
         if (!isReload) {
             var fn = this.basename,
-                mod = MUDData.ModuleCache.get(fn);
-            MUDData.SafeCall(this, () => {
-                return this.eventDestroy();
-            });
-            this.setSymbol(_environment, null);
-            delete MUDStorage.instances[this._propKeyId];
-            mod.destroyInstance(this);
+                mod = driver.cache.get(fn);
+
+            try {
+                if (typeof this.eventDestroy === 'function')
+                    this.eventDestroy();
+                this.setSymbol(_environment, null);
+                driver.storage.delete(this);
+                mod.destroyInstance(this);
+            }
+            catch (e) {
+            }
         }
         return this;
     }
 
     enableHeartbeat(flag) {
         let callback = this.getSymbol(_heartbeat) || false;
-
         let thisObject = global.wrapper(this),
-            $storage = MUDStorage.get(this);
+            $storage = driver.storage.get(this);
 
         if (typeof this.eventHeartbeat !== 'function')
             throw new Error('Cannot call enableHeartbeat() on that object!');
@@ -214,34 +215,34 @@ class MUDObject extends MUDEventEmitter {
         try {
             if (flag) {
                 if (callback) {
-                    MUDData.DriverObject.removeListener('kmud.heartbeat', callback);
+                    driver.removeListener('kmud.heartbeat', callback);
                 }
                 callback = (ticks, total) => {
-                    let env = MUDStorage.get($storage.environment);
+                    let env = driver.storage.get($storage.environment);
                     this.eventHeartbeat(ticks, total);
                     if (env && env.stats) {
                         env.stats.heartbeats++;
                     }
                 };
                 this.setSymbol(_heartbeat, callback);
-                MUDData.DriverObject.addListener('kmud.heartbeat', callback);
-                MUDData.Livings.push(thisObject);
+                driver.addListener('kmud.heartbeat', callback);
+                driver.addLiving(thisObject);
             }
             else {
-                if (listener) MUDData.DriverObject.removeListener('kmud.heartbeat', callback);
+                if (listener) driver.removeListener('kmud.heartbeat', callback);
                 this.setSymbol(_heartbeat, false);
-                MUDData.Livings.removeValue(thisObject);
+                driver.removeLiving(thisObject);
             }
         }
         catch (e) {
             if (callback) {
-                MUDData.DriverObject.off('kmud.heartbeat', callback);
+                driver.off('kmud.heartbeat', callback);
             }
         }
     }
 
     get environment() {
-        return unwrap(MUDStorage.get(this).environment);
+        return unwrap(driver.storage.get(this).environment);
     }
 
     evaluateProperty(key) {
@@ -254,11 +255,6 @@ class MUDObject extends MUDEventEmitter {
 
     eventDestroy() {
 
-    }
-
-    exportData() {
-        var _props = MUDData.InstanceProps[this._propKeyId];
-        return JSON.stringify(_props, undefined, 3);
     }
 
     get adjectives() {
@@ -278,7 +274,7 @@ class MUDObject extends MUDEventEmitter {
     }
 
     get inventory() {
-        return MUDStorage.get(this).inventory.map(o => unwrap(o));
+        return driver.storage.get(this).inventory.map(o => unwrap(o));
     }
 
     isLiving() { return false; }
@@ -296,13 +292,13 @@ class MUDObject extends MUDEventEmitter {
     getPrivate(key, defaultValue) {
         let fileName = assertPrivateCall(this.filename);
         if (fileName) {
-            let $storage = MUDStorage.get(this);
+            let $storage = driver.storage.get(this);
             return $storage.getPrivate(fileName, key, defaultValue);
         }
     }
 
     getProperty(key, defaultValue) {
-        return MUDStorage.get(this).getProperty(key, defaultValue);
+        return driver.storage.get(this).getProperty(key, defaultValue);
     }
 
     /**
@@ -313,21 +309,21 @@ class MUDObject extends MUDEventEmitter {
      */
     getProtected(key, defaultValue) {
         if (assertProtectedCall(this.filename)) {
-            let $storage = MUDStorage.get(this);
+            let $storage = driver.storage.get(this);
             return $storage.getProtected(key, defaultValue);
         }
     }
 
     getSharedProperty(key, defaultValue) {
-        return MUDData.SharedProps[this.basename][key] || defaultValue;
+        throw new Error('depricated');
     }
 
     getSizeOf() {
-        return MUDStorage.get(this).getSizeOf();
+        return driver.storage.get(this).getSizeOf();
     }
 
     incrementProperty(key, value, initialValue, callback) {
-        return MUDStorage.get(this).incrementProperty(key, value, initialValue);
+        return driver.storage.get(this).incrementProperty(key, value, initialValue);
         if (typeof callback === 'function') callback.call(this, val, props[key]);
         return this;
     }
@@ -349,7 +345,7 @@ class MUDObject extends MUDEventEmitter {
     }
 
     get keyId() {
-        return MUDStorage.get(this).getProperty('id', 'unknown');
+        return driver.storage.get(this).getProperty('id', 'unknown');
     }
 
     matchesId(words) {
@@ -384,19 +380,19 @@ class MUDObject extends MUDEventEmitter {
             self.emit('kmud.item.badmove', destination);
         }
         else if (!environment || environment.canReleaseItem(this)) {
-            let $target = MUDStorage.get(target);
+            let $target = driver.storage.get(target);
 
             if (UseLazyResets) {
                 if (typeof target().reset === 'function') {
                     if ($target.nextReset < new Date().getTime()) {
                         target().reset();
-                        MUDData.DriverObject.registerReset(target, false, $target);
+                        driver.registerReset(target, false, $target);
                     }
                 }
             }
             if (target().canAcceptItem(this)) {
                 if (target().addInventory(this)) {
-                    let $storage = MUDStorage.get(this);
+                    let $storage = driver.storage.get(this);
 
                     if (this.isLiving()) {
                         let stats = $target.stats;
@@ -434,7 +430,7 @@ class MUDObject extends MUDEventEmitter {
     }
 
     receive_message(msgClass, text) {
-        let client = MUDData.Storage.get(this).getProtected('$client');
+        let client = driver.storage.get(this).getProtected('$client');
         if (client) client.write(text);
     }
 
@@ -495,37 +491,36 @@ class MUDObject extends MUDEventEmitter {
     setPrivate(key, value) {
         let fileName = assertPrivateCall(this.filename);
         if (fileName) {
-            let $storage = MUDStorage.get(this);
+            let $storage = driver.storage.get(this);
             $storage.setPrivate(fileName, key, value);
             return this;
         }
     }
 
     setProperty(key, value) {
-        MUDStorage.get(this).setProperty(key, value);
+        driver.storage.get(this).setProperty(key, value);
         return this;
     }
 
     setProtected(key, value) {
         if (assertProtectedCall(this.filename)) {
-            let $storage = MUDStorage.get(this);
+            let $storage = driver.storage.get(this);
             $storage.setProtected(key, value);
             return this;
         }
     }
 
     setSharedProperty(key, value) {
-        MUDData.SharedProps[this.basename][key] = value;
-        return this;
+        throw new Error('depricated');
     }
 
     getSymbol(key, defaultValue) {
-        let store = MUDStorage.get(this);
+        let store = driver.storage.get(this);
         return store ? store.getSymbol(key, defaultValue) : undefined;
     }
 
     setSymbol(key, value) {
-        MUDStorage.get(this).setSymbol(key, value);
+        driver.storage.get(this).setSymbol(key, value);
         return this;
     }
 }

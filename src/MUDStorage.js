@@ -486,6 +486,21 @@ class MUDStorageContainer {
     }
 
     /**
+     * Delete an object's data from storage.
+     * @param {MUDObject} ob
+     */
+    delete(ob) {
+        return unwrap(ob, item => {
+            let instanceId = item._propKeyId;
+            if (instanceId in this.storage) {
+                delete this.storage[instanceId];
+                return true;
+            }
+            return false;
+        });
+    }
+
+    /**
      * Fetch storage for the specified argument.
      * @param {MUDObject} ob The file to fetch storage for.
      * @returns {MUDStorage} The storage object for the item or false.

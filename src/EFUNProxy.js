@@ -1244,14 +1244,18 @@ class EFUNProxy {
         return driver.fileManager.deleteFile(expr, callback);
     }
 
-    rmdir(path, callback) {
-        return driver.fileManager
-        var filename = this.resolvePath(path);
-        if (driver.validWrite(this, filename)) {
-            var absPath = MUDData.MasterEFUNS.mudPathToAbsolute(filename);
-            return MUDData.MasterEFUNS.rmdir(absPath);
+    /**
+     * Delete a directory from the filesystem.
+     * @param {string} expr
+     * @param {any} opts Future use options
+     * @param {function(boolean, Error):void} callback Callback for async deletion.
+     */
+    rmdir(expr, opts, callback) {
+        if (typeof opts === 'function') {
+            callback = opts;
+            opts = {};
         }
-        throw new SecurityError();
+        return driver.fileManager.deleteDirectory(this, expr, opts || {}, callback);
     }
 
     /**

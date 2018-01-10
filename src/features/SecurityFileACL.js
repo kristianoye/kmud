@@ -10,7 +10,6 @@ const
     FileSecurity = require('../FileSecurity'),
     FeatureBase = require('./FeatureBase'),
     ConfigUtil = require('../ConfigUtil'),
-    MUDData = require('../MUDData'),
     path = require('path'),
     fs = require('fs');
 
@@ -157,7 +156,7 @@ class FileAclCache {
      * @param {any} file
      */
     loadAclFile(file) {
-        let rawFile = MUDData.StripBOM(fs.readFileSync(file, 'utf8')),
+        let rawFile = driver.efuns.stripBOM(fs.readFileSync(file, 'utf8')),
             result = JSON.parse(rawFile);
         return new FileAcl(result);
     }
@@ -386,7 +385,7 @@ class SecurityFileACLFeature extends FeatureBase {
             fs.mkdirSync(shadowDir);
         }
 
-        let rawFile = MUDData.StripBOM(fs.readFileSync(accessFile, 'utf8')),
+        let rawFile = driver.efuns.stripBOM(fs.readFileSync(accessFile, 'utf8')),
             fileData = JSON.parse(rawFile);
 
         master.loadAclData(fileData);

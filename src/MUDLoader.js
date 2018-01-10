@@ -4,7 +4,6 @@
  * Date: October 1, 2017
  */
 const
-    MUDData = require('./MUDData'),
     MUDObject = require('./MUDObject'),
     MUDHtml = require('./MUDHtml'),
     vm = require('vm'),
@@ -291,10 +290,10 @@ class MUDLoader {
                 writable: false
             },
             loadPartial: {
-                value: function (target, src) {
+                value: function (target,/** @type {string} */ src) {
                     var _ = this || self,
-                        file = _.efuns.resolvePath(src, _.directory),
-                        content = MUDData.StripBOM(_.efuns.readFile(file = file + (file.endsWith('.js') ? '' : '.js')));
+                        file = _efuns.resolvePath(src, _.directory),
+                        content = _efuns.stripBOM(_efuns.readFile(file = file + (file.endsWith('.js') ? '' : '.js')));
                     try {
                         _extending = target;
                         var ctx = vm.createContext(_);
@@ -318,7 +317,9 @@ class MUDLoader {
                 writable: false
             },
             master: {
-                get: function () { return MUDData.InGameMaster; }
+                value: function () {
+                    return driver.masterObject;
+                }
             },
             module: {
                 get: function () { return this || self; }
@@ -358,8 +359,8 @@ class MUDLoader {
                 writable: false
             },
             pluralize: {
-                value: function () {
-                    return self.efuns.pluralize.apply(self.efuns, arguments);
+                value: function (...args) {
+                    return _efuns.pluralize(...args);
                 },
                 writable: false
             },
@@ -386,7 +387,7 @@ class MUDLoader {
                 value: global.String
             },
             thisPlayer: {
-                get: function () { return MUDData.ThisPlayer; }
+                get: function () { return driver.thisPlayer; }
             },
             unwrap: {
                 get: function () { return unwrap; }

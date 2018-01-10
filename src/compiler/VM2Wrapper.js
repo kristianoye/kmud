@@ -2,7 +2,6 @@
     { NodeVM, VMScript } = require('vm2'),
     PipelineContext = require('./PipelineContext').PipelineContext,
     VMAbstraction = require('./VMAbstraction'),
-    MUDModule = require('../MUDModule'),
     path = require('path');
 
 class VM2Wrapper extends VMAbstraction {
@@ -24,7 +23,7 @@ class VM2Wrapper extends VMAbstraction {
             sandbox: module.loader,
             require: {
                 external: false,
-                root: MUDData.MudlibPath
+                root: driver.config.mudlib.baseDirectory
             },
             nesting: true,
             wrapper: 'none'

@@ -4,14 +4,11 @@
  * Date: October 1, 2017
  */
 const
-    Extensions = require('./Extensions'),
-    MUDObject = require('./MUDObject');
+    Extensions = require('./Extensions');
 
 Object.defineProperty(global, 'master', {
-    get: function () { return MUDData.InGameMaster; },
-    set: function () { throw new Error('Access violation detected'); },
-    configurable: true,
-    enumerable: true
+    value: function () { return driver.masterObject; },
+    writable: false
 });
 
 /// <reference path="../lib/wwwroot/dts/global.d.ts" />

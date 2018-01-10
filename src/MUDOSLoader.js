@@ -4,7 +4,6 @@
  * Date: October 1, 2017
  */
 const
-    MUDData = require('./MUDData'),
     MUDLoader = require('./MUDLoader');
 
 class MUDOSLoader extends MUDLoader {
@@ -82,7 +81,7 @@ class MUDOSLoader extends MUDLoader {
             },
             this_object: {
                 value: function () {
-                    var module = MUDData.ModuleCache.get(T.efuns.filename);
+                    var module = driver.cache.get(T.efuns.filename);
                     return module.instances[0];
                 }
             },
@@ -161,7 +160,7 @@ class MUDOSLoader extends MUDLoader {
             result = eval(expr);
         } 
         catch (ex) {
-            MUDData.CleanError(ex);
+            driver.cleanError(ex);
             result = '*' + ex.message + '\n' + ex.stack;
         }
         return result;
@@ -251,7 +250,7 @@ class MUDOSLoader extends MUDLoader {
         }
     }
 
-    this_player() { return MUDData.ThisPlayer; }
+    this_player(flag) { return flag ? driver.truePlayer : driver.thisPlayer; }
 
     throw(msg) {
         throw new Error(msg);

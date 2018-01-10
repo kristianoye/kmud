@@ -2,6 +2,7 @@
 /// <reference path="MUDCache.d.ts"/>
 /// <reference path="MUDLoader.d.ts"/>
 /// <reference path="MasterObject.d.ts"/>
+/// <reference path="MUDConfig.d.ts" />
 
 declare class MUDGlobals {
     /**
@@ -25,6 +26,18 @@ declare class MUDObjectStack {
 }
 
 declare class GameServer {
+    /**
+     * Adds a "living" object to the game.
+     * @param body
+     */
+    addLiving(body: MUDObject): void;
+
+    /**
+     * Adds a player to the list of active players.
+     * @param body The newly connected player.
+     */
+    addPlayer(body: MUDObject): void;
+
     /** The in-game master called when an error occurs */
     applyErrorHandler: function(Error, boolean) | false;
 
@@ -41,6 +54,9 @@ declare class GameServer {
 
     /** In-game compiler */
     compiler: MUDCompiler;
+
+    /** Current runtime configuration */
+    config: MUDConfig;
 
     /** The current execution context */
     currentContext: MXC;
@@ -83,17 +99,31 @@ declare class GameServer {
     /** The players that have connected to the game */
     players: MUDObject[];
 
+    /**
+     *  Removes a living object from the game.
+     * @param living
+     */
+    removeLiving(living: MUDObject): boolean;
+
+    /**
+     * Removes a player from the list of active players.
+     * @param player
+     */
+    removePlayer(player: MUDObject): boolean;
+
+    /**
+     * Sets the active player.
+     * @param player The player returned by thisPlayer
+     */
+    setThisPlayer(player: MUDObject);
+    setThisPlayer(player: MUDObject, truePlayer: MUDObject);
+    setThisPlayer(player: MUDObject, truePlayer: MUDObject, verb: string);
+
     /** The server address that is used for outgoing TCP connections */
     serverAddress: string;
 
     /** The container in which all objects store their data */
     storage: MUDStorageContainer;
-
-    /**
-     * Adds a player to the list of active players.
-     * @param body The newly connected player.
-     */
-    addPlayer(body: MUDObject): void;
 
     /**
      * Called at startup, this method creates the in-game master object.

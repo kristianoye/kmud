@@ -159,7 +159,7 @@ class MUDModule {
             this.proxies[n] = proxy = (function (_this) {
                 var _proxy = new Proxy(_this, {
                     apply: function (target, thisArg, argList) {
-                        return MUDData.PushStack(_this, () => {
+                        return driver.addObjectFrame(_this, () => {
                             return Reflect.apply(_this, thisArg, argList);
                         });
                     },
@@ -167,12 +167,12 @@ class MUDModule {
                         throw new Error('Illegal operation');
                     },
                     defineProperty: function (target, property, descriptor) {
-                        return MUDData.PushStack(_this, () => {
+                        return driver.addObjectFrame(_this, () => {
                             return Reflect.defineProperty(target, property, descriptor);
                         });
                     },
                     deleteProperty: function (target, property) {
-                        return MUDData.PushStack(_this, () => {
+                        return driver.addObjectFrame(_this, () => {
                             return Reflect.deleteProperty(target, property);
                         });
                     },
@@ -184,7 +184,7 @@ class MUDModule {
 
                         if (typeof originalMethod === 'function') {
                             return function (...args) {
-                                return MUDData.PushStack(_this, () => {
+                                return driver.addObjectFrame(_this, () => {
                                     return originalMethod.apply(this, args);
                                 });
                             };
@@ -192,17 +192,17 @@ class MUDModule {
                         return Reflect.get(_this, property, receiver);
                     },
                     getOwnPropertyDescriptor: function (target, property) {
-                        return MUDData.PushStack(_this, () => {
+                        return driver.addObjectFrame(_this, () => {
                             return Object.getOwnPropertyDescriptor(_this, property);
                         });
                     },
                     getPrototypeOf: function (target) {
-                        return MUDData.PushStack(_this, () => {
+                        return driver.addObjectFrame(_this, () => {
                             return Object.getPrototypeOf(_this);
                         });
                     },
                     has: function (target, prop) {
-                        return MUDData.PushStack(_this, () => {
+                        return driver.addObjectFrame(_this, () => {
                             return prop in _this;
                         });
                     },
@@ -210,7 +210,7 @@ class MUDModule {
                         return false;
                     },
                     ownKeys: function (target) {
-                        return MUDData.PushStack(_this, () => {
+                        return driver.addObjectFrame(_this, () => {
                             return Reflect.ownKeys(_this);
                         });
                     },
@@ -219,7 +219,7 @@ class MUDModule {
                         return true;
                     },
                     set: function (target, prop, value, receiver) {
-                        return MUDData.PushStack(_this, () => {
+                        return driver.addObjectFrame(_this, () => {
                             target[prop] = value;
                             return true;
                         });

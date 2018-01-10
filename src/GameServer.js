@@ -71,10 +71,16 @@ class GameServer extends MUDEventEmitter {
         this.heartbeatCounter = 0;
         this.heartbeatInterval = config.mudlib.heartbeatInterval;
         this.includePath = config.mudlib.includePath || [];
+        /** @type {MUDObject[]} */
+        this.livings = [];
         this.logDirectory = config.mudlib.logDirectory;
         this.masterFilename = config.mudlib.inGameMaster.path;
         this.mudName = config.mud.name;
         this.nextResetTime = 0;
+
+        /** @type {MUDObject[]} */
+        this.objectStack = [];
+
         /** @type {MUDObject} */
         this.players = [];
         this.preCompilers = [];
@@ -149,11 +155,47 @@ class GameServer extends MUDEventEmitter {
         });
     }
 
+    addLiving(body) {
+        return unwrap(body, living => {
+            let n = this.livings.indexOf(living);
+            if (n === -1) {
+                this.livings.push(living.wrapper);
+                return true;
+            }
+            return false;
+        });
+    }
+
+    /**
+     * Add an object to the stack, execute some code, and remove the item.
+     * This is only used if object proxies are enabled and is pretty gross.
+     * @param {MUDObject} ob The object in which a method or property is being accessed.
+     * @param {function(...any):any} callback The code to execute with the current object on the stack.
+     * @returns {boolean}
+     */
+    addObjectFrame(ob, callback) {
+        let s = this.objectStack.length,
+            n = this.objectStack.push(ob);
+        if (n > s) {
+            try {
+                callback();
+                return true;
+            }
+            finally {
+                this.objectStack.pop();
+            }
+        }
+    }
+
     addPlayer(body) {
         return unwrap(body, player => {
             if (typeof player.save === 'function') {
                 let n = this.players.indexOf(body);
-                if (n === -1) this.players.push(body);
+                if (n === -1) {
+                    this.players.push(body.wrapper);
+                    return true;
+                }
+                return false;
             }
         });
     }
@@ -573,13 +615,33 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
+     * Removes a living object from the list of living objects.
+     * @param {MUDObject} body
+     * @returns {boolean}
+     */
+    removeLiving(body) {
+        return unwrap(body, living => {
+            let index = this.livings.indexOf(living);
+            if (index > -1) {
+                this.players = this.livings.splice(index, 1);
+                return true;
+            }
+            return false;
+        });
+    }
+
+    /**
      * Remove a player from the list of active players.
      * @param {MUDObject} body The player to remove.
      */
     removePlayer(body) {
         return unwrap(body, player => {
             let index = this.players.indexOf(player);
-            this.players = this.players.splice(index, 1);
+            if (index > -1) {
+                this.players = this.players.splice(index, 1);
+                return true;
+            }
+            return false;
         });
     }
 
