@@ -1,0 +1,18 @@
+
+[2018-1-9 23:33:00]
+Could not load GameObject [File not found]
+[driver]\MUDCompiler.js:164
+                throw new Error(`Could not load ${context.filename} [File not found]`);
+                ^
+
+Error: Could not load GameObject [File not found]
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:164:23)
+    at MUDLoader.Object.defineProperties.imports.value.src.slice.call.forEach.exp ([driver]\MUDLoader.js:239:66)
+    at Array.forEach (<anonymous>)
+    at value ([driver]\MUDLoader.js:224:46)
+    at E:\KLF\KMUD\lib\base\Weapon.js:1:1
+    at ContextifyScript.Script.runInContext (vm.js:59:29)
+    at Object.runInContext (vm.js:120:6)
+    at VMWrapper.run ([driver]\compiler\VMWrapper.js:45:25)
+    at MUDCompiler.compileObject ([driver]\MUDCompiler.js:193:20)
+    at MUDLoader.Object.defineProperties.imports.value.src.slice.call.forEach.exp ([driver]\MUDLoader.js:239:66)

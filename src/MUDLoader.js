@@ -16,6 +16,8 @@ var _includeCache = [];
 class MUDLoader {
     /**
      * @param {EFUNProxy} _efuns The efuns instance
+     * @param {MUDCompiler} _compiler A reference to the compiler.
+     * @param {string} _directory The directory the target module lives in.
      */
     constructor(_efuns, _compiler, _directory) {
         var
@@ -28,7 +30,7 @@ class MUDLoader {
             _primaryExport = false,
             _oldEfuns = _efuns;
         var
-            self = (/** @returns {MUDLoader} */ function (t) {
+            self = (/** @returns {MUDLoader} @param {MUDObject} t */ function (t) {
                 return t;
             })(this);
 
@@ -196,15 +198,12 @@ class MUDLoader {
                         switch (exp) {
                             case 'crypto':
                                 return self[exp] = require('crypto');
-                                break;
 
                             case 'lpc':
                                 return self[exp] = require('./LPCCompat');
-                                break;
 
                             case 'net':
                                 return self[exp] = require(exp);
-                                break;
 
                             default:
                                 var filename = self.efuns.resolvePath(exp, self.efuns.directory),
@@ -402,7 +401,7 @@ class MUDLoader {
 
 /**
  * Configure the loader for runtime.
- * @param {GameServer} driver
+ * @param {GameServer} driver A reference to the game driver.
  */
 MUDLoader.configureForRuntime = function (driver) {
     mudglobal.modifyLoader(MUDLoader.prototype);

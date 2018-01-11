@@ -23,10 +23,10 @@ class MUDLogger {
         if (level <= this.level) {
             if (typeof formatter === 'function') {
                 let logText = formatter(...args);
-                console.log(logText);
+                if (logText) console.log(logText);
             }
             else
-                console.log(...args);
+                console.log(formatter, ...args);
         }
     }
 }

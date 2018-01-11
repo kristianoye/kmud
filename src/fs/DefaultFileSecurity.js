@@ -18,6 +18,55 @@ class DefaultFileSecurity extends FileSecurity {
     }
 
     /**
+     * Check to see if a directory exists.
+     * @param {any} efuns
+     * @param {any} req
+     * @param {any} callback
+     */
+    isDirectory(efuns, req, callback) {
+        return this.validReadDirectory(efuns, req.fullPath) ?
+            this.fileSystem.isDirectory(req.relativePath, callback) :
+            this.denied('isDirectory', req.fullPath);
+    }
+
+    /**
+     * Check to see if a directory exists.
+     * @param {any} efuns
+     * @param {any} req
+     * @param {any} callback
+     */
+    isFile(efuns, req, callback) {
+        return this.validReadFile(efuns, req.fullPath) ?
+            this.fileSystem.isFile(req.relativePath, callback) :
+            this.denied('isFile', req.fullPath);
+    }
+
+    /**
+     * Attempt to read a directory.
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     * @param {number} flags
+     * @param {function(any[], Error):void} callback
+     */
+    readDirectory(efuns, req, filePart, flags, callback) {
+        return this.validReadDirectory(efuns, req.fullPath) ?
+            this.fileSystem.readDirectory(req.relativePath, filePart, flags, callback) :
+            this.denied('readDirectory', req.fullPath);
+    }
+
+    /**
+     * 
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     * @param {function(string,Error):void} callback
+     */
+    readFile(efuns, req, callback) {
+        return this.validReadFile(efuns, req.fullPath) ?
+            this.fileSystem.readFile(req.relativePath, callback) :
+            this.denied('read', expr);
+    }
+
+    /**
      * Determine whether the caller is allowed to create a directory.
      * @param {EFUNProxy} efuns The object attempting to create a directory.
      * @param {string} mudpath The directory being created.

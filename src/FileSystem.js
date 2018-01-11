@@ -21,7 +21,8 @@ const
     FT_FILE = 1 << 0,       // The target is a regular file.
     FT_DIRECTORY = 1 << 1,  // The target is a directory.
     fs = require('fs'),
-    path = require('path');
+    path = require('path'),
+    MXC = require('./MXC');
 
 class FileSystemStat {
     constructor(data) {
@@ -272,13 +273,58 @@ class FileSystem extends MUDEventEmitter {
     /**
      * @returns {boolean} Returns true if the filesystem supports directory structures.
      */
-    get hasDirectories() { return (this.flags & FS_DIRECTORIES) > 0; }
+    get hasDirectories() {
+        return (this.flags & FS_DIRECTORIES) > 0;
+    }
 
     /**
      * @returns {boolean} Returns true if the filesystem supports asyncronous I/O
      */
     get isAsync() { return (this.flags & FS_ASYNC) > 0; }
 
+    /**
+     * Checks to see if the expression is a directory.
+     * @param {string} expr
+     * @param {function(boolean, Error):void} callback
+     */
+    isDirectory(expr, callback) {
+        return this.assertDirectories(() => {
+            return typeof callback === 'function' ?
+                this.assertAsync(() => this.isDirectoryAsync(expr, callback)) :
+                this.assertSync(() => this.isDirectorySync(expr));
+        });
+    }
+
+    isDirectoryAsync(expr, callback) {
+        throw new NotImplementedError('isDirectoryAsync');
+    }
+
+    isDirectorySync(expr) {
+        throw new NotImplementedError('isDirectorySync');
+    }
+
+    /**
+     * Checks to see if the expression is a directory.
+     * @param {string} expr
+     * @param {function(boolean, Error):void} callback
+     */
+    isFile(expr, callback) {
+        return typeof callback === 'function' ?
+            this.assertAsync(() => this.isFileAsync(expr, callback)) :
+            this.assertSync(() => this.isFileSync(expr));
+    }
+
+    isFileAsync(expr, callback) {
+        throw new NotImplementedError('isFileAsync');
+    }
+
+    isFileSync(expr) {
+        throw new NotImplementedError('isFileSync');
+    }
+
+    /**
+     * @returns {boolean} Returns true if the filesystem is read-only.
+     */
     get isReadOnly() { return (this.flags & FS_READONLY) > 0; }
 
     /**
@@ -303,7 +349,6 @@ class FileSystem extends MUDEventEmitter {
      * @param {string} expr The path to load the object from.
      * @param {any} args Optional constructor args.
      * @param {function=} callback
-     * @returns {MUDObject}
      */
     loadObjectAsync(expr, args, callback) {
         throw new NotImplementedError('loadObjectAsync');
@@ -313,7 +358,6 @@ class FileSystem extends MUDEventEmitter {
      * Loads an object from storage.
      * @param {string} expr The path to load the object from.
      * @param {any} args Optional constructor args.
-     * @returns {MUDObject}
      */
     loadObjectSync(expr, args) {
         throw new NotImplementedError('loadObjectSync');
@@ -321,51 +365,48 @@ class FileSystem extends MUDEventEmitter {
 
     /**
      * Reads a directory listing from the disk.
-     * @param {string} muddir The directory part of the request.
-     * @param {string} expr The file expression part of the request.
+     * @param {string} expr The directory part of the request.
      * @param {numeric} flags Numeric flags indicating requests for additional detail.
      * @param {function(string[], Error):void} callback Optional callback for async mode.
      */
-    readDirectory(muddir, expr, flags, callback) {
+    readDirectory(expr, flags, callback) {
         if (typeof flags === 'function') {
             callback = flags;
             flags = 0;
         }
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.readDirectoryAsync(muddir, expr, flags, MUDExecutionContext.awaiter(callback))) :
-            this.assertSync(() => this.readDirectorySync(muddir, expr, flags));
+            this.assertAsync(() => this.readDirectoryAsync(expr, flags, MUDExecutionContext.awaiter(callback))) :
+            this.assertSync(() => this.readDirectorySync(expr, flags));
     }
 
     /**
      * Reads a directory listing from the disk.
-     * @param {string} muddir The directory part of the request.
-     * @param {string} expr The path expression being read.
+     * @param {string} expr The directory part of the request.
      * @param {numeric} flags Numeric flags indicating requests for additional detail.
      * @param {function(string[], Error):void} callback Optional callback for async mode.
      */
-    readDirectoryAsync(muddir, expr, flags, callback) {
+    readDirectoryAsync(expr, flags, callback) {
         throw new NotImplementedError('readDirectoryAsync');
     }
 
     /**
      * Reads a directory listing from the disk.
-     * @param {string} muddir The directory part of the request.
-     * @param {string} expr The path expression being read.
+     * @param {string} expr The directory part of the request.
      * @param {numeric} flags Numeric flags indicating requests for additional detail.
      * @param {function(string[], Error):void} callback Optional callback for async mode.
      */
-    readDirectorySync(muddir, expr, flags) {
+    readDirectorySync(expr, flags) {
         throw new NotImplementedError('readDirectorySync');
     }
 
     /**
      * Read a file from the filesystem;
-     * @param {any} expr
-     * @param {any} callback
+     * @param {string} expr The file path expression to read from.
+     * @param {function(string,Error):void} callback The callback that fires when the read is complete.
      */
     readFile(expr, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.readFileAsync(expr, MUDExecutionContext.awaiter(callback))) :
+            this.assertAsync(() => this.readFileAsync(expr, MXC.awaiter(callback))) :
             this.assertSync(() => this.readFileSync(expr));
     }
 
@@ -379,7 +420,7 @@ class FileSystem extends MUDEventEmitter {
 
     readJsonFile(expr, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.readJsonFileAsync(expr, MUDExecutionContext.awaiter(callback))) :
+            this.assertAsync(() => this.readJsonFileAsync(expr, MXC.awaiter(callback))) :
             this.assertSync(() => this.readJsonFileSync(expr));
     }
 

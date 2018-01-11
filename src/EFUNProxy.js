@@ -474,6 +474,19 @@ class EFUNProxy {
     }
 
     /**
+     * Indents a string by prefixing each line with whitespace.
+     * @param {string} str The string to indent.
+     * @param {number} count The number of patterns to insert (default: 1)
+     * @param {any} pattern The pattern to insert (default: tab);
+     * @returns {string} The indented string.
+     */
+    indent(str, count, pattern) {
+        return str.split('\n')
+            .map(s => Array(count || 1).join(pattern || '\t') + s)
+            .join('\n');
+    }
+
+    /**
      * Compute the possible file locations of one or more include files.
      * @param {...string[]} files One or more files to locate.
      */
@@ -496,19 +509,8 @@ class EFUNProxy {
      * @param {function(boolean,Error):void} callback Optional callback for async operation.
      * @returns {boolean} True if the path resolves to a directory.
      */
-    isDirectory  (expr, callback) {
-        let dirPath = this.resolvePath(expr);
-        if (typeof flags === 'function') {
-            callback = flags;
-            flags = 0;
-        }
-        if (typeof callback === 'function') {
-            this.stat(dirPath, flags, (fs, err) => {
-                return callback(!err && fs.isDirectory, err);
-            });
-        }
-        let stat = driver.fileManager.stat(this, dirPath, StatFlags.None);
-        return stat && stat.isDirectory;
+    isDirectory(expr, callback) {
+        return driver.fileManager.isDirectory(this, this.resolvePath(expr), callback);
     }
 
     /**
@@ -530,37 +532,13 @@ class EFUNProxy {
     }
 
     /**
-     * Indents a string by prefixing each line with whitespace.
-     * @param {string} str The string to indent.
-     * @param {number} count The number of patterns to insert (default: 1)
-     * @param {any} pattern The pattern to insert (default: tab);
-     * @returns {string} The indented string.
-     */
-    indent(str, count, pattern) {
-        return str.split('\n')
-            .map(s => Array(count || 1).join(pattern || '\t') + s)
-            .join('\n');
-    }
-
-    /**
      * Determines whether the path expression represents a normal file.
      * @param {string} expr The file expression to check.
      * @param {number=} flags Optional flags to request additional details.
      * @param {function(boolean,Error):void} callback An optional callback for async operation.
      */
     isFile(expr, flags, callback) {
-        let filePath = this.resolvePath(expr);
-        if (typeof flags === 'function') {
-            callback = flags;
-            flags = 0;
-        }
-        if (typeof callback === 'function') {
-            this.stat(filePath, flags, (fs, err) => {
-                return callback(!err && fs.isFile, err);
-            });
-        }
-        let stat = driver.fileManager.stat(this, filePath, flags);
-        return stat && stat.isFile;
+        return driver.fileManager.isFile(this, expr, callback);
     }
 
     /**

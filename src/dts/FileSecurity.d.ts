@@ -18,6 +18,32 @@
      */
     inGroup(target: MUDObject, ...groupList: string[]): boolean;
 
+    /**
+     * Checks to see if the expression is a directory.
+     * @param efuns The object checking the directory.
+     * @param req The file system request containing the path being checked.
+     * @param callback An optional callback to receive the result.
+     */
+    isDirectory(efuns: EFUNProxy, req: FileSystemRequest, callback: (isDir: boolean, err: Error) => void): boolean;
+
+    /**
+     * Read contents from a directory in the filesystem.
+     * @param efuns
+     * @param req
+     * @param fileExpr
+     * @param flags
+     * @param callback
+     */
+    readDirectory(efuns: EFUNProxy, req: FileSystemRequest, fileExpr: string, flags: number, callback: (results: any[], err: Error) => void): any[];
+
+    /**
+     * Read a file from the filesystem.
+     * @param efuns
+     * @param req
+     * @param callback
+     */
+    readFile(efuns: EFUNProxy, req: FileSystemRequest, callback: (content: string, err: Error) => void): string;
+
     /** If true then failed security attempts throw hard exceptions */
     throwSecurityExceptions: boolean;
 

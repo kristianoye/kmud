@@ -13,11 +13,16 @@ const
     path = require('path'),
     fs = require('fs');
 
+// Global enum-type object for directory listing flags
 mudglobal.GetDirFlags = {
     None: 0,
     Files: 1 << 1,
+    Defaults: 1 << 1 | 1 << 2 | 1 << 6,
+    Details: 1 | (1 << 3),
     Dirs: 1 << 2,
+    ImplicitDirs: 1 << 6,
     Perms: 1 << 3,
+    System: 1 << 5,
     System: 1 << 4,
     Size: 1 << 0
 };
@@ -87,11 +92,17 @@ class FileManager extends MUDEventEmitter {
         FileManagerInstance = this;
     }
 
-    assertValid() { return this; }
+    /**
+     * Not needed by default file manager.
+     */
+    assertValid() {
+        return this;
+    }
 
     /**
-     * 
+     * Iterate over the filesystems and perform an action for each.
      * @param {function(FileSystem,string):any[]} callback
+     * @returns {any[]} The result of all the actions taken, one element for each filesystem.
      */
     eachFileSystem(callback) {
         return Object.keys(this.fileSystems)
@@ -176,6 +187,32 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
+     * Check to see if the given expression is a directory,
+     * @param {EFUNProxy} efuns The external proxy checking the directory.
+     * @param {string} expr The path expression to evaluate.
+     * @param {function(boolean,Error):void} callback Callback receives a boolean value indicating True if the expression is a directory.
+     * @returns {boolean} True if the expression is a directory.
+     */
+    isDirectory(efuns, expr, callback) {
+        return this.createFileRequest(expr, req => {
+            return req.securityManager.isDirectory(efuns, req, callback);
+        });
+    }
+
+    /**
+     * Check to see if the given expression is a file,
+     * @param {EFUNProxy} efuns The external proxy checking the file.
+     * @param {string} expr The path expression to evaluate.
+     * @param {function(boolean,Error):void} callback Callback receives a boolean value indicating True if the expression is a file.
+     * @returns {boolean} True if the expression is a file.
+     */
+    isFile(efuns, expr, callback) {
+        return this.createFileRequest(expr, req => {
+            return req.securityManager.isFile(efuns, req, callback);
+        });
+    }
+
+    /**
      * Load an object from disk.
      * @param {EFUNProxy} efuns The efuns instance making the call.
      * @param {string} mudpath
@@ -198,13 +235,8 @@ class FileManager extends MUDEventEmitter {
      * @param {function(string[], Error):void} callback A callback for asyncronous reading.
      */
     readDirectory(efuns, mudpath, flags, callback) {
-        let muddir = mudpath.endsWith('/') ? mudpath : mudpath.slice(0, mudpath.lastIndexOf('/')),
-            filePart = mudpath.slice(muddir.length);
-
-        return this.createFileRequest(muddir, req => {
-            return req.securityManager.validReadDirectory(efuns, muddir) ?
-                req.filesystem.readDirectory(req.relativePath, filePart, flags, callback) :
-                req.securityManager.denied('list', req.fullPath);
+        return this.createFileRequest(mudpath, req => {
+            return req.securityManager.readDirectory(efuns, req, flags, callback);
         });
     }
 
@@ -216,9 +248,7 @@ class FileManager extends MUDEventEmitter {
      */
     readFile(efuns, expr, callback) {
         return this.createFileRequest(expr, req => {
-            return req.securityManager.validReadFile(efuns, req.fullPath) ?
-                req.filesystem.readFile(req.relativePath, callback) :
-                req.securityManager.denied('read', req.fullPath);
+            return req.securityManager.readFile(efuns, req, callback);
         });
     }
 

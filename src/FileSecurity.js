@@ -45,6 +45,26 @@ class FileSecurity extends MUDEventEmitter {
     }
 
     /**
+     * Checks to see if the given expression is a directory.
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     * @param {function(boolean,Error):void} callback
+     */
+    isDirectory(efuns, req, callback) {
+        throw new NotImplementedError('isDirectory');
+    }
+
+    /**
+     * Checks to see if the given expression is a file.
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     * @param {function(boolean,Error):void} callback
+     */
+    isFile(efuns, req, callback) {
+        throw new NotImplementedError('isFile');
+    }
+
+    /**
      * Loads an object from disk.
      * @param {EFUNProxy} efuns
      * @param {string} expr
@@ -56,12 +76,23 @@ class FileSecurity extends MUDEventEmitter {
     }
 
     /**
-     * Attempt to read a file.
+     * Attempt to read a directory.
      * @param {EFUNProxy} efuns
-     * @param {string} expr
+     * @param {FileSystemRequest} req
+     * @param {number} flags
      * @param {function=} callback
      */
-    readFile(efuns, expr, callback) {
+    readDirectory(efuns, req, flags, callback) {
+        throw new NotImplementedError('readDirectory');
+    }
+
+    /**
+     * Attempt to read a file.
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     * @param {function=} callback
+     */
+    readFile(efuns, req, callback) {
         throw new NotImplementedError('readFile');
     }
 

@@ -1,4 +1,17 @@
-﻿
+﻿declare class FileSystemRequest {
+    /** The filesystem this request lives on */
+    filesystem: FileSystem;
+
+    /** The fully qualified MUD path */
+    fullPath: string;
+
+    /** The relative MUD path */
+    relativePath: string;
+
+    /** The security manager for this filesystem */
+    securityManager: FileSecurity;
+}
+
 declare enum GetDirFlags {
     /** Return files in the result set */
     Files = 1 << 1,
@@ -13,7 +26,20 @@ declare enum GetDirFlags {
     System = 1 << 4,
 
     /** Include file size information in the result */
-    Size = 1 << 0
+    Size = 1 << 0,
+
+    /** Show hidden files */
+    Hidden = 1 << 5,
+
+    /** If the path used looks like a directory then get contents of 
+        directory even if trailing slash was omitted */
+    ImplicitDirs = 1 << 6,
+
+    /** Details please */
+    Details = Size | Perms,
+
+    /** Default for listing */
+    Defaults = Files | Dirs | ImplicitDirs
 }
 
 declare enum MkdirFlags {
@@ -34,7 +60,7 @@ declare enum StatFlags {
     Perms = 1 << 1,
 
     /** Return the parent(s) object stat in the result */
-    Parent = 1 << 2,
+    Parent = 1 << 2
 }
 
 declare class FileStat {
@@ -81,6 +107,22 @@ declare class FileManager {
      * @param callback An optional callback for async mode.
      */
     deleteDirectory(efuns: EFUNProxy, expr: string, opts: any, callback: (success: boolean, err: Error) => void): boolean;
+
+    /**
+     * Checks to see if the expression is a directory.
+     * @param efuns The object checking the directory.
+     * @param expr The expression being checked for directory'ness
+     * @param callback An optional callback to receive the result.
+     */
+    isDirectory(efuns: EFUNProxy, expr: string, callback: (isDir: boolean, err: Error) => void): boolean;
+
+    /**
+     * Checks to see if the expression is a file.
+     * @param efuns The object checking the file.
+     * @param expr The expression being checked for directory'ness
+     * @param callback An optional callback to receive the result.
+     */
+    isFile(efuns: EFUNProxy, expr: string, callback: (isFile: boolean, err: Error) => void): boolean;
 
     /**
      * Load an object syncronously.

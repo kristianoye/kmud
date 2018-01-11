@@ -9,6 +9,29 @@ declare class FileSystem {
     addSecurityManager(manager: FileSecurity): void;
 
     /**
+     * Checks to see if the expression is a directory.
+     * @param expr The path being evaluated.
+     * @param callback An optional callback to receive the result.
+     */
+    isDirectory(expr: string, callback: (isDir: boolean, err: Error) => void): boolean;
+
+    /**
+     * Checks to see if the expression is a file.
+     * @param expr The path being evaluated.
+     * @param callback An optional callback to receive the result.
+     */
+    isFile(expr: string, callback: (isFile: boolean, err: Error) => void): boolean;
+
+    /**
+     * Reads contents from a directory
+     * @param dirExpr The path being read
+     * @param fileExpr The file part of the expression
+     * @param flags An object detailing what is being requested.
+     * @param callback A callback used for asyncronous mode.
+     */
+    readDirectory(dirExpr: string, fileExpr: string, flags: number, callback: (content: any[], err: Error) => void): any[];
+
+    /**
      * Reads a file from the storage layer.
      * @param expr The file to read from.
      */

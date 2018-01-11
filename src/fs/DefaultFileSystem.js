@@ -148,8 +148,37 @@ class DefaultFileSystem extends FileSystem {
         return false;
     }
 
-    loadObjectAsync(expr, args, callback) {
+    isDirectoryAsync(expr, callback) {
+        return this.translatePath(expr, fullPath => {
+            return this.statAsync(fullPath, (stat, err) => {
+                return callback(stat.isDirectory, err);
+            });
+        });
+    }
 
+    isDirectorySync(expr) {
+        return this.translatePath(expr, fullPath => {
+            let stat = this.statSync(fullPath);
+            return stat.isDirectory;
+        })
+    }
+
+    isFileAsync(expr, callback) {
+        return this.translatePath(expr, fullPath => {
+            return this.statAsync(fullPath, (stat, err) => {
+                return callback(stat.isFile, err);
+            });
+        });
+    }
+
+    isFileSync(expr) {
+        return this.translatePath(expr, fullPath => {
+            let stat = this.statSync(fullPath);
+            return stat.isFile;
+        })
+    }
+
+    loadObjectAsync(expr, args, callback) {
     }
 
     /**
@@ -167,14 +196,16 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Reads a directory listing from the disk.
-     * @param {string} muddir The directory part of the request.
-     * @param {string} expr The path expression being read.
+     * @param {string} expr The directory part of the request.
      * @param {numeric} flags Numeric flags indicating requests for additional detail.
      * @param {function(string[], Error):void} callback Optional callback for async mode.
      */
-    readDirectoryAsync(muddir, expr, flags, callback) {
+    readDirectoryAsync(expr, flags, callback) {
+        let muddir = expr.endsWith('/') ? expr : expr.slice(0, expr.lastIndexOf('/')),
+            filePart = expr.slice(muddir.length);
+
         return this.translatePath(muddir, fullPath => {
-            let pattern = expr.length ? new RegExp('^' + expr.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
+            let pattern = filePart.length ? new RegExp('^' + filePart.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
             fs.readdir(fullPath, { encoding: this.encoding }, (err, files) => {
                 if (pattern) {
                     files = files.filter(s => pattern.test(s));
@@ -192,6 +223,9 @@ class DefaultFileSystem extends FileSystem {
      * @param {function(string[], Error):void} callback Optional callback for async mode.
      */
     readDirectorySync(muddir, expr, flags) {
+        let muddir = expr.endsWith('/') ? expr : expr.slice(0, expr.lastIndexOf('/')),
+            filePart = expr.slice(muddir.length);
+
         return this.translatePath(muddir, fullPath => {
             let pattern = expr.length ? new RegExp('^' + expr.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
             let files = fs.readdirSync(fullPath, { encoding: this.encoding });
@@ -208,7 +242,9 @@ class DefaultFileSystem extends FileSystem {
      */
     readFileSync(expr) {
         let filepath = this.translatePath(expr);
-        return this.stripBOM(fs.readFileSync(filepath, { encoding: this.encoding }));
+        return this.stripBOM(fs.readFileSync(filepath, {
+            encoding: this.encoding
+        }));
     }
 
     /**
@@ -285,9 +321,6 @@ class DefaultFileSystem extends FileSystem {
             Object.freeze(result);
             return result;
         });
-        if (fs.existsSync(expr)) {
-            let info = fs.statSync()
-        }
     }
 
     stripBOM(content) {
