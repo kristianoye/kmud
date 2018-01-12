@@ -14,10 +14,10 @@ const
     sprintf = require('sprintf').sprintf,
     MUDConfig = require('./MUDConfig'),
     { SecurityError } = require('./ErrorTypes'),
-    MUDExecutionContext = require('./MUDExcecutionContext'),
     util = require('util'),
     fs = require('fs'),
-    vm = require('vm');
+    vm = require('vm'),
+    MXC = require('./MXC');
 
 const
     KiloByte = 1024,
@@ -1318,15 +1318,11 @@ class EFUNProxy {
      * @returns {any} The result of the unguarded call.
      */
     unguarded(callback) {
-        var result = false, context = new MUDExecutionContext();
+        let result = false;
         try {
-            result = context.run(callback);
-        }
-        catch (err) {
-            throw err;
+            result = callback();
         }
         finally {
-            context.restore();
         }
         return typeof result === 'undefined' ? this : result;
     }

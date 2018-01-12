@@ -7,7 +7,6 @@
  */
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
-    MUDExecutionContext = require('./MUDExcecutionContext'),
     { NotImplementedError } = require('./ErrorTypes'),
     FS_NONE = 0,            // No flags set
     FS_SYNC = 1 << 0,       // The filesystem supports syncronous I/O.
@@ -136,23 +135,23 @@ class FileSystem extends MUDEventEmitter {
 
     /**
      * Append data to a file; Creates file if needed.
-     * @param {string} path
-     * @param {any} content
-     * @param {Function=} callback
+     * @param {string} expr The file to append data to.
+     * @param {any} content The content to write to file.
+     * @param {function(boolean,Error):void} callback A callback to fire with success status.
      */
-    appendFile(path, content, callback) {
+    appendFile(expr, content, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.appendFileAsync(path, content, MUDExecutionContext.awaiter(callback))) :
-            this.assertSync(() => this.appendFileSync(path, content));
+            this.assertAsync(() => this.appendFileAsync(expr, content, MXC.awaiter(callback))) :
+            this.assertSync(() => this.appendFileSync(expr, content));
     }
 
     /**
      * Append data to a file in async mode; Creates file if needed.
-     * @param {string} path
-     * @param {any} content
-     * @param {function(Error):void} callback
+     * @param {string} expr The file to append data to.
+     * @param {any} content The content to write to file.
+     * @param {function(Error):void} callback A callback to fire with success status.
      */
-    appendFileAsync(path, content, callback) {
+    appendFileAsync(expr, content, callback) {
         throw new NotImplementedError('appendFileAsync');
     }
 
@@ -174,7 +173,7 @@ class FileSystem extends MUDEventEmitter {
     createDirectory(expr, opts, callback) {
         this.assertDirectories();
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.createDirectoryAsync(expr, opts, MUDExecutionContext.awaiter(callback))) :
+            this.assertAsync(() => this.createDirectoryAsync(expr, opts, MXC.awaiter(callback))) :
             this.assertSync(() => this.createDirectorySync(expr, opts));
     }
 
@@ -188,7 +187,7 @@ class FileSystem extends MUDEventEmitter {
 
     createFile(expr, content, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.createFileAsync(expr, content, MUDExecutionContext.awaiter(callback))) :
+            this.assertAsync(() => this.createFileAsync(expr, content, MXC.awaiter(callback))) :
             this.assertSync(() => this.createFileSync(expr, content));
     }
 
@@ -219,7 +218,7 @@ class FileSystem extends MUDEventEmitter {
      */
     deleteDirectory(expr, flags, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.deleteDirectoryAsync(expr, flags, MUDExecutionContext.awaiter(callback))) :
+            this.assertAsync(() => this.deleteDirectoryAsync(expr, flags, MXC.awaiter(callback))) :
             this.assertSync(() => this.deleteDirectorySync(expr, flags));
     }
 
@@ -244,7 +243,7 @@ class FileSystem extends MUDEventEmitter {
 
     deleteFile(expr, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.deleteFileAsync(expr, MUDExecutionContext.awaiter(callback))) :
+            this.assertAsync(() => this.deleteFileAsync(expr, MXC.awaiter(callback))) :
             this.assertSync(() => this.deleteFileSync(expr));
     }
 
@@ -262,6 +261,20 @@ class FileSystem extends MUDEventEmitter {
      * @returns {string} The "real" path.
      */
     getRealPath(expr) { return expr; }
+
+    getStat(expr, callback) {
+        return typeof callback === 'function' || callback === false ?
+            this.assertAsync(async () => this.getStatAsync(expr, callback)) :
+            this.assertSync(() => this.getStatSync(expr));
+    }
+
+    getStatAsync(expr) {
+        throw new NotImplementedError('getStatAsync');
+    }
+
+    getStatSync(expr) {
+        throw new NotImplementedError('getStatSync');
+    }
 
     /**
      * Translate an absolute path back into a virtual path.
@@ -340,7 +353,7 @@ class FileSystem extends MUDEventEmitter {
      */
     loadObject(expr, args, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.loadObjectAsync(expr, args, MUDExecutionContext.awaiter(callback))) :
+            this.assertAsync(() => this.loadObjectAsync(expr, args, MXC.awaiter(callback))) :
             this.assertSync(() => this.loadObjectSync(expr, args));
     }
 
@@ -375,7 +388,7 @@ class FileSystem extends MUDEventEmitter {
             flags = 0;
         }
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.readDirectoryAsync(expr, flags, MUDExecutionContext.awaiter(callback))) :
+            this.assertAsync(() => this.readDirectoryAsync(expr, flags, MXC.awaiter(callback))) :
             this.assertSync(() => this.readDirectorySync(expr, flags));
     }
 
@@ -440,7 +453,7 @@ class FileSystem extends MUDEventEmitter {
      */
     stat(expr, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.statAsync(expr, MUDExecutionContext.awaiter(callback))) :
+            this.assertAsync(() => this.statAsync(expr, MXC.awaiter(callback))) :
             this.assertSync(() => this.statSync(expr));
     }
 
@@ -463,7 +476,7 @@ class FileSystem extends MUDEventEmitter {
 
     writeFile(expr, content, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.writeFileAsync(expr, content, MUDExecutionContext.awaiter(callback))) :
+            this.assertAsync(() => this.writeFileAsync(expr, content, MXC.awaiter(callback))) :
             this.assertSync(() => this.writeFileSync(expr, content));
     }
 

@@ -15,8 +15,7 @@ const
     FT_DIRECTORY = 1,
     FT_FILE = 2,
     basePath = path.resolve('src'),
-    libPath = path.resolve('lib'),
-    MUDExecutionContext = require('./MUDExcecutionContext');
+    libPath = path.resolve('lib');
 
 const
     PLURAL_SUFFIX = 1,
@@ -49,7 +48,6 @@ class EFUNS {
         var parts = dirname.split(path.sep);
 
         if (_async) {
-            var ctx = new MUDExecutionContext();
             async.forEachOf(parts, (item, i, cb) => {
                 var dir = parts.slice(0, i + 1).join(path.sep);
                 if (!dir)
@@ -152,7 +150,6 @@ class EFUNS {
             throw new Error('Security Violation');
 
         if (_async) {
-            let context = new MUDExecutionContext();
             return this.isDirectory(filepath, (isDir) => {
                 return fs.readdir(isDir ? filepath : _restOfPath, (err, files) => {
                     if (err)

@@ -132,6 +132,18 @@ class DefaultFileSystem extends FileSystem {
         });
     }
 
+    getStatAsync(expr, callback) {
+        return this.translatePath(expr, fullPath => {
+
+        });
+    }
+
+    getStatSync(expr) {
+        return this.translatePath(expr, fullPath => {
+
+        });
+    }
+
     /**
      * Translate an absolute path back into a virtual path.
      * @param {string} expr The absolute path to translate.

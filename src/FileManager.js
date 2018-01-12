@@ -132,9 +132,8 @@ class FileManager extends MUDEventEmitter {
         if (!result)
             throw new Error('Fatal: Could not locate filesystem');
 
-        return callback ?
-            callback(new FileSystemRequest(relPath, expr, result)) :
-            new FileSystemRequest(relPath, expr, result);
+        let req = new FileSystemRequest(relPath, expr, result);
+        return callback ? callback(req) : req;
     }
 
     /**
@@ -183,6 +182,12 @@ class FileManager extends MUDEventEmitter {
             return req.securityManager.validDeleteFile(efuns, req.fullPath) ?
                 req.filesystem.deleteFile(req.relativePath, callback) :
                 req.securityManager.denied('delete', req.fullPath);
+        });
+    }
+
+    getStat(efuns, expr, callback) {
+        return this.createFileRequest(expr, req => {
+            return req.filesystem.getStat(req.relativePath, callback);
         });
     }
 

@@ -472,6 +472,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\fs\DefaultFileSecurity.js" />
+    <Compile Include="src\fs\FileSystemStat.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\GameServer.js">
       <SubType>Code</SubType>
     </Compile>
@@ -497,9 +500,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\MUDEventEmitter.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDExcecutionContext.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\MUDGlobals.js">
