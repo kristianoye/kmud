@@ -111,10 +111,10 @@ class DefaultFileSystem extends FileSystem {
      * @param {FileSystemRequest} req The directory expression to create.
      * @param {MkDirOptions} opts Additional options for createDirectory.
      */
-    createDirectorySync(req, opts) {
+    createDirectorySync(req) {
         return this.translatePath(req.relativePath, fullPath => {
             let parts = path.relative(this.root, fullPath).split(path.sep),
-                ensure = (opts.flags & MkdirFlags.EnsurePath) === MkdirFlags.EnsurePath;
+                ensure = (req.flags & MkdirFlags.EnsurePath) === MkdirFlags.EnsurePath;
 
             for (let i = 0, max = parts.length; i < max; i++) {
                 let dir = this.root + path.sep + parts.slice(0, i).join(path.sep),
@@ -179,7 +179,7 @@ class DefaultFileSystem extends FileSystem {
                 return true;
             let stat = this.statSync(fullPath);
             return stat.isDirectory;
-        })
+        });
     }
 
     /**
@@ -216,10 +216,31 @@ class DefaultFileSystem extends FileSystem {
      * @returns {MUDObject}
      */
     loadObjectSync(req, args) {
-        let module = this.driver.cache.get(req);
-        if (module && module.loaded) {
+        let [virtualPath, instanceStr] = req.fullPath.split('#', 2),
+            instanceId = instanceStr ? parseInt(instanceStr) : 0;
 
-        }
+        if (isNaN(instanceId))
+            throw new Error(`Invalid instance identifier: ${instanceStr}`);
+
+        return this.translatePath(virtualPath, absolutePath => {
+            let module = driver.cache.get(virtualPath),
+                icmax = module && module.instances.length;
+
+            if (module && module.loaded && (!instanceId || instanceId < icmax)) {
+                if (module.instances[instanceId])
+                    return module.getWrapper(instanceId);
+                else if (instanceId === 0)
+                    return module.createInstance(0, false, args);
+                else
+                    return false;
+            }
+            else if (instanceId === 0) {
+                module = driver.compiler.compileObject(virtualPath, false, undefined, args);
+                return module ? module.getWrapper(0) : false;
+            }
+            else
+                return false;
+        });
     }
 
     /**
@@ -284,7 +305,7 @@ class DefaultFileSystem extends FileSystem {
      * @returns {void} Nothing for async.
      */
     readJsonFileAsync(req, callback) {
-        return this.readFileAsync(req.relativePath, (content, err) => {
+        return this.readFileAsync(req, (content, err) => {
             try {
                 return callback(!err && JSON.parse(content), err);
             }

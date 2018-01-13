@@ -99,8 +99,8 @@ class FileSystemRequest {
                 this.fileName = '';
                 this.fullPath = expr;
                 this.relativePath = relPath;
-                this.pathFull = expr + expr.endsWith('/') ? '' : '/';
-                this.pathRel = relPath + relPath.endsWith('/') ? '' : '/';
+                this.pathFull = expr + (expr.endsWith('/') ? '' : '/');
+                this.pathRel = relPath + (relPath.endsWith('/') ? '' : '/');
             }
         }
         else {
@@ -235,11 +235,12 @@ class FileManager extends MUDEventEmitter {
      * Create a directory in the MUD filesystem.
      * @param {EFUNProxy} efuns The object creating the directory.
      * @param {string} expr The path to create.
-     * @param {number} flags Optional flags to pass to the mkdir method.
+     * @param {MkdirFlags} options Optional flags to pass to the mkdir method.
      * @param {function(boolean,Error):void} callback A callback to fire if async
      */
-    createDirectory(efuns, expr, flags, callback) {
-        return this.createFileRequest('createDirectory', expr, typeof callback === 'function', flags, req => {
+    createDirectory(efuns, expr, options, callback) {
+        return this.createFileRequest('createDirectory', expr, typeof callback === 'function', options.flags, req => {
+            req.options = options;
             return req.securityManager.validCreateDirectory(efuns, req.fullPath) ?
                 req.fileSystem.createDirectory(req, callback) :
                 req.securityManager.denied('createDirectory', req.fullPath);
@@ -295,7 +296,7 @@ class FileManager extends MUDEventEmitter {
      */
     loadObject(efuns, mudpath, args, callback) {
         return this.createFileRequest('loadObject', mudpath, typeof callback === 'function', 0, req => {
-            return req.securityManager.validLoadObject(efuns, req.fullPath) ?
+            return req.securityManager.validLoadObject(efuns, req) ?
                 req.fileSystem.loadObject(req, args, callback) :
                 req.securityManager.denied('load', req.fullPath);
         });

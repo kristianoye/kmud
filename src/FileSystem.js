@@ -116,24 +116,28 @@ class FileSystem extends MUDEventEmitter {
     assertAsync(code) {
         if (!this.isAsync)
             throw new Error(`Filesystem type ${this.type} does not support asyncrononous I/O.`);
+        else if (!code) return true;
         return code.call(this);
     }
 
     assertDirectories(code) {
         if (!this.hasDirectories)
             throw new Error(`Filesystem type ${this.type} does not support directories.`);
+        else if (!code) return true;
         return code ? code.call(this) : true;
     }
 
     assertSync(code) {
         if (!this.isSync)
             throw new Error(`Filesystem type ${this.type} does not support syncrononous I/O.`);
+        else if (!code) return true;
         return code ? code.call(this) : true;
     }
 
     assertWritable(code) {
         if (this.isReadOnly())
             throw new Error(`Filesystem ${this.mp} [type ${this.type}] is read-only.`);
+        else if (!code) return true;
         return code ? code.call(this) : true;
     }
 
@@ -177,8 +181,8 @@ class FileSystem extends MUDEventEmitter {
     createDirectory(req, opts, callback) {
         this.assertDirectories();
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.createDirectoryAsync(req, opts, MXC.awaiter(callback))) :
-            this.assertSync(() => this.createDirectorySync(req, opts));
+            this.assertAsync() && this.createDirectoryAsync(req, opts, MXC.awaiter(callback)) :
+            this.assertSync() && this.createDirectorySync(req, opts);
     }
 
     /**
@@ -293,8 +297,8 @@ class FileSystem extends MUDEventEmitter {
     isDirectory(req, callback) {
         return this.assertDirectories(() => {
             return typeof callback === 'function' ?
-                this.assertAsync(() => this.isDirectoryAsync(req, callback)) :
-                this.assertSync(() => this.isDirectorySync(req));
+                this.assertAsync() && this.isDirectoryAsync(req, MXC.awaiter(callback)) :
+                this.assertSync() && this.isDirectorySync(req);
         });
     }
 
@@ -387,8 +391,8 @@ class FileSystem extends MUDEventEmitter {
      */
     readDirectory(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.readDirectoryAsync(req, MXC.awaiter(callback))) :
-            this.assertSync(() => this.readDirectorySync(req));
+            this.assertAsync() && this.readDirectoryAsync(req, MXC.awaiter(callback)) :
+            this.assertSync() && this.readDirectorySync(req);
     }
 
     /**
@@ -416,8 +420,8 @@ class FileSystem extends MUDEventEmitter {
      */
     readFile(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.readFileAsync(req, MXC.awaiter(callback))) :
-            this.assertSync(() => this.readFileSync(req));
+            this.assertAsync() && this.readFileAsync(req, MXC.awaiter(callback)) :
+            this.assertSync() && this.readFileSync(req);
     }
 
     /**

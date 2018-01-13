@@ -557,24 +557,8 @@ class EFUNProxy {
      * @param {function=} callback The optional callback if loading asyncronously.
      */
     loadObject(expr, args, callback) {
-        let [filePart, instanceId] = expr.split('#', 2);
-        //let result = driver.fileManager.loadObject(this, expr, args, callback);
-
-        var filename = this.resolvePath(expr);
-        if (driver.validRead(this, filename)) {
-            var module = driver.cache.get(filename);
-            if (module && module.loaded) {
-                if (module.instances[0])
-                    return module.getWrapper(0);
-                else
-                    return module.createInstance(0, false, args);
-            }
-            else {
-                module = driver.compiler.compileObject(filename, false, undefined, args);
-                return module ? module.getWrapper(0) : false;
-            }
-        }
-        throw new SecurityError();
+        let result = driver.fileManager.loadObject(this, expr, args, callback);
+        return result;
     }
 
     /**
