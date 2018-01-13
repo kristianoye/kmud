@@ -12,8 +12,7 @@ const
     path = require('path'),
     os = require('os'),
     ClientEndpoint = require('./network/ClientEndpoint'),
-    MUDEventEmitter = require('./MUDEventEmitter'),
-    ExecutionContext = require('./ExecutionContext');
+    MUDEventEmitter = require('./MUDEventEmitter');
 
 const
     FileSecurity = require('./FileSecurity'),
@@ -365,14 +364,6 @@ class GameServer extends MUDEventEmitter {
         };
 
         require('./MUDCache').configureForRuntime(this);
-    }
-
-    /**
-     * Create a context.
-     */
-    createContext() {
-        let stack = this.getObjectStack();
-        return new ExecutionContext(this, stack);
     }
 
     /**
