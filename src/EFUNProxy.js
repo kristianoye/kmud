@@ -558,7 +558,7 @@ class EFUNProxy {
      */
     loadObject(expr, args, callback) {
         let [filePart, instanceId] = expr.split('#', 2);
-        let result = driver.fileManager.loadObject(this, expr, args, callback);
+        //let result = driver.fileManager.loadObject(this, expr, args, callback);
 
         var filename = this.resolvePath(expr);
         if (driver.validRead(this, filename)) {
@@ -1276,7 +1276,7 @@ class EFUNProxy {
      * Determines whether the path expression represents a normal file.
      * @param {string} filepath The file expression to check.
      * @param {number=} flags Optional flags to request additional details.
-     * @param {function(FileStat,Error):void} callback An optional callback for async operation.
+     * @param {function(FileSystemStat,Error):void} callback An optional callback for async operation.
      */
     stat(filepath, flags, callback) {
         return driver.fileManager.statFile(this, filepath, flags, callback);

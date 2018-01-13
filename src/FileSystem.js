@@ -28,6 +28,10 @@ class FileSystemStat {
         /** @type {boolean} */
         this.exists = data.exists || false;
 
+        this.isDirectory = data.isDirectory || false;
+
+        this.isFile = data.isFile || false;
+
         /** @type {FileSystemStat} */
         this.parent = data.parent || false;
 
@@ -135,76 +139,73 @@ class FileSystem extends MUDEventEmitter {
 
     /**
      * Append data to a file; Creates file if needed.
-     * @param {string} expr The file to append data to.
+     * @param {string} req The file to append data to.
      * @param {any} content The content to write to file.
      * @param {function(boolean,Error):void} callback A callback to fire with success status.
      */
-    appendFile(expr, content, callback) {
+    appendFile(req, content, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.appendFileAsync(expr, content, MXC.awaiter(callback))) :
-            this.assertSync(() => this.appendFileSync(expr, content));
+            this.assertAsync(() => this.appendFileAsync(req, content, MXC.awaiter(callback))) :
+            this.assertSync(() => this.appendFileSync(req, content));
     }
 
     /**
      * Append data to a file in async mode; Creates file if needed.
-     * @param {string} expr The file to append data to.
+     * @param {string} req The file to append data to.
      * @param {any} content The content to write to file.
      * @param {function(Error):void} callback A callback to fire with success status.
      */
-    appendFileAsync(expr, content, callback) {
+    appendFileAsync(req, content, callback) {
         throw new NotImplementedError('appendFileAsync');
     }
 
     /**
      * Append data to a file in sync mode; Create file if needed.
-     * @param {string} path
+     * @param {string} req
      * @param {any} content
      */
-    appendFileSync(path, content) {
+    appendFileSync(req, content) {
         throw new NotImplementedError('appendFileSync');
     }
 
     /**
      * Create a directory in the filesystem.
-     * @param {string} expr The directory expression to create.
+     * @param {FileSystemRequest} req The directory expression to create.
      * @param {MkDirOptions} opts Optional flags for createDirectory()
-     * @param {function=} callback
+     * @param {function(boolean, Error):void} callback A callback for async mode
      */
-    createDirectory(expr, opts, callback) {
+    createDirectory(req, opts, callback) {
         this.assertDirectories();
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.createDirectoryAsync(expr, opts, MXC.awaiter(callback))) :
-            this.assertSync(() => this.createDirectorySync(expr, opts));
+            this.assertAsync(() => this.createDirectoryAsync(req, opts, MXC.awaiter(callback))) :
+            this.assertSync(() => this.createDirectorySync(req, opts));
     }
 
-    createDirectoryAsync(expr, flags, callback) {
+    /**
+     * Create a directory in the filesystem.
+     * @param {FileSystemRequest} req The directory expression to create.
+     * @param {MkDirOptions} opts Optional flags for createDirectory()
+     * @param {function(boolean, Error):void} callback A callback for async mode
+     */
+    createDirectoryAsync(req, opts, callback) {
         throw new NotImplementedError('createDirectoryAsync');
     }
 
-    createDirectorySync(expr, flags) {
+    /**
+     * Create a directory in the filesystem.
+     * @param {FileSystemRequest} req The directory expression to create.
+     * @param {MkDirOptions} opts Optional flags for createDirectory()
+     */
+    createDirectorySync(req, opts) {
         throw new NotImplementedError('createDirectorySync');
-    }
-
-    createFile(expr, content, callback) {
-        return typeof callback === 'function' ?
-            this.assertAsync(() => this.createFileAsync(expr, content, MXC.awaiter(callback))) :
-            this.assertSync(() => this.createFileSync(expr, content));
-    }
-
-    createFileAsync(path, content, callback) {
-        throw new NotImplementedError('createFileAsync');
-    }
-
-    createFileSync(path, content) {
-        throw new Error('createFileSync() not implemented');
     }
 
     /**
      * @returns {FileSystemStat} The final stat object.
      */
-    createPermsResult(expr, perms, parent) {
+    createPermsResult(req, perms, parent) {
         return new FileSystemStat({
-            fileName: expr,
+            fileName: req,
             perms: perms || {},
             parent: parent || null
         });
@@ -212,76 +213,65 @@ class FileSystem extends MUDEventEmitter {
 
     /**
      * Removes a directory from the filesystem.
-     * @param {string} expr The path of the directory to remove.
+     * @param {FileSystemRequest} req The path of the directory to remove.
      * @param {any} flags TBD
      * @param {function(boolean,Error):void} callback Callback for async operation
      */
-    deleteDirectory(expr, flags, callback) {
+    deleteDirectory(req, flags, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.deleteDirectoryAsync(expr, flags, MXC.awaiter(callback))) :
-            this.assertSync(() => this.deleteDirectorySync(expr, flags));
+            this.assertAsync(() => this.deleteDirectoryAsync(req, flags, MXC.awaiter(callback))) :
+            this.assertSync(() => this.deleteDirectorySync(req, flags));
     }
 
     /**
      * Removes a directory from the filesystem.
-     * @param {string} expr The path of the directory to remove.
+     * @param {FileSystemRequest} req The path of the directory to remove.
      * @param {any} flags TBD
      * @param {function(boolean,Error):void} callback Callback for async operation
      */
-    deleteDirectoryAsync(expr, flags, callback) {
+    deleteDirectoryAsync(req, flags, callback) {
         throw new NotImplementedError('deleteDirectoryAsync');
     }
 
     /**
      * Removes a directory from the filesystem.
-     * @param {string} expr The path of the directory to remove.
+     * @param {FileSystemRequest} req The path of the directory to remove.
      * @param {any} flags TBD
      */
-    deleteDirectorySync(expr, flags) {
+    deleteDirectorySync(req, flags) {
         throw new NotImplementedError('deleteDirectorySync');
     }
 
-    deleteFile(expr, callback) {
+    deleteFile(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.deleteFileAsync(expr, MXC.awaiter(callback))) :
-            this.assertSync(() => this.deleteFileSync(expr));
+            this.assertAsync(() => this.deleteFileAsync(req, MXC.awaiter(callback))) :
+            this.assertSync(() => this.deleteFileSync(req));
     }
 
-    deleteFileAsync(expr, callback) {
+    deleteFileAsync(req, callback) {
         throw new NotImplementedError('deleteFileAsync');
     }
 
-    deleteFileSync(expr) {
+    deleteFileSync(req) {
         throw new NotImplementedError('deleteFileSync');
     }
 
     /**
-     * Converts the expression into the "real" underlying path.
-     * @param {string} expr The path to translate.
+     * Converts the expression into the external filesystem absolute path.
+     * @param {FileSystemRequest} req The path to translate.
      * @returns {string} The "real" path.
      */
-    getRealPath(expr) { return expr; }
-
-    getStat(expr, callback) {
-        return typeof callback === 'function' || callback === false ?
-            this.assertAsync(async () => this.getStatAsync(expr, callback)) :
-            this.assertSync(() => this.getStatSync(expr));
-    }
-
-    getStatAsync(expr) {
-        throw new NotImplementedError('getStatAsync');
-    }
-
-    getStatSync(expr) {
-        throw new NotImplementedError('getStatSync');
+    getRealPath(req)
+    {
+        throw new NotImplementedError('deleteFileSync');
     }
 
     /**
      * Translate an absolute path back into a virtual path.
-     * @param {string} expr The absolute path to translate.
+     * @param {FileSystemRequest} req The absolute path to translate.
      * @returns {string|false} The virtual path if the expression exists in this filesystem or false if not.
      */
-    getVirtualPath(expr) { return false; }
+    getVirtualPath(req) { return false; }
 
     /**
      * @returns {boolean} Returns true if the filesystem supports directory structures.
@@ -297,41 +287,55 @@ class FileSystem extends MUDEventEmitter {
 
     /**
      * Checks to see if the expression is a directory.
-     * @param {string} expr
+     * @param {FileSystemRequest} req
      * @param {function(boolean, Error):void} callback
      */
-    isDirectory(expr, callback) {
+    isDirectory(req, callback) {
         return this.assertDirectories(() => {
             return typeof callback === 'function' ?
-                this.assertAsync(() => this.isDirectoryAsync(expr, callback)) :
-                this.assertSync(() => this.isDirectorySync(expr));
+                this.assertAsync(() => this.isDirectoryAsync(req, callback)) :
+                this.assertSync(() => this.isDirectorySync(req));
         });
     }
 
-    isDirectoryAsync(expr, callback) {
+    /**
+     * @param {FileSystemRequest} req
+     * @param {function(boolean,Error):void} callback
+     */
+    isDirectoryAsync(req, callback) {
         throw new NotImplementedError('isDirectoryAsync');
     }
 
-    isDirectorySync(expr) {
+    /**
+     * @param {FileSystemRequest} req
+     */
+    isDirectorySync(req) {
         throw new NotImplementedError('isDirectorySync');
     }
 
     /**
      * Checks to see if the expression is a directory.
-     * @param {string} expr
+     * @param {FileSystemRequest} req
      * @param {function(boolean, Error):void} callback
      */
-    isFile(expr, callback) {
+    isFile(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.isFileAsync(expr, callback)) :
-            this.assertSync(() => this.isFileSync(expr));
+            this.assertAsync(() => this.isFileAsync(req, callback)) :
+            this.assertSync(() => this.isFileSync(req));
     }
 
-    isFileAsync(expr, callback) {
+    /**
+     * @param {FileSystemRequest} req
+     * @param {function(boolean,Error):void} callback
+     */
+    isFileAsync(req, callback) {
         throw new NotImplementedError('isFileAsync');
     }
 
-    isFileSync(expr) {
+    /**
+     * @param {FileSystemRequest} req
+     */
+    isFileSync(req) {
         throw new NotImplementedError('isFileSync');
     }
 
@@ -347,144 +351,179 @@ class FileSystem extends MUDEventEmitter {
 
     /**
      * Loads an object from storage.
-     * @param {string} expr The path to load the object from.
+     * @param {FileSystemRequest} req The path to load the object from.
      * @param {any} args Optional constructor args.
-     * @param {function=} callback
+     * @param {function(MUDModule,Error):void} callback The callback if load object is called async
      */
-    loadObject(expr, args, callback) {
+    loadObject(req, args, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.loadObjectAsync(expr, args, MXC.awaiter(callback))) :
-            this.assertSync(() => this.loadObjectSync(expr, args));
+            this.assertAsync(() => this.loadObjectAsync(req, args, MXC.awaiter(callback))) :
+            this.assertSync(() => this.loadObjectSync(req, args));
     }
 
     /**
      * Loads an object from storage.
-     * @param {string} expr The path to load the object from.
+     * @param {FileSystemRequest} req The path to load the object from.
      * @param {any} args Optional constructor args.
-     * @param {function=} callback
+     * @param {function(MUDModule,Error):void} callback Callback that fires if load object was async.
      */
-    loadObjectAsync(expr, args, callback) {
+    loadObjectAsync(req, args, callback) {
         throw new NotImplementedError('loadObjectAsync');
     }
 
     /**
      * Loads an object from storage.
-     * @param {string} expr The path to load the object from.
+     * @param {FileSystemRequest} req The path to load the object from.
      * @param {any} args Optional constructor args.
      */
-    loadObjectSync(expr, args) {
+    loadObjectSync(req, args) {
         throw new NotImplementedError('loadObjectSync');
     }
 
     /**
      * Reads a directory listing from the disk.
-     * @param {string} expr The directory part of the request.
-     * @param {numeric} flags Numeric flags indicating requests for additional detail.
+     * @param {FileSystemRequest} req The directory part of the request.
      * @param {function(string[], Error):void} callback Optional callback for async mode.
      */
-    readDirectory(expr, flags, callback) {
-        if (typeof flags === 'function') {
-            callback = flags;
-            flags = 0;
-        }
+    readDirectory(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.readDirectoryAsync(expr, flags, MXC.awaiter(callback))) :
-            this.assertSync(() => this.readDirectorySync(expr, flags));
+            this.assertAsync(() => this.readDirectoryAsync(req, MXC.awaiter(callback))) :
+            this.assertSync(() => this.readDirectorySync(req));
     }
 
     /**
      * Reads a directory listing from the disk.
-     * @param {string} expr The directory part of the request.
-     * @param {numeric} flags Numeric flags indicating requests for additional detail.
+     * @param {FileSystemRequest} req The directory part of the request.
      * @param {function(string[], Error):void} callback Optional callback for async mode.
      */
-    readDirectoryAsync(expr, flags, callback) {
+    readDirectoryAsync(req, callback) {
         throw new NotImplementedError('readDirectoryAsync');
     }
 
     /**
      * Reads a directory listing from the disk.
-     * @param {string} expr The directory part of the request.
-     * @param {numeric} flags Numeric flags indicating requests for additional detail.
+     * @param {FileSystemRequest} req The directory part of the request.
      * @param {function(string[], Error):void} callback Optional callback for async mode.
      */
-    readDirectorySync(expr, flags) {
+    readDirectorySync(req) {
         throw new NotImplementedError('readDirectorySync');
     }
 
     /**
-     * Read a file from the filesystem;
-     * @param {string} expr The file path expression to read from.
+     * Read a file from the filesystem.
+     * @param {FileSystemRequest} req The file path expression to read from.
      * @param {function(string,Error):void} callback The callback that fires when the read is complete.
      */
-    readFile(expr, callback) {
+    readFile(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.readFileAsync(expr, MXC.awaiter(callback))) :
-            this.assertSync(() => this.readFileSync(expr));
+            this.assertAsync(() => this.readFileAsync(req, MXC.awaiter(callback))) :
+            this.assertSync(() => this.readFileSync(req));
     }
 
-    readFileAsync(expr, callback) {
+    /**
+     * Read a file from the filesystem.
+     * @param {FileSystemRequest} req The file path expression to read from.
+     * @param {function(string,Error):void} callback The callback that fires when the read is complete.
+     */
+    readFileAsync(req, callback) {
         throw new NotImplementedError('readFileAsync');
     }
 
-    readFileSync(expr) {
+    /**
+     * Read a file from the filesystem.
+     * @param {FileSystemRequest} req The file path expression to read from.
+     */
+    readFileSync(req) {
         throw new NotImplementedError('readFileSync');
     }
 
-    readJsonFile(expr, callback) {
+    /**
+     * Read a file from the filesystem.
+     * @param {FileSystemRequest} req The file path expression to read from.
+     * @param {function(string,Error):void} callback The callback that fires when the read is complete.
+     * @returns {any} Returns void if async or data if successful read.
+     */
+    readJsonFile(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.readJsonFileAsync(expr, MXC.awaiter(callback))) :
-            this.assertSync(() => this.readJsonFileSync(expr));
+            this.assertAsync(() => this.readJsonFileAsync(req, MXC.awaiter(callback))) :
+            this.assertSync(() => this.readJsonFileSync(req));
     }
 
+    /**
+     * Read a file from the filesystem.
+     * @param {FileSystemRequest} req The file path expression to read from.
+     * @param {function(string,Error):void} callback The callback that fires when the read is complete.
+     */
     readJsonFileAsync(expr, callback) {
         throw new NotImplementedError('readJsonFileAsync');
     }
 
+    /**
+     * Read a file from the filesystem.
+     * @param {FileSystemRequest} req The file path expression to read from.
+     * @param {function(string,Error):void} callback The callback that fires when the read is complete.
+     */
     readJsonFileSync(expr) {
         throw new NotImplementedError('readJsonFileSync');
     }
 
     /**
      * Stat a file within the filesystem.
-     * @param {string} expr The file expression to evaluate.s
+     * @param {FileSystemRequest} req The file expression to evaluate.s
      * @param {function(FileSystemStat,Error):void} callback An optional callback for async mode.
      * @returns {FileSystemStat} The filesystem stat info.
      */
-    stat(expr, callback) {
+    stat(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.statAsync(expr, MXC.awaiter(callback))) :
-            this.assertSync(() => this.statSync(expr));
+            this.assertAsync(() => this.statAsync(req, MXC.awaiter(callback))) :
+            this.assertSync(() => this.statSync(req));
     }
 
     /**
      * Stat a file asyncronously.
-     * @param {string} expr The file expression to stat.
+     * @param {FileSystemRequest} req The file expression to stat.
      * @param {function(FileSystemStat,Error):void} callback
      */
-    statAsync(expr, callback) {
+    statAsync(req, callback) {
         throw new NotImplementedError('statAsync');
     }
 
     /**
      * Stat a file syncronously.
-     * @param {string} expr The file expression to stat.
+     * @param {FileSystemRequest} req The file expression to stat.
      */
-    statSync(expr) {
+    statSync(req) {
         throw new NotImplementedError('statSync');
     }
 
-    writeFile(expr, content, callback) {
+    /**
+     * Write content to a file.
+     * @param {FileSystemRequest} req
+     * @param {string|Buffer} content
+     * @param {function(boolean, Error):void} callback
+     */
+    writeFile(req, content, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.writeFileAsync(expr, content, MXC.awaiter(callback))) :
-            this.assertSync(() => this.writeFileSync(expr, content));
+            this.assertAsync(() => this.writeFileAsync(req, content, MXC.awaiter(callback))) :
+            this.assertSync(() => this.writeFileSync(req, content));
     }
 
-    writeFileAsync(expr, content, callback) {
+    /**
+     * Write content to a file.
+     * @param {FileSystemRequest} req
+     * @param {string|Buffer} content
+     * @param {function(boolean, Error):void} callback
+     */
+    writeFileAsync(req, content, callback) {
         throw new NotImplementedError('writeFileAsync');
     }
 
-    writeFileSync(expr, content) {
+    /**
+     * Write content to a file.
+     * @param {FileSystemRequest} req
+     * @param {string|Buffer} content
+     */
+    writeFileSync(req, content) {
         throw new NotImplementedError('writeFileSync');
     }
 }

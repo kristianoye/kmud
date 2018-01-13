@@ -5,7 +5,7 @@
  * @param {function(any):any} success
  * @param {function(Error):any} failure
  */
-function tryFunctionCall(action, success, failure) ) {
+function tryFunctionCall(action, success, failure) {
     try {
         return action(success, failure);
     }

@@ -10,6 +10,7 @@ var
     EFUNProxy = require('./EFUNProxy'),
     MUDCreationContext = require('./MUDCreationContext'),
     MUDLoader = require('./MUDLoader'),
+    async = require('async'),
     vm = require('vm');
 
 var

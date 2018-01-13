@@ -18,7 +18,7 @@ mudglobal.GetDirFlags = {
     None: 0,
     Files: 1 << 1,
     Defaults: 1 << 1 | 1 << 2 | 1 << 6,
-    Details: 1 | (1 << 3),
+    Details: 1 | 1 << 3,
     Dirs: 1 << 2,
     ImplicitDirs: 1 << 6,
     Perms: 1 << 3,
@@ -45,25 +45,91 @@ var
 class FileSystemRequest {
     /**
      * Creates a filesystem request.
-     * @param {string} relativePath
-     * @param {string} fullPath
      * @param {FileSystem} fileSystem
+     * @param {number} flags
+     * @param {string} op
+     * @param {string} expr
+     * @param {string} relPath
+     * @param {FileSystemStat} fss
      */
-    constructor(relativePath, fullPath, fileSystem) {
+    constructor(fileSystem, flags, op, expr, relPath, fss) {
         /** @type {string} */
-        this.relativePath = relativePath;
+        this.fileName = '';
 
         /** @type {string} */
-        this.fullPath = fullPath;
+        this.fullPath = '';
+
+        /** @type {string} */
+        this.relativePath = '';
 
         /** @type {FileSystem} */
-        this.filesystem = fileSystem;
+        this.fileSystem = fileSystem;
+
+        /** @type {number} */
+        this.flags = typeof flags === 'number' ? flags : 0;
+
+        /** @type {string} */
+        this.pathFull = '';
+
+        /** @type {string} */
+        this.pathRel = '';
+
+        /** @type {boolean} */
+        this.resolved = false;
+
+        /** @type {string} */
+        this.op = op || 'unknown';
 
         /** @type {FileSecurity} */
         this.securityManager = fileSystem.securityManager;
+
+        if (fss.exists) {
+            this.resolved = true;
+            if (!fss.isDirectory) {
+                let dir = expr.slice(0, expr.lastIndexOf('/')),
+                    rel = relPath.slice(0, relPath.lastIndexOf('/'));
+
+                this.fileName = expr.slice(dir.length + 1);
+                this.fullPath = expr;
+                this.relativePath = relPath;
+                this.pathFull = dir;
+                this.pathRel = rel;
+            }
+            else {
+                this.fileName = '';
+                this.fullPath = expr;
+                this.relativePath = relPath;
+                this.pathFull = expr + expr.endsWith('/') ? '' : '/';
+                this.pathRel = relPath + relPath.endsWith('/') ? '' : '/';
+            }
+        }
+        else {
+            if (!expr.endsWith('/')) {
+                let dir = expr.slice(0, expr.lastIndexOf('/')),
+                    rel = relPath.slice(0, relPath.lastIndexOf('/'));
+
+                this.fileName = expr.slice(dir.length + 1);
+                this.fullPath = expr;
+                this.relativePath = relPath;
+                this.pathFull = dir + (dir.endsWith('/') ? '' : '/');
+                this.pathRel = rel + (rel.endsWith('/') ? '' : '/');
+            }
+            else {
+                this.fileName = '';
+                this.fullPath = expr;
+                this.relativePath = relPath;
+                this.pathFull = expr;
+                this.pathRel = relPath;
+            }
+        }
     }
 }
 
+/**
+ * The file manager object receives external requests, creates internal requests,
+ * and dispatches those requests to the file and security systems.  It then sends
+ * the results back to the user (usually an efuns proxy instance).
+ */
 class FileManager extends MUDEventEmitter {
     /**
      * Construct the file manager
@@ -112,28 +178,42 @@ class FileManager extends MUDEventEmitter {
     /**
      * Returns the filesystem for the specified path.
      * @param {string} expr The path being requested.
+     * @param {boolean} isAsync Indicates the operation being performed is async or not.
      * @param {function(FileSystemRequest):any} callback An optional callback.
      * @returns {FileSystemRequest} The filesystem supporting the specified path.
      */
-    createFileRequest(expr, callback) {
+    createFileRequest(op, expr, isAsync, flags, callback) {
         let parts = expr.split('/'),
-            result = this.fileSystems['/'] || false,
-            relParts = [], relPath = expr.slice(1);
+            fileSystem = this.fileSystems['/'] || false,
+            relParts = [], relPath = expr.slice(1),
+            dir = '/';
 
         while (parts.length) {
-            let dir = parts.join('/');
+            dir = parts.join('/');
             if (dir in this.fileSystems) {
                 relPath = relParts.join('/');
-                result = this.fileSystems[dir];
+                fileSystem = this.fileSystems[dir];
                 break;
             }
             relParts.unshift(parts.pop());
         }
-        if (!result)
+        if (!fileSystem)
             throw new Error('Fatal: Could not locate filesystem');
 
-        let req = new FileSystemRequest(relPath, expr, result);
-        return callback ? callback(req) : req;
+        if (isAsync) {
+            if (typeof callback !== 'function')
+                throw new Error('Async request must provide callback for createFileRequest()');
+
+            return fileSystem.stat(relPath, (fss, err) => {
+                let resultAsync = new FileSystemRequest(fileSystem, flags, op, expr, relPath, fss);
+                return callback(resultAsync);
+            });
+        }
+        else {
+            let fss = fileSystem.stat(relPath);
+            let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
+            return callback(resultSync);
+        }
     }
 
     /**
@@ -149,8 +229,6 @@ class FileManager extends MUDEventEmitter {
     }
 
     appendFile(path, content, callback) {
-        let fs = this.createFileRequest(path);
-        return fs.appendFile(path, content, callback);
     }
 
     /**
@@ -161,14 +239,11 @@ class FileManager extends MUDEventEmitter {
      * @param {function(boolean,Error):void} callback A callback to fire if async
      */
     createDirectory(efuns, expr, flags, callback) {
-        return this.createFileRequest(expr, req => {
+        return this.createFileRequest('createDirectory', expr, typeof callback === 'function', flags, req => {
             return req.securityManager.validCreateDirectory(efuns, req.fullPath) ?
-                req.filesystem.createDirectory(req.relativePath, flags, callback) :
+                req.fileSystem.createDirectory(req, callback) :
                 req.securityManager.denied('createDirectory', req.fullPath);
         });
-    }
-
-    createFile(expr, content, callback) {
     }
 
     /**
@@ -178,16 +253,10 @@ class FileManager extends MUDEventEmitter {
      * @param {callback(boolean, Error):void} callback Callback for async deletion.
      */
     deleteFile(efuns, expr, callback) {
-        return this.createFileRequest(expr, req => {
+        return this.createFileRequest('deleteFile', expr, typeof callback === 'function', 0, req => {
             return req.securityManager.validDeleteFile(efuns, req.fullPath) ?
-                req.filesystem.deleteFile(req.relativePath, callback) :
+                req.fileSystem.deleteFile(req, callback) :
                 req.securityManager.denied('delete', req.fullPath);
-        });
-    }
-
-    getStat(efuns, expr, callback) {
-        return this.createFileRequest(expr, req => {
-            return req.filesystem.getStat(req.relativePath, callback);
         });
     }
 
@@ -199,7 +268,7 @@ class FileManager extends MUDEventEmitter {
      * @returns {boolean} True if the expression is a directory.
      */
     isDirectory(efuns, expr, callback) {
-        return this.createFileRequest(expr, req => {
+        return this.createFileRequest('isDirectory', expr, typeof callback === 'function', 0, req => {
             return req.securityManager.isDirectory(efuns, req, callback);
         });
     }
@@ -212,7 +281,7 @@ class FileManager extends MUDEventEmitter {
      * @returns {boolean} True if the expression is a file.
      */
     isFile(efuns, expr, callback) {
-        return this.createFileRequest(expr, req => {
+        return this.createFileRequest('isFile', expr, typeof callback === 'function', 0, req => {
             return req.securityManager.isFile(efuns, req, callback);
         });
     }
@@ -225,9 +294,9 @@ class FileManager extends MUDEventEmitter {
      * @param {function=} callback
      */
     loadObject(efuns, mudpath, args, callback) {
-        return this.createFileRequest(mudpath, req => {
+        return this.createFileRequest('loadObject', mudpath, typeof callback === 'function', 0, req => {
             return req.securityManager.validLoadObject(efuns, req.fullPath) ?
-                req.filesystem.loadObject(req.relativePath, args, callback) :
+                req.fileSystem.loadObject(req, args, callback) :
                 req.securityManager.denied('load', req.fullPath);
         });
     }
@@ -235,13 +304,13 @@ class FileManager extends MUDEventEmitter {
     /**
      * Read files from a directory.
      * @param {EFUNProxy} efuns The object requesting the directory listing.
-     * @param {string} mudpath The MUD virtual path to read from.
+     * @param {string} expr The MUD virtual path to read from.
      * @param {number} flags Flags indicating request for additional details.
      * @param {function(string[], Error):void} callback A callback for asyncronous reading.
      */
-    readDirectory(efuns, mudpath, flags, callback) {
-        return this.createFileRequest(mudpath, req => {
-            return req.securityManager.readDirectory(efuns, req, flags, callback);
+    readDirectory(efuns, expr, flags, callback) {
+        return this.createFileRequest('readDirectory', expr, typeof callback === 'function', flags, req => {
+            return req.securityManager.readDirectory(efuns, req, callback);
         });
     }
 
@@ -252,7 +321,7 @@ class FileManager extends MUDEventEmitter {
      * @param {function=} callback An optional callback for async mode.
      */
     readFile(efuns, expr, callback) {
-        return this.createFileRequest(expr, req => {
+        return this.createFileRequest('readFile', expr, typeof callback === 'function', 0, req => {
             return req.securityManager.readFile(efuns, req, callback);
         });
     }
@@ -264,9 +333,9 @@ class FileManager extends MUDEventEmitter {
      * @param {function=} callback An optional callback for async mode.
      */
     readJsonFile(efuns, expr, callback) {
-        return this.createFileRequest(expr, req => {
+        return this.createFileRequest('readJsonFile', expr, typeof callback === 'function', 0, req => {
             return req.securityManager.validReadFile(efuns, req.fullPath) ?
-                req.filesystem.readJsonFile(req.relativePath, callback) :
+                req.fileSystem.readJsonFile(req, callback) :
                 req.securityManager.denied('read', req.fullPath);
         });
     }
@@ -279,9 +348,9 @@ class FileManager extends MUDEventEmitter {
      * @param {function(boolean,Error):void} callback
      */
     removeDirectory(efuns, expr, flags, callback) {
-        return this.createFileRequest(expr, req => {
-            return req.securityManager.validDeleteDirectory(efuns, req.fullPath) ?
-                req.filesystem.deleteDirectory(req, flags, callback) :
+        return this.createFileRequest('removeDirectory', expr, typeof callback === 'function', flags, req => {
+            return req.securityManager.validDeleteDirectory(efuns, req) ?
+                req.fileSystem.deleteDirectory(req, flags, callback) :
                 req.securityManager.denied('removeDirectory', req.fullPath);
         });
     }
@@ -291,12 +360,12 @@ class FileManager extends MUDEventEmitter {
      * @param {EFUNProxy} efuns
      * @param {string} expr
      * @param {number} flags
-     * @param {function(FileStat,Error):void} callback
+     * @param {function(FileSystemStat,Error):void} callback
      */
     stat(efuns, expr, flags, callback) {
-        return this.createFileRequest(expr, req => {
+        return this.createFileRequest('stat', expr, typeof callback === 'function', flags, req => {
             return req.securityManager.validReadFile(efuns, req.fullPath) ?
-                req.filesystem.stat(req.relativePath, flags, callback) :
+                req.fileSystem.stat(req, flags, callback) :
                 req.securityManager.denied('stat', req.fullPath);
         });
     }
@@ -322,22 +391,22 @@ class FileManager extends MUDEventEmitter {
      * @returns {string} The absolute path.
      */
     toRealPath(expr) {
-        return this.createFileRequest(expr, req => {
-            return req.filesystem.getRealPath(req.relativePath);
+        return this.createFileRequest('toRealPath', expr, typeof callback === 'function', 0, req => {
+            return req.fileSystem.getRealPath(req);
         });
     }
 
     /**
-     * 
-     * @param {any} efuns
-     * @param {any} expr
-     * @param {any} content
-     * @param {any} callback
+     *
+     * @param {EFUNProxy} efuns
+     * @param {string} expr
+     * @param {string|Buffer} content
+     * @param {function(boolean,Error)} callback
      */
     writeFile(efuns, expr, content, callback) {
-        return this.createFileRequest(expr, req => {
-            return req.securityManager.validWriteFile(efuns, req.fullPath) ?
-                req.filesystem.writeFile(req.relativePath, content, callback) :
+        return this.createFileRequest('writeFile', expr, typeof callback === 'function', 0, req => {
+            return req.securityManager.validWriteFile(efuns, req) ?
+                req.fileSystem.writeFile(req, content, callback) :
                 req.securityManager.denied('write', req.fullPath);
         });
     }

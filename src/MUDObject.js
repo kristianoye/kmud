@@ -7,7 +7,6 @@ const
     MUDCreationContext = require('./MUDCreationContext'),
     MUDEventEmitter = require('./MUDEventEmitter'),
     MUDConfig = require('./MUDConfig'),
-    _environment = Symbol('_environment'),
     _heartbeat = Symbol('_heartbeat'),
     callsite = require('callsite');
 
@@ -194,7 +193,6 @@ class MUDObject extends MUDEventEmitter {
             try {
                 if (typeof this.eventDestroy === 'function')
                     this.eventDestroy();
-                this.setSymbol(_environment, null);
                 driver.storage.delete(this);
                 mod.destroyInstance(this);
             }
@@ -399,7 +397,6 @@ class MUDObject extends MUDEventEmitter {
                         if (stats) stats.moves++;
                     }
                     $storage.environment = target;
-                    this.setSymbol(_environment, target);
                     if (this.isLiving()) {
                         target().init.call(this);
                     }
@@ -452,7 +449,8 @@ class MUDObject extends MUDEventEmitter {
     }
 
     setContainer(target, cb) {
-        var env = this.getSymbol(_environment),
+        let $storage = driver.storage.get(this),
+            env = $storage.environment,
             newEnv = wrapper(target),
             result = false;
 
@@ -460,7 +458,7 @@ class MUDObject extends MUDEventEmitter {
             if (env && env !== newEnv)
                 this.emit('kmud.item.removed', this.environment);
             this.removeAllListeners('kmud.item.removed');
-            this.setSymbol(_environment, newEnv);
+            $storage.environment = newEnv;
         }
         if (typeof cb === 'function') {
             cb.call(self, newEnv, env);

@@ -48,67 +48,72 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Convert the virtual path to a real path.
-     * @param {string} expr The file expression to convert.
+     * @param {FileSystemRequest|string} req The file expression to convert.
+     * @returns {string} The absolute filesystem path.
      */
-    getRealPath(expr) {
-        return path.resolve(this.root, expr);
+    getRealPath(req) {
+        return path.resolve(this.root, typeof req === 'string' ? req : req.relativePath);
     }
 
     /**
      * Appends content to a file asyncronously.
-     * @param {string} expr
-     * @param {any} content
-     * @param {function} callback
+     * @param {FileSystemRequest} req The file to write to.
+     * @param {string|Buffer} content The content to write to file.
+     * @param {function(boolean,Error):void} callback Callback that fires to indicate success or failure.
      */
-    appendFileAsync(expr, content, callback) {
-        let filepath = this.translatePath(expr);
-        return fs.writeFile(filepath, content, {
-            encoding: this.encoding || 'utf8',
-            flag: 'a'
-        }, callback);
+    appendFileAsync(req, content, callback) {
+        return this.translatePath(req.relativePath, fullPath => {
+            return fs.writeFile(filepath, content, {
+                encoding: this.encoding || 'utf8',
+                flag: 'a'
+            }, (err) => callback(!err, err));
+        });
     }
 
     /**
      * Appends content to a file syncronously.
-     * @param {string} expr
-     * @param {any} content
+     * @param {FileSystemRequest} req
+     * @param {string|Buffer} content The content to write to file.
      */
-    appendFileSync(expr, content) {
-        let filepath = this.translatePath(expr);
-        return fs.writeFileSync(filepath, content, {
-            encoding: this.encoding || 'utf8',
-            flag: 'a'
+    appendFileSync(req, content) {
+        return this.translatePath(req.relativePath, fullPath => {
+            return fs.writeFileSync(filepath, content, {
+                encoding: this.encoding || 'utf8',
+                flag: 'a'
+            });
         });
     }
 
     /**
      * Check to see if the expression contains wildcards.
-     * @param {string} expr
-     * @returns {boolean}
+     * @param {FileSystemRequest} req The request to check
+     * @returns {boolean} True if the filename contains wildcards.
      */
-    containsWildcards(expr) {
-        return expr.match(/[\*\?]+/);
+    containsWildcards(req) {
+        return req.fileName && req.fileName.match(/[\*\?]+/);
     }
 
     /**
      * Create a directory asyncronously.
-     * @param {string} expr
+     * @param {FileSystemRequest} req The directory to create.
      * @param {MkDirOptions} opts
      * @param {function(boolean, Error):void} callback
      */
-    createDirectoryAsync(expr, opts, callback) {
-        let filepath = this.translatePath(expr);
-        return fs.mkdir(filepath, callback);
+    createDirectoryAsync(req, opts, callback) {
+        return this.translatePath(req.relativePath, fullPath => {
+            if (req.resolved) return callback(false, new Error(`Directory already exists: ${req.fullPath}`));
+            return fs.mkdir(fullPath, err => callback(!err, err));
+        });
     }
 
     /**
      * Create a directory syncronously.
-     * @param {string} expr The directory expression to create.
+     * @param {FileSystemRequest} req The directory expression to create.
      * @param {MkDirOptions} opts Additional options for createDirectory.
      */
-    createDirectorySync(expr, opts) {
-        return this.translatePath(expr, filePath => {
-            let parts = path.relative(this.root, filePath).split(path.sep),
+    createDirectorySync(req, opts) {
+        return this.translatePath(req.relativePath, fullPath => {
+            let parts = path.relative(this.root, fullPath).split(path.sep),
                 ensure = (opts.flags & MkdirFlags.EnsurePath) === MkdirFlags.EnsurePath;
 
             for (let i = 0, max = parts.length; i < max; i++) {
@@ -132,18 +137,6 @@ class DefaultFileSystem extends FileSystem {
         });
     }
 
-    getStatAsync(expr, callback) {
-        return this.translatePath(expr, fullPath => {
-
-        });
-    }
-
-    getStatSync(expr) {
-        return this.translatePath(expr, fullPath => {
-
-        });
-    }
-
     /**
      * Translate an absolute path back into a virtual path.
      * @param {string} expr The absolute path to translate.
@@ -160,47 +153,70 @@ class DefaultFileSystem extends FileSystem {
         return false;
     }
 
-    isDirectoryAsync(expr, callback) {
-        return this.translatePath(expr, fullPath => {
+    /**
+     * Check to see if the expression is a directory.
+     * @param {FileSystemRequest} req The filesystem request.
+     * @param {function(boolean,Error):void} callback
+     * @returns {void} Nothing for async
+     */
+    isDirectoryAsync(req, callback) {
+        if (req.resolved) return callback(true, false);
+        return this.translatePath(req.relativePath, fullPath => {
             return this.statAsync(fullPath, (stat, err) => {
                 return callback(stat.isDirectory, err);
             });
         });
     }
 
-    isDirectorySync(expr) {
-        return this.translatePath(expr, fullPath => {
+    /**
+     * Check to see if the expression is a directory.
+     * @param {FileSystemRequest} req The filesystem request.
+     * @returns {boolean} True or false depending on whether the expression is a directory.
+     */
+    isDirectorySync(req) {
+        return this.translatePath(req, fullPath => {
+            if (req.resolved && !req.fileName)
+                return true;
             let stat = this.statSync(fullPath);
             return stat.isDirectory;
         })
     }
 
-    isFileAsync(expr, callback) {
-        return this.translatePath(expr, fullPath => {
+    /**
+     * @param {FileSystemRequest} req The filesystem request.
+     * @param {function(boolean,Error):void} callback
+     * @returns {void} Nothing for async.
+     */
+    isFileAsync(req, callback) {
+        return this.translatePath(req.relativePath, fullPath => {
             return this.statAsync(fullPath, (stat, err) => {
                 return callback(stat.isFile, err);
             });
         });
     }
 
-    isFileSync(expr) {
-        return this.translatePath(expr, fullPath => {
+    /**
+     * @param {FileSystemRequest} req The filesystem request.
+     * @returns {boolean} True or false depending on if expression is a file.
+     */
+    isFileSync(req) {
+        return this.translatePath(req.relativePath, fullPath => {
             let stat = this.statSync(fullPath);
             return stat.isFile;
         })
     }
 
-    loadObjectAsync(expr, args, callback) {
+    loadObjectAsync(req, args, callback) {
     }
 
     /**
      * Loads an object from storage.
-     * @param {string} expr The path to load the object from.
+     * @param {FileSystemRequest} req The path to load the object from.
      * @param {any} args Optional constructor args.
      * @returns {MUDObject}
      */
-    loadObjectSync(expr, args) {
-        let module = this.driver.cache.get(expr);
+    loadObjectSync(req, args) {
+        let module = this.driver.cache.get(req);
         if (module && module.loaded) {
 
         }
@@ -208,20 +224,15 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Reads a directory listing from the disk.
-     * @param {string} expr The directory part of the request.
-     * @param {numeric} flags Numeric flags indicating requests for additional detail.
+     * @param {FileSystemRequest} req The directory part of the request.
      * @param {function(string[], Error):void} callback Optional callback for async mode.
      */
-    readDirectoryAsync(expr, flags, callback) {
-        let muddir = expr.endsWith('/') ? expr : expr.slice(0, expr.lastIndexOf('/')),
-            filePart = expr.slice(muddir.length);
-
-        return this.translatePath(muddir, fullPath => {
-            let pattern = filePart.length ? new RegExp('^' + filePart.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
+    readDirectoryAsync(req, callback) {
+        return this.translatePath(req.pathRel, fullPath => {
+            let pattern = req.fileName ? new RegExp('^' + req.fileName.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
+            if (req.flags & GetDirFlags.ImplicitDirs && !fullPath.endsWith('/')) fullPath += path.sep;
             fs.readdir(fullPath, { encoding: this.encoding }, (err, files) => {
-                if (pattern) {
-                    files = files.filter(s => pattern.test(s));
-                }
+                if (pattern) files = files.filter(s => pattern.test(s)); 
                 return callback(!err && files, err);
             });
         });
@@ -229,71 +240,71 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Reads a directory listing from the disk.
-     * @param {string} muddir The directory part of the request.
-     * @param {string} expr The path expression being read.
-     * @param {numeric} flags Numeric flags indicating requests for additional detail.
-     * @param {function(string[], Error):void} callback Optional callback for async mode.
+     * @param {FileSystemRequest} req The path expression being read.
      */
-    readDirectorySync(muddir, expr, flags) {
-        let muddir = expr.endsWith('/') ? expr : expr.slice(0, expr.lastIndexOf('/')),
-            filePart = expr.slice(muddir.length);
-
-        return this.translatePath(muddir, fullPath => {
-            let pattern = expr.length ? new RegExp('^' + expr.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
+    readDirectorySync(req) {
+        return this.translatePath(req.pathRel, fullPath => {
+            let pattern = req.fileName ? new RegExp('^' + req.fileName.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
+            if (req.flags & GetDirFlags.ImplicitDirs && !fullPath.endsWith('/')) fullPath += path.sep;
             let files = fs.readdirSync(fullPath, { encoding: this.encoding });
-            if (pattern) {
-                files = files.filter(s => pattern.test(s));
-            }
+            if (pattern) files = files.filter(s => pattern.test(s));
             return files;
         });
     }
 
     /**
-     * Read a file syncronously from the filesystem.
-     * @param {any} expr
+     * Read a file asyncronously from the filesystem.
+     * @param {FileSystemRequest} req The request to read a file.
+     * @param {function(string,Error):void} callback The callback to fire once the file is read.
+     * @returns {void} Nothing for async.
      */
-    readFileSync(expr) {
-        let filepath = this.translatePath(expr);
-        return this.stripBOM(fs.readFileSync(filepath, {
-            encoding: this.encoding
-        }));
+    readFileAsync(req, callback) {
+        this.translatePath(req.relativePath, fullPath => {
+            return fs.readFile(fullPath, { encoding: this.encoding }, (err, str) => {
+                return callback(!err && this.stripBOM(str), err);
+            });
+        });
     }
 
     /**
-     * Read a file asyncronously from the filesystem.
-     * @param {string} expr
-     * @param {function(string,Error):void} callback
+     * Read a file syncronously from the filesystem.
+     * @param {FileSystemRequest} req The file request.
+     * @returns {string} The contents of the file.
      */
-    readFileAsync(expr, callback) {
-        let filepath = this.translatePath(expr);
-        return fs.readFile(filepath, { encoding: this.encoding }, (err, s) => {
-            return err ?
-                callback(false, err) :
-                callback(this.stripBOM(s), false);
+    readFileSync(req) {
+        return this.translatePath(req.relativePath, fullPath => {
+            return this.stripBOM(fs.readFileSync(fullPath, { encoding: this.encoding || 'utf8' }));
         });
     }
 
     /**
      * Read JSON/structured data from a file asyncronously.
-     * @param {string} expr The path to read from.
+     * @param {FileSystemRequest} req The path to read from.
      * @param {function(any,Error):void} callback The callback to fire when the data is loaded.
+     * @returns {void} Nothing for async.
      */
-    readJsonFileAsync(expr, callback) {
-        return this.readFileAsync(expr, (content, err) => {
+    readJsonFileAsync(req, callback) {
+        return this.readFileAsync(req.relativePath, (content, err) => {
             try {
-                let data = content && JSON.parse(content);
-                return callback(data, err);
+                return callback(!err && JSON.parse(content), err);
             }
             catch (e) {
+                driver.cleanError(e);
                 callback(false, e);
             }
         });
     }
 
-    readJsonFileSync(expr) {
-        return this.translatePath(expr, filePath => {
+    /**
+     * Read JSON/structured data from a file asyncronously.
+     * @param {FileSystemRequest} req The path to read from.
+     * @param {function(any,Error):void} callback The callback to fire when the data is loaded.
+     * @returns {any} Structured data.
+     */
+    readJsonFileSync(req) {
+        return this.translatePath(req.relativePath, filePath => {
             try {
-                let content = this.readFile(expr);
+                let content = this.readFile(req);
                 return JSON.parse(content);
             }
             catch (err) {
@@ -303,13 +314,44 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
-     * Stat a file syncronously.
-     * @param {string} expr
-     * @param {number} flags
-     * @returns {FileStat} A filestat object (if possible)
+     * Returns a filestat object.
+     * @param {FileSystemRequest|string} req The path to stat.
+     * @param {function(FileSystemStat,Error):void} callback The callback that receives the results.
      */
-    statSync(expr, flags) {
-        return this.translatePath(expr, fullPath => {
+    statAsync(req, callback) {
+        return this.translatePath(typeof req === 'string' ? req : req.relativePath, fullPath => {
+            return fs.exists(fullPath, doesExist => {
+                if (doesExist) {
+                    return fs.stat(fullPath, (err, stats) => {
+                        return callback({
+                            exists: true,
+                            isDirectory: stats.isDirectory(),
+                            isFile: stats.isFile(),
+                            fileSize: stats.size,
+                            parent: null
+                        }, err);
+                    });
+                }
+                else {
+                    return callback({
+                        exists: false,
+                        isDirectory: req.endsWith('/'),
+                        isFile: !req.endsWith('/'),
+                        parent: null,
+                        fileSize: req.endsWith('/') ? -2 : -1
+                    }, new Error(`Path does not exist: ${req}`));
+                }
+            });
+        });
+    }
+
+    /**
+     * Stat a file syncronously.
+     * @param {FileSystemRequest|string} req The path info to stat.
+     * @returns {FileSystemStat} A filestat object (if possible)
+     */
+    statSync(req) {
+        return this.translatePath(typeof req === 'string' ? req : req.relativePath, fullPath => {
             let result = false;
             if (fs.existsSync(fullPath)) {
                 let info = fs.statSync(fullPath);
@@ -318,6 +360,8 @@ class DefaultFileSystem extends FileSystem {
                     isDirectory: info.isDirectory(),
                     isFile: info.isFile(),
                     fileSize: info.size,
+                    atime: info.atimeMs,
+                    mtime: info.mtimeMs,
                     parent: null
                 };
             }
@@ -335,6 +379,10 @@ class DefaultFileSystem extends FileSystem {
         });
     }
 
+    /**
+     * Returns a string without a Byte Order Marker (BOM)
+     * @param {string|Buffer} content
+     */
     stripBOM(content) {
         if (this.autoStripBOM) {
             if (typeof content === 'string' && content.charCodeAt(0) === 0xFEFF) {
@@ -346,32 +394,60 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Translates a virtual path into an absolute path
-     * @param {string} expr The virtual MUD path.
+     * @param {FileSystemRequest|string} req The virtual MUD path.
      * @param {function(string):void=} callback 
      * @returns {string} The absolute filesystem path.
      */
-    translatePath(expr, callback) {
-        if (expr.startsWith(this.root) && expr.indexOf('..') === -1)
-            return callback ? callback(expr) : expr;
-        let result = path.join(this.root, expr);
-        if (!result.startsWith(this.root))
-            throw new Error('Access violation');
-        return callback ? callback(result) : result;
+    translatePath(req, callback) {
+        if (typeof req === 'string') {
+            if (req.startsWith(this.root) && req.indexOf('..') === -1)
+                return callback ? callback(req) : req;
+            let result = path.join(this.root, req);
+            if (!result.startsWith(this.root))
+                throw new Error('Access violation');
+            return callback ? callback(result) : result;
+        }
+        else return this.translatePath(req.relativePath, callback);
     }
 
-    writeFileAsync(expr, content, callback) {
-        let filepath = this.translatePath(expr);
-        return fs.writeFile(filepath, content, {
-            encoding: this.encoding || 'utf8',
-            flag: 'w'
-        }, callback);
+    /**
+     * Creates or overwites an existing file.
+     * @param {FileSystemRequest} req The virtual MUD path.
+     * @param {function(string):void=} callback  The callback thast receives success or failure notification.
+     * @returns {void} Returns nothing for async.
+     */
+    writeFileAsync(req, content, callback) {
+        return this.translatePath(req.relativePath, fullPath => {
+            try {
+                return fs.writeFile(filepath, content, {
+                    encoding: this.encoding || 'utf8',
+                    flag: 'w'
+                }, err => callback(!err, err));
+            }
+            catch (err) {
+                return callback(false, err);
+            }
+        });
     }
 
-    writeFileSync(expr, content) {
-        let filepath = this.translatePath(expr);
-        return fs.writeFileSync(filepath, content, {
-            encoding: this.encoding || 'utf8',
-            flag: 'w'
+    /**
+     * Creates or overwites an existing file.
+     * @param {FileSystemRequest} req The virtual MUD path.
+     * @returns {boolean} Returns true on success.
+     */
+    writeFileSync(req, content) {
+        return this.translatePath(req.relativePath, fullPath => {
+            try {
+                return fs.writeFileSync(filepath, content, {
+                    encoding: this.encoding || 'utf8',
+                    flag: 'w'
+                });
+                return true;
+            }
+            catch (err) {
+
+            }
+            return false;
         });
     }
 }

@@ -10,26 +10,24 @@ declare class FileSystem {
 
     /**
      * Checks to see if the expression is a directory.
-     * @param expr The path being evaluated.
+     * @param req The path being evaluated.
      * @param callback An optional callback to receive the result.
      */
-    isDirectory(expr: string, callback: (isDir: boolean, err: Error) => void): boolean;
+    isDirectory(req: FileSystemRequest, callback: (isDir: boolean, err: Error) => void): boolean;
 
     /**
      * Checks to see if the expression is a file.
-     * @param expr The path being evaluated.
+     * @param req The path being evaluated.
      * @param callback An optional callback to receive the result.
      */
-    isFile(expr: string, callback: (isFile: boolean, err: Error) => void): boolean;
+    isFile(req: FileSystemRequest, callback: (isFile: boolean, err: Error) => void): boolean;
 
     /**
      * Reads contents from a directory
-     * @param dirExpr The path being read
-     * @param fileExpr The file part of the expression
-     * @param flags An object detailing what is being requested.
+     * @param req The path being read
      * @param callback A callback used for asyncronous mode.
      */
-    readDirectory(dirExpr: string, fileExpr: string, flags: number, callback: (content: any[], err: Error) => void): any[];
+    readDirectory(req: FileSystemRequest,  callback: (content: any[], err: Error) => void): any[];
 
     /**
      * Reads a file from the storage layer.
@@ -45,6 +43,9 @@ declare class FileSystem {
 
     readJsonFile(expr: string): any;
     readJsonFile(expr: string, callback: (content: any, err: Error) => void): void;
+
+    stat(expr: string, flags: number): FileSystemStat;
+    stat(expr: string, flags: number, callback: (stats: FileSystemStat, error: Error) => void): void;
 
 }
 

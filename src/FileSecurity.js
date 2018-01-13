@@ -45,13 +45,31 @@ class FileSecurity extends MUDEventEmitter {
     }
 
     /**
-     * Checks to see if the given expression is a directory.
+     * Generate a security error or just indicate failure quietly.
+     * @param {string} verb The verb being denied (e.g. read, write, append, etc).
+     * @param {FileSystemRequest} req The request being made.
+     * @param {function(boolean,Error):void} callback An optional callback 
+     * @returns {false} This always returns false
+     */
+    denied(verb, req, callback) {
+        if (this.throwSecurityExceptions)
+            throw new SecurityError(`Permission denied: Could not ${verb} '${req.fullPath}'`);
+
+        return typeof callback === 'function' ?
+            callback(false, new Error(`Permission denied: Could not ${verb} '${req.fullPath}'`)) :
+            false;
+    }
+
+    /**
+     * Check to see if a directory exists.
      * @param {EFUNProxy} efuns
      * @param {FileSystemRequest} req
      * @param {function(boolean,Error):void} callback
      */
     isDirectory(efuns, req, callback) {
-        throw new NotImplementedError('isDirectory');
+        return this.validReadDirectory(efuns, req.pathFull) ?
+            this.fileSystem.isDirectory(req.pathRel, callback) :
+            this.denied('isDirectory', req.fullPath);
     }
 
     /**
@@ -79,10 +97,9 @@ class FileSecurity extends MUDEventEmitter {
      * Attempt to read a directory.
      * @param {EFUNProxy} efuns
      * @param {FileSystemRequest} req
-     * @param {number} flags
      * @param {function=} callback
      */
-    readDirectory(efuns, req, flags, callback) {
+    readDirectory(efuns, req, callback) {
         throw new NotImplementedError('readDirectory');
     }
 
@@ -103,11 +120,11 @@ class FileSecurity extends MUDEventEmitter {
     /**
      * Writes a file to disk.
      * @param {EFUNProxy} efuns
-     * @param {string} expr
+     * @param {FileSystemRequest} req
      * @param {Buffer|string} content
      * @param {function=} callback
      */
-    writeFile(efuns, expr, content, callback) {
+    writeFile(req, expr, content, callback) {
         throw new NotImplementedError('writeFile');
     }
 
@@ -115,93 +132,118 @@ class FileSecurity extends MUDEventEmitter {
 
     // #region Security valid* Applies
 
-    validCreateDirectory(expr) {
+    /**
+     *
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     */
+    validCreateDirectory(efuns, req) {
         throw new NotImplementedError('validCreateDirectory');
     }
 
-    validCreateFile(expr) {
+    /**
+     *
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     */
+    validCreateFile(efuns, req) {
         throw new NotImplementedError('validCreateFile');
     }
 
-    validDeleteFile(efuns, expr) {
+    /**
+     *
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     */
+    validDeleteFile(efuns, req) {
         throw new NotImplementedError('validDelete');
     }
 
-    validDeleteDirectory(efuns, expr) {
+    /**
+     *
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     */
+    validDeleteDirectory(efuns, req) {
         throw new NotImplementedError('validDeleteDirectory');
     }
 
-    validDestruct(efuns, expr) {
+    /**
+     *
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     */
+    validDestruct(efuns, req) {
         throw new NotImplementedError('validDestruct');
     }
 
     /**
      * Does the caller have the ability to modify permissions.
      * @param {EFUNProxy} efuns The caller attempting to perform the I/O
-     * @param {string} expr The file expression to be operated on.
+     * @param {FileSystemRequest} req The file expression to be operated on.
      * @returns {boolean} True if the operation should be permitted.
     */
-    validGrant(efuns, expr) {
+    validGrant(efuns, req) {
         throw new NotImplementedError('validGrant');
     }
 
     /**
      * Default security does not enforce object loading or cloning.
      * @param {EFUNProxy} efuns External functions making the call.
-     * @param {string} expr The path to load the object from.
+     * @param {FileSystemRequest} req The path to load the object from.
      * @returns {boolean}
      */
-    validLoadObject(efuns, expr) {
+    validLoadObject(efuns, req) {
         throw new NotImplementedError('validLoadFile');
     }
 
     /**
      * Does the caller have permissions to read a directory.
      * @param {EFUNProxy} efuns The caller attempting to perform the I/O
-     * @param {string} expr The file expression to be operated on.
+     * @param {FileSystemRequest} req The file expression to be operated on.
      * @returns {boolean} True if the operation should be permitted.
     */
-    validReadDirectory(efuns, expr) {
+    validReadDirectory(efuns, req) {
         throw new NotImplementedError('validReadDir');
     }
 
     /**
      * Does the caller have permission to read a file.
      * @param {EFUNProxy} efuns The caller attempting to perform the I/O
-     * @param {string} expr The file expression to be operated on.
+     * @param {FileSystemRequest} req The file expression to be operated on.
      * @returns {boolean} True if the operation should be permitted.
     */
-    validReadFile(efuns, expr) {
+    validReadFile(efuns, req) {
         throw new NotImplementedError('validRead');
     }
 
     /**
      * Does the caller have permission to read file permissions.
      * @param {EFUNProxy} efuns The caller attempting to perform the I/O
-     * @param {string} expr The file expression to be operated on.
+     * @param {FileSystemRequest} req The file expression to be operated on.
      * @returns {boolean} True if the operation should be permitted.
     */
-    validReadPermissions(efuns, expr) {
+    validReadPermissions(efuns, req) {
         throw new NotImplementedError('validReadPermissions');
     }
 
     /**
      * Validate the request to stat a file.
      * @param {EFUNProxy} efuns The caller attempting to perform the I/O
-     * @param {string} expr The file expression to be operated on.
+     * @param {FileSystemRequest} req The file expression to be operated on.
      * @returns {boolean} True if the operation should be permitted.
      */
-    validStatFile(efuns, expr) {
+    validStatFile(efuns, req) {
         throw new NotImplementedError('validStatFile');
     }
 
     /**
      * Validate a write operation.
      * @param {EFUNProxy} efuns The caller attempting to perform the I/O
-     * @param {string} expr The file expression to be operated on.
+     * @param {FileSystemRequest} req The file expression to be operated on.
      * @returns {boolean} True if the operation should be permitted.
      */
-    validWrite(efuns, expr) {
+    validWrite(efuns, req) {
         throw new NotImplementedError('validWrite');
     }
 

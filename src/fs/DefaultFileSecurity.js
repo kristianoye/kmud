@@ -6,26 +6,14 @@ const
 
 class DefaultFileSecurity extends FileSecurity {
     /**
-     * Generate a security error or just indicate failure quietly.
-     * @param {any} verb The verb being denied (e.g. read, write, append, etc).
-     * @param {function=} callback An optional callback 
-     * @returns {false}
-     */
-    denied(verb, expr, callback) {
-        if (this.throwSecurityExceptions)
-            throw new SecurityError(`Permission denied: Could not ${verb} '${expr}'`);
-        return typeof callback === 'function' ? callback(false, `Permission denied: Could not ${verb} '${expr}'`) : false;
-    }
-
-    /**
      * Check to see if a directory exists.
-     * @param {any} efuns
-     * @param {any} req
-     * @param {any} callback
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     * @param {function(boolean,Error):void} callback
      */
     isDirectory(efuns, req, callback) {
-        return this.validReadDirectory(efuns, req.fullPath) ?
-            this.fileSystem.isDirectory(req.relativePath, callback) :
+        return this.validReadDirectory(efuns, req.pathFull) ?
+            this.fileSystem.isDirectory(req, callback) :
             this.denied('isDirectory', req.fullPath);
     }
 
@@ -37,7 +25,7 @@ class DefaultFileSecurity extends FileSecurity {
      */
     isFile(efuns, req, callback) {
         return this.validReadFile(efuns, req.fullPath) ?
-            this.fileSystem.isFile(req.relativePath, callback) :
+            this.fileSystem.isFile(req, callback) :
             this.denied('isFile', req.fullPath);
     }
 
@@ -48,9 +36,9 @@ class DefaultFileSecurity extends FileSecurity {
      * @param {number} flags
      * @param {function(any[], Error):void} callback
      */
-    readDirectory(efuns, req, filePart, flags, callback) {
-        return this.validReadDirectory(efuns, req.fullPath) ?
-            this.fileSystem.readDirectory(req.relativePath, filePart, flags, callback) :
+    readDirectory(efuns, req, callback) {
+        return this.validReadDirectory(efuns, req) ?
+            this.fileSystem.readDirectory(req, callback) :
             this.denied('readDirectory', req.fullPath);
     }
 
@@ -61,96 +49,96 @@ class DefaultFileSecurity extends FileSecurity {
      * @param {function(string,Error):void} callback
      */
     readFile(efuns, req, callback) {
-        return this.validReadFile(efuns, req.fullPath) ?
-            this.fileSystem.readFile(req.relativePath, callback) :
+        return this.validReadFile(efuns, req) ?
+            this.fileSystem.readFile(req, callback) :
             this.denied('read', expr);
     }
 
     /**
      * Determine whether the caller is allowed to create a directory.
      * @param {EFUNProxy} efuns The object attempting to create a directory.
-     * @param {string} mudpath The directory being created.
+     * @param {FileSystemRequest} req The directory being created.
      */
-    validCreateDirectory(efuns, mudpath) {
-        return this.validWriteFile(efuns, mudpath);
+    validCreateDirectory(efuns, req) {
+        return this.validWriteFile(efuns, req);
     }
 
     /**
      * Default security does not distinguish creating a file from writing.
      * @param {any} efuns
-     * @param {string} expr
+     * @param {FileSystemRequest} req
      */
-    validCreateFile(efuns, expr) {
+    validCreateFile(efuns, req) {
         return this.validWrite(efuns, expr);
     }
 
     /**
      * Default security does not distinguish deleting a file from writing.
-     * @param {any} caller
-     * @param {string} expr
+     * @param {any} efuns
+     * @param {FileSystemRequest} req
      */
-    validDeleteFile(caller, expr) {
+    validDeleteFile(efuns, req) {
         return this.validWrite(caller, expr);
     }
 
     /**
      * Default security does not restrict object destruction.
-     * @param {any} caller
-     * @param {any} expr
+     * @param {any} efuns
+     * @param {FileSystemRequest} expr
      */
-    validDestruct(caller, expr) {
+    validDestruct(efuns, expr) {
         return true;
     }
 
     /**
      * Default security system does not support granting permissions.
      */
-    validGrant(caller, expr) {
+    validGrant(efuns, expr) {
         throw new Error('Security system does not support the use of grant');
     }
 
     /**
      * Default security does not enforce object loading or cloning.
      * @param {EFUNProxy} efuns External functions making the call.
-     * @param {string} expr The path to load the object from.
+     * @param {FileSystemRequest} req The path to load the object from.
      */
-    validLoadObject(efuns, expr) {
-        return this.validReadFile(efuns, expr);
+    validLoadObject(efuns, req) {
+        return this.validReadFile(efuns, req);
     }
 
     /**
      * Default security does not distinguish between file and directory reads.
      * @param {EFUNProxy} efuns The proxy requesting the directory listing.
-     * @param {string} expr The path expression to try and read.
+     * @param {FileSystemRequest} req The path expression to try and read.
      */
-    validReadDirectory(efuns, expr) {
-        return this.validReadFile(efuns, expr);
+    validReadDirectory(efuns, req) {
+        return this.validReadFile(efuns, req);
     }
 
     /**
      * Determine if the caller has permission to read a particular file.
      * @param {EFUNProxy} efuns
-     * @param {string} expr
+     * @param {FileSystemRequest} req
      */
-    validReadFile(efuns, expr) {
+    validReadFile(efuns, req) {
         return true;
     }
 
     /**
      * Default security treats filestat as a normal read operation.
      * @param {EFUNProxy} efuns
-     * @param {string} expr
+     * @param {FileSystemRequest} req
      */
-    validStatFile(efuns, expr) {
-        return this.validReadFile(efuns, expr);
+    validStatFile(efuns, req) {
+        return this.validReadFile(efuns, req);
     }
 
     /**
      * Determine if the caller has permission to write to the filesystem.
      * @param {EFUNProxy} efuns
-     * @param {string} expr
+     * @param {FileSystemRequest} req
      */
-    validWriteFile(efuns, expr) {
+    validWriteFile(efuns, req) {
         return true;
     }
 }

@@ -1,18 +1,4 @@
-﻿declare class FileSystemRequest {
-    /** The filesystem this request lives on */
-    filesystem: FileSystem;
-
-    /** The fully qualified MUD path */
-    fullPath: string;
-
-    /** The relative MUD path */
-    relativePath: string;
-
-    /** The security manager for this filesystem */
-    securityManager: FileSecurity;
-}
-
-declare enum GetDirFlags {
+﻿declare enum GetDirFlags {
     /** Return files in the result set */
     Files = 1 << 1,
 
@@ -34,6 +20,9 @@ declare enum GetDirFlags {
     /** If the path used looks like a directory then get contents of 
         directory even if trailing slash was omitted */
     ImplicitDirs = 1 << 6,
+
+    /** Resolves the parent directory if one exists */
+    ResolveParent = 1 << 7,
 
     /** Details please */
     Details = Size | Perms,
@@ -63,7 +52,39 @@ declare enum StatFlags {
     Parent = 1 << 2
 }
 
-declare class FileStat {
+declare class FileSystemRequest {
+    /** The filesystem this request lives on */
+    fileSystem: FileSystem;
+
+    /** The full virtual path of the filename */
+    fullPath: string;
+
+    /** The filename portion of the path by itself. */
+    fileName: string;
+
+    /** Optional flags for the request */
+    flags: number;
+
+    /** The operation being performed */
+    op: string;
+
+    /** The fully qualified MUD path of the directory */
+    pathFull: string;
+
+    /** The directory name relative to the root of the filesystem */
+    pathRel: string;
+
+    /** The full relative path relative to the root of the filesystem */
+    relativePath: string;
+
+    /** Indicates the directory was confirmed to exist when called */
+    resolved: boolean;
+
+    /** The security manager for this filesystem */
+    securityManager: FileSecurity;
+}
+
+declare class FileSystemStat {
     /** Indicates whether the path exists. */
     readonly exists: boolean;
 
@@ -77,14 +98,13 @@ declare class FileStat {
     readonly fileSize: number;
 
     /** The parent object, if any, and only if requested */
-    readonly parent: FileStat;
+    readonly parent: FileSystemStat;
 }
 
 declare class MkDirOptions {
     /** Optional flags for creating the directory */
     flags: MkdirFlags;
 }
-
 
 declare class FileManager {
     /** A reference to the game server/driver */
@@ -189,7 +209,7 @@ declare class FileManager {
      * @param flags Request for additional file information.
      * @param callback A callback to execute when the stat operation is complete.
      */
-    stat(efuns: EFUNProxy, filePath: string, flags: number, callback: (stat: FileStat, err: Error) => void): void;
+    stat(efuns: EFUNProxy, filePath: string, flags: number, callback: (stat: FileSystemStat, err: Error) => void): void;
 
     /**
      * Translates an absolute filesystem path to a MUD virtual path.
