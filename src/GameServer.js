@@ -1,11 +1,12 @@
-﻿/**
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
 const
     MUDConfig = require('./MUDConfig'),
-    stack = require('callsite');
+    stack = require('callsite'),
+    MXC = require('./MXC');
 
 const
     fs = require('fs'),
@@ -19,7 +20,8 @@ const
     FileManager = require('./FileManager'),
     Extensions = require('./Extensions'),
     MUDStorage = require('./MUDStorage'),
-    MUDLogger = require('./MUDLogger');
+    MUDLogger = require('./MUDLogger'),
+    tripwire = require('tripwire');
 
 var
     Instance,
@@ -514,8 +516,62 @@ class GameServer extends MUDEventEmitter {
         return this.serverAddress;
     }
 
+    /**
+     * Returns the currently executing context.
+     * @param {boolean} createNew Force the creation of a new context.
+     * @param {MXCFrame=} firstFrame Initial frame for new context.
+     * @returns {MXC}
+     */
+    getContext(createNew, firstFrame) {
+        if (!this.currentContext || createNew) {
+            this.currentContext = new MXC(this.currentContext, firstFrame && [firstFrame]);
+        }
+        return this.currentContext.increment();
+    }
+
+    /**
+     * Returns the name of the MUD.
+     * @returns {string} The name of the MUD.
+     */
     getMudName() {
-        return this.MudName;
+        return this.config.mud.name;
+    }
+
+    /**
+     * Return the relevant stack frames for security-based calls.
+     * @returns {MXCFrame[]} The observed frames.
+     */
+    getObjectStack() {
+        let isUnguarded = false, _stack = stack(), result = [];
+        for (let i = 1, max = _stack.length; i < max; i++) {
+            let cs = _stack[i],
+                fileName = cs.getFileName(),
+                funcName = cs.getMethodName() || cs.getFunctionName(),
+                fileParts = fileName ? fileName.split('#') : false;
+            if (fileName === this.efunProxyPath) {
+                if (funcName === 'unguarded') isUnguarded = true;
+            }
+            if (fileParts !== false) {
+                let instanceId = fileParts.length > 1 ? parseInt(fileParts[1]) : 0,
+                    module = this.cache.get(fileParts[0]);
+
+                if (module) {
+                    let frame = {
+                        object: module.instances[instanceId] || { filename: fileParts[0] },
+                        file: fileParts[0],
+                        func: funcName || 'constructor'
+                    };
+                    if (frame.object === null)
+                        throw new Error(`Illegal call in constructor [${fileParts[0]}`);
+
+                    if (isUnguarded) {
+                        return [frame];
+                    }
+                    result.unshift(frame);
+                }
+            }
+        }
+        return result;
     }
 
     inGroup(target, groups) {
@@ -527,6 +583,11 @@ class GameServer extends MUDEventEmitter {
         return this.virtualPrefix ? path.startsWith(this.virtualPrefix) : false;
     }
 
+    /**
+     * Allow the in-game master object to handle an error.
+     * @param {any} path
+     * @param {any} error
+     */
     logError(path, error) {
         if (!this.applyLogError) {
             logger.log('Compiler Error: ' + error.message);
@@ -535,6 +596,12 @@ class GameServer extends MUDEventEmitter {
         else this.applyLogError.apply(this.masterObject, arguments);
     }
 
+    /**
+     * Allow the in-game simul efuns to extend the efuns object.  This
+     * should actually be the other way around.  The in-game efuns should
+     * inherit the driver's efuns to allow for overrides.
+     * @param {any} simul
+     */
     mergeEfuns(simul) {
         if (simul) {
             let wrapper = simul.wrapper;
@@ -639,6 +706,18 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
+     * 
+     * @param {MXC} ctx
+     */
+    restoreContext(ctx) {
+        this.currentContext = ctx;
+        this.thisPlayer = ctx && ctx.thisPlayer;
+        this.truePlayer = ctx && ctx.truePlayer;
+        this.currentVerb = (ctx && ctx.currentVerb) || '';
+        this.objectStack = (ctx && ctx.objectStack) || [];
+    }
+
+    /**
      * Runs the MUD
      * @param {function?} callback Callback to execute when the MUD is running.
      * @returns {GameServer} A reference to the GameServer.
@@ -652,12 +731,17 @@ class GameServer extends MUDEventEmitter {
         logger.log('Starting %s', this.mudName);
         if (this.globalErrorHandler) {
             process.on('uncaughtException', err => {
+                let ctx = tripwire.getContext();
+                if (ctx) {
+                    ctx.callback(ctx.input);
+                    setImmediate(() => {
+                        tripwire.clearTripwire();
+                    });
+                }
                 logger.log(err);
-                logger.log(err.stack || err.trace || '[No Trace]');
+                logger.log(err.stack);
+                this.errorHandler(err, false);
             });
-            if (this.errorHandler) {
-                process.on('uncaughtException', this.errorHandler);
-            }
         }
         this.createFileSystems();
         this.configureRuntime();
@@ -790,35 +874,8 @@ class GameServer extends MUDEventEmitter {
         Object.freeze(MUDObject.constructor.prototype);
     }
 
-    /**
-     * Registers an error handler.
-     * @param {function} callback The function that is executed upon error.  A return value of 1 indicates the MUD should restart.
-     * @returns {GameServer} The instance of the GameServer is returned.
-     */
-    setErrorHandler(callback) {
-        if (typeof callback !== 'function')
-            throw 'Error handler must be a valid function.';
-        this.errorHandler = callback;
-        return this;
-    }
-
     setLoginObject(path) {
         this.loginObject = path;
-        return this;
-    }
-
-    setPermissionsFile(file) {
-        this.permissionsFile = file;
-        return this;
-    }
-
-    setPreloads(list) {
-        this.preloads = list;
-        return this;
-    }
-
-    setPreloadsFile(file) {
-        this.preloadsFile = file;
         return this;
     }
 
@@ -848,9 +905,9 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Set the active player
-     * @param {any} body
-     * @param {any} truePlayer
-     * @param {any} verb
+     * @param {MUDObject} body
+     * @param {MUDObject} truePlayer
+     * @param {string} verb
      */
     setThisPlayer(body, truePlayer, verb) {
         if (typeof truePlayer === 'string') {
@@ -860,8 +917,11 @@ class GameServer extends MUDEventEmitter {
         this.currentVerb = verb;
         return unwrap(body, player => {
             this.thisPlayer = player;
-            if (truePlayer)
+            if (truePlayer) {
                 this.truePlayer = player;
+                return this.getContext(true, { file: player.filename, func: 'dispatchInput', object: player })
+            }
+            return this.getContext().join();
         });
     }
 
@@ -897,40 +957,6 @@ class GameServer extends MUDEventEmitter {
         });
         return result !== false;
     } 
-
-    getObjectStack() {
-        let isUnguarded = false, _stack = stack(), result = [];
-        for (let i = 0, max = _stack.length; i < max; i++) {
-            let cs = _stack[i],
-                fileName = cs.getFileName(),
-                funcName = cs.getMethodName() || cs.getFunctionName(),
-                fileParts = fileName ? fileName.split('#') : false;
-
-            if (fileName === this.efunProxyPath) {
-                if (funcName === 'unguarded') isUnguarded = true;
-            }
-            if (fileParts !== false) {
-                let instanceId = fileParts.length > 1 ? parseInt(fileParts[1]) : 0,
-                    module = this.cache.get(fileParts[0]);
-
-                if (module) {
-                    let frame = {
-                        object: module.instances[instanceId],
-                        file: fileParts[0],
-                        func: funcName
-                    };
-                    if (frame.object === null)
-                        throw new Error(`Illegal call in constructor [${fileParts[0]}`);
-
-                    if (isUnguarded) {
-                        return [frame];
-                    }
-                    result.unshift(frame);
-                }
-            }
-        }
-        return result;
-    }
 
     /**
      * Get the MUD uptime.

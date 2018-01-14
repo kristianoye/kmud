@@ -71,6 +71,11 @@ declare class GameServer {
     fileManager: FileManager;
 
     /**
+     * Returns the current execution context.
+     */
+    getContext(): MXC;
+
+    /**
      * Fetch the current object stack.
      */
     getObjectStack(): MUDObjectStack[];
@@ -112,12 +117,18 @@ declare class GameServer {
     removePlayer(player: MUDObject): boolean;
 
     /**
+     * Restore another context.
+     * @param context The context that was previously executing.
+     */
+    restoreContext(context: MXC): MXC;
+
+    /**
      * Sets the active player.
      * @param player The player returned by thisPlayer
      */
-    setThisPlayer(player: MUDObject);
-    setThisPlayer(player: MUDObject, truePlayer: MUDObject);
-    setThisPlayer(player: MUDObject, truePlayer: MUDObject, verb: string);
+    setThisPlayer(player: MUDObject): MXC;
+    setThisPlayer(player: MUDObject, truePlayer: MUDObject): MXC;
+    setThisPlayer(player: MUDObject, truePlayer: MUDObject, verb: string): MXC;
 
     /** The server address that is used for outgoing TCP connections */
     serverAddress: string;

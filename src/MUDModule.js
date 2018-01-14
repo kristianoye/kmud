@@ -446,7 +446,7 @@ MUDModule.configureForRuntime = function (driver) {
                     if (propId === 'constructor') return false;
                     var desc = Object.getOwnPropertyDescriptor(this.classRef.prototype, propId);
                     return typeof desc.value === 'function';
-                }).map(name => `\t${name}() { return super.${name}.apply(this, arguments); }\n`).join('\n');
+                }).concat(['preprocessInput']).map(name => `\t${name}() { return super.${name}.apply(this, arguments); }\n`).join('\n');
             let scriptSource = [`
 (function($ctx, $storage) {  
     class ${moduleName}Wrapper extends ${this.classRef.name} { 
@@ -458,6 +458,7 @@ MUDModule.configureForRuntime = function (driver) {
     return new ${moduleName}Wrapper($ctx);
 })`].join('\n');
             let options = {
+                displayErrors: true,
                 filename: creationContext.filename + (id !== 0 ? '#' + id : ''),
                 lineOffset: 1
             };
@@ -466,7 +467,8 @@ MUDModule.configureForRuntime = function (driver) {
             }
             let script = new vm.Script(scriptSource, options);
             let foo = script.runInContext(this.context);            
-            return foo(creationContext, driver.storage.createForId(creationContext.filename, id));
+            let instance = foo(creationContext, driver.storage.createForId(creationContext.filename, id));
+            return instance;
         };
     }
 };

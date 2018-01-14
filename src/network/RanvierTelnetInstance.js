@@ -1,19 +1,22 @@
-﻿/**
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  *
  * Description: This module contains core game functionality.
  */
+
 const
     ClientInstance = require('./ClientInstance'),
     _client = Symbol('_client'),
-    tripwire = false;
+    MXC = require('../MXC'),
+    tripwire = require('tripwire');
 
 class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, gameMaster, client) {
         super(endpoint, gameMaster, client, client.remoteAddress);
-        var self = this,
+        let self = this,
+            context = MXC.init(),
             clientHeight = 24,
             clientWidth = 80,
             $storage,
@@ -23,54 +26,64 @@ class RanvierTelnetInstance extends ClientInstance {
             if (!evt.prompt.recapture) {
                 self.write(evt.prompt.text);
             }
+            if (context) {
+                context.release();
+            }
+        }
+
+        /**
+         * 
+         * @param {MUDInputEvent} evt
+         */
+        function maxExecutionTime(evt) {
+            self.writeLine('Command exceeded max execution time.');
+            evt.complete();
         }
 
         function dispatchInput(text) {
-            let body = this.body(),
-                evt = this.createCommandEvent(text, commandComplete, '> ');
-            try {
-                gameMaster.setThisPlayer(body, true, evt.verb);
-
-                if (tripwire) {
-                    tripwire.resetTripwire(2000, {
-                        player: body,
-                        input: resp
-                    });
-                }
-
-                text = text.replace(/[\r\n]+/g, '');
-
-                if (this.inputStack.length > 0) {
-                    var frame = this.inputStack.pop(), result;
-                    try {
-                        if (!this.client.echoing) {
-                            self.write('\r\n');
-                            self.client.toggleEcho(true);
+            let body = this.body();
+            body.preprocessInput(this.createCommandEvent(text, commandComplete, '> '), evt => {
+                context = driver.setThisPlayer(body, true, evt.verb);
+                try {
+                    if (tripwire) {
+                        tripwire.resetTripwire(2000, {
+                            player: body,
+                            input: evt,
+                            callback: maxExecutionTime
+                        });
+                    }
+                    text = text.replace(/[\r\n]+/g, '');
+                    if (this.inputStack.length > 0) {
+                        var frame = this.inputStack.pop(), result;
+                        try {
+                            if (!this.client.echoing) {
+                                self.write('\r\n');
+                                self.client.toggleEcho(true);
+                            }
+                            result = frame.callback.call(body, text);
                         }
-                        result = frame.callback.call(body, text);
-                    }
-                    catch (_err) {
-                        this.writeLine('Error: ' + _err);
-                        this.writeLine(_err.stack);
-                        result = true;
-                    }
+                        catch (_err) {
+                            this.writeLine('Error: ' + _err);
+                            this.writeLine(_err.stack);
+                            result = true;
+                        }
 
-                    if (result === true) {
-                        this.inputStack.push(frame);
-                        this.write(frame.data.text);
+                        if (result === true) {
+                            this.inputStack.push(frame);
+                            this.write(frame.data.text);
+                        }
+                    }
+                    else if (body) {
+                        $storage.emit('kmud.command', evt);
                     }
                 }
-                else if (body) {
-                    $storage.emit('kmud.command', evt);
+                catch (err) {
+                    logger.log(err.message);
+                    logger.log(err.stack);
+                    if (evt) evt.callback(evt);
+                    driver.errorHandler(err, false);
                 }
-            }
-            catch (err) {
-                if (evt) evt.callback(evt);
-                driver.errorHandler(err, false);
-            }
-            finally {
-                gameMaster.setThisPlayer(false, true);
-            }
+            });
         }
 
         gameMaster.on('kmud.exec', evt => {

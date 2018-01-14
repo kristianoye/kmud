@@ -42,6 +42,9 @@ var
     /** @type {FileManager} */
     FileManagerInstance = false;
 
+/**
+ * Contains all of the information needed to perform a filesystem operation.
+ */
 class FileSystemRequest {
     /**
      * Creates a filesystem request.
@@ -159,20 +162,22 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
+     * 
+     * @param {any} expr
+     * @param {any} content
+     * @param {any} callback
+     */
+    appendFile(expr, content, callback) {
+        return this.createFileRequest('appendFile', expr, typeof callback === 'function', 0, req => {
+
+        });
+    }
+
+    /**
      * Not needed by default file manager.
      */
     assertValid() {
         return this;
-    }
-
-    /**
-     * Iterate over the filesystems and perform an action for each.
-     * @param {function(FileSystem,string):any[]} callback
-     * @returns {any[]} The result of all the actions taken, one element for each filesystem.
-     */
-    eachFileSystem(callback) {
-        return Object.keys(this.fileSystems)
-            .map(id => callback(this.fileSystems[id], id));
     }
 
     /**
@@ -187,6 +192,9 @@ class FileManager extends MUDEventEmitter {
             fileSystem = this.fileSystems['/'] || false,
             relParts = [], relPath = expr.slice(1),
             dir = '/';
+
+        if (typeof callback !== 'function')
+            throw new Error('createFileRequest called without callback');
 
         while (parts.length) {
             dir = parts.join('/');
@@ -212,7 +220,16 @@ class FileManager extends MUDEventEmitter {
         else {
             let fss = fileSystem.stat(relPath);
             let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
-            return callback(resultSync);
+            let context = driver.getContext();
+            try {
+                return callback(resultSync);
+            }
+            catch (err) {
+                throw driver.cleanError(err);
+            }
+            finally {
+                context.release();
+            }
         }
     }
 
@@ -226,9 +243,6 @@ class FileManager extends MUDEventEmitter {
             fileSystem = this.fileSystems[fsconfig.mountPoint] = new fileSystemType(this, fsconfig.options),
             securityManager = new securityManagerType(this, fileSystem, fsconfig.securityManagerOptions);
         return fileSystem;
-    }
-
-    appendFile(path, content, callback) {
     }
 
     /**
@@ -259,6 +273,16 @@ class FileManager extends MUDEventEmitter {
                 req.fileSystem.deleteFile(req, callback) :
                 req.securityManager.denied('delete', req.fullPath);
         });
+    }
+
+    /**
+     * Iterate over the filesystems and perform an action for each.
+     * @param {function(FileSystem,string):any[]} callback
+     * @returns {any[]} The result of all the actions taken, one element for each filesystem.
+     */
+    eachFileSystem(callback) {
+        return Object.keys(this.fileSystems)
+            .map(id => callback(this.fileSystems[id], id));
     }
 
     /**
@@ -335,7 +359,7 @@ class FileManager extends MUDEventEmitter {
      */
     readJsonFile(efuns, expr, callback) {
         return this.createFileRequest('readJsonFile', expr, typeof callback === 'function', 0, req => {
-            return req.securityManager.validReadFile(efuns, req.fullPath) ?
+            return req.securityManager.validReadFile(efuns, req) ?
                 req.fileSystem.readJsonFile(req, callback) :
                 req.securityManager.denied('read', req.fullPath);
         });

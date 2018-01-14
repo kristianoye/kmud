@@ -426,6 +426,15 @@ class MUDObject extends MUDEventEmitter {
         return result.slice(0);
     }
 
+    /**
+     *
+     * @param {MUDInputEvent} input The input event.
+     * @param {function(MUDInputEvent):void} callback The input returned with possible changes.
+     */
+    preprocessInput(input, callback) {
+        return callback(input);
+    }
+
     receive_message(msgClass, text) {
         let client = driver.storage.get(this).getProtected('$client');
         if (client) client.write(text);

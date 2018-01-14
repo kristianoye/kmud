@@ -2,11 +2,26 @@
  * MUD Execution Context (MCX)
  */
 class MXC {
-    constructor() {
+    /**
+     * Construct a new execution context.
+     * @param {MXC} prev The previous context.
+     * @param {MXCFrame[]} frames Initial frames for the stack.
+     */
+    constructor(prev, frames) {
         this.currentVerb = driver.currentVerb;
-        this.objectStack = driver.getObjectStack();
+        this.objectStack = frames || driver.getObjectStack();
+        this.previous = prev || false;
         this.thisPlayer = driver.thisPlayer;
         this.truePlayer = driver.truePlayer;
+        this.refCount = 0;
+    }
+
+    /**
+     * Increment the reference count.
+     */
+    increment() {
+        this.refCount++;
+        return this;
     }
 
     /**
@@ -16,6 +31,22 @@ class MXC {
     join() {
         this.objectStack.push(...driver.getObjectStack());
         return this;
+    }
+
+    /**
+     * @returns {number}
+     */
+    get length() {
+        return this.objectStack.length;
+    }
+
+    /**
+     * Release the current context and restore the previous context.
+     */
+    release() {
+        if (--this.refCount < 1) {
+            driver.restoreContext(this.previous);
+        }
     }
 
     /**
@@ -36,7 +67,6 @@ class MXC {
      * @param {any[]} args The arguments to pass to the callback.
      */
     run(callback, args) {
-        let prev = driver.currentContext;
         try {
             this.join().restore();
             return callback(...args);
@@ -45,7 +75,7 @@ class MXC {
             throw driver.cleanError(ex);
         }
         finally {
-            driver.currentContext = prev ? prev.restore() : false;
+            this.release();
         }
     }
 }
@@ -55,10 +85,19 @@ class MXC {
  * @returns {function(...any)} An awaiter callback
  */
 MXC.awaiter = function (callback) {
-    let mxc = new MXC();
+    let mxc = driver.getContext();
     return (...args) => {
         return mxc.run(callback, args);
     };
+};
+
+
+/**
+ * Initialize a placeholder context.
+ * @returns {MXC} The current context
+ */
+MXC.init = function () {
+    return driver.currentContext;
 };
 
 module.exports = MXC;

@@ -12,7 +12,7 @@ class DefaultFileSecurity extends FileSecurity {
      * @param {function(boolean,Error):void} callback
      */
     isDirectory(efuns, req, callback) {
-        return this.validReadDirectory(efuns, req.pathFull) ?
+        return this.validReadDirectory(efuns, req) ?
             this.fileSystem.isDirectory(req, callback) :
             this.denied('isDirectory', req.fullPath);
     }
@@ -24,7 +24,7 @@ class DefaultFileSecurity extends FileSecurity {
      * @param {any} callback
      */
     isFile(efuns, req, callback) {
-        return this.validReadFile(efuns, req.fullPath) ?
+        return this.validReadFile(efuns, req) ?
             this.fileSystem.isFile(req, callback) :
             this.denied('isFile', req.fullPath);
     }
@@ -121,6 +121,12 @@ class DefaultFileSecurity extends FileSecurity {
      * @param {FileSystemRequest} req
      */
     validReadFile(efuns, req) {
+        let ctx = driver.getContext();
+        console.log(`validRead(${req.fullPath})`);
+        for (let i = 0; i < ctx.length; i++) {
+            let frame = ctx.objectStack[i];
+            console.log(`\tvalidRead(${frame.object.filename}::${frame.func}) [${frame.file}]`);
+        }
         return true;
     }
 

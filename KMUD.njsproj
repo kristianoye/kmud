@@ -444,9 +444,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\ErrorTypes.js" />
-    <Compile Include="src\ExecutionContext.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="src\features\DomainStats.js">
       <SubType>Code</SubType>
     </Compile>
