@@ -124,11 +124,13 @@ class MudlibFileSystem {
  */
 MudlibFileSystem.createDefaults = function () {
     return {
-        "fileManager":"./FileManager",
-        "securityManager": "./fs/DefaultSecurityModel",
-        "/": {
-            "type": "./fs/DefaultFileSystem",
-            "options": {}
+        fileManager: "./FileManager",
+        fileManagerOptions: {},
+        securityManager: "./fs/DefaultFileSecurity",
+        securityManagerOptions: {},
+        '/': {
+            type: "./fs/DefaultFileSystem",
+            options: {}
         }
     };
 };
