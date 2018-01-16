@@ -46,6 +46,7 @@ class MudlibFileSystem {
         /** @type {Object.<string,MudlibFileMount>} */
         this.fileSystemTable = {};
 
+        let fsc = 0;
         if (config.fileSystemTable) {
             Object.keys(config.fileSystemTable).forEach((dir, index) => {
                 let fsconfig = config.fileSystemTable[dir];
@@ -57,7 +58,21 @@ class MudlibFileSystem {
                     fsconfig.securityManagerOptions = this.securityManagerOptions;
 
                 this.fileSystemTable[dir] = new MudlibFileMount(dir, fsconfig, index);
+                fsc++;
             });
+        }
+        if (0 === fsc) {
+            logger.log('Warning: Using default filesystem table.');
+            //  No default filesystem... let's create the standard
+            this.fileSystemTable['/'] = new MudlibFileMount('/', {
+                securityManager: this.securityManager,
+                securityManagerOptions: this.securityManagerOptions,
+                type: "./fs/DefaultFileSystem",
+                options: {
+                    "path": "./",
+                    "readOnly": false
+                }
+            }, 0);
         }
     }
 

@@ -16,8 +16,9 @@ class MXC {
     constructor(prev, frames) {
         this.contextId = _nextContextId++;
         this.currentVerb = driver.currentVerb;
+        this.depth = prev && prev.refCount > 0 ? prev.depth + 1 : 0;
         this.objectStack = frames || [];
-        this.previous = (prev && prev.refCount > 0) ? prev : false;
+        this.previous = this.depth > 0 ? prev : false;
         this.rawStack = '';
         this.thisPlayer = driver.thisPlayer;
         this.truePlayer = driver.truePlayer;
