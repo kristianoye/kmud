@@ -138,133 +138,133 @@ class MUDCompiler {
      * @param {object} constructorArgs Objects to pass to the constructor.
      */
     compileObject(filename, reload, relativePath, constructorArgs) {
-
         if (!filename)
             return false;
 
-        var context = new PipeContext.PipelineContext(filename),
-            module = this.driver.cache.get(context.basename),
-            t0 = new Date().getTime(), virtualData = false;
+        return driver.getContext(true).addFrame({ file: filename, func: 'constructor', object: null }).run(() => {
+            var context = new PipeContext.PipelineContext(filename),
+                module = this.driver.cache.get(context.basename),
+                t0 = new Date().getTime(), virtualData = false;
 
-        if (module && !reload && module.loaded === true)
-            return module;
+            if (module && !reload && module.loaded === true)
+                return module;
 
-        if (this.driver.masterObject) 
-        {
-            virtualData = this.driver.masterObject.compileVirtualObject(filename);
-            context.virtualContext(virtualData);
-        }
-        if (!context.validExtension()) {
-            for (var i = 0; i < this.validExtensions.length; i++) {
-                if (context.validExtension(this.validExtensions[i])) break;
+            if (this.driver.masterObject) {
+                virtualData = this.driver.masterObject.compileVirtualObject(filename);
+                context.virtualContext(virtualData);
             }
-            if (!context.exists) {
-                if (!this.driver.masterObject)
-                    throw new Error('Could not load in-game master object!');
-                throw new Error(`Could not load ${context.filename} [File not found]`);
+            if (!context.validExtension()) {
+                for (var i = 0; i < this.validExtensions.length; i++) {
+                    if (context.validExtension(this.validExtensions[i])) break;
+                }
+                if (!context.exists) {
+                    if (!this.driver.masterObject)
+                        throw new Error('Could not load in-game master object!');
+                    throw new Error(`Could not load ${context.filename} [File not found]`);
+                }
             }
-        }
-        try {
-            var isVirtual = virtualData !== false,
-                pipeline =this.getPipeline(context);
+            try {
+                var isVirtual = virtualData !== false,
+                    pipeline = this.getPipeline(context);
 
-            if (pipeline === false)
-                throw new Error(`Could not load ${context.filename} [unknown extension]`);
-            else if (!pipeline.enabled)
-                throw new Error(`Could not load ${context.filename} [${pipeline.name} - not enabled]`);
+                if (pipeline === false)
+                    throw new Error(`Could not load ${context.filename} [unknown extension]`);
+                else if (!pipeline.enabled)
+                    throw new Error(`Could not load ${context.filename} [${pipeline.name} - not enabled]`);
 
-            pipeline.execute(context);
+                pipeline.execute(context);
 
-            if (context.state === PipeContext.CTX_FINISHED) {
-                if (!context.content)
-                    throw new Error(`Could not load ${context.filename} [empty file?]`);
+                if (context.state === PipeContext.CTX_FINISHED) {
+                    if (!context.content)
+                        throw new Error(`Could not load ${context.filename} [empty file?]`);
 
-                module = this.driver.cache.getOrCreate(
-                    context.filename,
-                    context.resolvedName,
-                    context.directory,
-                    virtualData !== false);
+                    module = this.driver.cache.getOrCreate(
+                        context.filename,
+                        context.resolvedName,
+                        context.directory,
+                        virtualData !== false);
 
-                if (driver.config.driver.useObjectProxies) {
-                    module.allowProxy = true;
-                }
-
-                module.loader = this.getLoader(pipeline, module);
-                VM.run(context, module);
-
-                let result = module.context.primaryExport;
-
-                if (!module.efunProxy.isClass(result)) {
-                    throw new Error(`Error: Module ${context.filename} did not return a class; Did you forget to export?`);
-                }
-
-                module.allowProxy = module.loader.allowProxy;
-
-                if (result) {
-                    var isReload = module.loaded;
-
-                    module.setClassRef(module.context.primaryExport);
-                    module.singleton = isVirtual ? module.singleton || virtualData.singleton : module.context.isSingleton();
-
-                    if (this.sealTypesAfterCompile) {
-                        Object.seal(module.classRef);
+                    if (driver.config.driver.useObjectProxies) {
+                        module.allowProxy = true;
                     }
 
-                    if (typeof module.classRef === 'function') {
-                        try {
-                            var instance = module.createInstance(0, isReload, constructorArgs);
+                    module.loader = this.getLoader(pipeline, module);
+                    VM.run(context, module);
 
-                            if (!this.driver.validObject(instance)) {
-                                throw new Error(`Could not load ${context.filename} [Illegal Object]`);
-                            }
+                    let result = module.context.primaryExport;
 
-                            module.loaded = true;
-                            this.driver.cache.store(module);
+                    if (!module.efunProxy.isClass(result)) {
+                        throw new Error(`Error: Module ${context.filename} did not return a class; Did you forget to export?`);
+                    }
 
-                            if (isReload) {
-                                module.recompiled();
-                            }
-                            return module;
+                    module.allowProxy = module.loader.allowProxy;
+
+                    if (result) {
+                        var isReload = module.loaded;
+
+                        module.setClassRef(module.context.primaryExport);
+                        module.singleton = isVirtual ? module.singleton || virtualData.singleton : module.context.isSingleton();
+
+                        if (this.sealTypesAfterCompile) {
+                            Object.seal(module.classRef);
                         }
-                        catch (e) {
-                            throw this.driver.cleanError(e);
+
+                        if (typeof module.classRef === 'function') {
+                            try {
+                                var instance = module.createInstance(0, isReload, constructorArgs);
+
+                                if (!this.driver.validObject(instance)) {
+                                    throw new Error(`Could not load ${context.filename} [Illegal Object]`);
+                                }
+
+                                module.loaded = true;
+                                this.driver.cache.store(module);
+
+                                if (isReload) {
+                                    module.recompiled();
+                                }
+                                return module;
+                            }
+                            catch (e) {
+                                throw this.driver.cleanError(e);
+                            }
+                        }
+                        else {
+                            throw new Error(`Could not load ${context.filename} [File did not return class definition]`);
                         }
                     }
-                    else {
-                        throw new Error(`Could not load ${context.filename} [File did not return class definition]`);
+                }
+                else {
+                    switch (context.state) {
+                        case PipeContext.CTX_ERRORED:
+                            throw new Error(`Could not load ${context.filename} [${context.errors[0]}]`);
+
+                        case PipeContext.CTX_RUNNING:
+                        case PipeContext.CTX_STOPPED:
+                            throw new Error(`Could not load ${context.filename} [Incomplete Pipeline]`);
+
+                        case PipeContext.CTX_INIT:
+                            throw new Error(`Could not load ${context.filename} [Pipeline Failure]`);
                     }
                 }
             }
-            else {
-                switch (context.state) {
-                    case PipeContext.CTX_ERRORED:
-                        throw new Error(`Could not load ${context.filename} [${context.errors[0]}]`);
-
-                    case PipeContext.CTX_RUNNING:
-                    case PipeContext.CTX_STOPPED:
-                        throw new Error(`Could not load ${context.filename} [Incomplete Pipeline]`);
-
-                    case PipeContext.CTX_INIT:
-                        throw new Error(`Could not load ${context.filename} [Pipeline Failure]`);
+            catch (err) {
+                if (module && module.stats) {
+                    module.stats.errors++;
                 }
+                if (module && !module.loaded) {
+                    MUDCache.delete(context.filename);
+                }
+                this.driver.cleanError(err);
+                this.driver.logError(context.filename, err);
+                throw err;
             }
-        }
-        catch (err) {
-            if (module && module.stats) {
-                module.stats.errors++;
+            finally {
+                var t1 = new Date().getTime();
+                logger.log(`\t\tLoad timer: ${filename} [${(t1 - t0)} ms]`);
             }
-            if (module && !module.loaded) {
-                MUDCache.delete(context.filename);
-            }
-            this.driver.cleanError(err);
-            this.driver.logError(context.filename, err);
-            throw err;
-        }
-        finally {
-            var t1 = new Date().getTime();
-            logger.log(`\t\tLoad timer: ${filename} [${(t1 - t0)} ms]`);
-        }
-        return false;
+            return false;
+        });
     }
 }
 

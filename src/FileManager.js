@@ -218,18 +218,16 @@ class FileManager extends MUDEventEmitter {
             });
         }
         else {
-            let fss = fileSystem.stat(relPath);
-            let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
-            let context = driver.getContext();
-            try {
-                return callback(resultSync);
-            }
-            catch (err) {
-                throw driver.cleanError(err);
-            }
-            finally {
-                context.release();
-            }
+            return driver.getContext().clone().run(() => {
+                let fss = fileSystem.stat(relPath);
+                let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
+                try {
+                    return callback(resultSync);
+                }
+                catch (err) {
+                    throw driver.cleanError(err);
+                }
+            });
         }
     }
 

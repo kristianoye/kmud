@@ -10,6 +10,7 @@
     <TypeScriptModuleKind>CommonJS</TypeScriptModuleKind>
     <ScriptArguments>
     </ScriptArguments>
+    <Environment>TRIPWIRE_NATIVE=E:\KLF\kmud\node_modules\tripwire\build\Release\tripwire</Environment>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>

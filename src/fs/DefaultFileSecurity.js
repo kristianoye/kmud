@@ -122,10 +122,11 @@ class DefaultFileSecurity extends FileSecurity {
      */
     validReadFile(efuns, req) {
         let ctx = driver.getContext();
-        console.log(`validRead(${req.fullPath})`);
         for (let i = 0; i < ctx.length; i++) {
-            let frame = ctx.objectStack[i];
-            console.log(`\tvalidRead(${frame.object.filename}::${frame.func}) [${frame.file}]`);
+            if (!driver.validRead(efuns, ctx.objectStack[i], req.fullPath)) {
+                if (this.throwSecurityExceptions)
+                    throw new SecurityError(`Permission Denied: Read: ${req.fullPath}`);
+            }
         }
         return true;
     }

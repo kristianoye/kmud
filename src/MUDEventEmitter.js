@@ -6,19 +6,23 @@ class MUDEventEmitter {
     }
 
     addListener(eventName, listener, prepend, onlyOnce) {
-        let event = this.events[eventName],
-            listenerFunc, self = this;
+        let eventListeners = this.events[eventName],
+            listenerFunc = listener, self = this;
 
-        if (!event) {
-            event = this.events[eventName] = [];
+        if (!eventListeners) {
+            eventListeners = this.events[eventName] = [];
         }
-        listenerFunc = onlyOnce === true ?
-            function () {
-                let index = event.indexOf(listener);
-                event[index] = null;
-                return listener.apply(self, arguments);
-            } : listener;
-        prepend === true ? event.unshift(listenerFunc) : event.push(listenerFunc);
+        if (onlyOnce === true) {
+            listenerFunc = () => {
+                let index = eventListeners.indexOf(listener),
+                    args = [].slice.call(arguments);
+                eventListeners[index] = null;
+                return listener(...args);
+            };
+        }
+        prepend === true ?
+            eventListeners.unshift(listenerFunc) :
+            eventListeners.push(listenerFunc);
         return this;
     }
 
@@ -32,9 +36,7 @@ class MUDEventEmitter {
         if (event) {
             for (let i = 0, max = event.length; i < max; i++) {
                 let listener = event[i],
-                    result = typeof listener === 'object' ?
-                        listener.processEvent(this, eventName, ...args) :
-                        listener.apply(this, args);
+                    result = listener(...args); // listener.apply(this, args);
 
                 // Check event state
                 if (typeof result === 'number') {

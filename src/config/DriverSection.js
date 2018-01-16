@@ -31,6 +31,9 @@ class DriverSection {
         }
 
         /** @type {number} */
+        this.maxCommandExecutionTime = data.maxCommandExecutionTime || 0;
+
+        /** @type {number} */
         this.maxCommandLength = data.maxCommandLength || 1024;
 
         /** @type {number} */

@@ -519,14 +519,14 @@ class GameServer extends MUDEventEmitter {
     /**
      * Returns the currently executing context.
      * @param {boolean} createNew Force the creation of a new context.
-     * @param {MXCFrame=} firstFrame Initial frame for new context.
+     * @param {function(MXC):MXC} callback A callback that receives the context.
      * @returns {MXC}
      */
-    getContext(createNew, firstFrame) {
+    getContext(createNew, callback) {
         if (!this.currentContext || createNew) {
-            this.currentContext = new MXC(this.currentContext, firstFrame && [firstFrame]);
+            this.currentContext = new MXC(this.currentContext);
         }
-        return this.currentContext.increment();
+        return callback ? callback(this.currentContext) : this.currentContext;
     }
 
     /**
@@ -539,15 +539,23 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Return the relevant stack frames for security-based calls.
+     * @param {MXC} ctx The context to fill.
      * @returns {MXCFrame[]} The observed frames.
      */
-    getObjectStack() {
-        let isUnguarded = false, _stack = stack(), result = [];
+    getObjectStack(ctx) {
+        let isUnguarded = false,
+            _stack = stack(),
+            result = [],
+            fullStack = [];
+
         for (let i = 1, max = _stack.length; i < max; i++) {
             let cs = _stack[i],
-                fileName = cs.getFileName(),
+                fileName = cs.getFileName(), lineNumber = cs.getLineNumber(),
                 funcName = cs.getMethodName() || cs.getFunctionName(),
                 fileParts = fileName ? fileName.split('#') : false;
+
+            fullStack.push(`${fileName}::${funcName} [${lineNumber}]`);
+
             if (fileName === this.efunProxyPath) {
                 if (funcName === 'unguarded') isUnguarded = true;
             }
@@ -570,6 +578,10 @@ class GameServer extends MUDEventEmitter {
                     result.unshift(frame);
                 }
             }
+        }
+        if (ctx) {
+            ctx.objectStack.push(...result);
+            ctx.rawStack += fullStack.join('\n');
         }
         return result;
     }
@@ -711,10 +723,17 @@ class GameServer extends MUDEventEmitter {
      */
     restoreContext(ctx) {
         this.currentContext = ctx;
-        this.thisPlayer = ctx && ctx.thisPlayer;
-        this.truePlayer = ctx && ctx.truePlayer;
-        this.currentVerb = (ctx && ctx.currentVerb) || '';
-        this.objectStack = (ctx && ctx.objectStack) || [];
+        if (ctx && ctx.thisPlayer) {
+            // This is a gross security violation that I don't feel like fixing right now.
+            this.thisPlayer = ctx && ctx.thisPlayer;
+            this.truePlayer = ctx && ctx.truePlayer;
+            this.currentVerb = (ctx && ctx.currentVerb) || '';
+            this.objectStack = (ctx && ctx.objectStack) || [];
+        }
+        //this.thisPlayer = ctx && ctx.thisPlayer;
+        //this.truePlayer = ctx && ctx.truePlayer;
+        //this.currentVerb = (ctx && ctx.currentVerb) || '';
+        //this.objectStack = (ctx && ctx.objectStack) || [];
     }
 
     /**
@@ -734,9 +753,7 @@ class GameServer extends MUDEventEmitter {
                 let ctx = tripwire.getContext();
                 if (ctx) {
                     ctx.callback(ctx.input);
-                    setImmediate(() => {
-                        tripwire.clearTripwire();
-                    });
+                    tripwire.resumeTripwire();
                 }
                 logger.log(err);
                 logger.log(err.stack);
@@ -767,7 +784,7 @@ class GameServer extends MUDEventEmitter {
                         eventData: list
                     });
                     logger.log(`Run once complete; Removing ${runOnce}`);
-                    //fs.unlinkSync(runOnce);
+                    fs.unlinkSync(runOnce);
                 }
                 catch (err) {
                     logger.log(`Error running runOnce.json: ${err.message}`);
@@ -910,18 +927,21 @@ class GameServer extends MUDEventEmitter {
      * @param {string} verb
      */
     setThisPlayer(body, truePlayer, verb) {
-        if (typeof truePlayer === 'string') {
-            verb = truePlayer;
-            truePlayer = false;
-        }
-        this.currentVerb = verb;
         return unwrap(body, player => {
-            this.thisPlayer = player;
-            if (truePlayer) {
-                this.truePlayer = player;
-                return this.getContext(true, { file: player.filename, func: 'dispatchInput', object: player })
+            if (typeof truePlayer === 'string') {
+                verb = truePlayer;
+                truePlayer = false;
             }
-            return this.getContext().join();
+
+            this.thisPlayer = player;
+            if (truePlayer === true) this.truePlayer = player;
+            this.currentVerb = verb || '';
+
+            return this.getContext(true).addFrame({
+                file: player.filename,
+                func: 'setThisPlayer',
+                object: player
+            });
         });
     }
 
@@ -982,31 +1002,18 @@ class GameServer extends MUDEventEmitter {
     /**
      * Checks to see if the current permissions stack can read a path expression.
      * @param {any} caller
+     * @param {MXCFrame} frame
      * @param {string} path
      * @returns {boolean} Returns true if the read operation should be permitted.
      */
-    validRead(efuns, path) {
+    validRead(efuns, frame, path) {
         if (this.gameState < GAMESTATE_RUNNING)
             return true;
-        else if (efuns.filename === '/') return true;
-        else {
-            let checkObjects = this.getObjectStack();
-            if (checkObjects.length > 0) {
-                for (let i = 0; i < checkObjects.length; i++) {
-                    if (!this.applyValidRead.call(this.masterObject, path,
-                            checkObjects[i].object, checkObjects[i].func))
-                        return false;
-                }
-                return true;
-            }
-            let module = this.cache.get(efuns.filename),
-                cs = stack().map(cs => cs.getFileName()),
-                inst = module.instances[0];
-            if (inst)
-                return this.applyValidRead.call(this.masterObject, path, inst, 'write');
-            else
-                return true;
-        }
+        else if (efuns.filename === '/')
+            return true;
+        else
+            return this.applyValidRead
+                .call(this.masterObject, path, frame.object || frame.file, frame.func);
     }
 
     /**

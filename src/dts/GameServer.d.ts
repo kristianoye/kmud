@@ -76,6 +76,12 @@ declare class GameServer {
     getContext(): MXC;
 
     /**
+     * Indicates whether to create a new context or not.
+     * @param createNew
+     */
+    getContext(createNew: boolean): MXC;
+
+    /**
      * Fetch the current object stack.
      */
     getObjectStack(): MUDObjectStack[];

@@ -10,7 +10,8 @@ const
     ClientInstance = require('./ClientInstance'),
     _client = Symbol('_client'),
     MXC = require('../MXC'),
-    tripwire = require('tripwire');
+    maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime,
+    tripwire = maxCommandExecutionTime > 0 ? require('tripwire') : false;
 
 class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, gameMaster, client) {
@@ -42,47 +43,50 @@ class RanvierTelnetInstance extends ClientInstance {
 
         function dispatchInput(text) {
             let body = this.body();
-            body.preprocessInput(this.createCommandEvent(text, commandComplete, '> '), evt => {
-                context = driver.setThisPlayer(body, true, evt.verb);
-                try {
-                    if (tripwire) {
-                        tripwire.resetTripwire(2000, {
-                            player: body,
-                            input: evt,
-                            callback: maxExecutionTime
-                        });
-                    }
-                    text = text.replace(/[\r\n]+/g, '');
-                    if (this.inputStack.length > 0) {
-                        var frame = this.inputStack.pop(), result;
-                        try {
-                            if (!this.client.echoing) {
-                                self.write('\r\n');
-                                self.client.toggleEcho(true);
-                            }
-                            result = frame.callback.call(body, text);
-                        }
-                        catch (_err) {
-                            this.writeLine('Error: ' + _err);
-                            this.writeLine(_err.stack);
-                            result = true;
-                        }
 
-                        if (result === true) {
-                            this.inputStack.push(frame);
-                            this.write(frame.data.text);
+            body.preprocessInput(this.createCommandEvent(text, commandComplete, '> '), evt => {
+                driver.setThisPlayer(body, true, evt.verb).run(() => {
+                    try {
+                        if (tripwire) {
+                            tripwire.clearTripwire();
+                            tripwire.resetTripwire(maxCommandExecutionTime, {
+                                player: body,
+                                input: evt,
+                                callback: maxExecutionTime
+                            });
+                        }
+                        text = text.replace(/[\r\n]+/g, '');
+                        if (this.inputStack.length > 0) {
+                            var frame = this.inputStack.pop(), result;
+                            try {
+                                if (!this.client.echoing) {
+                                    self.write('\r\n');
+                                    self.client.toggleEcho(true);
+                                }
+                                result = frame.callback.call(body, text);
+                            }
+                            catch (_err) {
+                                this.writeLine('Error: ' + _err);
+                                this.writeLine(_err.stack);
+                                result = true;
+                            }
+
+                            if (result === true) {
+                                this.inputStack.push(frame);
+                                this.write(frame.data.text);
+                            }
+                        }
+                        else if (body) {
+                            $storage.emit('kmud.command', evt);
                         }
                     }
-                    else if (body) {
-                        $storage.emit('kmud.command', evt);
+                    catch (err) {
+                        logger.log(err.message);
+                        logger.log(err.stack);
+                        if (evt) evt.callback(evt);
+                        driver.errorHandler(err, false);
                     }
-                }
-                catch (err) {
-                    logger.log(err.message);
-                    logger.log(err.stack);
-                    if (evt) evt.callback(evt);
-                    driver.errorHandler(err, false);
-                }
+                });
             });
         }
 
