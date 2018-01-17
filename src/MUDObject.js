@@ -435,9 +435,19 @@ class MUDObject extends MUDEventEmitter {
         return callback(input);
     }
 
+    /**
+     *
+     * @param {string} msgClass
+     * @param {string} text
+     */
     receive_message(msgClass, text) {
         let client = driver.storage.get(this).getProtected('$client');
-        if (client) client.write(text);
+        if (client) {
+            if (msgClass.startsWith('N'))
+                client.write(text);
+            else
+                client.writeLine(text);
+        }
     }
 
     serializeObject() {

@@ -218,7 +218,8 @@ class FileManager extends MUDEventEmitter {
             });
         }
         else {
-            return driver.getContext().clone().run(() => {
+            let mxc = driver.getContext(), _mxcc = (mxc && mxc.clone()) || driver.getContext(false);
+            return _mxcc.run(() => {
                 let fss = fileSystem.stat(relPath);
                 let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
                 try {
@@ -361,6 +362,14 @@ class FileManager extends MUDEventEmitter {
                 req.fileSystem.readJsonFile(req, callback) :
                 req.securityManager.denied('read', req.fullPath);
         });
+    }
+
+    reloadObject(efuns, expr, args, callback) {
+        return this.createFileRequest('reloadObject', expr, typeof callback === 'function', 1, req => {
+            return req.securityManager.validLoadObject(efuns, req) ?
+                req.fileSystem.loadObject(req, args, callback) :
+                req.securityManager.denied('load', req.fullPath);
+        })
     }
 
     /**

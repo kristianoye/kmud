@@ -85,6 +85,7 @@
     <Compile Include="lib\cmds\creator\Reset.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\cmds\player\Reply.js" />
     <Compile Include="lib\daemon\EmoteDaemon.js">
       <SubType>Code</SubType>
     </Compile>

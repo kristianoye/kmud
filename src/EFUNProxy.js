@@ -557,7 +557,7 @@ class EFUNProxy {
      * @param {function=} callback The optional callback if loading asyncronously.
      */
     loadObject(expr, args, callback) {
-        let result = driver.fileManager.loadObject(this, expr, args, callback);
+        let result = driver.fileManager.loadObject(this, this.resolvePath(expr), args, callback);
         return result;
     }
 
@@ -1125,13 +1125,13 @@ class EFUNProxy {
         return driver.fileManager.readJsonFile(this, this.resolvePath(filename), callback);
     }
 
+    /**
+     * Attempts to reload an object
+     * @param {string} path The object to reload.
+     * @returns {boolean} Returns true if the object recompiled successfully.
+     */
     reloadObject(path) {
-        var filename = this.resolvePath(path);
-        if (driver.validRead(this, filename)) {
-            var result = driver.compiler.compileObject(filename, true);
-            return result === false ? false : true;
-        }
-        throw new SecurityError();
+        return driver.fileManager.reloadObject(this, this.resolvePath(path));
     }
 
     /**

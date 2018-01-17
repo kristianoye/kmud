@@ -203,6 +203,15 @@ declare class FileManager {
     readJsonFile(efuns: EFUNProxy, expr: string, callback: (content: any, err: Error) => void): void;
 
     /**
+     * Reload an object from disk.
+     * @param efuns The proxy requesting the object reload.
+     * @param expr The filename to reload.
+     * @param callback An optional callback for async operation.
+     */
+    reloadObject(efuns: EFUNProxy, expr: string, callback: (module: MUDModule, err: Error) => void): MUDObject;
+
+
+    /**
      * Returns data about the specified filepath.
      * @param efuns The proxy requesting the file stat.
      * @param filePath The file expression to evaluate.

@@ -1,8 +1,9 @@
 ﻿var
     _nextContextId = 1,
     _activeContexts = [],
+    _activeCount = 0,
     _currentContext = null,
-    _debugging = false;
+    _debugging = true;
 
 /**
  * MUD Execution Context (MCX)
@@ -17,7 +18,7 @@ class MXC {
         this.contextId = _nextContextId++;
         this.currentVerb = driver.currentVerb;
         this.depth = prev && prev.refCount > 0 ? prev.depth + 1 : 0;
-        this.objectStack = frames || [];
+        this.objectStack = frames ? frames.slice(0) : [];
         this.previous = this.depth > 0 ? prev : false;
         this.rawStack = '';
         this.thisPlayer = driver.thisPlayer;
@@ -25,7 +26,13 @@ class MXC {
         this.refCount = 0;
         this.ttl = 2000; // time-to-live... ms before it blows up
         if (this.objectStack.length === 0) driver.getObjectStack(this);
-        if (_debugging) _activeContexts.push(this);
+        if (_debugging) {
+            _activeContexts.push(this);
+            _activeCount++;
+
+            let padding = Array(this.depth + 1).join('\t');
+            logger.log(`${padding}* Create [${this.contextId}]: [depth: ${this.depth}, active: ${_activeCount}]`);
+        }
     }
 
     /**
@@ -78,10 +85,19 @@ class MXC {
             }
             if (_debugging) {
                 let index = _activeContexts.indexOf(this);
-                _activeContexts.splice(index, 1);
+                if (index > -1) {
+                    _activeContexts.splice(index, 1);
+                    _activeCount--;
+                } 
             }
         }
-        // logger.log(`\t- Release [${this.contextId}]: RefCount: ${this.refCount }`);
+        if (_debugging) {
+            let padding = Array(this.depth + 1).join('\t');
+            if (this.refCount > 0)
+                logger.log(`${padding}- Release [${this.contextId}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}; ACTIVE]`);
+            else
+                logger.log(`${padding}- Release [${this.contextId}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}]`);
+        }
     }
 
     /**
@@ -89,12 +105,12 @@ class MXC {
      * @returns {MXC}
      */
     restore() {
-        driver.currentContext = this;
-        driver.currentVerb = this.currentVerb;
-        driver.thisPlayer = this.thisPlayer;
-        driver.truePlayer = this.truePlayer;
+        driver.restoreContext(this);
         this.refCount++;
-        // logger.log(`\t+ Restore [${this.contextId}]: RefCount: ${this.refCount}`);
+        if (_debugging) {
+            let padding = Array(this.depth + 1).join('\t');
+            logger.log(`${padding}+ Restore [${this.contextId}]: RefCount: ${this.refCount} [depth: ${this.depth}, active: ${_activeCount}]`);
+        }
         return this;
     }
 
@@ -122,9 +138,14 @@ class MXC {
  * @returns {function(...any)} An awaiter callback
  */
 MXC.awaiter = function (callback) {
-    let mxc = driver.getContext();
+    let mxc = driver.getContext(),
+        newContext = !mxc,
+        _mxc = newContext ? driver.getContext(false) : mxc;
+
     return (...args) => {
-        return mxc.clone().run(callback, args);
+        return newContext ?
+            _mxc.join().run(callback, args) :
+            _mxc.clone().run(callback, args);
     };
 };
 

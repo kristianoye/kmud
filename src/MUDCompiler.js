@@ -141,7 +141,7 @@ class MUDCompiler {
         if (!filename)
             return false;
 
-        return driver.getContext().addFrame({ file: filename, func: 'constructor', object: null }).run(() => {
+        return driver.getContext(false).addFrame({ file: filename, func: 'constructor', object: null }).run(() => {
             var context = new PipeContext.PipelineContext(filename),
                 module = this.driver.cache.get(context.basename),
                 t0 = new Date().getTime(), virtualData = false;

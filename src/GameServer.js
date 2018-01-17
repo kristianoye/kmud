@@ -523,8 +523,10 @@ class GameServer extends MUDEventEmitter {
      * @returns {MXC}
      */
     getContext(createNew, callback) {
-        if (!this.currentContext || createNew) {
-            this.currentContext = new MXC(this.currentContext);
+        if (typeof createNew === 'boolean') {
+            if (!this.currentContext || createNew) {
+                this.currentContext = new MXC(this.currentContext);
+            }
         }
         return callback ? callback(this.currentContext) : this.currentContext;
     }
@@ -581,7 +583,6 @@ class GameServer extends MUDEventEmitter {
         }
         if (ctx) {
             ctx.objectStack.push(...result);
-            ctx.rawStack += fullStack.join('\n');
         }
         return result;
     }
@@ -724,7 +725,9 @@ class GameServer extends MUDEventEmitter {
     restoreContext(ctx) {
         this.currentContext = ctx;
         if (ctx && ctx.thisPlayer) {
-            // This is a gross security violation that I don't feel like fixing right now.
+            //  There is a context leak that needs to be fixed.  Contexts
+            //  should be able to reliably unset thisPlayer without ill 
+            //  effect once the player's command finishes executing.
             this.thisPlayer = ctx && ctx.thisPlayer;
             this.truePlayer = ctx && ctx.truePlayer;
             this.currentVerb = (ctx && ctx.currentVerb) || '';
@@ -936,12 +939,6 @@ class GameServer extends MUDEventEmitter {
             this.thisPlayer = player;
             if (truePlayer === true) this.truePlayer = player;
             this.currentVerb = verb || '';
-
-            return this.getContext(true).addFrame({
-                file: player.filename,
-                func: 'setThisPlayer',
-                object: player
-            });
         });
     }
 

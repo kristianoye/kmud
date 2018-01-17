@@ -217,11 +217,17 @@ class DefaultFileSystem extends FileSystem {
      */
     loadObjectSync(req, args) {
         let [virtualPath, instanceStr] = req.fullPath.split('#', 2),
-            instanceId = instanceStr ? parseInt(instanceStr) : 0;
+            instanceId = instanceStr ? parseInt(instanceStr) : 0,
+            forceReload = req.flags & 1 === 1;
 
         if (isNaN(instanceId))
             throw new Error(`Invalid instance identifier: ${instanceStr}`);
 
+        if (forceReload) {
+            if (instanceId > 0) throw new Error(`You cannot reload individual instances.`);
+            let result = driver.compiler.compileObject(virtualPath, true);
+            return result !== false;
+        }
         return this.translatePath(virtualPath, absolutePath => {
             let module = driver.cache.get(virtualPath),
                 icmax = module && module.instances.length;

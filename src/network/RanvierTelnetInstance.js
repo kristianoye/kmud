@@ -27,7 +27,7 @@ class RanvierTelnetInstance extends ClientInstance {
             if (!evt.prompt.recapture) {
                 self.write(evt.prompt.text);
             }
-            if (context) {
+            if (context && context.refCount) {
                 context.release();
             }
         }
@@ -45,7 +45,8 @@ class RanvierTelnetInstance extends ClientInstance {
             let body = this.body();
 
             body.preprocessInput(this.createCommandEvent(text, commandComplete, '> '), evt => {
-                driver.setThisPlayer(body, true, evt.verb).run(() => {
+                driver.setThisPlayer(body, true, evt.verb);
+                driver.getContext(true).run(() => {
                     try {
                         if (tripwire) {
                             tripwire.clearTripwire();
