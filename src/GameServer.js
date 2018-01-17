@@ -724,19 +724,10 @@ class GameServer extends MUDEventEmitter {
      */
     restoreContext(ctx) {
         this.currentContext = ctx;
-        if (ctx && ctx.thisPlayer) {
-            //  There is a context leak that needs to be fixed.  Contexts
-            //  should be able to reliably unset thisPlayer without ill 
-            //  effect once the player's command finishes executing.
-            this.thisPlayer = ctx && ctx.thisPlayer;
-            this.truePlayer = ctx && ctx.truePlayer;
-            this.currentVerb = (ctx && ctx.currentVerb) || '';
-            this.objectStack = (ctx && ctx.objectStack) || [];
-        }
-        //this.thisPlayer = ctx && ctx.thisPlayer;
-        //this.truePlayer = ctx && ctx.truePlayer;
-        //this.currentVerb = (ctx && ctx.currentVerb) || '';
-        //this.objectStack = (ctx && ctx.objectStack) || [];
+        this.thisPlayer = ctx && ctx.thisPlayer;
+        this.truePlayer = ctx && ctx.truePlayer;
+        this.currentVerb = (ctx && ctx.currentVerb) || '';
+        this.objectStack = (ctx && ctx.objectStack) || [];
     }
 
     /**

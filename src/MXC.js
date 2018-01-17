@@ -49,8 +49,9 @@ class MXC {
      * Clone the context and set this context as the previous context.
      */
     clone(callback) {
-        let result = new MXC(this, this.objectStack);
-        return result.join();
+        driver.currentContext = new MXC(this, this.objectStack);
+        this.refCount++;
+        return driver.currentContext;
     }
 
     /**
@@ -74,14 +75,10 @@ class MXC {
      */
     release() {
         if (--this.refCount < 1) {
-            if ((_currentContext = this.previous) && this.previous.refCount > 0) {
-                if (_debugging && _activeContexts.indexOf(_currentContext) === -1) {
-                    throw new Error('\t-Trying to restore a dead context');
-                }
-                driver.restoreContext(this.previous);
-            }
-            else {
-                driver.restoreContext(false);
+            let prev = this.previous;
+            driver.restoreContext(prev.refCount > 0 ? prev : false);
+            if (_currentContext && _currentContext.refCount > 0 && _debugging) {
+                logger.log('\t-Trying to restore a dead context');
             }
             if (_debugging) {
                 let index = _activeContexts.indexOf(this);
@@ -139,13 +136,20 @@ class MXC {
  */
 MXC.awaiter = function (callback) {
     let mxc = driver.getContext(),
-        newContext = !mxc,
-        _mxc = newContext ? driver.getContext(false) : mxc;
-
+        clone = mxc.clone();
     return (...args) => {
-        return newContext ?
-            _mxc.join().run(callback, args) :
-            _mxc.clone().run(callback, args);
+        try {
+            clone.join();
+            clone.restore();
+            return callback(...args);
+        }
+        catch (ex) {
+            throw driver.cleanError(ex);
+        }
+        finally {
+            clone.release();
+            mxc.release();
+        }
     };
 };
 

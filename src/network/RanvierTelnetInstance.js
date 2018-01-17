@@ -46,48 +46,52 @@ class RanvierTelnetInstance extends ClientInstance {
 
             body.preprocessInput(this.createCommandEvent(text, commandComplete, '> '), evt => {
                 driver.setThisPlayer(body, true, evt.verb);
-                driver.getContext(true).run(() => {
-                    try {
-                        if (tripwire) {
-                            tripwire.clearTripwire();
-                            tripwire.resetTripwire(maxCommandExecutionTime, {
-                                player: body,
-                                input: evt,
-                                callback: maxExecutionTime
-                            });
+                context = driver.getContext(true);
+                try {
+                    context.restore();
+                    if (tripwire) {
+                        tripwire.clearTripwire();
+                        tripwire.resetTripwire(maxCommandExecutionTime, {
+                            player: body,
+                            input: evt,
+                            callback: maxExecutionTime
+                        });
+                    }
+                    text = text.replace(/[\r\n]+/g, '');
+                    if (this.inputStack.length > 0) {
+                        var frame = this.inputStack.pop(), result;
+                        try {
+                            if (!this.client.echoing) {
+                                self.write('\r\n');
+                                self.client.toggleEcho(true);
+                            }
+                            result = frame.callback.call(body, text);
                         }
-                        text = text.replace(/[\r\n]+/g, '');
-                        if (this.inputStack.length > 0) {
-                            var frame = this.inputStack.pop(), result;
-                            try {
-                                if (!this.client.echoing) {
-                                    self.write('\r\n');
-                                    self.client.toggleEcho(true);
-                                }
-                                result = frame.callback.call(body, text);
-                            }
-                            catch (_err) {
-                                this.writeLine('Error: ' + _err);
-                                this.writeLine(_err.stack);
-                                result = true;
-                            }
+                        catch (_err) {
+                            this.writeLine('Error: ' + _err);
+                            this.writeLine(_err.stack);
+                            result = true;
+                        }
+                        finally {
+                            context.release();
+                        }
 
-                            if (result === true) {
-                                this.inputStack.push(frame);
-                                this.write(frame.data.text);
-                            }
-                        }
-                        else if (body) {
-                            $storage.emit('kmud.command', evt);
+                        if (result === true) {
+                            this.inputStack.push(frame);
+                            this.write(frame.data.text);
                         }
                     }
-                    catch (err) {
-                        logger.log(err.message);
-                        logger.log(err.stack);
-                        if (evt) evt.callback(evt);
-                        driver.errorHandler(err, false);
+                    else if (body) {
+                        $storage.emit('kmud.command', evt);
                     }
-                });
+                }
+                catch (err) {
+                    context.release();
+                    logger.log(err.message);
+                    logger.log(err.stack);
+                    if (evt) evt.callback(evt);
+                    driver.errorHandler(err, false);
+                }
             });
         }
 

@@ -208,6 +208,13 @@ class FileManager extends MUDEventEmitter {
         if (!fileSystem)
             throw new Error('Fatal: Could not locate filesystem');
 
+        let mxc = driver.getContext(false);
+        try {
+            mxc.refCount++;
+        }
+        finally {
+            mxc.release();
+        }
         if (isAsync) {
             if (typeof callback !== 'function')
                 throw new Error('Async request must provide callback for createFileRequest()');
@@ -218,17 +225,14 @@ class FileManager extends MUDEventEmitter {
             });
         }
         else {
-            let mxc = driver.getContext(), _mxcc = (mxc && mxc.clone()) || driver.getContext(false);
-            return _mxcc.run(() => {
-                let fss = fileSystem.stat(relPath);
-                let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
-                try {
-                    return callback(resultSync);
-                }
-                catch (err) {
-                    throw driver.cleanError(err);
-                }
-            });
+            let fss = fileSystem.stat(relPath);
+            let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
+            try {
+                return callback(resultSync);
+            }
+            catch (err) {
+                throw driver.cleanError(err);
+            }
         }
     }
 
