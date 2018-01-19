@@ -6,7 +6,7 @@
     _debugging = true;
 
 /**
- * MUD Execution Context (MCX)
+ * MUD Execution Context (MXC)
  */
 class MXC {
     /**
@@ -35,17 +35,26 @@ class MXC {
             this.truePlayer = prev.truePlayer;
             this.$storage = driver.storage.get(this.thisPlayer);
         }
-        if (init) init(this)
-        if (this.objectStack.length === 0) driver.getObjectStack(this);
+
+        if (init)
+            init(this);
+
+        if (this.objectStack.length === 0)
+            driver.getObjectStack(this);
+
         if (_debugging) {
             _activeContexts.push(this);
             _activeCount++;
-
             let padding = Array(this.depth + 1).join('\t');
-            if (this.depth > 0)
-                logger.log(`${padding}* MXC Child [${this.contextId}]: [depth: ${this.depth}, active: ${_activeCount}]`);
-            else
+
+            if (this.depth > 0) {
+                this.expr = prev.expr + '->' + this.contextId;
+                logger.log(`${padding}* MXC Child [${this.expr}]: [depth: ${this.depth}, active: ${_activeCount}]`);
+            }
+            else {
+                this.expr = this.contextId;
                 logger.log(`${padding}* MXC Create [${this.contextId}]: [depth: ${this.depth}, active: ${_activeCount}]`);
+            }
         }
     }
 
@@ -123,10 +132,14 @@ class MXC {
         }
         if (_debugging) {
             let padding = Array(this.depth + 1).join('\t');
-            if (this.refCount > 0)
-                logger.log(`${padding}- MXC Release [${this.contextId}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}; ACTIVE]`);
+            if (this.refCount > 0) {
+                if (this.previous) 
+                    logger.log(`${padding}- MXC Release [${this.expr}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}; ACTIVE]`);
+                else
+                    logger.log(`${padding}- MXC Release [${this.expr}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}; ACTIVE]`);
+            }
             else
-                logger.log(`${padding}- MXC Release [${this.contextId}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}]`);
+                logger.log(`${padding}- MXC Release [${this.expr}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}]`);
         }
         if (this.refCount < 1) {
             this.destroy();
@@ -142,7 +155,7 @@ class MXC {
         this.refCount++;
         if (_debugging) {
             let padding = Array(this.depth + 1).join('\t');
-            logger.log(`${padding}+ MXC Restore [${this.contextId}]: RefCount: ${this.refCount} [depth: ${this.depth}, active: ${_activeCount}]`);
+            logger.log(`${padding}+ MXC Restore [${this.expr}]: RefCount: ${this.refCount} [depth: ${this.depth}, active: ${_activeCount}]`);
         }
         return this;
     }

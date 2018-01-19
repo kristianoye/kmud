@@ -141,8 +141,9 @@ class MUDCompiler {
         if (!filename)
             return false;
 
-        return driver.getContext(false).addFrame({ file: filename, func: 'constructor', object: null }).run(() => {
-            var context = new PipeContext.PipelineContext(filename),
+        let mxc = driver.getContext(false).addFrame({ file: filename, func: 'constructor', object: null }).restore();
+        try {
+            let context = new PipeContext.PipelineContext(filename),
                 module = this.driver.cache.get(context.basename),
                 t0 = new Date().getTime(), virtualData = false;
 
@@ -264,7 +265,10 @@ class MUDCompiler {
                 logger.log(`\t\tLoad timer: ${filename} [${(t1 - t0)} ms]`);
             }
             return false;
-        });
+        }
+        finally {
+            mxc.release();
+        }
     }
 }
 
