@@ -10,7 +10,6 @@ const
     ClientEndpoint = require('./ClientEndpoint'),
     ClientCaps = require('./ClientCaps'),
     MUDEventEmitter = require('../MUDEventEmitter'),
-    MUDConfig = require('../MUDConfig'),
     GameServer = require('../GameServer'),
     MXC = require('../MXC');
 
@@ -23,14 +22,13 @@ const
     _body = Symbol('body'),
     _endpoint = Symbol('endpoint'),
     _inputstack = Symbol('_inputstack'),
-    _remoteAddress = Symbol('_remoteAddress'),
-    maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime,
-    maxCommandsPerSecond = driver.config.driver.maxCommandsPerSecond,
-    maxCommandStackSize = driver.config.driver.maxCommandStackSize;
+    _remoteAddress = Symbol('_remoteAddress');
 
 var
-    DefaultError = 'What?',
-    gameMaster;
+    maxCommandExecutionTime = 0,
+    maxCommandsPerSecond = 0,
+    maxCommandStackSize = 0;
+    DefaultError = 'What?';
 
 /**
  * Abstracted client interface shared by all client connection types.
@@ -39,18 +37,14 @@ class ClientInstance extends EventEmitter {
     /**
      * 
      * @param {ClientEndpoint} endpoint
-     * @param {GameServer} _gameMaster
      * @param {any} _client
      * @param {string} _remoteAddress
      */
-    constructor(endpoint, _gameMaster, _client, _remoteAddress) {
+    constructor(endpoint, _client, _remoteAddress) {
         super();
-        var _body = null,
-            _inputStack = [],
-            self = this;
+        var self = this;
 
-        gameMaster = _gameMaster;
-
+        this.body = null;
         this.client = _client;
         this.caps = new ClientCaps(this);
         this.commandStack = [];
@@ -61,35 +55,11 @@ class ClientInstance extends EventEmitter {
         this.remoteAddress = _remoteAddress;
         this.$storage = false;
 
-        Object.defineProperties(this, {
-            body: {
-                get: function () { return _body; }
-            }
-        });
-
-        function handleExec(evt) {
-            this.removeAllListeners('disconnected');
-
-            _body = evt.newBody;
-
-            gameMaster.addPlayer(_body);
-            gameMaster.removePlayer(evt.oldBody);
-            gameMaster.setThisPlayer(_body, true, '');
-
-            _inputStack = [];
-        }
-
-        gameMaster.on('kmud.exec', evt => {
-            if (evt.client === self) {
-                handleExec.call(self, evt);
-            }
-        });
-
-        this.client.on('terminal type', (ttype) => {
+        this.client.on('terminal type', ttype => {
             self.emit('terminal type', ttype);
         });
 
-        this.client.on('window size', (spec) => {
+        this.client.on('window size', spec => {
             self.emit('window size', spec);
         });
     }
@@ -109,14 +79,13 @@ class ClientInstance extends EventEmitter {
     /**
      * Called when execution of the current command is complete.  This will
      * release the current context and re-draw the user prompt.
+     * @param {MUDInputEvent} evt The event that is now finished.
      */
-    commandComplete() {
+    commandComplete(evt) {
         if (!evt.prompt.recapture) {
-            self.write(evt.prompt.text);
+            this.write(evt.prompt.text);
         }
-        if (context && context.refCount) {
-            context.release();
-        }
+        this.releaseContext();
     }
 
     /**
@@ -153,6 +122,28 @@ class ClientInstance extends EventEmitter {
         return evt;
     }
 
+    /**
+     * Initialize
+     * @param {MUDInputEvent} input The command to be executed.
+     */
+    createContext(input) {
+        if (this.context !== false)
+            throw new Error(`Client may not have multiple active contexts!`);
+
+        this.context = driver.getContext(true, mxc => {
+            mxc.alarm = new Date().getTime() + maxCommandExecutionTime;
+            mxc.client = this;
+            mxc.input = input;
+            mxc.$storage = this.$storage;
+            mxc.thisPlayer = mxc.truePlayer = this.body();
+
+            mxc.addFrame({
+                file: this.body().filename,
+                func: 'executeCommand',
+                object: this.body()
+            });
+        });
+    }
     /**
      * The default prompt painted on the client when a command completes.
      * @returns {string}
@@ -212,11 +203,11 @@ class ClientInstance extends EventEmitter {
      */
     executeCommand(text) {
         let body = this.body(),
-            cmd = this.createCommandEvent(text || '', null, this.defaultPrompt);
+            cmdEvent = this.createCommandEvent(text || '', null, this.defaultPrompt);
 
-        cmd.complete = () => this.commandComplete(cmd);
-        driver.setThisPlayer(body, true, cmd.verb);
-        this.context = driver.getContext(true, maxCommandExecutionTime);
+        cmdEvent.complete = () => this.commandComplete(cmdEvent);
+        driver.setThisPlayer(body, true, cmdEvent.verb);
+        this.createContext(cmdEvent);
 
         try {
             this.context.restore();
@@ -236,7 +227,7 @@ class ClientInstance extends EventEmitter {
                     result = true;
                 }
                 finally {
-                    this.context.release();
+                    this.releaseContext();
                 }
 
                 if (result === true) {
@@ -245,22 +236,45 @@ class ClientInstance extends EventEmitter {
                 }
             }
             else if (body) {
-                this.$storage && this.$storage.emit('kmud.command', evt);
+                this.$storage && this.$storage.emit('kmud.command', cmdEvent);
             }
         }
         catch (ex) {
             driver.errorHandler(ex, false);
-            this.context.release();
+            this.releaseContext();
         }
     }
 
     /**
-     * Associate a body with the connection.
-     * @param {MUDObject} body The body that will interpret and dispatch commands from the client.
-     * @param {Function} cb The callback that executes once the body association is made.
-     * @returns {ClientInstance} A reference to itself.
+     * Handle an exec event.
+     * @param {any} evt
      */
-    setBody(body, cb) {
+    handleExec(evt) {
+        this.removeAllListeners('disconnected');
+        this.$storage = driver.storage.get(this.body = evt.newBody);
+        driver.addPlayer(this.body);
+        driver.removePlayer(evt.oldBody);
+        driver.setThisPlayer(this.body, true, '');
+        this.inputStack = [];
+        this.createContext({
+            args: [],
+            original: '',
+            fromHistory: false,
+            complete: function () { },
+            verb: ''
+        });
+        this.context.restore();
+        this.$storage.emit('kmud.exec', evt);
+        this.releaseContext();
+    }
+
+    releaseContext() {
+        if (this.context) {
+            this.context.release();
+            if (this.context.refCount !== 0)
+                logger.log(`WARNING: Context [${this.context.contextId}] refCount was ${this.context.refCount }`);
+            this.context = false;
+        }
     }
 }
 
@@ -270,7 +284,10 @@ class ClientInstance extends EventEmitter {
  */
 ClientInstance.configureForRuntime = function(driver) {
     DefaultError = driver.config.mudlib.defaultError || 'What?';
-    gameMaster = driver;
+
+    maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime;
+    maxCommandsPerSecond = driver.config.driver.maxCommandsPerSecond;
+    maxCommandStackSize = driver.config.driver.maxCommandStackSize;
 };
 
 module.exports = ClientInstance;

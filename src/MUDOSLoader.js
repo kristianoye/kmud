@@ -256,8 +256,6 @@ class MUDOSLoader extends MUDLoader {
         throw new Error(msg);
     }
 
-    write(msg) { return this.efuns.write(msg); }
-
     write_buffer(dest, start, source) {
         throw new Error('Not implemented yet');
     }

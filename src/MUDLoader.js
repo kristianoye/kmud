@@ -394,6 +394,15 @@ class MUDLoader {
             wrapper: {
                 value: global.wrapper,
                 writable: false
+            },
+            write: {
+                value: function (str) {
+                    let mxc = driver.getContext();
+                    if (mxc && mxc.client) {
+                        mxc.client.writeLine(str);
+                    }
+                },
+                writable: false
             }
         });
     }

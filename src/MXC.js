@@ -13,25 +13,39 @@ class MXC {
      * Construct a new execution context.
      * @param {MXC} prev The previous context.
      * @param {MXCFrame[]} frames Initial frames for the stack.
+     * @param {function(MXC):void} init Initializer function.
      */
-    constructor(prev, frames) {
+    constructor(prev, frames, init) {
         this.alarm = false;
+        this.client = false;
         this.contextId = _nextContextId++;
         this.currentVerb = driver.currentVerb;
-        this.depth = prev && prev.refCount > 0 ? prev.depth + 1 : 0;
+        this.depth = 0; 
+        this.input = false;
         this.objectStack = frames ? frames.slice(0) : [];
-        this.previous = this.depth > 0 ? prev : false;
+        this.previous = prev;
         this.rawStack = '';
-        this.thisPlayer = driver.thisPlayer;
-        this.truePlayer = driver.truePlayer;
         this.refCount = 0;
+
+        if (prev) {
+            this.client = prev.client;
+            this.depth = prev.depth + 1;
+            this.input = prev.input;
+            this.thisPlayer = prev.thisPlayer;
+            this.truePlayer = prev.truePlayer;
+            this.$storage = driver.storage.get(this.thisPlayer);
+        }
+        if (init) init(this)
         if (this.objectStack.length === 0) driver.getObjectStack(this);
         if (_debugging) {
             _activeContexts.push(this);
             _activeCount++;
 
             let padding = Array(this.depth + 1).join('\t');
-            logger.log(`${padding}* Create [${this.contextId}]: [depth: ${this.depth}, active: ${_activeCount}]`);
+            if (this.depth > 0)
+                logger.log(`${padding}* MXC Child [${this.contextId}]: [depth: ${this.depth}, active: ${_activeCount}]`);
+            else
+                logger.log(`${padding}* MXC Create [${this.contextId}]: [depth: ${this.depth}, active: ${_activeCount}]`);
         }
     }
 
@@ -41,7 +55,7 @@ class MXC {
      * @returns {MXC}
      */
     addFrame(frame) {
-        this.objectStack.push(frame);
+        this.objectStack.unshift(frame);
         return this;
     }
 
@@ -52,6 +66,21 @@ class MXC {
         driver.currentContext = new MXC(this, this.objectStack);
         this.refCount++;
         return driver.currentContext;
+    }
+
+    /**
+     * Clean up a dead context to decrement object references.
+     * TODO: This can only happen when all child contexts release.
+     */
+    destroy() {
+        //this.client = undefined;
+        //this.currentVerb = undefined;
+        //this.input = undefined;
+        //this.objectStack = undefined;
+        //this.previous = undefined;
+        //this.rawStack = undefined;
+        //this.thisPlayer = undefined;
+        //this.truePlayer = undefined;
     }
 
     /**
@@ -78,7 +107,7 @@ class MXC {
             let prev = this.previous;
             driver.restoreContext(prev.refCount > 0 ? prev : false);
             if (_currentContext && _currentContext.refCount > 0 && _debugging) {
-                logger.log('\t-Trying to restore a dead context');
+                logger.log('\t-MXC Trying to restore a dead context');
             }
             if (_debugging) {
                 let index = _activeContexts.indexOf(this);
@@ -87,13 +116,20 @@ class MXC {
                     _activeCount--;
                 } 
             }
+            // TODO: Parent context should be what triggers command complete.
+            //if (!prev && this.input) {
+            //    this.input.complete();
+            //}
         }
         if (_debugging) {
             let padding = Array(this.depth + 1).join('\t');
             if (this.refCount > 0)
-                logger.log(`${padding}- Release [${this.contextId}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}; ACTIVE]`);
+                logger.log(`${padding}- MXC Release [${this.contextId}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}; ACTIVE]`);
             else
-                logger.log(`${padding}- Release [${this.contextId}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}]`);
+                logger.log(`${padding}- MXC Release [${this.contextId}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}]`);
+        }
+        if (this.refCount < 1) {
+            this.destroy();
         }
     }
 
@@ -106,7 +142,7 @@ class MXC {
         this.refCount++;
         if (_debugging) {
             let padding = Array(this.depth + 1).join('\t');
-            logger.log(`${padding}+ Restore [${this.contextId}]: RefCount: ${this.refCount} [depth: ${this.depth}, active: ${_activeCount}]`);
+            logger.log(`${padding}+ MXC Restore [${this.contextId}]: RefCount: ${this.refCount} [depth: ${this.depth}, active: ${_activeCount}]`);
         }
         return this;
     }

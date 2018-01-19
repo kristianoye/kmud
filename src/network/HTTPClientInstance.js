@@ -25,8 +25,8 @@ class HTTPClientInstance extends ClientInstance {
         }
         return super.createCommandEvent(input, callback, 'Enter a command...');
     }
-    constructor(endpoint, gameMaster, client) {
-        super(endpoint, gameMaster, client, client.request.connection.remoteAddress);
+    constructor(endpoint, client) {
+        super(endpoint, client, client.request.connection.remoteAddress);
 
         var self = this, body, $storage;
 

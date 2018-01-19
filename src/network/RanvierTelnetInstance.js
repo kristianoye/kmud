@@ -14,84 +14,14 @@ const
     tripwire = maxCommandExecutionTime > 0 ? require('tripwire') : false;
 
 class RanvierTelnetInstance extends ClientInstance {
-    constructor(endpoint, gameMaster, client) {
-        super(endpoint, gameMaster, client, client.remoteAddress);
+    constructor(endpoint, client) {
+        super(endpoint, client, client.remoteAddress);
         let self = this,
             context = MXC.init(),
             clientHeight = 24,
             clientWidth = 80,
             $storage,
             body;
-
-        function commandComplete(evt) {
-            if (!evt.prompt.recapture) {
-                self.write(evt.prompt.text);
-            }
-            if (context && context.refCount) {
-                context.release();
-            }
-        }
-
-        function dispatchInput(text) {
-            let body = this.body();
-
-            body.preprocessInput(this.createCommandEvent(text, commandComplete, '> '), evt => {
-                driver.setThisPlayer(body, true, evt.verb);
-                context = driver.getContext(true);
-                try {
-                    context.restore();
-                    if (tripwire) {
-                        tripwire.clearTripwire();
-                        tripwire.resetTripwire(maxCommandExecutionTime, {
-                            player: body,
-                            input: evt,
-                            callback: maxExecutionTime
-                        });
-                    }
-                    text = text.replace(/[\r\n]+/g, '');
-                    if (this.inputStack.length > 0) {
-                        var frame = this.inputStack.pop(), result;
-                        try {
-                            if (!this.client.echoing) {
-                                self.write('\r\n');
-                                self.client.toggleEcho(true);
-                            }
-                            result = frame.callback.call(body, text);
-                        }
-                        catch (_err) {
-                            this.writeLine('Error: ' + _err);
-                            this.writeLine(_err.stack);
-                            result = true;
-                        }
-                        finally {
-                            context.release();
-                        }
-
-                        if (result === true) {
-                            this.inputStack.push(frame);
-                            this.write(frame.data.text);
-                        }
-                    }
-                    else if (body) {
-                        $storage.emit('kmud.command', evt);
-                    }
-                }
-                catch (err) {
-                    context.release();
-                    logger.log(err.message);
-                    logger.log(err.stack);
-                    if (evt) evt.callback(evt);
-                    driver.errorHandler(err, false);
-                }
-            });
-        }
-
-        gameMaster.on('kmud.exec', evt => {
-            if (evt.client === self) {
-                body = evt.newBody;
-                $storage = evt.newStorage;
-            }
-        });
 
         this.client.on('data', (buffer) => {
             let text = buffer.toString('utf8');

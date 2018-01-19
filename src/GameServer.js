@@ -13,6 +13,7 @@ const
     path = require('path'),
     os = require('os'),
     ClientEndpoint = require('./network/ClientEndpoint'),
+    ClientInstance = require('./network/ClientInstance'),
     MUDEventEmitter = require('./MUDEventEmitter');
 
 const
@@ -519,17 +520,16 @@ class GameServer extends MUDEventEmitter {
     /**
      * Returns the currently executing context.
      * @param {boolean} createNew Force the creation of a new context.
-     * @param {function(MXC):MXC} callback A callback that receives the context.
+     * @param {function(MXC):void} init A context initializing callback.
      * @returns {MXC}
      */
-    getContext(createNew, maxCommandExecutionTime) {
+    getContext(createNew, init) {
         if (typeof createNew === 'boolean') {
             if (!this.currentContext || createNew) {
-                this.currentContext = new MXC(this.currentContext);
-                this.alarm = maxCommandExecutionTime && new Date().getTime() + maxCommandExecutionTime;
+                this.currentContext = new MXC(this.currentContext, [], init);
             }
         }
-        return callback ? callback(this.currentContext) : this.currentContext;
+        return this.currentContext;
     }
 
     /**
@@ -790,7 +790,7 @@ class GameServer extends MUDEventEmitter {
         for (i = 0; i < this.endpoints.length; i++) {
             this.endpoints[i]
                 .bind()
-                .on('kmud.connection', (client) => {
+                .on('kmud.connection',  (client) => {
                     var newLogin = this.efuns.cloneObject(this.config.mudlib.loginObject);
                     if (newLogin) {
                         driver.storage.get(newLogin).setProtected('$client', client,
@@ -800,8 +800,7 @@ class GameServer extends MUDEventEmitter {
                                     newStorage: driver.storage.get(newLogin),
                                     client: _client
                                 };
-                                self.emit('kmud.exec', evt);
-                                $storage.emit('kmud.exec', evt);
+                                client.handleExec(evt);
                             });
                         if (driver.connections.indexOf(client) === -1)
                             driver.connections.push(client);

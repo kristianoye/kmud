@@ -82,6 +82,13 @@ declare class GameServer {
     getContext(createNew: boolean): MXC;
 
     /**
+     * Create a new context and initialize it.
+     * @param createNew
+     * @param initializer
+     */
+    getContext(createNew: boolean, initializer: (context: MXC) => void): MXC;
+
+    /**
      * Fetch the current object stack.
      */
     getObjectStack(): MUDObjectStack[];

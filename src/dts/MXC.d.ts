@@ -17,6 +17,11 @@ declare class MXC {
     addFrame(frame: MXCFrame): MXC;
 
     /**
+     * The time at which execution should die; false indicates unlimited.
+     */
+    alarm: number;
+
+    /**
      * Clones the context and adds to the stack.
      */
     clone(): MXC;

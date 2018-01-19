@@ -129,6 +129,13 @@ declare class MUDClientCaps {
     readonly videoEnabled: boolean;
 }
 
+declare class MUDExecEvent {
+    readonly newBody: MUDObject;
+    readonly newStorage: MUDStorage;
+    readonly oldBody: MUDObject;
+    readonly oldStorage: MUDStorage;
+}
+
 declare class MUDInputEvent {
     readonly args: string[];
     readonly caps: MUDClientCaps;

@@ -60,6 +60,13 @@ class EFUNProxy {
         }
     }
 
+    addPrompt(opts, callback) {
+        let mxc = driver.getContext();
+        if (mxc && mxc.client) {
+            mxc.client.addPrompt(opts, callback);
+        }
+    }
+
     adminp(target) {
         return driver.inGroup(target, 'admin');
     }
@@ -335,7 +342,7 @@ class EFUNProxy {
                 .setProtected('$client', client)
                 .setProtected('$clientCaps', client.caps)
                 .emit('kmud.exec', execEvent);
-            driver.emit('kmud.exec', execEvent);
+            client.handleExec(execEvent);
 
             if (!client) client = thisPlayer.client;
             if (typeof client === 'object') {
@@ -1339,6 +1346,9 @@ class EFUNProxy {
      * @param {any} expr
      */
     write(expr) {
+        let mxc = driver.getContext();
+        if (mxc && mxc.thisPlayer) {
+        }
         this.message('write', expr, driver.thisPlayer);
         return true;
     }

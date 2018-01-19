@@ -115,7 +115,7 @@ class HTTPClientEndpoint extends ClientEndpoint {
         });
 
         this.WebSocket.on('connection', function (client) {
-            var wrapper = new HTTPClientInstance(T, T.gameMaster, client);
+            var wrapper = new HTTPClientInstance(T, client);
             T.emit('kmud.connection', wrapper);
             T.emit('kmud.connection.new', wrapper, 'http');
         });
