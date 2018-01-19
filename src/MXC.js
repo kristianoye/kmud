@@ -15,6 +15,7 @@ class MXC {
      * @param {MXCFrame[]} frames Initial frames for the stack.
      */
     constructor(prev, frames) {
+        this.alarm = false;
         this.contextId = _nextContextId++;
         this.currentVerb = driver.currentVerb;
         this.depth = prev && prev.refCount > 0 ? prev.depth + 1 : 0;
@@ -24,7 +25,6 @@ class MXC {
         this.thisPlayer = driver.thisPlayer;
         this.truePlayer = driver.truePlayer;
         this.refCount = 0;
-        this.ttl = 2000; // time-to-live... ms before it blows up
         if (this.objectStack.length === 0) driver.getObjectStack(this);
         if (_debugging) {
             _activeContexts.push(this);

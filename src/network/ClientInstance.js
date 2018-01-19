@@ -11,7 +11,8 @@ const
     ClientCaps = require('./ClientCaps'),
     MUDEventEmitter = require('../MUDEventEmitter'),
     MUDConfig = require('../MUDConfig'),
-    GameServer = require('../GameServer');
+    GameServer = require('../GameServer'),
+    MXC = require('../MXC');
 
 const
     MudColorImplementation = require('./impl/MudColorImplementation'),
@@ -22,7 +23,10 @@ const
     _body = Symbol('body'),
     _endpoint = Symbol('endpoint'),
     _inputstack = Symbol('_inputstack'),
-    _remoteAddress = Symbol('_remoteAddress');
+    _remoteAddress = Symbol('_remoteAddress'),
+    maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime,
+    maxCommandsPerSecond = driver.config.driver.maxCommandsPerSecond,
+    maxCommandStackSize = driver.config.driver.maxCommandStackSize;
 
 var
     DefaultError = 'What?',
@@ -49,9 +53,13 @@ class ClientInstance extends EventEmitter {
 
         this.client = _client;
         this.caps = new ClientCaps(this);
+        this.commandStack = [];
+        this.commandTimer = false;
+        this.context = MXC.init();
         this.endpoint = endpoint;
         this.inputStack = [];
         this.remoteAddress = _remoteAddress;
+        this.$storage = false;
 
         Object.defineProperties(this, {
             body: {
@@ -99,10 +107,24 @@ class ClientInstance extends EventEmitter {
     }
 
     /**
-     * Parse a line of user input into words, a verb, etc.
-     * @param {string} input
+     * Called when execution of the current command is complete.  This will
+     * release the current context and re-draw the user prompt.
      */
-    createCommandEvent(input, callback, defaultPrompt) {
+    commandComplete() {
+        if (!evt.prompt.recapture) {
+            self.write(evt.prompt.text);
+        }
+        if (context && context.refCount) {
+            context.release();
+        }
+    }
+
+    /**
+     * Parse a line of user input into words, a verb, etc.
+     * @param {string} input The command text entered by the user.
+     * @returns {MUDInputEvent} The input event.
+     */
+    createCommandEvent(input, callback) {
         let words = input.trim().split(/\s+/g),
             verb = words.shift(), self = this;
         let evt = {
@@ -117,7 +139,7 @@ class ClientInstance extends EventEmitter {
             original: input,
             prompt: {
                 type: 'text',
-                text: defaultPrompt,
+                text: this.defaultPrompt,
                 recapture: false
             },
             verb: verb.trim(),
@@ -132,9 +154,105 @@ class ClientInstance extends EventEmitter {
     }
 
     /**
+     * The default prompt painted on the client when a command completes.
      * @returns {string}
      */
-    get defaultTerminalType() { return 'unknown'; }
+    get defaultPrompt() {
+        return '> ';
+    }
+
+
+    /**
+     * @returns {string}
+     */
+    get defaultTerminalType() {
+        return 'unknown';
+    }
+
+    /**
+     * Dispatch commands from the command stack in the order received.
+     * @param {any} flag
+     */
+    dispatchCommands(flag) {
+        if (!this.commandTimer || flag) {
+            let text = this.commandStack.shift();
+            this.executeCommand(text);
+            if (this.commandStack.length > 0 && !this.commandTimer)
+                return setTimeout(() => this.dispatchCommands(false), 5);
+        }
+    }
+
+    /**
+     * Enqueue a new command which may or may not execute immediately.
+     * @param {any} text
+     */
+    enqueueCommand(text) {
+        if (this.commandStack.length > 0) {
+            if (!this.commandTimer && maxCommandsPerSecond) {
+                this.commandTimer = setInterval(() => {
+                    this.dispatchCommands(true);
+                    if (this.commandStack.length === 0) {
+                        clearInterval(this.commandTimer);
+                        this.commandTimer = false;
+                    }
+                }, Math.floor(1000 / maxCommandsPerSecond));
+            }
+        }
+        if (this.commandStack.length > maxCommandStackSize) {
+            this.writeLine('\nYou must pace yourself! (Command ignored)');
+            return;
+        }
+        this.commandStack.push(text);
+        setTimeout(() => this.dispatchCommands(false), 5);
+    }
+
+    /**
+     * Executes a single command
+     * @param {string} text The command to execute.
+     */
+    executeCommand(text) {
+        let body = this.body(),
+            cmd = this.createCommandEvent(text || '', null, this.defaultPrompt);
+
+        cmd.complete = () => this.commandComplete(cmd);
+        driver.setThisPlayer(body, true, cmd.verb);
+        this.context = driver.getContext(true, maxCommandExecutionTime);
+
+        try {
+            this.context.restore();
+            text = text.replace(/[\r\n]+/g, '');
+            if (this.inputStack.length > 0) {
+                var frame = this.inputStack.pop(), result;
+                try {
+                    if (!this.client.echoing) {
+                        this.write('\r\n');
+                        this.client.toggleEcho(true);
+                    }
+                    result = frame.callback.call(body, text);
+                }
+                catch (_err) {
+                    this.writeLine('Error: ' + _err);
+                    this.writeLine(_err.stack);
+                    result = true;
+                }
+                finally {
+                    this.context.release();
+                }
+
+                if (result === true) {
+                    this.inputStack.push(frame);
+                    this.write(frame.data.text);
+                }
+            }
+            else if (body) {
+                this.$storage && this.$storage.emit('kmud.command', evt);
+            }
+        }
+        catch (ex) {
+            driver.errorHandler(ex, false);
+            this.context.release();
+        }
+    }
 
     /**
      * Associate a body with the connection.

@@ -522,10 +522,11 @@ class GameServer extends MUDEventEmitter {
      * @param {function(MXC):MXC} callback A callback that receives the context.
      * @returns {MXC}
      */
-    getContext(createNew, callback) {
+    getContext(createNew, maxCommandExecutionTime) {
         if (typeof createNew === 'boolean') {
             if (!this.currentContext || createNew) {
                 this.currentContext = new MXC(this.currentContext);
+                this.alarm = maxCommandExecutionTime && new Date().getTime() + maxCommandExecutionTime;
             }
         }
         return callback ? callback(this.currentContext) : this.currentContext;

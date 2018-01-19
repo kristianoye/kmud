@@ -181,6 +181,12 @@ class HTTPClientInstance extends ClientInstance {
     }
 
     /**
+     * The default prompt painted on the client when a command completes.
+     * @returns {string}
+     */
+    get defaultPrompt() { return 'Enter a command...'; }
+
+    /**
      * @returns {string}
      */
     get defaultTerminalType() { return 'kmud'; }

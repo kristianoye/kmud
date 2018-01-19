@@ -32,15 +32,6 @@ class RanvierTelnetInstance extends ClientInstance {
             }
         }
 
-        /**
-         * 
-         * @param {MUDInputEvent} evt
-         */
-        function maxExecutionTime(evt) {
-            self.writeLine('Command exceeded max execution time.');
-            evt.complete();
-        }
-
         function dispatchInput(text) {
             let body = this.body();
 
@@ -103,7 +94,9 @@ class RanvierTelnetInstance extends ClientInstance {
         });
 
         this.client.on('data', (buffer) => {
-            dispatchInput.call(this, buffer.toString('utf8'));
+            let text = buffer.toString('utf8');
+            this.enqueueCommand(text);
+            //dispatchInput.call(this, buffer.toString('utf8'));
         });
 
         this.client.on('close', () => {

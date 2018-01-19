@@ -36,6 +36,13 @@ class DriverSection {
         /** @type {number} */
         this.maxCommandLength = data.maxCommandLength || 1024;
 
+        /** Maximum number of commands per player per second. 
+         * @type {number} */
+        this.maxCommandsPerSecond = data.maxCommandsPerSecond || 10;
+
+        /** @type {number} */
+        this.maxCommandStackSize = data.maxCommandStackSize || 100;
+
         /** @type {number} */
         this.resetPollingInterval = ConfigUtil.parseTime(data.resetPollingInterval || 5000);
 
