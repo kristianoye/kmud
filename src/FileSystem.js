@@ -479,7 +479,7 @@ class FileSystem extends MUDEventEmitter {
      */
     stat(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.statAsync(req, MXC.awaiter(callback))) :
+            this.assertAsync(() => this.statAsync(req, MXC.awaiter(callback, `stat ${req}`))) :
             this.assertSync(() => this.statSync(req));
     }
 

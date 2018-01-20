@@ -79,13 +79,15 @@ class ClientInstance extends EventEmitter {
     /**
      * Called when execution of the current command is complete.  This will
      * release the current context and re-draw the user prompt.
+     * @param {number} nextAction What should the command event handler do next.
      * @param {MUDInputEvent} evt The event that is now finished.
      */
-    commandComplete(evt) {
-        if (!evt.prompt.recapture) {
+    commandComplete(nextAction, evt) {
+        this.releaseContext();
+        if (this.inputStack.length === 0) {
             this.write(evt.prompt.text);
         }
-        this.releaseContext();
+        return nextAction;
     }
 
     /**
@@ -93,12 +95,12 @@ class ClientInstance extends EventEmitter {
      * @param {string} input The command text entered by the user.
      * @returns {MUDInputEvent} The input event.
      */
-    createCommandEvent(input, callback) {
+    createCommandEvent(input) {
         let words = input.trim().split(/\s+/g),
             verb = words.shift(), self = this;
         let evt = {
             args: words,
-            callback: callback,
+            callback: () => { },
             caps: this.caps.queryCaps(),
             client: this,
             complete: function () { },
@@ -114,8 +116,8 @@ class ClientInstance extends EventEmitter {
             verb: verb.trim(),
         };
 
-        evt.complete = function (eventResult) {
-            callback.call(self, evt);
+        evt.complete = (eventResult) => {
+            this.commandComplete(eventResult, evt);
             return eventResult || 0;
         };
 
@@ -124,16 +126,16 @@ class ClientInstance extends EventEmitter {
 
     /**
      * Initialize
-     * @param {MUDInputEvent} input The command to be executed.
+     * @param {MUDInputEvent} cmdEvent The command to be executed.
      */
-    createContext(input) {
+    createContext(cmdEvent) {
         if (this.context !== false)
             throw new Error(`Client may not have multiple active contexts!`);
 
         this.context = driver.getContext(true, mxc => {
             mxc.alarm = new Date().getTime() + maxCommandExecutionTime;
             mxc.client = this;
-            mxc.input = input;
+            mxc.input = cmdEvent;
             mxc.$storage = this.$storage;
             mxc.thisPlayer = mxc.truePlayer = this.body();
 
@@ -203,9 +205,8 @@ class ClientInstance extends EventEmitter {
      */
     executeCommand(text) {
         let body = this.body(),
-            cmdEvent = this.createCommandEvent(text || '', null, this.defaultPrompt);
+            cmdEvent = this.createCommandEvent(text || '');
 
-        cmdEvent.complete = () => this.commandComplete(cmdEvent);
         driver.setThisPlayer(body, true, cmdEvent.verb);
         this.createContext(cmdEvent);
 
@@ -272,8 +273,11 @@ class ClientInstance extends EventEmitter {
         if (this.context) {
             this.context.release();
             if (this.context.refCount !== 0)
-                logger.log(`WARNING: Context [${this.context.contextId}] refCount was ${this.context.refCount }`);
+                logger.log(`WARNING: Context [${this.context.contextId}] refCount was ${this.context.refCount}`);
             this.context = false;
+        }
+        else {
+            logger.log(`WARNING: Context was released too early!`);
         }
     }
 }

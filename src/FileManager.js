@@ -210,29 +210,29 @@ class FileManager extends MUDEventEmitter {
 
         let mxc = driver.getContext(false);
         try {
-            mxc.refCount++;
+            mxc.restore();
+            if (isAsync) {
+                if (typeof callback !== 'function')
+                    throw new Error('Async request must provide callback for createFileRequest()');
+
+                return fileSystem.stat(relPath, (fss, err) => {
+                    let resultAsync = new FileSystemRequest(fileSystem, flags, op, expr, relPath, fss);
+                    return callback(resultAsync);
+                });
+            }
+            else {
+                let fss = fileSystem.stat(relPath);
+                let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
+                try {
+                    return callback(resultSync);
+                }
+                catch (err) {
+                    throw driver.cleanError(err);
+                }
+            }
         }
         finally {
             mxc.release();
-        }
-        if (isAsync) {
-            if (typeof callback !== 'function')
-                throw new Error('Async request must provide callback for createFileRequest()');
-
-            return fileSystem.stat(relPath, (fss, err) => {
-                let resultAsync = new FileSystemRequest(fileSystem, flags, op, expr, relPath, fss);
-                return callback(resultAsync);
-            });
-        }
-        else {
-            let fss = fileSystem.stat(relPath);
-            let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
-            try {
-                return callback(resultSync);
-            }
-            catch (err) {
-                throw driver.cleanError(err);
-            }
         }
     }
 

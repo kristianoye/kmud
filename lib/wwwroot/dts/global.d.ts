@@ -136,6 +136,17 @@ declare class MUDExecEvent {
     readonly oldStorage: MUDStorage;
 }
 
+declare class MUDPrompt {
+    /** Indicates whether the receiver recaptures user input focus */
+    recapture: boolean;
+
+    /** The text that will prompt the user for their next action */
+    text: string | function(): string;
+
+    /** Indicates the type of input to be captured (text, password, etc) */
+    type: string;
+}
+
 declare class MUDInputEvent {
     readonly args: string[];
     readonly caps: MUDClientCaps;
@@ -143,6 +154,7 @@ declare class MUDInputEvent {
     readonly error: string;
     readonly fromHistory: boolean;
     readonly original: string;
+    prompt: MUDPrompt;
     readonly verb: string;
 }
 

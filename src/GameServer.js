@@ -295,21 +295,31 @@ class GameServer extends MUDEventEmitter {
      * Preload some common objects to decrease in-game load times while running.
      */
     createPreloads() {
-        if (this.applyGetPreloads !== false) {
-            this.preloads = this.applyGetPreloads.apply(this.masterObject);
-        }
-        if (this.preloads.length > 0) {
-            logger.logIf(LOGGER_PRODUCTION, 'Creating preloads.');
-            this.preloads.forEach((file, i) => {
-                var t0 = new Date().getTime();
-                var foo = Array.isArray(file) ?
-                    this.compiler.compileObject(file[0], undefined, undefined, file.slice(1)) :
-                    this.compiler.compileObject(file);
-                var t1 = new Date().getTime();
-                logger.logIf(LOGGER_DEBUG, `\tPreload: ${file}: ${(file, foo ? '[OK]' : '[Failure]')} [${(t1 - t0)} ms]`);
-            });
-        }
+        let mxc = this.getContext(true, init => {
+            init.alarm = 60 * 2 * 1000;
+            init.addFrame({ file: this.masterObject.filename, object: this.masterObject, func: 'createPreloads' });
+        }, 'createPreloads');
 
+        try {
+            mxc.restore();
+            if (this.applyGetPreloads !== false) {
+                this.preloads = this.applyGetPreloads.apply(this.masterObject);
+            }
+            if (this.preloads.length > 0) {
+                logger.logIf(LOGGER_PRODUCTION, 'Creating preloads.');
+                this.preloads.forEach((file, i) => {
+                    var t0 = new Date().getTime();
+                    var foo = Array.isArray(file) ?
+                        this.compiler.compileObject(file[0], undefined, undefined, file.slice(1)) :
+                        this.compiler.compileObject(file);
+                    var t1 = new Date().getTime();
+                    logger.logIf(LOGGER_DEBUG, `\tPreload: ${file}: ${(file, foo ? '[OK]' : '[Failure]')} [${(t1 - t0)} ms]`);
+                });
+            }
+        }
+        finally {
+            mxc.release();
+        }
     }
 
     /**
@@ -523,10 +533,10 @@ class GameServer extends MUDEventEmitter {
      * @param {function(MXC):void} init A context initializing callback.
      * @returns {MXC}
      */
-    getContext(createNew, init) {
+    getContext(createNew, init, note) {
         if (typeof createNew === 'boolean') {
             if (!this.currentContext || createNew) {
-                this.currentContext = new MXC(this.currentContext, [], init);
+                this.currentContext = new MXC(this.currentContext, [], init, note);
             }
         }
         return this.currentContext;
