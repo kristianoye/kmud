@@ -9,7 +9,8 @@ const
     vm = require('vm'),
     sEfuns = Symbol('LoaderEfuns'),
     sArgs = Symbol('ConstructorArgs'),
-    sLoaderEnabled = Symbol('LoaderEnabled');
+    sLoaderEnabled = Symbol('LoaderEnabled'),
+    TimeoutError = require('./ErrorTypes').TimeoutError;
 
 var _includeCache = [];
 
@@ -77,24 +78,35 @@ class MUDLoader {
                 },
                 writable: false
             },
+            __act: {
+                // Assert Catch Type
+                value: function (val) {
+                    // Catching timeout errors is not allowed
+                    if (val instanceof TimeoutError) {
+                        throw val;
+                    }
+                },
+                writable: false
+            },
             __afa: {
+                //  Assert Function Alarm
                 value: function () {
                     let ctx = driver.getContext(),
                         now = new Date().getTime();
                     if (ctx.alarm < now)
-                        throw new Error('Maximum execution time exceeded');
+                        throw new TimeoutError('Maximum execution time exceeded');
                 },
                 writable: false
             },
             __ala: {
+                //  Assert Loop Alarm (ala)
                 value: function () {
-                    //  Assert Loop Alarm (ala)
                     if (--_loopCounter === 0) {
                         let ctx = driver.getContext(),
                             now = new Date().getTime();
                         _loopCounter = 1000;
                         if (ctx.alarm < now)
-                            throw new Error('Maximum execution time exceeded');
+                            throw new TimeoutError('Maximum execution time exceeded');
                     }
                 },
                 writable: false

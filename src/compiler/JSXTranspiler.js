@@ -2,10 +2,11 @@
     PipelineComponent = require('./PipelineComponent'),
     PipeContext = require('./PipelineContext'),
     PipelineContext = PipeContext.PipelineContext,
+    { TimeoutError } = require('../ErrorTypes'),
     acorn = require('acorn-jsx');
 
 const
-    IllegalIdentifiers = ['__ala', '__afa'];
+    IllegalIdentifiers = ['__act', '__ala', '__afa'];
 
 class JSXTranspiler extends PipelineComponent {
     /**
@@ -25,6 +26,39 @@ class JSXTranspiler extends PipelineComponent {
                 pos = 0,
                 max = source.length;
 
+            /**
+             * Instruments final source code with runtime assertions
+             * designed to protect against runaway code.
+             * @param {Node} e
+             * @param {string} assertText
+             */
+            function addRuntimeAssert(e, assertText) {
+                if (e.body.type === 'EmptyStatement') {
+                    let newBody = {
+                        type: 'BlockStatement',
+                        start: e.body.start,
+                        end: e.body.end,
+                        body: [
+                            {
+                                start: e.body.start,
+                                end: e.body.end,
+                                type: 'RuntimeAssertion',
+                                text: '{ ' + assertText + ' }'
+                            }
+                        ]
+                    };
+                    e.body = newBody;
+                }
+                else {
+                    e.body.body.unshift({
+                        end: e.body.body[0].start,
+                        type: 'RuntimeAssertion',
+                        start: e.body.body[0].start,
+                        text: assertText
+                    });
+                }
+            }
+
             function jsxWhitespace(isElement) {
                 if (jsxDepth === 0) return '';
                 return jsxIndent + Array(jsxDepth + 1).join('   ');
@@ -35,11 +69,11 @@ class JSXTranspiler extends PipelineComponent {
                 return result;
             }
 
-            function parseElement(e, depth, arg) {
+            function parseElement(e, depth) {
                 var ret = '';
                 if (!e)
                     return '';
-                if (e.start > -1 && e.start > pos) {
+                if (e.start > pos) {
                     ret += source.slice(pos, e.start);
                     pos = e.start;
                 }
@@ -79,6 +113,7 @@ class JSXTranspiler extends PipelineComponent {
 
                     case 'CatchClause':
                         ret += parseElement(e.param, depth + 1);
+                        addRuntimeAssert(e, `__act(${e.param.name}); `);
                         ret += parseElement(e.body, depth + 1);
                         break;
 
@@ -104,6 +139,7 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'DoWhileStatement':
+                        addRuntimeAssert(e, '__ala(); ');
                         ret += parseElement(e.body, depth + 1);
                         ret += parseElement(e.test, depth + 1);
                         break;
@@ -119,6 +155,7 @@ class JSXTranspiler extends PipelineComponent {
                     case 'ForInStatement':
                         ret += parseElement(e.left, depth + 1);
                         ret += parseElement(e.right, depth + 1);
+                        addRuntimeAssert(e, '__ala(); ');
                         ret += parseElement(e.body, depth + 1);
                         break;
 
@@ -126,6 +163,7 @@ class JSXTranspiler extends PipelineComponent {
                         ret += parseElement(e.init, depth + 1);
                         ret += parseElement(e.test, depth + 1);
                         ret += parseElement(e.update, depth + 1);
+                        addRuntimeAssert(e, '__ala(); ');
                         ret += parseElement(e.body, depth + 1);
                         break;
 
@@ -138,15 +176,7 @@ class JSXTranspiler extends PipelineComponent {
                     case 'FunctionExpression':
                         ret += parseElement(e.id, depth + 1);
                         e.params.forEach(_ => ret += parseElement(_, depth + 1));
-                        let first = e.body.body && e.body.body[0];
-                        if (first) {
-                            e.body.body.unshift({
-                                end: -1,
-                                type: 'RuntimeAssertion',
-                                start: first.start,
-                                text: '__afa(); '
-                            });
-                        }
+                        addRuntimeAssert(e, '__afa(); ');
                         ret += parseElement(e.body, depth + 1);
                         break;
 
@@ -154,7 +184,7 @@ class JSXTranspiler extends PipelineComponent {
                         let _id = source.slice(e.start, e.end);
                         if (IllegalIdentifiers.indexOf(_id) > -1)
                             throw new Error(`Illegal identifier: ${_id}`);
-                        ret += source.slice(_id);
+                        ret += _id;
                         pos = e.end;
                         break;
 
@@ -337,25 +367,14 @@ class JSXTranspiler extends PipelineComponent {
 
                     case 'WhileStatement':
                         ret += parseElement(e.test, depth + 1);
-                        if (e.body.type === 'EmptyStatement' || e.body.body.length === 0) {
-                            ret += ') { __ala(); }';
-                            pos = e.body.end;
-                        }
-                        else {
-                            e.body.body.unshift({
-                                end: -1,
-                                type: 'RuntimeAssertion',
-                                start: e.body.body[0].start,
-                                text: '__ala(); '
-                            });
-                            ret += parseElement(e.body, depth + 1);
-                        }
+                        addRuntimeAssert(e, '__ala(); ');
+                        ret += parseElement(e.body, depth + 1);
                         break;
 
                     default:
                         throw new Error(`Unknown type: ${e.type}`);
                 }
-                if (e.end !== -1 && pos !== e.end) {
+                if (pos !== e.end) {
                     if (pos > e.end) throw new Error('Oops?');
                     ret += source.slice(pos, e.end);
                     pos = e.end;

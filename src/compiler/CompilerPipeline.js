@@ -52,6 +52,7 @@ class CompilerPipeline
             }
             catch (err) {
                 context.addError(err);
+                return context.update(PipeContext.CTX_ERRORED);
             }
         }
         context.update(PipeContext.CTX_FINISHED);

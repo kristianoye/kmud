@@ -240,7 +240,7 @@ class MUDCompiler {
                 else {
                     switch (context.state) {
                         case PipeContext.CTX_ERRORED:
-                            throw new Error(`Could not load ${context.filename} [${context.errors[0]}]`);
+                            throw new Error(`Could not load ${context.filename} [${context.errors[0].message}]`);
 
                         case PipeContext.CTX_RUNNING:
                         case PipeContext.CTX_STOPPED:

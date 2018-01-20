@@ -18,6 +18,15 @@ class SecurityError extends MUDError {
     }
 }
 
+/**
+ * Something took too long
+ */
+class TimeoutError extends MUDError {
+    constructor(msg) {
+        super(msg);
+    }
+}
+
 class MissingConfigError extends MUDError {
     constructor(e) {
         super(`Configuration parameter ${e} was not defined.`);
@@ -36,4 +45,5 @@ module.exports = {
     MissingConfigError,
     NotImplementedError,
     SecurityError,
+    TimeoutError
 };
