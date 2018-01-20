@@ -6,7 +6,14 @@ class Who extends Command {
     cmd(args, cmdline) {
         var players = efuns.players(),
             count = players.length,
-            tp = thisPlayer;
+            tp = thisPlayer,
+            x = 0;
+
+        function __ala() { }
+
+        while (true) {
+            write(`x = ${x++}`);
+        }
 
         tp.writeLine(`There are ${count} player(s) on-line:`);
         players.forEach((player, i) => {

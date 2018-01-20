@@ -27,6 +27,7 @@ class MUDLoader {
             _extending = false,
             _isSingleton = false,
             _loaderEnabled = false,
+            _loopCounter = 1000,
             _primaryExport = false,
             _oldEfuns = _efuns;
         var
@@ -73,6 +74,28 @@ class MUDLoader {
             $: {
                 value: function (file) {
                     return unwrap(_efuns.findObject(file));
+                },
+                writable: false
+            },
+            __afa: {
+                value: function () {
+                    let ctx = driver.getContext(),
+                        now = new Date().getTime();
+                    if (ctx.alarm < now)
+                        throw new Error('Maximum execution time exceeded');
+                },
+                writable: false
+            },
+            __ala: {
+                value: function () {
+                    //  Assert Loop Alarm (ala)
+                    if (--_loopCounter === 0) {
+                        let ctx = driver.getContext(),
+                            now = new Date().getTime();
+                        _loopCounter = 1000;
+                        if (ctx.alarm < now)
+                            throw new Error('Maximum execution time exceeded');
+                    }
                 },
                 writable: false
             },

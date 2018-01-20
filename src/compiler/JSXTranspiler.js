@@ -4,6 +4,9 @@
     PipelineContext = PipeContext.PipelineContext,
     acorn = require('acorn-jsx');
 
+const
+    IllegalIdentifiers = ['__ala', '__afa'];
+
 class JSXTranspiler extends PipelineComponent {
     /**
      * Run the JSX transpiler.
@@ -32,11 +35,11 @@ class JSXTranspiler extends PipelineComponent {
                 return result;
             }
 
-            function parseElement(e, depth) {
+            function parseElement(e, depth, arg) {
                 var ret = '';
                 if (!e)
                     return '';
-                if (e.start > pos) {
+                if (e.start > -1 && e.start > pos) {
                     ret += source.slice(pos, e.start);
                     pos = e.start;
                 }
@@ -135,11 +138,23 @@ class JSXTranspiler extends PipelineComponent {
                     case 'FunctionExpression':
                         ret += parseElement(e.id, depth + 1);
                         e.params.forEach(_ => ret += parseElement(_, depth + 1));
+                        let first = e.body.body && e.body.body[0];
+                        if (first) {
+                            e.body.body.unshift({
+                                end: -1,
+                                type: 'RuntimeAssertion',
+                                start: first.start,
+                                text: '__afa(); '
+                            });
+                        }
                         ret += parseElement(e.body, depth + 1);
                         break;
 
                     case 'Identifier':
-                        ret += source.slice(e.start, e.end);
+                        let _id = source.slice(e.start, e.end);
+                        if (IllegalIdentifiers.indexOf(_id) > -1)
+                            throw new Error(`Illegal identifier: ${_id}`);
+                        ret += source.slice(_id);
                         pos = e.end;
                         break;
 
@@ -257,6 +272,10 @@ class JSXTranspiler extends PipelineComponent {
                         ret += parseElement(e.argument, depth + 1);
                         break;
 
+                    case 'RuntimeAssertion':
+                        ret += e.text;
+                        break;
+
                     case 'SwitchCase':
                         ret += parseElement(e.test, depth + 1);
                         e.consequent.forEach(_ => ret += parseElement(_, depth + 1));
@@ -318,13 +337,25 @@ class JSXTranspiler extends PipelineComponent {
 
                     case 'WhileStatement':
                         ret += parseElement(e.test, depth + 1);
-                        ret += parseElement(e.body, depth + 1);
+                        if (e.body.type === 'EmptyStatement' || e.body.body.length === 0) {
+                            ret += ') { __ala(); }';
+                            pos = e.body.end;
+                        }
+                        else {
+                            e.body.body.unshift({
+                                end: -1,
+                                type: 'RuntimeAssertion',
+                                start: e.body.body[0].start,
+                                text: '__ala(); '
+                            });
+                            ret += parseElement(e.body, depth + 1);
+                        }
                         break;
 
                     default:
                         throw new Error(`Unknown type: ${e.type}`);
                 }
-                if (pos !== e.end) {
+                if (e.end !== -1 && pos !== e.end) {
                     if (pos > e.end) throw new Error('Oops?');
                     ret += source.slice(pos, e.end);
                     pos = e.end;
