@@ -20,7 +20,8 @@ class JSXTranspiler extends PipelineComponent {
      * @param {PipelineContext} context
      */
     run(context) {
-        var source = context.content;
+        let source = context.content,
+            allowJsx = this.allowJsx;
 
         if (this.enabled) {
             var ast = acorn.parse(source, { plugins: { jsx: true } }),
@@ -212,7 +213,7 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'JSXAttribute':
-                        if (!this.allowJsx)
+                        if (!allowJsx)
                             throw new Error(`JSX is not enabled for ${this.extension} files`);
                         pos = e.end;
                         ret += parseElement(e.name, depth + 1);
@@ -222,14 +223,14 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'JSXClosingElement':
-                        if (!this.allowJsx)
+                        if (!allowJsx)
                             throw new Error(`JSX is not enabled for ${this.extension} files`);
                         ret += ')';
                         pos = e.end;
                         break;
 
                     case 'JSXElement':
-                        if (!this.allowJsx)
+                        if (!allowJsx)
                             throw new Error(`JSX is not enabled for ${this.extension} files`);
                         if (jsxDepth === 0) {
                             var jsxInX = source.slice(0, e.start).lastIndexOf('\n') + 1;
@@ -253,7 +254,7 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'JSXIdentifier':
-                        if (!this.allowJsx)
+                        if (!allowJsx)
                             throw new Error(`JSX is not enabled for ${this.extension} files`);
                         if (e.name.match(/^[a-z]+/)) {
                             ret += `"${e.name}"`;
@@ -265,7 +266,7 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'JSXExpressionContainer':
-                        if (!this.allowJsx)
+                        if (!allowJsx)
                             throw new Error(`JSX is not enabled for ${this.extension} files`);
                         pos = e.expression.start;
                         ret += parseElement(e.expression, depth + 1);
@@ -273,7 +274,7 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'JSXOpeningElement':
-                        if (!this.allowJsx)
+                        if (!allowJsx)
                             throw new Error(`JSX is not enabled for ${this.extension} files`);
                         pos = e.end;
                         ret += jsxWhitespace() + parseElement(e.name, depth + 1);
@@ -286,7 +287,7 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'JSXText':
-                        if (!this.allowJsx)
+                        if (!allowJsx)
                             throw new Error(`JSX is not enabled for ${this.extension} files`);
                         ret += e.value.trim().length === 0 ? ret : `"${e.raw.replace(/\n/g, '\\n')}"`;
                         pos = e.end;
@@ -426,7 +427,7 @@ class JSXTranspiler extends PipelineComponent {
                 return ret;
             }
 
-            ast.body.forEach((n, i) => output += parseElement.call(this, n, 0));
+            ast.body.forEach((n, i) => output += parseElement(n, 0));
             if (pos < max) output += source.slice(pos, max);
             return context.update(PipeContext.CTX_RUNNING, output);
         }

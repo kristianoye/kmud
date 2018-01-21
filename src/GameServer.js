@@ -435,6 +435,7 @@ class GameServer extends MUDEventEmitter {
      */
     errorHandler(err, caught) {
         if (this.applyErrorHandler) {
+            let mxc = this.getContext();
             this.cleanError(err);
             let error = {
                 error: err.message,
@@ -444,7 +445,6 @@ class GameServer extends MUDEventEmitter {
                 stack: err.stack,
                 trace: []
             }, firstFrame = true;
-
             error.trace = err.stack.split('\n').map((line, index) => {
                 let parts = line.split(/\s+/g).filter(s => s.length);
                 if (parts[0] === 'at') {
@@ -481,7 +481,7 @@ class GameServer extends MUDEventEmitter {
                     return frame;
                 }
             }).filter(f => typeof f === 'object');
-
+            mxc.alarm = mxc && new Date().getTime() + 2000;
             this.applyErrorHandler.call(this.masterObject, error, caught);
         }
     }
