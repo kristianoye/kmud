@@ -89,9 +89,8 @@ class MUDCompiler {
                 }
                 var module = initData.module,
                     args = Object.extend({}, initData.parameters, xtra);
-
+                args.extension = ext;
                 initData.refCount++;
-
                 return args.reusable === false ? [module, args] : new module(args);
 
             });
