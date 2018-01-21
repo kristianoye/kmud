@@ -296,7 +296,7 @@ class GameServer extends MUDEventEmitter {
      */
     createPreloads() {
         let mxc = this.getContext(true, init => {
-            init.alarm = new Date().getTime() +  (60 * 2 * 1000);
+            init.alarm = Number.MAX_SAFE_INTEGER; // new Date().getTime() +  (60 * 2 * 1000);
             init.addFrame({ file: this.masterObject.filename, object: this.masterObject, func: 'createPreloads' });
         }, 'createPreloads');
 
@@ -308,12 +308,21 @@ class GameServer extends MUDEventEmitter {
             if (this.preloads.length > 0) {
                 logger.logIf(LOGGER_PRODUCTION, 'Creating preloads.');
                 this.preloads.forEach((file, i) => {
-                    var t0 = new Date().getTime();
-                    var foo = Array.isArray(file) ?
-                        this.compiler.compileObject(file[0], undefined, undefined, file.slice(1)) :
-                        this.compiler.compileObject(file);
-                    var t1 = new Date().getTime();
-                    logger.logIf(LOGGER_DEBUG, `\tPreload: ${file}: ${(file, foo ? '[OK]' : '[Failure]')} [${(t1 - t0)} ms]`);
+                    let ctx = mxc.clone(init => {
+                        init.note = `Preloading ${file}`;
+                    });
+                    try {
+                        ctx.restore();
+                        var t0 = new Date().getTime();
+                        var foo = Array.isArray(file) ?
+                            this.compiler.compileObject(file[0], undefined, undefined, file.slice(1)) :
+                            this.compiler.compileObject(file);
+                        var t1 = new Date().getTime();
+                        logger.logIf(LOGGER_DEBUG, `\tPreload: ${file}: ${(file, foo ? '[OK]' : '[Failure]')} [${(t1 - t0)} ms]`);
+                    }
+                    finally {
+                        ctx.release();
+                    }
                 });
             }
         }
@@ -535,8 +544,11 @@ class GameServer extends MUDEventEmitter {
      */
     getContext(createNew, init, note) {
         if (typeof createNew === 'boolean') {
-            if (!this.currentContext || createNew) {
-                this.currentContext = new MXC(this.currentContext, [], init, note);
+            if (createNew || !this.currentContext) {
+                return this.currentContext = new MXC(false, [], init, note);
+            }
+            else {
+                return this.currentContext = this.currentContext.clone(init, note);
             }
         }
         return this.currentContext;
@@ -734,11 +746,14 @@ class GameServer extends MUDEventEmitter {
      * @param {MXC} ctx
      */
     restoreContext(ctx) {
+        if (ctx && ctx.released)
+            ctx = false;
         this.currentContext = ctx;
         this.thisPlayer = ctx && ctx.thisPlayer;
         this.truePlayer = ctx && ctx.truePlayer;
         this.currentVerb = (ctx && ctx.currentVerb) || '';
         this.objectStack = (ctx && ctx.objectStack) || [];
+        return ctx;
     }
 
     /**
@@ -747,8 +762,6 @@ class GameServer extends MUDEventEmitter {
      * @returns {GameServer} A reference to the GameServer.
      */
     run(callback) {
-        var self = this, i;
-
         if (!this.loginObject) {
             throw new Error('Login object must be specified');
         }
@@ -767,15 +780,32 @@ class GameServer extends MUDEventEmitter {
         }
         this.createFileSystems();
         this.configureRuntime();
-        this.createSimulEfuns();
-        this.createMasterObject();
-        this.enableFeatures();
 
+        let mxc = this.getContext(true, init => {
+            init.note = 'Loading driver and efuns';
+            init.onDestroy = (ctx) => {
+                this.runStarting();
+            };
+        });
+
+        try {
+            mxc.restore();
+            this.createSimulEfuns();
+            this.createMasterObject();
+            this.enableFeatures();
+            this.sealProtectedTypes();
+        }
+        catch (err) {
+            logger.log(err.message);
+        }
+        finally {
+            mxc.release();
+        }
+    }
+
+    runStarting() {
         this.gameState = GAMESTATE_STARTING;
-
-        this.sealProtectedTypes();
         this.createPreloads();
-
         if (this.config.skipStartupScripts === false) {
             let runOnce = path.resolve(__dirname, '../runOnce.json');
             if (fs.existsSync(runOnce)) {
@@ -796,11 +826,10 @@ class GameServer extends MUDEventEmitter {
                 }
             }
         }
-
-        for (i = 0; i < this.endpoints.length; i++) {
+        for (let i = 0; i < this.endpoints.length; i++) {
             this.endpoints[i]
                 .bind()
-                .on('kmud.connection',  (client) => {
+                .on('kmud.connection', (client) => {
                     var newLogin = this.efuns.cloneObject(this.config.mudlib.loginObject);
                     if (newLogin) {
                         driver.storage.get(newLogin).setProtected('$client', client,
@@ -839,6 +868,10 @@ class GameServer extends MUDEventEmitter {
         if (typeof callback === 'function') callback.call(this);
         var startupTime = new Date().getTime() - this.startTime, startSeconds = startupTime / 1000;
         logger.log(`Startup took ${startSeconds} seconds [${startupTime} ms]`);
+        this.runMain();
+    }
+
+    runMain() {
         this.gameState = GAMESTATE_RUNNING;
 
         if (this.config.mudlib.heartbeatInterval > 0) {

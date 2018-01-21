@@ -136,6 +136,7 @@ class ClientInstance extends EventEmitter {
             mxc.alarm = new Date().getTime() + maxCommandExecutionTime;
             mxc.client = this;
             mxc.input = cmdEvent;
+            mxc.note = 'executeCommand';
             mxc.$storage = this.$storage;
             mxc.thisPlayer = mxc.truePlayer = this.body();
 

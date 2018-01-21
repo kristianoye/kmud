@@ -113,32 +113,28 @@ class FileSystem extends MUDEventEmitter {
         return true;
     }
 
-    assertAsync(code) {
+    assertAsync() {
         if (!this.isAsync)
             throw new Error(`Filesystem type ${this.type} does not support asyncrononous I/O.`);
-        else if (!code) return true;
-        return code.call(this);
+        return true;
     }
 
-    assertDirectories(code) {
+    assertDirectories() {
         if (!this.hasDirectories)
             throw new Error(`Filesystem type ${this.type} does not support directories.`);
-        else if (!code) return true;
-        return code ? code.call(this) : true;
+        return true;
     }
 
-    assertSync(code) {
+    assertSync() {
         if (!this.isSync)
             throw new Error(`Filesystem type ${this.type} does not support syncrononous I/O.`);
-        else if (!code) return true;
-        return code ? code.call(this) : true;
+        return true;
     }
 
-    assertWritable(code) {
+    assertWritable() {
         if (this.isReadOnly())
             throw new Error(`Filesystem ${this.mp} [type ${this.type}] is read-only.`);
-        else if (!code) return true;
-        return code ? code.call(this) : true;
+        return true;
     }
 
     /**
@@ -149,8 +145,8 @@ class FileSystem extends MUDEventEmitter {
      */
     appendFile(req, content, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.appendFileAsync(req, content, MXC.awaiter(callback))) :
-            this.assertSync(() => this.appendFileSync(req, content));
+            this.assertAsync() && this.appendFileAsync(req, content, callback) :
+            this.assertSync() && this.appendFileSync(req, content);
     }
 
     /**
@@ -181,7 +177,7 @@ class FileSystem extends MUDEventEmitter {
     createDirectory(req, opts, callback) {
         this.assertDirectories();
         return typeof callback === 'function' ?
-            this.assertAsync() && this.createDirectoryAsync(req, opts, MXC.awaiter(callback)) :
+            this.assertAsync() && this.createDirectoryAsync(req, opts, callback) :
             this.assertSync() && this.createDirectorySync(req, opts);
     }
 
@@ -223,8 +219,8 @@ class FileSystem extends MUDEventEmitter {
      */
     deleteDirectory(req, flags, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.deleteDirectoryAsync(req, flags, MXC.awaiter(callback))) :
-            this.assertSync(() => this.deleteDirectorySync(req, flags));
+            this.assertAsync() && this.deleteDirectoryAsync(req, flags, callback) :
+            this.assertSync() && this.deleteDirectorySync(req, flags);
     }
 
     /**
@@ -248,8 +244,8 @@ class FileSystem extends MUDEventEmitter {
 
     deleteFile(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.deleteFileAsync(req, MXC.awaiter(callback))) :
-            this.assertSync(() => this.deleteFileSync(req));
+            this.assertAsync() && this.deleteFileAsync(req, callback) :
+            this.assertSync() && this.deleteFileSync(req);
     }
 
     deleteFileAsync(req, callback) {
@@ -297,7 +293,7 @@ class FileSystem extends MUDEventEmitter {
     isDirectory(req, callback) {
         return this.assertDirectories(() => {
             return typeof callback === 'function' ?
-                this.assertAsync() && this.isDirectoryAsync(req, MXC.awaiter(callback)) :
+                this.assertAsync() && this.isDirectoryAsync(req, callback) :
                 this.assertSync() && this.isDirectorySync(req);
         });
     }
@@ -324,8 +320,8 @@ class FileSystem extends MUDEventEmitter {
      */
     isFile(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.isFileAsync(req, callback)) :
-            this.assertSync(() => this.isFileSync(req));
+            this.assertAsync() && this.isFileAsync(req, callback) :
+            this.assertSync() && this.isFileSync(req);
     }
 
     /**
@@ -361,8 +357,8 @@ class FileSystem extends MUDEventEmitter {
      */
     loadObject(req, args, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.loadObjectAsync(req, args, MXC.awaiter(callback))) :
-            this.assertSync(() => this.loadObjectSync(req, args));
+            this.assertAsync() && this.loadObjectAsync(req, args, callback) :
+            this.assertSync() && this.loadObjectSync(req, args);
     }
 
     /**
@@ -391,7 +387,7 @@ class FileSystem extends MUDEventEmitter {
      */
     readDirectory(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync() && this.readDirectoryAsync(req, MXC.awaiter(callback)) :
+            this.assertAsync() && this.readDirectoryAsync(req, callback) :
             this.assertSync() && this.readDirectorySync(req);
     }
 
@@ -420,7 +416,7 @@ class FileSystem extends MUDEventEmitter {
      */
     readFile(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync() && this.readFileAsync(req, MXC.awaiter(callback)) :
+            this.assertAsync() && this.readFileAsync(req, callback) :
             this.assertSync() && this.readFileSync(req);
     }
 
@@ -449,8 +445,8 @@ class FileSystem extends MUDEventEmitter {
      */
     readJsonFile(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.readJsonFileAsync(req, MXC.awaiter(callback))) :
-            this.assertSync(() => this.readJsonFileSync(req));
+            this.assertAsync() && this.readJsonFileAsync(req, callback) :
+            this.assertSync() && this.readJsonFileSync(req);
     }
 
     /**
@@ -479,8 +475,8 @@ class FileSystem extends MUDEventEmitter {
      */
     stat(req, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.statAsync(req, MXC.awaiter(callback, `stat ${req}`))) :
-            this.assertSync(() => this.statSync(req));
+            this.assertAsync() && this.statAsync(req, callback) :
+            this.assertSync() && this.statSync(req);
     }
 
     /**
@@ -508,8 +504,8 @@ class FileSystem extends MUDEventEmitter {
      */
     writeFile(req, content, callback) {
         return typeof callback === 'function' ?
-            this.assertAsync(() => this.writeFileAsync(req, content, MXC.awaiter(callback))) :
-            this.assertSync(() => this.writeFileSync(req, content));
+            this.assertAsync() && this.writeFileAsync(req, content, callback) :
+            this.assertSync() && this.writeFileSync(req, content);
     }
 
     /**

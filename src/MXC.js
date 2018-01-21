@@ -1,9 +1,8 @@
 ﻿var
     _nextContextId = 1,
-    _activeContexts = [],
-    _activeCount = 0,
+    _activeContexts = { length: 0 },
     _currentContext = null,
-    _debugging = false;
+    _debugging = true;
 
 /**
  * MUD Execution Context (MXC)
@@ -15,17 +14,19 @@ class MXC {
      * @param {MXCFrame[]} frames Initial frames for the stack.
      * @param {function(MXC):void} init Initializer function.
      */
-    constructor(prev, frames, init) {
+    constructor(prev, frames, init, note) {
         this.alarm = false;
         this.client = false;
+        this.children = {};
         this.contextId = _nextContextId++;
-        this.currentVerb = driver.currentVerb;
         this.depth = 0;
         this.input = false;
+        this.note = note || 'unspecified';
         this.objectStack = frames ? frames.slice(0) : [];
+        this.onDestroy = false;
         this.previous = prev;
-        this.rawStack = '';
         this.refCount = 0;
+        this.released = false;
 
         if (prev) {
             this.client = prev.client;
@@ -43,17 +44,19 @@ class MXC {
             driver.getObjectStack(this);
 
         if (_debugging) {
-            _activeContexts.push(this);
-            _activeCount++;
+            _activeContexts[this.contextId] = this;
+            _activeContexts.length++;
             let padding = Array(this.depth + 1).join('\t');
+
+            if (this.previous) this.previous.children[this.contextId] = this;
 
             if (this.depth > 0) {
                 this.expr = prev.expr + '->' + this.contextId;
-                logger.log(`${padding}* MXC Child [${this.expr}]: [depth: ${this.depth}, active: ${_activeCount}]`);
+                logger.log(`${padding}* MXC Child [${this.expr}]: [depth: ${this.depth}, active: ${_activeContexts.length}; note: ${this.note}]`);
             }
             else {
                 this.expr = this.contextId;
-                logger.log(`${padding}* MXC Create [${this.contextId}]: [depth: ${this.depth}, active: ${_activeCount}]`);
+                logger.log(`${padding}* MXC Create [${this.contextId}]: [depth: ${this.depth}, active: ${_activeContexts.length}; note: ${this.note}]`);
             }
         }
     }
@@ -70,26 +73,26 @@ class MXC {
 
     /**
      * Clone the context and set this context as the previous context.
+     * @param {function(MXC):MXC} init Initializer for the clone.
+     * @param {string} note A note describing what the context is for.
+     * @returns {MXC} The new context
      */
-    clone(callback) {
-        driver.currentContext = new MXC(this, this.objectStack);
-        this.refCount++;
-        return driver.currentContext;
+    clone(init, note) {
+        let ptr = this, ret = new MXC(ptr, ptr.objectStack, init, note);
+        while (ptr) {
+            ptr.refCount++;
+            ptr = ptr.previous;
+        }
+        return ret;
     }
 
     /**
      * Clean up a dead context to decrement object references.
-     * TODO: This can only happen when all child contexts release.
+     * TODO: Delete/remove all properties to try and free mem faster.
      */
     destroy() {
-        //this.client = undefined;
-        //this.currentVerb = undefined;
-        //this.input = undefined;
-        //this.objectStack = undefined;
-        //this.previous = undefined;
-        //this.rawStack = undefined;
-        //this.thisPlayer = undefined;
-        //this.truePlayer = undefined;
+        this.released = true;
+        this.onDestroy && this.onDestroy();
     }
 
     /**
@@ -112,38 +115,30 @@ class MXC {
      * Release the current context and restore the previous context.
      */
     release() {
-        if (--this.refCount < 1) {
-            let prev = this.previous;
-            driver.restoreContext(prev.refCount > 0 ? prev : false);
-            if (_currentContext && _currentContext.refCount > 0 && _debugging) {
-                logger.log('\t-MXC Trying to restore a dead context');
-            }
-            if (_debugging) {
-                let index = _activeContexts.indexOf(this);
-                if (index > -1) {
-                    _activeContexts.splice(index, 1);
-                    _activeCount--;
+        let ptr = this, cur = MXC.init();
+
+        while (ptr) {
+            let padding = _debugging && Array(ptr.depth + 1).join('\t');
+            if (--ptr.refCount < 1) {
+                if (ptr.refCount < 0)
+                    throw new Error('MXC.release(): Negative reference count');
+                if (_debugging) {
+                    if (ptr.contextId in _activeContexts) {
+                        delete _activeContexts[ptr.contextId];
+                        _activeContexts.length--;
+                        logger.log(`${padding}- MXC Release [${ptr.expr}]: RefCount: ${ptr.refCount} [depth: ${ptr.depth}, remaining: ${_activeContexts.length}]`);
+                        if (ptr.previous) delete ptr.previous.children[ptr.contextId];
+                    }
+                    else {
+                        logger.log(`Re-release of deleted context ${ptr.contextId}`);
+                    }
                 }
+                ptr.destroy();
             }
-            // TODO: Parent context should be what triggers command complete.
-            //if (!prev && this.input) {
-            //    this.input.complete();
-            //}
+            else cur = ptr;
+            ptr = ptr.previous;
         }
-        if (_debugging) {
-            let padding = Array(this.depth + 1).join('\t');
-            if (this.refCount > 0) {
-                if (this.previous)
-                    logger.log(`${padding}- MXC Release [${this.expr}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}; ACTIVE]`);
-                else
-                    logger.log(`${padding}- MXC Release [${this.expr}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}; ACTIVE]`);
-            }
-            else
-                logger.log(`${padding}- MXC Release [${this.expr}]: RefCount: ${this.refCount} [depth: ${this.depth}, remaining: ${_activeCount}]`);
-        }
-        if (this.refCount < 1) {
-            this.destroy();
-        }
+        driver.restoreContext(cur);
     }
 
     /**
@@ -151,31 +146,21 @@ class MXC {
      * @returns {MXC}
      */
     restore() {
-        driver.restoreContext(this);
-        this.refCount++;
-        if (_debugging) {
-            let padding = Array(this.depth + 1).join('\t');
-            logger.log(`${padding}+ MXC Restore [${this.expr}]: RefCount: ${this.refCount} [depth: ${this.depth}, active: ${_activeCount}]`);
+        if (!this.released) {
+            this.refCount++;
+            driver.restoreContext(this);
+            if (_debugging) {
+                let padding = Array(this.depth + 1).join('\t');
+                logger.log(`${padding}+ MXC Restore [${this.expr}]: RefCount: ${this.refCount} [depth: ${this.depth}, active: ${_activeContexts.length}]`);
+            }
         }
+        else
+            throw new Error('MXC.restore() called on release context');
         return this;
     }
 
-    /**
-     * Run a block of code in this context and then switch back.
-     * @param {function(...any):any} callback
-     * @param {any[]} args The arguments to pass to the callback.
-     */
-    run(callback, args) {
-        try {
-            this.restore();
-            return callback(...(args || []));
-        }
-        catch (ex) {
-            throw driver.cleanError(ex);
-        }
-        finally {
-            this.release();
-        }
+    toString() {
+        return `MXC[ID=${this.contextId};Path=${this.expr};Note=${this.note}]`;
     }
 }
 
@@ -183,21 +168,18 @@ class MXC {
  * Create an awaiter for an asyncronous call.
  * @returns {function(...any)} An awaiter callback
  */
-MXC.awaiter = function (callback) {
-    let mxc = driver.getContext(),
-        clone = mxc.clone();
+MXC.awaiter = function (callback, note) {
+    let parent = driver.getContext(),
+        clone = parent.clone(false, `MXC.awaiter(): ${note}`);
     return (...args) => {
+        let prev = driver.getContext();
         try {
-            clone.join();
-            clone.restore();
+            clone.join().restore();
             return callback(...args);
-        }
-        catch (ex) {
-            throw driver.cleanError(ex);
         }
         finally {
             clone.release();
-            mxc.release();
+            driver.restoreContext(prev);
         }
     };
 };
@@ -208,7 +190,7 @@ MXC.awaiter = function (callback) {
  * @returns {MXC} The current context
  */
 MXC.init = function () {
-    return driver.currentContext;
+    return false;
 };
 
 module.exports = MXC;

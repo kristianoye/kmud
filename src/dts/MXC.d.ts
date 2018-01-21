@@ -26,6 +26,19 @@ declare class MXC {
      */
     clone(): MXC;
 
+    /**
+     * Clones the current context and allows for an initializer.
+     * @param init An optional initializer to customize the context.
+     */
+    clone(init: (newCtx: MXC) => MXC);
+
+    /**
+     * Clones the current context and allows for an initializer.
+     * @param init An optional initializer to customize the context.
+     * @param note A note describing what the context is for.
+     */
+    clone(init: (newCtx: MXC) => MXC, note: string);
+
     /** The verb that is executing in this context */
     readonly currentVerb: string;
 
@@ -37,8 +50,14 @@ declare class MXC {
     /** The number of items in the object stack */
     readonly length: number;
 
+    /** Brief description of what context is doing */
+    note: string;
+
     /** The object instances on the stack */
     readonly objectStack: MXCFrame[];
+
+    /** Callback that fires when the context is destroyed */
+    onDestroy: function(MXC):void;
 
     /**
      * Decrement the reference count and optionally restore the previous context.

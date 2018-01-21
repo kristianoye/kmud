@@ -10,6 +10,7 @@ const
     MUDEventEmitter = require('./MUDEventEmitter'),
     { MudlibFileMount } = require('./config/MudlibFileSystem'),
     FileSystem = require('./FileSystem').FileSystem,
+    MXC = require('./MXC'),
     path = require('path'),
     fs = require('fs');
 
@@ -126,6 +127,10 @@ class FileSystemRequest {
             }
         }
     }
+
+    toString() {
+        return `${this.op}:${this.fullPath}`;
+    }
 }
 
 /**
@@ -208,19 +213,19 @@ class FileManager extends MUDEventEmitter {
         if (!fileSystem)
             throw new Error('Fatal: Could not locate filesystem');
 
-        let mxc = driver.getContext(false);
-        try {
-            mxc.restore();
-            if (isAsync) {
-                if (typeof callback !== 'function')
-                    throw new Error('Async request must provide callback for createFileRequest()');
+        if (isAsync) {
+            if (typeof callback !== 'function')
+                throw new Error('Async request must provide callback for createFileRequest()');
 
-                return fileSystem.stat(relPath, (fss, err) => {
-                    let resultAsync = new FileSystemRequest(fileSystem, flags, op, expr, relPath, fss);
-                    return callback(resultAsync);
-                });
-            }
-            else {
+            return fileSystem.stat(relPath, MXC.awaiter((fss, err) => {
+                let resultAsync = new FileSystemRequest(fileSystem, flags, op, expr, relPath, fss);
+                return callback(resultAsync);
+            }, `createFileRequest:${op}:${expr}`));
+        }
+        else {
+            let mxc = driver.getContext(false, init => init.note = `createFileRequest:${op}:${expr}`);
+            try {
+                mxc.restore();
                 let fss = fileSystem.stat(relPath);
                 let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
                 try {
@@ -230,9 +235,9 @@ class FileManager extends MUDEventEmitter {
                     throw driver.cleanError(err);
                 }
             }
-        }
-        finally {
-            mxc.release();
+            finally {
+                mxc.release();
+            }
         }
     }
 

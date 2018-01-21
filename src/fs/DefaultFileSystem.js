@@ -1,6 +1,7 @@
 ﻿const
     FileSystem = require('../FileSystem').FileSystem,
     FileManager = require('../FileManager'),
+    MXC = require('../MXC'),
     path = require('path'),
     fs = require('fs');
 
@@ -258,10 +259,10 @@ class DefaultFileSystem extends FileSystem {
         return this.translatePath(req.pathRel, fullPath => {
             let pattern = req.fileName ? new RegExp('^' + req.fileName.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
             if (req.flags & GetDirFlags.ImplicitDirs && !fullPath.endsWith('/')) fullPath += path.sep;
-            fs.readdir(fullPath, { encoding: this.encoding }, (err, files) => {
+            fs.readdir(fullPath, { encoding: this.encoding }, MXC.awaiter((err, files) => {
                 if (pattern) files = files.filter(s => pattern.test(s)); 
                 return callback(!err && files, err);
-            });
+            }, `readDirectoryAsync:${req}`));
         });
     }
 
@@ -287,9 +288,9 @@ class DefaultFileSystem extends FileSystem {
      */
     readFileAsync(req, callback) {
         this.translatePath(req.relativePath, fullPath => {
-            return fs.readFile(fullPath, { encoding: this.encoding }, (err, str) => {
+            return fs.readFile(fullPath, { encoding: this.encoding }, MXC.awaiter((err, str) => {
                 return callback(!err && this.stripBOM(str), err);
-            });
+            }, `readFileAsync:${req}`));
         });
     }
 
@@ -311,7 +312,7 @@ class DefaultFileSystem extends FileSystem {
      * @returns {void} Nothing for async.
      */
     readJsonFileAsync(req, callback) {
-        return this.readFileAsync(req, (content, err) => {
+        return this.readFileAsync(req, MXC.awaiter((content, err) => {
             try {
                 return callback(!err && JSON.parse(content), err);
             }
@@ -319,7 +320,7 @@ class DefaultFileSystem extends FileSystem {
                 driver.cleanError(e);
                 callback(false, e);
             }
-        });
+        }, `readJsonFileAsync:${req}`));
     }
 
     /**
@@ -347,9 +348,9 @@ class DefaultFileSystem extends FileSystem {
      */
     statAsync(req, callback) {
         return this.translatePath(typeof req === 'string' ? req : req.relativePath, fullPath => {
-            return fs.exists(fullPath, doesExist => {
+            return fs.exists(fullPath, MXC.awaiter(doesExist => {
                 if (doesExist) {
-                    return fs.stat(fullPath, (err, stats) => {
+                    return fs.stat(fullPath, MXC.awaiter((err, stats) => {
                         return callback({
                             exists: true,
                             isDirectory: stats.isDirectory(),
@@ -357,7 +358,7 @@ class DefaultFileSystem extends FileSystem {
                             fileSize: stats.size,
                             parent: null
                         }, err);
-                    });
+                    }, `fs.stat:${req}`));
                 }
                 else {
                     return callback({
@@ -368,7 +369,7 @@ class DefaultFileSystem extends FileSystem {
                         fileSize: req.endsWith('/') ? -2 : -1
                     }, new Error(`Path does not exist: ${req}`));
                 }
-            });
+            }, `statAsync:${req}`));
         });
     }
 
@@ -449,7 +450,7 @@ class DefaultFileSystem extends FileSystem {
                 return fs.writeFile(filepath, content, {
                     encoding: this.encoding || 'utf8',
                     flag: 'w'
-                }, err => callback(!err, err));
+                }, MXC.awaiter(err => callback(!err, err), `fs.writeFile:${req}`));
             }
             catch (err) {
                 return callback(false, err);
