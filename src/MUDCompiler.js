@@ -81,14 +81,14 @@ class MUDCompiler {
                 }
                 else if (typeof spec === 'object') {
                     initData = self.components[spec.id];
-                    xtra = spec.parameters || spec.args || {};
+                    xtra = spec.parameters || spec.args || spec;
                     name = spec.id || 'unspecified';
                 }
                 if (!initData) {
                     throw new Error(`Configured language ${language.name} references undefined pipeline component: ${name}`);
                 }
                 var module = initData.module,
-                    args = Object.extend(initData.parameters, xtra);
+                    args = Object.extend({}, initData.parameters, xtra);
 
                 initData.refCount++;
 

@@ -9,6 +9,12 @@ const
     IllegalIdentifiers = ['__act', '__ala', '__afa'];
 
 class JSXTranspiler extends PipelineComponent {
+    constructor(config) {
+        super(config);
+        this.allowJsx = typeof config.allowJsx === 'boolean' ? config.allowJsx : true;
+        this.extension = config.extension || '.js';
+    }
+
     /**
      * Run the JSX transpiler.
      * @param {PipelineContext} context
@@ -33,6 +39,8 @@ class JSXTranspiler extends PipelineComponent {
              * @param {string} assertText
              */
             function addRuntimeAssert(e, assertText) {
+                let foo = source.slice(e.start, e.end),
+                    bod = e.body ? source.slice(e.body.start, e.body.end) : false;
                 if (e.body.type === 'EmptyStatement') {
                     let newBody = {
                         type: 'BlockStatement',
@@ -50,10 +58,13 @@ class JSXTranspiler extends PipelineComponent {
                     e.body = newBody;
                 }
                 else {
+                    let first = e.body.body[0] || false,
+                        start = first ? first.start : e.body.start + 1;
+
                     e.body.body.unshift({
-                        end: e.body.body[0].start,
+                        end: start,
                         type: 'RuntimeAssertion',
-                        start: e.body.body[0].start,
+                        start: start,
                         text: assertText
                     });
                 }
@@ -73,12 +84,19 @@ class JSXTranspiler extends PipelineComponent {
                 var ret = '';
                 if (!e)
                     return '';
+                //let
+                //    foo = e ? source.slice(e.start, e.end) : '';
+
                 if (e.start > pos) {
                     ret += source.slice(pos, e.start);
                     pos = e.start;
                 }
                 switch (e.type) {
                     case 'ArrayExpression':
+                        e.elements.forEach(_ => ret += parseElement(_, depth + 1));
+                        break;
+
+                    case 'ArrayPattern':
                         e.elements.forEach(_ => ret += parseElement(_, depth + 1));
                         break;
 
@@ -194,6 +212,8 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'JSXAttribute':
+                        if (!this.allowJsx)
+                            throw new Error(`JSX is not enabled for ${this.extension} files`);
                         pos = e.end;
                         ret += parseElement(e.name, depth + 1);
                         ret += ':';
@@ -202,11 +222,15 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'JSXClosingElement':
+                        if (!this.allowJsx)
+                            throw new Error(`JSX is not enabled for ${this.extension} files`);
                         ret += ')';
                         pos = e.end;
                         break;
 
                     case 'JSXElement':
+                        if (!this.allowJsx)
+                            throw new Error(`JSX is not enabled for ${this.extension} files`);
                         if (jsxDepth === 0) {
                             var jsxInX = source.slice(0, e.start).lastIndexOf('\n') + 1;
                             jsxIndent = source.slice(jsxInX, e.start);
@@ -229,6 +253,8 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'JSXIdentifier':
+                        if (!this.allowJsx)
+                            throw new Error(`JSX is not enabled for ${this.extension} files`);
                         if (e.name.match(/^[a-z]+/)) {
                             ret += `"${e.name}"`;
                         }
@@ -239,12 +265,16 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'JSXExpressionContainer':
+                        if (!this.allowJsx)
+                            throw new Error(`JSX is not enabled for ${this.extension} files`);
                         pos = e.expression.start;
                         ret += parseElement(e.expression, depth + 1);
                         pos = e.end;
                         break;
 
                     case 'JSXOpeningElement':
+                        if (!this.allowJsx)
+                            throw new Error(`JSX is not enabled for ${this.extension} files`);
                         pos = e.end;
                         ret += jsxWhitespace() + parseElement(e.name, depth + 1);
                         ret += ',\n' + jsxWhitespace() + '{';
@@ -256,6 +286,8 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'JSXText':
+                        if (!this.allowJsx)
+                            throw new Error(`JSX is not enabled for ${this.extension} files`);
                         ret += e.value.trim().length === 0 ? ret : `"${e.raw.replace(/\n/g, '\\n')}"`;
                         pos = e.end;
                         break;
@@ -291,11 +323,13 @@ class JSXTranspiler extends PipelineComponent {
 
                     case 'Property':
                         ret += parseElement(e.key, depth + 1);
-                        ret += parseElement(e.value, depth + 1);
+                        if (e.key.start !== e.value.start)
+                            ret += parseElement(e.value, depth + 1);
                         break;
 
-                    case 'SequenceExpression':
-                        e.expressions.forEach(_ => ret += parseElement(_, depth + 1));
+                    case 'RestElement':
+                        ret += parseElement(e.argument, depth + 1);
+                        pos = e.end;
                         break;
 
                     case 'ReturnStatement':
@@ -309,6 +343,14 @@ class JSXTranspiler extends PipelineComponent {
                     case 'SwitchCase':
                         ret += parseElement(e.test, depth + 1);
                         e.consequent.forEach(_ => ret += parseElement(_, depth + 1));
+                        break;
+
+                    case 'SequenceExpression':
+                        e.expressions.forEach(_ => ret += parseElement(_, depth + 1));
+                        break;
+
+                    case 'SpreadElement':
+                        ret += parseElement(e.argument, depth + 1);
                         break;
 
                     case 'Super':
@@ -327,9 +369,11 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'TemplateLiteral':
-                        ret += parseElement(e.quasis[0], depth + 1);
-                        e.expressions.forEach(_ => ret += parseElement(_, depth + 1));
-                        ret += parseElement(e.quasis[1], depth + 1);
+                        ret += source.slice(e.start, e.end);
+                        pos = e.end;
+                        //ret += parseElement(e.quasis[0], depth + 1);
+                        //e.expressions.forEach(_ => ret += parseElement(_, depth + 1));
+                        //ret += parseElement(e.quasis[1], depth + 1);
                         break;
 
                     case 'ThisExpression':
@@ -382,7 +426,7 @@ class JSXTranspiler extends PipelineComponent {
                 return ret;
             }
 
-            ast.body.forEach((n, i) => output += parseElement(n, 0));
+            ast.body.forEach((n, i) => output += parseElement.call(this, n, 0));
             if (pos < max) output += source.slice(pos, max);
             return context.update(PipeContext.CTX_RUNNING, output);
         }

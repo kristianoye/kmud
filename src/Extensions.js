@@ -33,18 +33,26 @@ function extendPrototype(pt, spec) {
 //  Extend Object
 (function (pt) {
     extendPrototype(pt, {
-        extend: function () {
-            var a = [].slice.call(arguments), result = a[0] || {};
-
-            for (var i = 1, len = a.length; i < len; i++) {
-                var copyFrom = a[i];
-                if (typeof copyFrom === 'object') {
-                    for (var k in copyFrom) {
-                        result[k] = copyFrom[k];
-                    }
+        extend: function (target, ...obs) {
+            obs.forEach(o => {
+                if (typeof o === 'object') {
+                    Object.keys(o).forEach(k => {
+                        target[k] = o[k];
+                    });
                 }
-            }
-            return result;
+                else if (typeof o === 'string') {
+                    target[o] = o;
+                }
+            });
+            //for (var i = 1, len = a.length; i < len; i++) {
+            //    var copyFrom = a[i];
+            //    if (typeof copyFrom === 'object') {
+            //        for (var k in copyFrom) {
+            //            result[k] = copyFrom[k];
+            //        }
+            //    }
+            //}
+            return target;
         }
     });
 })(Object);

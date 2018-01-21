@@ -71,6 +71,15 @@ class MUDLoader {
             }
         }
 
+        function createTimeoutError() {
+            let error = new TimeoutError('Maximum execution time exceeded');
+            Error.captureStackTrace(error, createTimeoutError);
+            let stack = error.stack.split('\n');
+            stack.splice(1, 1);
+            error.stack = stack.join('\n');
+            return error;
+        }
+
         Object.defineProperties(this, {
             $: {
                 value: function (file) {
@@ -93,8 +102,8 @@ class MUDLoader {
                 value: function () {
                     let ctx = driver.getContext(),
                         now = new Date().getTime();
-                    if (ctx.alarm < now)
-                        throw new TimeoutError('Maximum execution time exceeded');
+                    if (ctx.alarm && ctx.alarm < now)
+                        throw createTimeoutError();
                 },
                 writable: false
             },
@@ -105,8 +114,8 @@ class MUDLoader {
                         let ctx = driver.getContext(),
                             now = new Date().getTime();
                         _loopCounter = 1000;
-                        if (ctx.alarm < now)
-                            throw new TimeoutError('Maximum execution time exceeded');
+                        if (ctx.alarm && ctx.alarm < now)
+                            throw createTimeoutError();
                     }
                 },
                 writable: false

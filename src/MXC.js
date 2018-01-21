@@ -3,7 +3,7 @@
     _activeContexts = [],
     _activeCount = 0,
     _currentContext = null,
-    _debugging = true;
+    _debugging = false;
 
 /**
  * MUD Execution Context (MXC)

@@ -296,7 +296,7 @@ class GameServer extends MUDEventEmitter {
      */
     createPreloads() {
         let mxc = this.getContext(true, init => {
-            init.alarm = 60 * 2 * 1000;
+            init.alarm = new Date().getTime() +  (60 * 2 * 1000);
             init.addFrame({ file: this.masterObject.filename, object: this.masterObject, func: 'createPreloads' });
         }, 'createPreloads');
 
