@@ -50,6 +50,16 @@ class RanvierTelnetInstance extends ClientInstance {
         this.client.end();
     }
 
+    /**
+     * Write a prompt on the client.
+     * @param {MUDInputEvent} evt
+     */
+    displayPrompt(evt) {
+        if (this.inputStack.length === 0) {
+            this.write(evt.prompt.text);
+        }
+    }
+
     addPrompt(opts, callback) {
         if (typeof opts === 'string') {
             opts = { text: opts, type: 'text' };

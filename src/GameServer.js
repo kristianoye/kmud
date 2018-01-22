@@ -483,6 +483,9 @@ class GameServer extends MUDEventEmitter {
             }).filter(f => typeof f === 'object');
             mxc.alarm = mxc && new Date().getTime() + 2000;
             this.applyErrorHandler.call(this.masterObject, error, caught);
+            if (mxc.input) {
+                mxc.input.complete();
+            }
         }
     }
 

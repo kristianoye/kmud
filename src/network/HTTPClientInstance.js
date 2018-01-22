@@ -14,107 +14,24 @@ const
     MUDEventEmitter = require('../MUDEventEmitter');
 
 class HTTPClientInstance extends ClientInstance {
-
-    createCommandEvent(input, callback) {
-        if (!callback) {
-            callback = function (evt) {
-                if (!evt.prompt.recapture) {
-                    this.renderPrompt(evt.prompt);
-                }
-            };
-        }
-        return super.createCommandEvent(input, callback, 'Enter a command...');
-    }
     constructor(endpoint, client) {
         super(endpoint, client, client.request.connection.remoteAddress);
 
         var self = this, body, $storage;
 
         this[_callbacks] = {};
-
-        function commandComplete(evt) {
-            if (!evt.prompt.recapture) {
-                self.renderPrompt(evt.prompt);
-            }
-        }
-
-        function dispatchInput(resp) {
-            let evt = self.createCommandEvent(resp.cmdline, commandComplete, 'Enter a command...');
-            try {
-                var body = this.body;
-
-                gameMaster.setThisPlayer(body(), true);
-
-                if (tripwire) {
-                    tripwire.resetTripwire(2000, {
-                        player: body(),
-                        input: resp
-                    });
-                }
-
-                if (this.inputStack.length > 0) {
-                    var p = this.inputStack.pop();
-
-                    // The function needs to be put back on the stack
-                    if (resp.simpleForm) {
-                        var result;
-                        try {
-                            result = p.callback.call(body(), resp.cmdline);
-                        }
-                        catch (_err) {
-                            this.writeLine(_err.message);
-                            this.writeLine(_err.stack);
-                            result = true;
-                        }
-                        if (result === true) {
-                            //  Put the input frame back on the stack
-                            this.inputStack.push(p);
-                            this.renderPrompt(p);
-                        }
-                    }
-                }
-                else {
-                    $storage.emit('kmud.command', evt);
-                }
-            }
-            catch (err) {
-                this.eventSend({
-                    eventType: 'remoteError',
-                    eventData: {
-                        message: 'An error occurred processing your request; Please try again.'
-                    }
-                });
-                if (evt) evt.callback(evt);
-                driver.errorHandler(err, false);
-            }
-            finally {
-                gameMaster.setThisPlayer(false, true);
-            }
-        }
+        client.echoing = true; // total hack for now
 
         client.on('disconnect', client => {
             self.emit('disconnected', self);
-            gameMaster.removePlayer(self.body);
-        });
-
-        gameMaster.on('kmud.exec', evt => {
-            if (evt.client === self) {
-                body = evt.newBody;
-                $storage = evt.newStorage;
-            }
+            driver.removePlayer(self.body);
         });
 
         client.on('kmud', data => {
             switch (data.eventType) {
                 case 'consoleInput':
-                    var t0 = new Date().getTime();
-                    try {
-                        return dispatchInput.call(this, data.eventData);
-                    }
-                    finally {
-                        var te = new Date().getTime() - t0;
-                        logger.log(`Command took ${te} ms to execute.`);
-                    }
+                    let text = data.toString('utf8');
+                    return this.enqueueCommand(data.eventData.cmdline);
 
                 default:
                     var eventType = data.eventType,
@@ -146,15 +63,6 @@ class HTTPClientInstance extends ClientInstance {
         return true;
     }
 
-    close(reason) {
-        this.eventSend({
-            eventType: 'kmud.disconnect',
-            eventData: reason || '[No Reason Given]'
-        });
-        this.client.emit('console.disconnect');
-        this.client.disconnect();
-    }
-
     /**
      * Prompts the user for input
      * @param {Object} opts Options to include in the prompt request.
@@ -176,8 +84,17 @@ class HTTPClientInstance extends ClientInstance {
             data: prompt,
             callback: callback
         };
-        this.inputStack.push(frame);
+        if (prompt.nostack !== true) this.inputStack.push(frame);
         return this.renderPrompt(frame.data);
+    }
+
+    close(reason) {
+        this.eventSend({
+            eventType: 'kmud.disconnect',
+            eventData: reason || '[No Reason Given]'
+        });
+        this.client.emit('console.disconnect');
+        this.client.disconnect();
     }
 
     /**
@@ -191,10 +108,45 @@ class HTTPClientInstance extends ClientInstance {
      */
     get defaultTerminalType() { return 'kmud'; }
 
+    /**
+     * Write a prompt on the client.
+     * @param {MUDInputEvent} evt
+     */
+    displayPrompt(evt) {
+        if (this.inputStack.length === 0) {
+            this.addPrompt({
+                type: 'text',
+                nostack: true,
+                text: evt.prompt.text,
+                target: 'console.prompt'
+            });
+        }
+    }
+
+    /**
+     * Send an arbitrary event to the client.
+     * @param {any} data
+     */
     eventSend(data) {
         if (typeof data.eventType !== 'string')
             throw new Error('Invalid MUD event: ' + JSON.stringify(data));
         this.client.emit('kmud', data);
+    }
+
+    /**
+     * 
+     * @param {any} evt
+     */
+    handleExec(evt) {
+        super.handleExec(evt);
+        if (evt.oldBody) {
+            this.addPrompt({
+                type: 'text',
+                nostack: true,
+                text: this.defaultPrompt,
+                target: 'console.prompt'
+            });
+        }
     }
 
     registerCallback(name, callback) {

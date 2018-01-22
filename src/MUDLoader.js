@@ -10,7 +10,8 @@ const
     sEfuns = Symbol('LoaderEfuns'),
     sArgs = Symbol('ConstructorArgs'),
     sLoaderEnabled = Symbol('LoaderEnabled'),
-    TimeoutError = require('./ErrorTypes').TimeoutError;
+    TimeoutError = require('./ErrorTypes').TimeoutError,
+    loopsPerAssert = 10000;
 
 var _includeCache = [];
 
@@ -28,7 +29,7 @@ class MUDLoader {
             _extending = false,
             _isSingleton = false,
             _loaderEnabled = false,
-            _loopCounter = 1000,
+            _loopCounter = loopsPerAssert,
             _primaryExport = false,
             _oldEfuns = _efuns;
         var
@@ -113,7 +114,7 @@ class MUDLoader {
                     if (--_loopCounter === 0) {
                         let ctx = driver.getContext(),
                             now = new Date().getTime();
-                        _loopCounter = 1000;
+                        _loopCounter = loopsPerAssert;
                         if (ctx.alarm && ctx.alarm < now)
                             throw createTimeoutError();
                     }

@@ -84,9 +84,7 @@ class ClientInstance extends EventEmitter {
      */
     commandComplete(nextAction, evt) {
         this.releaseContext();
-        if (this.inputStack.length === 0) {
-            this.write(evt.prompt.text);
-        }
+        this.displayPrompt(evt);
         return nextAction;
     }
 
@@ -129,11 +127,11 @@ class ClientInstance extends EventEmitter {
      * @param {MUDInputEvent} cmdEvent The command to be executed.
      */
     createContext(cmdEvent) {
-        if (this.context !== false)
+        if (this.context !== false && !this.context.released)
             throw new Error(`Client may not have multiple active contexts!`);
 
         this.context = driver.getContext(true, mxc => {
-            mxc.alarm = new Date().getTime() + maxCommandExecutionTime;
+            mxc.alarm = maxCommandExecutionTime ? new Date().getTime() + maxCommandExecutionTime : Number.MAX_SAFE_INTEGER;
             mxc.client = this;
             mxc.input = cmdEvent;
             mxc.note = 'executeCommand';
@@ -243,7 +241,7 @@ class ClientInstance extends EventEmitter {
         }
         catch (ex) {
             driver.errorHandler(ex, false);
-            this.releaseContext();
+            cmdEvent.complete();
         }
     }
 
@@ -258,13 +256,15 @@ class ClientInstance extends EventEmitter {
         driver.removePlayer(evt.oldBody);
         driver.setThisPlayer(this.body, true, '');
         this.inputStack = [];
-        this.createContext({
-            args: [],
-            original: '',
-            fromHistory: false,
-            complete: function () { },
-            verb: ''
-        });
+        if (!this.context) {
+            this.createContext({
+                args: [],
+                original: '',
+                fromHistory: false,
+                complete: function () { },
+                verb: ''
+            });
+        }
         this.context.restore();
         this.$storage.emit('kmud.exec', evt);
         this.releaseContext();
