@@ -348,12 +348,12 @@ class GameServer extends MUDEventEmitter {
             ClientInstance = require('./network/ClientInstance'),
             MUDCache = require('./MUDCache'),
             MUDCompiler = require('./MUDCompiler'),
-            MUDObject = require('./MUDObject'),
             EFUNProxy = require('./EFUNProxy'),
             MUDModule = require('./MUDModule'),
             MUDStorage = require('./MUDStorage'),
             MUDLoader = require('./MUDLoader');
 
+        MUDObject = require('./MUDObject');
         EFUNProxy.configureForRuntime(this);
         MUDCompiler.configureForRuntime(this);
         MUDLoader.configureForRuntime(this);
@@ -481,11 +481,13 @@ class GameServer extends MUDEventEmitter {
                     return frame;
                 }
             }).filter(f => typeof f === 'object');
-            mxc.alarm = mxc && new Date().getTime() + 2000;
-            this.applyErrorHandler.call(this.masterObject, error, caught);
-            if (mxc.input) {
-                mxc.input.complete();
+            if (mxc) {
+                mxc.alarm = mxc.alarm && new Date().getTime() + 2000;
+                if (mxc.input) {
+                    mxc.input.complete();
+                }
             }
+            this.applyErrorHandler.call(this.masterObject, error, caught);
         }
     }
 
@@ -574,7 +576,8 @@ class GameServer extends MUDEventEmitter {
         let isUnguarded = false,
             _stack = stack(),
             result = [],
-            fullStack = [];
+            fullStack = [],
+            obs = [];
 
         for (let i = 1, max = _stack.length; i < max; i++) {
             let cs = _stack[i],
@@ -592,13 +595,16 @@ class GameServer extends MUDEventEmitter {
                     module = this.cache.get(fileParts[0]);
 
                 if (module) {
+                    let ob = module.instances[instanceId] || { filename: fileParts[0] };
                     let frame = {
-                        object: module.instances[instanceId] || { filename: fileParts[0] },
+                        object: ob,
                         file: fileParts[0],
                         func: funcName || 'constructor'
                     };
                     if (frame.object === null)
                         throw new Error(`Illegal call in constructor [${fileParts[0]}`);
+
+                    if(ob && ob instanceof MUDObject && obs[obs.length - 1] !== ob) obs.push(ob);
 
                     if (isUnguarded) {
                         return [frame];

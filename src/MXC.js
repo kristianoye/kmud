@@ -122,6 +122,7 @@ class MXC {
             if (--ptr.refCount < 1) {
                 if (ptr.refCount < 0)
                     throw new Error('MXC.release(): Negative reference count');
+
                 if (_debugging) {
                     if (ptr.contextId in _activeContexts) {
                         delete _activeContexts[ptr.contextId];

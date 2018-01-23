@@ -431,7 +431,9 @@ class MUDLoader {
                 value: global.String
             },
             thisPlayer: {
-                get: function () { return driver.thisPlayer; }
+                get: function (flag) {
+                    return flag ? driver.currentContext.truePlayer : driver.currentContext.thisPlayer;
+                }
             },
             unwrap: {
                 get: function () { return unwrap; }

@@ -1,6 +1,7 @@
 ﻿const
-    FileSystem = require('../FileSystem').FileSystem,
+    { FileSystem, FileSystemStat } = require('../FileSystem'),
     FileManager = require('../FileManager'),
+    async = require('async'),
     MXC = require('../MXC'),
     path = require('path'),
     fs = require('fs');
@@ -13,6 +14,9 @@ class DefaultFileSystem extends FileSystem {
      */
     constructor(fm, options) {
         super(fm, options);
+
+        /** @type {number} */
+        this.asyncReaderLimit = options.asyncReaderLimit > 0 ? options.asyncReaderLimit : 10;
 
         /** @type {string} */
         this.root = path.resolve(fm.mudlibRoot, options.path);
@@ -139,6 +143,17 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
+     * @param {Stats} stat The filesystem stat from node.
+     * @returns {FileSystemStat} The stat object
+     */
+    createStat(stat) {
+        fs.Stat
+        return FileSystemStat.create({
+
+        });
+    }
+
+    /**
      * Translate an absolute path back into a virtual path.
      * @param {string} expr The absolute path to translate.
      * @returns {string|false} The virtual path if the expression exists in this filesystem or false if not.
@@ -259,9 +274,59 @@ class DefaultFileSystem extends FileSystem {
         return this.translatePath(req.pathRel, fullPath => {
             let pattern = req.fileName ? new RegExp('^' + req.fileName.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
             if (req.flags & GetDirFlags.ImplicitDirs && !fullPath.endsWith('/')) fullPath += path.sep;
-            fs.readdir(fullPath, { encoding: this.encoding }, MXC.awaiter((err, files) => {
-                if (pattern) files = files.filter(s => pattern.test(s)); 
-                return callback(!err && files, err);
+
+            fs.readdir(fullPath, { encoding: this.encoding }, MXC.awaiter((/** @type {Error} */ err, /** @type {string[]} */ files) => {
+                if (req.flags === 0)
+                    return callback(files, err);
+
+                let results = [],
+                    mxc = driver.getContext().clone();
+
+                mxc.restore();
+
+                async.forEachOfLimit(files, this.asyncReaderLimit, (fn, i, itr) => {
+                    let fd = FileSystemStat.create({
+                        exists: true,
+                        name: fn,
+                        parent: req.fullPath,
+                        isDirectory: false,
+                        isFile: false,
+                        size: 0
+                    });
+
+                    //  Does it match the pattern?
+                    if (pattern && !pattern.test(fn)) return itr();
+
+                    //  Is the file hidden?
+                    if ((req.flags & GetDirFlags.Hidden) === 0 && fn.startsWith('.')) return itr();
+
+                    // Do we need to stat?
+                    if ((req.flags & GetDirFlags.Defaults) > 0) {
+                        return fs.stat(fullPath + '/' + fn, (err, stat) => {
+                            if ((req.flags & GetDirFlags.Dirs) === 0 && (fd.isDirectory = stat.isDirectory())) return itr();
+                            if ((req.flags & GetDirFlags.Files) === 0 && (fd.isFile = stat.isFile())) return itr();
+
+                            fd.dev = stat.dev;
+                            fd.size = stat.size;
+                            fd.atime = stat.atimeMs;
+                            fd.ctime = stat.ctimeMs;
+                            fd.mtime = stat.mtimeMs;
+
+                            if (fd.isDirectory) fd.size = -2;
+                            results.push(fd);
+
+                            return itr(err);
+                        });
+                    }
+                    return itr();
+                }, err => {
+                    try {
+                        callback(results, err);
+                    }
+                    finally {
+                        mxc.release();
+                    }
+                });
             }, `readDirectoryAsync:${req}`));
         });
     }
@@ -274,9 +339,51 @@ class DefaultFileSystem extends FileSystem {
         return this.translatePath(req.pathRel, fullPath => {
             let pattern = req.fileName ? new RegExp('^' + req.fileName.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
             if (req.flags & GetDirFlags.ImplicitDirs && !fullPath.endsWith('/')) fullPath += path.sep;
-            let files = fs.readdirSync(fullPath, { encoding: this.encoding });
-            if (pattern) files = files.filter(s => pattern.test(s));
-            return files;
+            let files = fs.readdirSync(fullPath, { encoding: this.encoding }),
+                result = [];
+
+            if (req.flags === 0)
+                return files;
+
+            files.forEach(fn => {
+                let fd = FileSystemStat.create({
+                    exists: true,
+                    name: fn,
+                    parent: req.fullPath,
+                    isDirectory: false,
+                    isFile: false,
+                    size: 0
+                });
+                //  Does it match the pattern?
+                if (pattern && !pattern.test(fn))
+                    return false;
+
+                //  Is the file hidden?
+                if ((req.flags & GetDirFlags.Hidden) === 0 && fn.startsWith('.'))
+                    return false;
+
+                // Do we need to stat?
+                if ((req.flags & GetDirFlags.Defaults) > 0) {
+                    let stat = fs.statSync(fullPath + '/' + fn);
+                    if ((req.flags & GetDirFlags.Dirs) === 0 && (fd.isDirectory = stat.isDirectory()))
+                        return false;
+
+                    if ((req.flags & GetDirFlags.Files) === 0 && (fd.isFile = stat.isFile()))
+                        return false;
+
+                    fd.dev = stat.dev;
+                    fd.size = stat.size;
+                    fd.atime = stat.atimeMs;
+                    fd.ctime = stat.ctimeMs;
+                    fd.mtime = stat.mtimeMs;
+                    if (fd.isDirectory) fd.size = -2;
+                }
+                if ((req.flags & GetDirFlags.Perms) > 0) {
+
+                }
+                result.push(fd);
+            });
+            return result;
         });
     }
 

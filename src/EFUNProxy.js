@@ -1300,7 +1300,7 @@ class EFUNProxy {
     }
 
     thisPlayer(flag) {
-        return flag ? driver.truePlayer || driver.thisPlayer : driver.thisPlayer;
+        return flag ? driver.currentContext.truePlayer : driver.currentContext.thisPlayer;
     }
 
     /**
@@ -1491,6 +1491,15 @@ EFUNProxy.configureForRuntime = function (driver) {
     }
     else {
         EFUNProxy.prototype.previousObject = function (n) {
+            //let mxc = driver.getContext(false, init => init.note = 'previousObject');
+            //try {
+            //    mxc.join().restore();
+            //    let result = n === -1 ? mxc.objectStack.reverse() : mxc.objectStack[l - n - 1];
+            //    return result;
+            //}
+            //finally {
+            //    mxc.release();
+            //}
             let objectStack = [], index = (n || 0) + 1;
             stack().forEach((cs, i) => {
                 let fn = cs.getFileName() || '[no file]',

@@ -39,6 +39,9 @@ class FileSystemStat {
         this.perms = data.perms || {};
 
         /** @type {number} */
+        this.size = 0;
+
+        /** @type {number} */
         this.type = data.perms || FT_UNKNOWN; 
     }
 
@@ -62,6 +65,14 @@ class FileSystemStat {
         return result;
     }
 }
+
+/**
+ * @param {FileSystemStat} result The spec to create a stat from.
+ * @returns {FileSystemStat} An actual stat object.
+ */
+FileSystemStat.create = function (result) {
+    return new FileSystemStat(result);
+};
 
 /**
  * @class
