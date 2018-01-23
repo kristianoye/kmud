@@ -581,11 +581,14 @@ class GameServer extends MUDEventEmitter {
 
         for (let i = 1, max = _stack.length; i < max; i++) {
             let cs = _stack[i],
-                fileName = cs.getFileName(), lineNumber = cs.getLineNumber(),
+                colNumber = cs.getColumnNumber(),
+                fileName = cs.getFileName(),
+                lineNumber = cs.getLineNumber(),
                 funcName = cs.getMethodName() || cs.getFunctionName(),
-                fileParts = fileName ? fileName.split('#') : false;
+                fileParts = fileName ? fileName.split('#') : false,
+                sig = `${fileName}::${funcName} [${lineNumber}:${colNumber}]`;
 
-            fullStack.push(`${fileName}::${funcName} [${lineNumber}]`);
+            fullStack.push(sig);
 
             if (fileName === this.efunProxyPath) {
                 if (funcName === 'unguarded') isUnguarded = true;
@@ -599,22 +602,19 @@ class GameServer extends MUDEventEmitter {
                     let frame = {
                         object: ob,
                         file: fileParts[0],
-                        func: funcName || 'constructor'
+                        func: funcName || 'constructor',
+                        sig
                     };
                     if (frame.object === null)
                         throw new Error(`Illegal call in constructor [${fileParts[0]}`);
-
-                    if(ob && ob instanceof MUDObject && obs[obs.length - 1] !== ob) obs.push(ob);
 
                     if (isUnguarded) {
                         return [frame];
                     }
                     result.unshift(frame);
+                    if (ctx) ctx.addFrame(frame);
                 }
             }
-        }
-        if (ctx) {
-            ctx.objectStack.push(...result);
         }
         return result;
     }

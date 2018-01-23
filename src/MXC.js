@@ -2,7 +2,7 @@
     _nextContextId = 1,
     _activeContexts = { length: 0 },
     _currentContext = null,
-    _debugging = true;
+    _debugging = false;
 
 /**
  * MUD Execution Context (MXC)
@@ -13,11 +13,15 @@ class MXC {
      * @param {MXC} prev The previous context.
      * @param {MXCFrame[]} frames Initial frames for the stack.
      * @param {function(MXC):void} init Initializer function.
+     * @param {string} note A description of what the context is for.
      */
     constructor(prev, frames, init, note) {
+        this.aborted = false;
         this.alarm = false;
         this.client = false;
-        this.children = {};
+
+        /** @type {Object.<number,MXC>} */
+        this.children = { length: 0 };
         this.contextId = _nextContextId++;
         this.depth = 0;
         this.input = false;
@@ -27,6 +31,8 @@ class MXC {
         this.previous = prev;
         this.refCount = 0;
         this.released = false;
+        /** @type {Object.<string,boolean>} */
+        this.sigs = {};
 
         if (prev) {
             this.client = prev.client;
@@ -35,6 +41,8 @@ class MXC {
             this.thisPlayer = prev.thisPlayer;
             this.truePlayer = prev.truePlayer;
             this.$storage = driver.storage.get(this.thisPlayer);
+            this.previous.children[this.contextId] = this;
+            this.previous.children.length++;
         }
 
         if (init)
@@ -47,9 +55,6 @@ class MXC {
             _activeContexts[this.contextId] = this;
             _activeContexts.length++;
             let padding = Array(this.depth + 1).join('\t');
-
-            if (this.previous) this.previous.children[this.contextId] = this;
-
             if (this.depth > 0) {
                 this.expr = prev.expr + '->' + this.contextId;
                 logger.log(`${padding}* MXC Child [${this.expr}]: [depth: ${this.depth}, active: ${_activeContexts.length}; note: ${this.note}]`);
@@ -62,7 +67,21 @@ class MXC {
     }
 
     /**
-     * Manually add a frame to the object stack.
+     * Abort the context and any child contexts
+     */
+    abort() {
+        let prev = this.previous;
+        for (var i in this.children) {
+            if (typeof i === 'number') {
+                this.children[i].abort();
+            }
+        }
+        this.aborted = true;
+        return this;
+    }
+
+    /**
+     * Add a frame to the object stack.
      * @param {MXCFrame} frame The frame to add to the stack.
      * @returns {MXC}
      */
@@ -91,8 +110,13 @@ class MXC {
      * TODO: Delete/remove all properties to try and free mem faster.
      */
     destroy() {
+        let prev = this.previous;
         this.released = true;
         this.onDestroy && this.onDestroy();
+        if (prev) {
+            delete prev.children[this.contextId];
+            prev.children.length--;
+        }
     }
 
     /**
@@ -128,7 +152,6 @@ class MXC {
                         delete _activeContexts[ptr.contextId];
                         _activeContexts.length--;
                         logger.log(`${padding}- MXC Release [${ptr.expr}]: RefCount: ${ptr.refCount} [depth: ${ptr.depth}, remaining: ${_activeContexts.length}]`);
-                        if (ptr.previous) delete ptr.previous.children[ptr.contextId];
                     }
                     else {
                         logger.log(`Re-release of deleted context ${ptr.contextId}`);
@@ -187,7 +210,7 @@ MXC.awaiter = function (callback, note) {
 
 
 /**
- * Initialize a placeholder context.
+ * Initialize a placeholder context (mainly for intellisense)
  * @returns {MXC} The current context
  */
 MXC.init = function () {

@@ -7,11 +7,24 @@
 
     /** The object instance making the call */
     readonly object: MUDObject;
+
+    /** The frame 'signature' used to prevent duplicates */
+    readonly sig: string;
 }
 
 declare class MXC {
     /**
-     * Manually creates a frame on the object stick.
+     * Aborts a context, requesting all operations to cancel.
+     */
+    abort(): MXC;
+
+    /**
+     * Indicates if the context has been aborted.
+     */
+    readonly aborted: boolean;
+
+    /**
+     * Creates a frame on the object stack.
      * @param frame
      */
     addFrame(frame: MXCFrame): MXC;
@@ -38,9 +51,6 @@ declare class MXC {
      * @param note A note describing what the context is for.
      */
     clone(init: (newCtx: MXC) => MXC, note: string);
-
-    /** The verb that is executing in this context */
-    readonly currentVerb: string;
 
     /**
      * Adds any additional frames to the context's object stack.

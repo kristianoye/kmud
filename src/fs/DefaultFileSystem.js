@@ -279,12 +279,12 @@ class DefaultFileSystem extends FileSystem {
                 if (req.flags === 0)
                     return callback(files, err);
 
-                let results = [],
-                    mxc = driver.getContext().clone();
-
-                mxc.restore();
+                let results = [], ctx = driver.getContext();
+                if (ctx.aborted) return callback(false, 'Aborted');
+                let mxc = driver.getContext().clone().restore();
 
                 async.forEachOfLimit(files, this.asyncReaderLimit, (fn, i, itr) => {
+                    if (ctx.aborted) return itr();
                     let fd = FileSystemStat.create({
                         exists: true,
                         name: fn,
@@ -321,7 +321,7 @@ class DefaultFileSystem extends FileSystem {
                     return itr();
                 }, err => {
                     try {
-                        callback(results, err);
+                        ctx.aborted ? callback(false, 'Aborted') : callback(results, err);
                     }
                     finally {
                         mxc.release();

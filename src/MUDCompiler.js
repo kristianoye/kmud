@@ -141,7 +141,7 @@ class MUDCompiler {
             return false;
 
         let mxc = driver.getContext(false, init => init.note = `Loading ${filename}`)
-            .addFrame({ file: filename, func: 'constructor', object: null }).restore();
+            .addFrame({ file: filename, func: 'constructor', object: null, sig: `${filename}::constructor [0:0]` }).restore();
         try {
             let context = new PipeContext.PipelineContext(filename),
                 module = this.driver.cache.get(context.basename),
