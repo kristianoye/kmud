@@ -5,6 +5,8 @@
     GAMESTATE_RUNNING = 3,
     GAMESTATE_SHUTDOWN = 4;
 
+Error.stackTraceLimit = Infinity;
+
 const
     MUDLogger = require('./MUDLogger'),
     MUDGlobals = require('./MUDGlobals');

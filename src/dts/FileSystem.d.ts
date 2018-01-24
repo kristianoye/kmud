@@ -8,6 +8,9 @@ declare class FileSystem {
      */
     addSecurityManager(manager: FileSecurity): void;
 
+    appendFile(expr: string, content: string): boolean;
+    appendFile(expr: string, content: string, callback: (success: boolean, error: Error) => void): void;
+
     /**
      * Checks to see if the expression is a directory.
      * @param req The path being evaluated.
@@ -46,6 +49,9 @@ declare class FileSystem {
 
     stat(expr: string, flags: number): FileSystemStat;
     stat(expr: string, flags: number, callback: (stats: FileSystemStat, error: Error) => void): void;
+
+    writeFile(expr: string, content: string): boolean;
+    writeFile(expr: string, content: string, callback: (success: boolean, error: Error) => void): void;
 
 }
 

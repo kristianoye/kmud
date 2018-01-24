@@ -254,6 +254,25 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
+     *
+     * @param {EFUNProxy} efuns
+     * @param {string} expr
+     * @param {string} content
+     * @param {function(boolean,Error):void} callback
+     */
+    appendFile(efuns, expr, content, callback) {
+        if (typeof options === 'function') {
+            callback = options;
+            options = false;
+        }
+        return this.createFileRequest('appendFile', expr, typeof callback !== 'undefined', 0, req => {
+            return req.securityManager.validAppendFile(efuns, req) ?
+                req.fileSystem.appendFile(req, content, callback) :
+                req.securityManager.denied('appendFile', req.fullPath);
+        });
+    }
+
+    /**
      * Create a directory in the MUD filesystem.
      * @param {EFUNProxy} efuns The object creating the directory.
      * @param {string} expr The path to create.
@@ -263,7 +282,7 @@ class FileManager extends MUDEventEmitter {
     createDirectory(efuns, expr, options, callback) {
         return this.createFileRequest('createDirectory', expr, typeof callback === 'function', options.flags, req => {
             req.options = options;
-            return req.securityManager.validCreateDirectory(efuns, req.fullPath) ?
+            return req.securityManager.validCreateDirectory(efuns, req) ?
                 req.fileSystem.createDirectory(req, callback) :
                 req.securityManager.denied('createDirectory', req.fullPath);
         });
@@ -277,7 +296,7 @@ class FileManager extends MUDEventEmitter {
      */
     deleteFile(efuns, expr, callback) {
         return this.createFileRequest('deleteFile', expr, typeof callback === 'function', 0, req => {
-            return req.securityManager.validDeleteFile(efuns, req.fullPath) ?
+            return req.securityManager.validDeleteFile(efuns, req) ?
                 req.fileSystem.deleteFile(req, callback) :
                 req.securityManager.denied('delete', req.fullPath);
         });

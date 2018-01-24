@@ -54,6 +54,13 @@
     throwSecurityExceptions: boolean;
 
     /**
+     * Determine whether the caller is allowed to append to an existing file.
+     * @param efuns The object attempting to create a directory.
+     * @param req The directory being created.
+     */
+    validAppendFile(efuns: EFUNProxy, req: FileSystemRequest): boolean;
+
+    /**
      * Determine whether the caller is allowed to create a directory.
      * @param efuns The object attempting to create a directory.
      * @param req The directory being created.

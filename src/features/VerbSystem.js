@@ -195,7 +195,7 @@ class VerbRule {
      * @param {VerbContainer} container
      */
     validate(container) {
-        unwrap(this.handler, (handler) => {
+        unwrap(this.handler, handler => {
             if (typeof handler[this.canMethod] !== 'function') {
                 let fallbackCan = VerbSystemFeature.normalizeRule('can', 'verb', 'rule', false);
                 if (typeof handler[fallbackCan] !== 'function')

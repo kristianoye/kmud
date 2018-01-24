@@ -308,11 +308,10 @@ class FileSystem extends MUDEventEmitter {
      * @param {function(boolean, Error):void} callback
      */
     isDirectory(req, callback) {
-        return this.assertDirectories(() => {
-            return typeof callback === 'function' ?
-                this.assertAsync() && this.isDirectoryAsync(req, callback) :
-                this.assertSync() && this.isDirectorySync(req);
-        });
+        this.assertDirectories();
+        return typeof callback === 'function' ?
+            this.assertAsync() && this.isDirectoryAsync(req, callback) :
+            this.assertSync() && this.isDirectorySync(req);
     }
 
     /**

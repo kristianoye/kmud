@@ -133,7 +133,17 @@ class FileSecurity extends MUDEventEmitter {
     // #region Security valid* Applies
 
     /**
-     *
+     * Check to see if the caller may append to file.
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     */
+    validAppendFile(efuns, req) {
+        throw new NotImplementedError('validAppendFile');
+    }
+
+
+    /**
+     * Check to see if the caller may create a directory.
      * @param {EFUNProxy} efuns
      * @param {FileSystemRequest} req
      */

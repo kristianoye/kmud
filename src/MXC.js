@@ -1,4 +1,7 @@
-﻿var
+﻿const
+    stack = require('callsite');
+
+var
     _nextContextId = 1,
     _activeContexts = { length: 0 },
     _currentContext = null,
@@ -49,7 +52,7 @@ class MXC {
             init(this);
 
         if (this.objectStack.length === 0)
-            driver.getObjectStack(this);
+            MXC.getObjectStack(this);
 
         if (_debugging) {
             _activeContexts[this.contextId] = this;
@@ -82,12 +85,16 @@ class MXC {
     }
 
     /**
-     * Add a frame to the object stack.
-     * @param {MXCFrame} frame The frame to add to the stack.
+     * Add frames to the object stack.
+     * @param {...MXCFrame[]} frame One or more frames to add to stack
      * @returns {MXC}
      */
-    addFrame(frame) {
-        this.objectStack.unshift(frame);
+    addFrame(...frames) {
+        frames.forEach(frame => {
+            if (!(frame.sig in this.sigs)) {
+                this.objectStack.unshift(frame);
+            }
+        });
         return this;
     }
 
@@ -125,8 +132,7 @@ class MXC {
      * @returns {MXC}
      */
     join() {
-        driver.getObjectStack(this);
-        return this;
+        return MXC.getObjectStack(this);
     }
 
     /**
@@ -180,7 +186,9 @@ class MXC {
     restore() {
         if (!this.released) {
             this.refCount++;
-            driver.restoreContext(this);
+            driver.currentContext = this;
+            driver.thisPlayer = this.thisPlayer;
+            driver.truePlayer = this.truePlayer;
             if (_debugging) {
                 let padding = Array(this.depth + 1).join('\t');
                 logger.log(`${padding}+ MXC Restore [${this.expr}]: RefCount: ${this.refCount} [depth: ${this.depth}, active: ${_activeContexts.length}]`);
@@ -225,6 +233,51 @@ MXC.awaiter = function (callback, note) {
     };
 };
 
+/**
+ * Return the relevant stack frames for security-based calls.
+ * @param {MXC} mxc The context to fill.
+ * @returns {MXC} A reference to the original context.
+ */
+MXC.getObjectStack = function (mxc) {
+    let _stack = stack(), result = [], unguarded = false,
+        fullStack = [];
+    let bs = new Error().stack;
+
+    for (let max = _stack.length, i = 2; i < max; i++) {
+        let cs = _stack[i];
+        let fn = cs.getFileName() || '[no file]',
+            func = cs.getFunctionName();
+
+        if (typeof fn === 'string' && !fn.startsWith(driver.config.driver.driverPath)) {
+            let [modulePath, instanceStr] = fn.split('#', 2);
+            let module = driver.cache.get(modulePath),
+                instanceId = instanceStr ? parseInt(instanceStr) : 0;
+
+            if (module) {
+                let ob = module.instances[instanceId],
+                    line = cs.getLineNumber(),
+                    col = cs.getColumnNumber(),
+                    sig = `${fn}:${func}:${line}:${col}`;
+
+                let frame = {
+                    object: ob,
+                    file: modulePath,
+                    func: func || 'constructor',
+                    sig
+                };
+                if (frame.object === null)
+                    throw new Error(`Illegal call in constructor [${modulePath}`);
+                result.push(frame);
+            }
+        }
+    }
+    if (unguarded) 
+        mxc.objectStack = result;
+    else {
+        mxc.addFrame(...result);
+    }
+    return mxc;
+}
 
 /**
  * Initialize a placeholder context (mainly for intellisense)

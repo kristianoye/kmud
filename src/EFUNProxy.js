@@ -572,6 +572,17 @@ class EFUNProxy {
     }
 
     /**
+     * Writes content to a log file.
+     * @param {string} file
+     * @param {string} message
+     * @param {any} callback
+     */
+    log(file, message, callback) {
+        let logPath = this.resolvePath(file, driver.config.mudlib.logDirectory);
+        return driver.fileManager.appendFile(this, logPath, message + '\n', callback);
+    }
+
+    /**
      * Send a message to one or more recipients.
      * @param {string} messageType
      * @param {string|MUDHtmlComponent|number|function} expr
@@ -1503,32 +1514,18 @@ EFUNProxy.configureForRuntime = function (driver) {
     }
     else {
         EFUNProxy.prototype.previousObject = function (n) {
-            //let mxc = driver.getContext(false, init => init.note = 'previousObject');
-            //try {
-            //    mxc.join().restore();
-            //    let result = n === -1 ? mxc.objectStack.reverse() : mxc.objectStack[l - n - 1];
-            //    return result;
-            //}
-            //finally {
-            //    mxc.release();
-            //}
-            let objectStack = [], index = (n || 0) + 1;
-            stack().forEach((cs, i) => {
-                let fn = cs.getFileName() || '[no file]',
-                    func = cs.getFunctionName();
-
-                if (typeof fn === 'string' && !fn.startsWith(driver.config.driver.driverPath)) {
-                    let [modulePath, instanceStr] = fn.split('#', 2);
-                    let module = driver.cache.get(modulePath),
-                        instanceId = instanceStr ? parseInt(instanceStr) : 0;
-
-                    if (module) {
-                        let ob = unwrap(module.getWrapper(instanceId));
-                        if (objectStack[0] !== ob) objectStack.unshift(ob);
-                    }
-                }
-            });
-            return n === -1 ? objectStack.reverse() : objectStack[index];
+            let index = (n || 0) + 1;
+            let mxc = driver.getContext(false, init => init.note = 'previousObject');
+            try {
+                mxc.join().restore();
+                result = n === -1 ?
+                    mxc.objectStack.map(f => f.object) :
+                    mxc.objectStack[index].object;
+                return result;
+            }
+            finally {
+                mxc.release();
+            }
         };
     }
 };

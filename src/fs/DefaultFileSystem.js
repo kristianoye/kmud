@@ -71,7 +71,12 @@ class DefaultFileSystem extends FileSystem {
             return fs.writeFile(filepath, content, {
                 encoding: this.encoding || 'utf8',
                 flag: 'a'
-            }, (err) => callback(!err, err));
+            }, MXC.awaiter(err => {
+                let ctx = driver.getContext();
+                return ctx.aborted ?
+                    callback(false, new Error('Aborted')) :
+                    callback(!err, err);
+            }));
         });
     }
 
@@ -82,7 +87,10 @@ class DefaultFileSystem extends FileSystem {
      */
     appendFileSync(req, content) {
         return this.translatePath(req.relativePath, fullPath => {
-            return fs.writeFileSync(filepath, content, {
+            let stat = this.statSync(fullPath);
+            if (stat.isDirectory)
+                throw new Error(`appendFile: ${req.fullPath} is a directory`);
+            return fs.writeFileSync(fullPath, content, {
                 encoding: this.encoding || 'utf8',
                 flag: 'a'
             });
@@ -138,17 +146,6 @@ class DefaultFileSystem extends FileSystem {
                     fs.mkdirSync(dir);
             }
             return true;
-
-        });
-    }
-
-    /**
-     * @param {Stats} stat The filesystem stat from node.
-     * @returns {FileSystemStat} The stat object
-     */
-    createStat(stat) {
-        fs.Stat
-        return FileSystemStat.create({
 
         });
     }

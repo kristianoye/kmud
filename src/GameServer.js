@@ -574,12 +574,12 @@ class GameServer extends MUDEventEmitter {
      */
     getObjectStack(ctx) {
         let isUnguarded = false,
-            _stack = stack(),
+            _stack = stack().reverse(),
             result = [],
             fullStack = [],
             obs = [];
 
-        for (let i = 1, max = _stack.length; i < max; i++) {
+        for (let i = 0, max = _stack.length - 1; i < max; i++) {
             let cs = _stack[i],
                 colNumber = cs.getColumnNumber(),
                 fileName = cs.getFileName(),
@@ -1040,20 +1040,20 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
-     * Checks to see if the current permissions stack can read a path expression.
-     * @param {any} caller
-     * @param {MXCFrame} frame
-     * @param {string} path
-     * @returns {boolean} Returns true if the read operation should be permitted.
+     *
+     * @param {EFUNProxy} efuns Contains the filename of the originating call
+     * @param {MXCFrame} frame Contains a single frame to validate
+     * @param {string} path The file that is to be read.
      */
     validRead(efuns, frame, path) {
         if (this.gameState < GAMESTATE_RUNNING)
             return true;
         else if (efuns.filename === '/')
             return true;
+        else if (efuns.filename === this.masterFilename)
+            return true;
         else
-            return this.applyValidRead
-                .call(this.masterObject, path, frame.object || frame.file, frame.func);
+            return this.applyValidRead.call(this.masterObject, path, frame.object || frame.file, frame.func);
     }
 
     /**
@@ -1063,33 +1063,27 @@ class GameServer extends MUDEventEmitter {
     validShutdown(efuns) {
         if (this.gameState !== GAMESTATE_RUNNING)
             return true;
-        else if (!this.applyValidShutdown) return true;
-        else return this.masterObject.validShutdown(efuns);
+        else if (!this.applyValidShutdown)
+            return true;
+        else
+            return this.masterObject.validShutdown(efuns);
     }
 
     /**
-     * Checks to see if the current permissions stack can write to a path expression.
-     * @param {any} caller
-     * @param {string} path The path to write to, delete, or create.
-     * @returns {boolean} Returns true if the write operation should be permitted.
+     * Check to see if a write operation should be permitted.
+     * @param {EFUNProxy} efuns Contains the filename of the originating call
+     * @param {MXCFrame} frame Contains a single frame to validate
+     * @param {string} path The file that is to be written to.
      */
-    validWrite(efuns, path) {
+    validWrite(efuns, frame, path) {
         if (this.gameState < GAMESTATE_INITIALIZING)
             return true;
-        else if (efuns.filename === '/') return true;
-        else {
-            let checkObjects = this.getObjectStack();
-            if (checkObjects.length > 0) {
-                for (let i = 0; i < checkObjects.length; i++) {
-                    if (checkObjects[i].object === this.masterObject) continue;
-                    if (!this.applyValidWrite.call(this.masterObject, path, checkObjects[i].object, checkObjects[i].func))
-                        return false;
-                }
-                return true;
-            }
-            let module = this.cache.get(efuns.filename), cs = stack().map(cs => cs.getFileName());
-            return this.applyValidWrite.call(this.masterObject, path, module.instances[0], 'write');
-        }
+        else if (efuns.filename === '/')
+            return true;
+        else if (efuns.filename === this.masterFilename)
+            return true;
+        else
+            return this.applyValidWrite.call(this.masterObject, path, frame.object || frame.file, frame.func);
     }
 }
 

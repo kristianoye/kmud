@@ -55,6 +55,15 @@ class DefaultFileSecurity extends FileSecurity {
     }
 
     /**
+     * Check to see if the caller may append to file.
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     */
+    validAppendFile(efuns, req) {
+        return this.validWriteFile(efuns, req);
+    }
+
+    /**
      * Determine whether the caller is allowed to create a directory.
      * @param {EFUNProxy} efuns The object attempting to create a directory.
      * @param {FileSystemRequest} req The directory being created.
@@ -147,6 +156,14 @@ class DefaultFileSecurity extends FileSecurity {
      * @param {FileSystemRequest} req
      */
     validWriteFile(efuns, req) {
+        let ctx = driver.getContext();
+        for (let i = 0; i < ctx.length; i++) {
+            if (!driver.validWrite(efuns, ctx.objectStack[i], req.fullPath)) {
+                if (this.throwSecurityExceptions)
+                    throw new SecurityError(`Permission Denied: Read: ${req.fullPath}`);
+                return false;
+            }
+        }
         return true;
     }
 }
