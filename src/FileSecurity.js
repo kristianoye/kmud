@@ -53,10 +53,10 @@ class FileSecurity extends MUDEventEmitter {
      */
     denied(verb, req, callback) {
         if (this.throwSecurityExceptions)
-            throw new SecurityError(`Permission denied: Could not ${verb} '${req.fullPath}'`);
+            throw new SecurityError(`Permission denied: Could not ${verb} '${(req.fullPath || req)}'`);
 
         return typeof callback === 'function' ?
-            callback(false, new Error(`Permission denied: Could not ${verb} '${req.fullPath}'`)) :
+            callback(false, new Error(`Permission denied: Could not ${verb} '${(req.fullPath || req)}'`)) :
             false;
     }
 

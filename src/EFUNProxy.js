@@ -188,13 +188,16 @@ class EFUNProxy {
             colCount = 0,
             colWidth = 0;
 
-        width = (width || this.clientCaps(driver.thisPlayer).clientWidth || 80) -2;
+        width = (width || this.clientCaps(driver.thisPlayer).clientWidth || 80);
 
-        list.forEach(i => { let n = i.length; longest = n > longest ? n : longest; });
+        list.forEach(i => {
+            let n = this.stripColor(i).length;
+            longest = n > longest ? n : longest;
+        });
         colWidth = longest + 2;
         colCount = Math.floor(width / colWidth);
         list.forEach((item, index) => {
-            let s = item + Array(colWidth - item.length).join(' ');
+            let s = item + Array(colWidth - this.stripColor(item).length).join(' ');
             row.push(s);
             if ((index + 1) % colCount === 0) {
                 rows.push(row.join('').trim());
@@ -1271,6 +1274,15 @@ class EFUNProxy {
      */
     stat(filepath, flags, callback) {
         return driver.fileManager.statFile(this, filepath, flags, callback);
+    }
+
+    /**
+     * Removes color codes from a string.
+     * @param {string} str The string to remove color from.
+     * @returns {string}
+     */
+    stripColor(str) {
+        return str.replace(/(\%\^[A-Z]+\%\^)/g, '');
     }
 
     shutdown(errCode, reason) {

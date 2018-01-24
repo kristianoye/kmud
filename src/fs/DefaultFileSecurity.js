@@ -39,7 +39,7 @@ class DefaultFileSecurity extends FileSecurity {
     readDirectory(efuns, req, callback) {
         return this.validReadDirectory(efuns, req) ?
             this.fileSystem.readDirectory(req, callback) :
-            this.denied('readDirectory', req.fullPath);
+            this.denied('readDirectory', req.fullPath, callback);
     }
 
     /**
@@ -126,6 +126,7 @@ class DefaultFileSecurity extends FileSecurity {
             if (!driver.validRead(efuns, ctx.objectStack[i], req.fullPath)) {
                 if (this.throwSecurityExceptions)
                     throw new SecurityError(`Permission Denied: Read: ${req.fullPath}`);
+                return false;
             }
         }
         return true;

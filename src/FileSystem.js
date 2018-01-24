@@ -32,6 +32,8 @@ class FileSystemStat {
 
         this.isFile = data.isFile || false;
 
+        this.name = data.name || false;
+
         /** @type {FileSystemStat} */
         this.parent = data.parent || false;
 
@@ -45,7 +47,11 @@ class FileSystemStat {
         this.type = data.perms || FT_UNKNOWN; 
     }
 
-    assertValid() { return this; }
+    assertValid() {
+        if (!this.name)
+            throw new Error('Illegal stat object has no name');
+        return this;
+    }
 
     /**
      * Creates a deep clone of the stat that is safe to return to the MUD.

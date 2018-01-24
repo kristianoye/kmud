@@ -223,6 +223,7 @@ class DefaultFileSystem extends FileSystem {
     }
 
     loadObjectAsync(req, args, callback) {
+        throw new Error('Not implemented');
     }
 
     /**
@@ -281,7 +282,7 @@ class DefaultFileSystem extends FileSystem {
 
                 let results = [], ctx = driver.getContext();
                 if (ctx.aborted) return callback(false, 'Aborted');
-                let mxc = driver.getContext().clone().restore();
+                let mxc = driver.getContext().clone(false, `readDirectory:${req.fullPath}`).restore();
 
                 async.forEachOfLimit(files, this.asyncReaderLimit, (fn, i, itr) => {
                     if (ctx.aborted) return itr();
@@ -303,8 +304,9 @@ class DefaultFileSystem extends FileSystem {
                     // Do we need to stat?
                     if ((req.flags & GetDirFlags.Defaults) > 0) {
                         return fs.stat(fullPath + '/' + fn, (err, stat) => {
-                            if ((req.flags & GetDirFlags.Dirs) === 0 && (fd.isDirectory = stat.isDirectory())) return itr();
-                            if ((req.flags & GetDirFlags.Files) === 0 && (fd.isFile = stat.isFile())) return itr();
+                            if (ctx.aborted) return itr(new Error('Aborted'));
+                            if ((fd.isDirectory = stat.isDirectory()) && (req.flags & GetDirFlags.Dirs) === 0) return itr();
+                            if ((fd.isFile = stat.isFile()) && (req.flags & GetDirFlags.Files) === 0) return itr();
 
                             fd.dev = stat.dev;
                             fd.size = stat.size;

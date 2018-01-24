@@ -86,6 +86,12 @@ declare class MXC {
      */
     run(callback: (args: ...any[]) => any): any;
 
+    /**
+     * Extends the alarm time by set amount
+     * @param ms The number of milliseconds to extend alarm by.
+     */
+    snooze(ms: number);
+
     /** The player performing the current context */
     readonly thisPlayer: MUDObject;
 

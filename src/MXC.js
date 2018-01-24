@@ -62,6 +62,7 @@ class MXC {
             else {
                 this.expr = this.contextId;
                 logger.log(`${padding}* MXC Create [${this.contextId}]: [depth: ${this.depth}, active: ${_activeContexts.length}; note: ${this.note}]`);
+                this.start = new Date().getTime();
             }
         }
     }
@@ -77,7 +78,7 @@ class MXC {
             }
         }
         this.aborted = true;
-        return this;
+        return this.release();
     }
 
     /**
@@ -151,7 +152,12 @@ class MXC {
                     if (ptr.contextId in _activeContexts) {
                         delete _activeContexts[ptr.contextId];
                         _activeContexts.length--;
-                        logger.log(`${padding}- MXC Release [${ptr.expr}]: RefCount: ${ptr.refCount} [depth: ${ptr.depth}, remaining: ${_activeContexts.length}]`);
+                        if (ptr.depth === 0) {
+                            let elp = new Date().getTime() - ptr.start;
+                            logger.log(`${padding}- MXC Release [${ptr.expr}]: RefCount: ${ptr.refCount} [depth: ${ptr.depth}, remaining: ${_activeContexts.length}; time: ${elp}ms]`);
+                        }
+                        else
+                            logger.log(`${padding}- MXC Release [${ptr.expr}]: RefCount: ${ptr.refCount} [depth: ${ptr.depth}, remaining: ${_activeContexts.length}]`);
                     }
                     else {
                         logger.log(`Re-release of deleted context ${ptr.contextId}`);
@@ -159,7 +165,9 @@ class MXC {
                 }
                 ptr.destroy();
             }
-            else cur = ptr;
+            else {
+                cur = ptr;
+            }
             ptr = ptr.previous;
         }
         driver.restoreContext(cur);
@@ -185,6 +193,15 @@ class MXC {
 
     toString() {
         return `MXC[ID=${this.contextId};Path=${this.expr};Note=${this.note}]`;
+    }
+
+    /**
+     * Extend the alarm time by set amount
+     * @param {number} ms The number of milliseconds to add to the alarm timer.
+     */
+    snooze(ms) {
+        if (this.alarm) this.alarm = new Date().getTime() + ms;
+        return this;
     }
 }
 
