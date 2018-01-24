@@ -572,14 +572,14 @@ class DefaultFileSystem extends FileSystem {
     writeFileSync(req, content) {
         return this.translatePath(req.relativePath, fullPath => {
             try {
-                return fs.writeFileSync(filepath, content, {
+                fs.writeFileSync(fullPath, content, {
                     encoding: this.encoding || 'utf8',
                     flag: 'w'
                 });
                 return true;
             }
             catch (err) {
-
+                return err;
             }
             return false;
         });

@@ -1,6 +1,6 @@
 ﻿const
     MUDEventEmitter = require('./MUDEventEmitter'),
-    { NotImplementedError } = require('./ErrorTypes'),
+    { NotImplementedError, SecurityError } = require('./ErrorTypes'),
     GameServer = require('./GameServer');
 
 class FileSecurity extends MUDEventEmitter {
@@ -52,11 +52,12 @@ class FileSecurity extends MUDEventEmitter {
      * @returns {false} This always returns false
      */
     denied(verb, req, callback) {
+        let err = new SecurityError(`Permission denied: Could not ${verb} '${(req.fullPath || req)}'`)
         if (this.throwSecurityExceptions)
-            throw new SecurityError(`Permission denied: Could not ${verb} '${(req.fullPath || req)}'`);
-
+            throw err;
+        driver.currentContext.lastError = err;
         return typeof callback === 'function' ?
-            callback(false, new Error(`Permission denied: Could not ${verb} '${(req.fullPath || req)}'`)) :
+            callback(false, err) :
             false;
     }
 

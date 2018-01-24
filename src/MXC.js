@@ -248,7 +248,10 @@ MXC.getObjectStack = function (mxc) {
         let fn = cs.getFileName() || '[no file]',
             func = cs.getFunctionName();
 
-        if (typeof fn === 'string' && !fn.startsWith(driver.config.driver.driverPath)) {
+        if (fn === process.argv[1])
+            break;
+
+        if (typeof fn === 'string') {
             let [modulePath, instanceStr] = fn.split('#', 2);
             let module = driver.cache.get(modulePath),
                 instanceId = instanceStr ? parseInt(instanceStr) : 0;

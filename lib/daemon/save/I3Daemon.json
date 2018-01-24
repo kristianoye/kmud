@@ -11,7 +11,8 @@
         "$$type": "I3RouterEntry",
         "$$file": "/daemon/I3Daemon"
       }
-    }
+    },
+    "mudList": []
   },
   "$environment": false,
   "$inventory": [],

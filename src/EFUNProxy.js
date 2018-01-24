@@ -1435,7 +1435,7 @@ EFUNProxy.createEfunProxy = function (filename, directory) {
     let wrapper = new EFUNProxy(), perms = [];
 
     if (driver.masterObject) {
-        perms = driver.masterObject.getPermissions(filename);
+        perms = [];// driver.masterObject.getPermissions(filename);
     }
     else if (!driver.masterObject) {
         if (filename === '/') {
