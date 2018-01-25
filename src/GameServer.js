@@ -207,32 +207,40 @@ class GameServer extends MUDEventEmitter {
     /**
      * Removes absolute paths from a stack trace if possible.
      * @param {Error} e
+     * @param {boolean} sdf Show external frames
      */
-    cleanError(e) {
-        var s = e.stack,
+    cleanError(e, sdf) {
+        if (e.clean)
+            return e;
+        let s = e.stack,
+            l = s.split('\n'),
             mp = this.fileManager.mudlibAbsolute,
+            dp = this.config.driver.driverPath,
+            showDriverFrames = sdf || this.config.driver.showDriverFrames,
             mpl = mp.length,
-            p = s.indexOf(mp),
-            v = /[a-zA-Z0-9\\\/\._]/;
-        while (p > -1) {
-            var chunk = s.slice(p, s.indexOf(':', p + mpl));
-            for (var i = 3; i < chunk.length; i++) {
-                if (!chunk.charAt(i).match(v)) break;
+            v = /[a-zA-Z0-9\\\/\._]/,
+            newStack = [l.shift()];
+
+        l.forEach(t => {
+            let s1 = t.indexOf('(') + 1, s2 = t.lastIndexOf(')'),
+                info = t.slice(s1, s2),
+                parts = info.split(':'),
+                file = parts.length > 3 ? parts.splice(0, parts.length - 2).join(':') : parts.shift(),
+                line = parts.shift(),
+                col = parts.shift(),
+                mudPath = file && driver.fileManager.toMudPath(file);
+            if (mudPath) {
+                newStack.push(t.slice(0, s1) + `${mudPath}:${line}:${col}` + t.slice(s2));
             }
-            var repl = chunk.slice(0, i).replace(/\\\//g, path.sep);
-            if (s.indexOf(repl) === -1) {
-                logger.log('Could not clean stack trace; Giving up...');
-                break;
+            else if (showDriverFrames === true) {
+                if (file.startsWith(dp)) {
+                    file = file.replace(dp, '[driver]');
+                    newStack.push(t.slice(0, s1) + `${file}:${line}:${col}` + t.slice(s2));
+                }
             }
-            s = s.replace(repl, this.fileManager.toMudPath(repl));
-            p = s.indexOf(mp);
-        }
-        p = s.indexOf(this.config.driver.driverPath);
-        while (p > -1) {
-            s = s.replace(this.config.driver.driverPath, '[driver]');
-            p = s.indexOf(this.config.driver.driverPath);
-        }
-        e.stack = s;
+        });
+        e.stack = newStack.join('\n');
+        e.clean = true;
         return e;
     }
 

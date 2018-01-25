@@ -15,6 +15,9 @@ class DriverCompilerLoader {
 
         /** @type {string} */
         this.file = data.file;
+
+        /** @type {Object.<string,any>} */
+        this.options = data.options || {};
     }
 
     assertValid() {

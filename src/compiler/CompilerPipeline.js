@@ -10,6 +10,7 @@ class CompilerPipeline
         this.enabled = typeof config.enabled === 'boolean' ? config.enabled : true;
         this.extension = ext;
         this.loaderName = config.loader || 'MUDLoader';
+        this.loaderOptions = config.loaderOptions || {};
         this.name = config.name || ext + ' Pipeline';
         this.pipeline = config.pipeline.map(p => resolver(p));
         this.type = config.type || 'unspecified';

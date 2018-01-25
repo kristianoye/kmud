@@ -21,7 +21,7 @@ class MUDLoader {
      * @param {MUDCompiler} _compiler A reference to the compiler.
      * @param {string} _directory The directory the target module lives in.
      */
-    constructor(_efuns, _compiler, _directory) {
+    constructor(_efuns, _compiler, _directory, options) {
         var
             _allowProxy = true,
             _context = false,
@@ -31,7 +31,8 @@ class MUDLoader {
             _loaderEnabled = false,
             _loopCounter = loopsPerAssert,
             _primaryExport = false,
-            _oldEfuns = _efuns;
+            _oldEfuns = _efuns,
+            _options = options || {};
         var
             self = (/** @returns {MUDLoader} @param {MUDObject} t */ function (t) {
                 return t;
@@ -91,6 +92,7 @@ class MUDLoader {
             __act: {
                 // Assert Catch Type
                 value: function (val) {
+                    driver.cleanError(val, _options.filterTraces || true);
                     // Catching timeout errors is not allowed
                     if (val instanceof TimeoutError) {
                         throw val;

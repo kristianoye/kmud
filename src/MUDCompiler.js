@@ -113,11 +113,11 @@ class MUDCompiler {
      * @returns {MUDLoader} A mud loader instance.
      */
     getLoader(pipeline, module) {
-        var loader = this.loaders[pipeline.loaderName];
+        let loader = this.loaders[pipeline.loaderName];
         if (!loader) {
             throw new Error('Invalid loader requested');
         }
-        return new loader(module.efunProxy, this.compileObject, module.directory);
+        return new loader(module.efunProxy, this.compileObject, module.directory, pipeline.loaderOptions);
     }
 
     /**

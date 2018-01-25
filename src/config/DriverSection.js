@@ -47,6 +47,9 @@ class DriverSection {
         this.resetPollingInterval = ConfigUtil.parseTime(data.resetPollingInterval || 5000);
 
         /** @type {boolean} */
+        this.showDriverFrames = typeof data.showDriverFrames === 'boolean' ? data.showDriverFrames : false;
+
+        /** @type {boolean} */
         this.useLazyResets = data.useLazyResets || false;
 
         /** @type {boolean} */
