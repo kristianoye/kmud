@@ -301,13 +301,7 @@ class MUDLoader {
                             if (self.efuns.isFile(searchPath[i])) {
                                 let content = self.efuns.readFile(searchPath[i]);
                                 if (content) {
-                                    //let result = vm.runInThisContext(content, {
-                                    //    filename: searchPath[i],
-                                    //    lineOffset: 0,
-                                    //    displayErrors: true
-                                    //});
-                                    //var ctx = vm.createContext(_);
-                                    var result = vm.runInContext(content, self, {
+                                    let result = vm.runInContext(content, self, {
                                         filename: searchPath[i],
                                         lineOffset: 0,
                                         displayErrors: true

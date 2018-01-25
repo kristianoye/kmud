@@ -84,23 +84,6 @@ declare class FileSystemRequest {
     securityManager: FileSecurity;
 }
 
-declare class FileSystemStat {
-    /** Indicates whether the path exists. */
-    readonly exists: boolean;
-
-    /** Indicates whether the path is a directory. */
-    readonly isDirectory: boolean;
-
-    /** Indicates whether the path is a regular file. */
-    readonly isFile: boolean;
-
-    /** Indicates the file size in bytes. */
-    readonly fileSize: number;
-
-    /** The parent object, if any, and only if requested */
-    readonly parent: FileSystemStat;
-}
-
 declare class MkDirOptions {
     /** Optional flags for creating the directory */
     flags: MkdirFlags;

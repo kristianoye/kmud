@@ -1,11 +1,8 @@
-/**
+/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-
-/// <reference path="dts/GameServer.d.ts"/>
-
 const
     stack = require('callsite'),
     async = require('async'),
@@ -639,7 +636,7 @@ class EFUNProxy {
             opts = 0;
         }
         else if (typeof opts === 'number') {
-            opts = { opts };
+            opts = { flags: opts };
         }
         return driver.fileManager.createDirectory(this, expr, opts || {}, callback);
     }

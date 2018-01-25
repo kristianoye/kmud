@@ -281,9 +281,8 @@ class FileManager extends MUDEventEmitter {
      */
     createDirectory(efuns, expr, options, callback) {
         return this.createFileRequest('createDirectory', expr, typeof callback === 'function', options.flags, req => {
-            req.options = options;
             return req.securityManager.validCreateDirectory(efuns, req) ?
-                req.fileSystem.createDirectory(req, callback) :
+                req.fileSystem.createDirectory(req, options, callback) :
                 req.securityManager.denied('createDirectory', req.fullPath);
         });
     }

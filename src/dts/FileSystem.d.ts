@@ -1,4 +1,39 @@
-﻿/**
+﻿declare class FileSystemStat {
+    /** The last time the file was accessed */
+    readonly atime: Date;
+
+    /** The device block size */
+    readonly blockSize: number;
+
+    /** The number of blocks allocated for this file */
+    readonly blocks: number;
+
+    /** The last time file permissions changed */
+    readonly ctime: Date; 
+
+    /** The device number */
+    readonly dev: number;
+
+    /** Indicates whether the path exists. */
+    readonly exists: boolean;
+
+    /** Indicates whether the path is a directory. */
+    readonly isDirectory: boolean;
+
+    /** Indicates whether the path is a regular file. */
+    readonly isFile: boolean;
+
+    /** The last time the file was modified */
+    readonly mtime: Date;
+
+    /** Indicates the file size in bytes. */
+    readonly size: number;
+
+    /** The parent object, if any, and only if requested */
+    readonly parent: FileSystemStat;
+}
+
+/**
  * A MUD filesystem.
  */
 declare class FileSystem {

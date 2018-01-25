@@ -861,6 +861,7 @@
     <Folder Include="lib\log\" />
     <Folder Include="lib\docs\" />
     <Folder Include="lib\log\errors\" />
+    <Folder Include="lib\movies\" />
     <Folder Include="lib\sys\cmds\admin\" />
     <Folder Include="lib\sys\cmds\arch\" />
     <Folder Include="lib\sys\cmds\creator\" />

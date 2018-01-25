@@ -24,27 +24,12 @@ const
     MXC = require('./MXC');
 
 class FileSystemStat {
+    /**
+     * Construct a new stat
+     * @param {FileSystemStat} data
+     */
     constructor(data) {
-        /** @type {boolean} */
-        this.exists = data.exists || false;
-
-        this.isDirectory = data.isDirectory || false;
-
-        this.isFile = data.isFile || false;
-
-        this.name = data.name || false;
-
-        /** @type {FileSystemStat} */
-        this.parent = data.parent || false;
-
-        /** @type {Object.<string,number>} */
-        this.perms = data.perms || {};
-
-        /** @type {number} */
-        this.size = 0;
-
-        /** @type {number} */
-        this.type = data.perms || FT_UNKNOWN; 
+        this.merge(data || {});
     }
 
     assertValid() {
@@ -69,6 +54,61 @@ class FileSystemStat {
         });
 
         return result;
+    }
+
+    /**
+     * 
+     * @param {FileSystemStat} data
+     * @returns {FileSystemStat}
+     */
+    merge(data) {
+        /** @type {number} */
+        this.atime = data.atime || this.atime || 0;
+
+        /** @type {number} */
+        this.blocks = data.blocks || this.blocks || 0;
+
+        /** @type {number} */
+        this.blockSize = data.blockSize || this.blockSize || 0;
+
+        /** @type {number} */
+        this.ctime = data.ctime || this.ctime || 0;
+
+        /** @type {number} */
+        this.dev = data.dev || this.dev || 0;
+
+        /** @type {boolean} */
+        this.exists = data.exists || this.exists || false;
+
+        /** @type {boolean} */
+        this.isDirectory = data.isDirectory || this.isDirectory || false;
+        if (typeof this.isDirectory === 'function')
+            this.isDirectory = data.isDirectory();
+
+        /** @type {boolean} */
+        this.isFile = data.isFile || this.isFile || false;
+        if (typeof this.isFile === 'function')
+            this.isFile = data.isFile();
+
+        /** @type {number} */
+        this.mtime = data.mtime || this.mtime || 0;
+
+        /** @type {string} */
+        this.name = data.name || this.name || false;
+
+        /** @type {FileSystemStat} */
+        this.parent = data.parent || this.parent || false;
+
+        /** @type {Object.<string,number>} */
+        this.perms = data.perms || this.perms || {};
+
+        /** @type {number} */
+        this.size = data.size || this.size || 0;
+
+        /** @type {number} */
+        this.type = data.type || this.type || FT_UNKNOWN; 
+
+        return this;
     }
 }
 

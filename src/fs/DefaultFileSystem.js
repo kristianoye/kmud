@@ -114,8 +114,14 @@ class DefaultFileSystem extends FileSystem {
      */
     createDirectoryAsync(req, opts, callback) {
         return this.translatePath(req.relativePath, fullPath => {
-            if (req.resolved) return callback(false, new Error(`Directory already exists: ${req.fullPath}`));
-            return fs.mkdir(fullPath, err => callback(!err, err));
+            if (req.resolved)
+                return callback(false, new Error(`Directory already exists: ${req.fullPath}`));
+
+            return fs.mkdir(fullPath, MXC.awaiter(err => {
+                let ctx = driver.currentContext;
+                if (ctx.aborted) return callback(false, new Error('Aborted'));
+                callback(!err, err);
+            }));
         });
     }
 
@@ -148,6 +154,21 @@ class DefaultFileSystem extends FileSystem {
             return true;
 
         });
+    }
+
+    /**
+     * Create a strongly-typed filesystem stat object.
+     * @param {FileSystemStat} stat
+     * @returns {FileSystemStat}
+     */
+    createStat(stat) {
+        if (typeof stat.isDirectory === 'function')
+            stat.isDirectory = stat.isDirectory();
+        if (typeof stat.isFile === 'function')
+            stat.isFile = stat.isFile();
+        if (!stat.exists && (stat.atime > 0 || stat.isDirectory || stat.isFile))
+            stat.exists = true;
+        return new FileSystemStat(stat);
     }
 
     /**
@@ -283,14 +304,7 @@ class DefaultFileSystem extends FileSystem {
 
                 async.forEachOfLimit(files, this.asyncReaderLimit, (fn, i, itr) => {
                     if (ctx.aborted) return itr();
-                    let fd = FileSystemStat.create({
-                        exists: true,
-                        name: fn,
-                        parent: req.fullPath,
-                        isDirectory: false,
-                        isFile: false,
-                        size: 0
-                    });
+                    let fd = this.createStat({ exists: true, name: fn, parent: req.pathFull });
 
                     //  Does it match the pattern?
                     if (pattern && !pattern.test(fn)) return itr();
@@ -304,16 +318,7 @@ class DefaultFileSystem extends FileSystem {
                             if (ctx.aborted) return itr(new Error('Aborted'));
                             if ((fd.isDirectory = stat.isDirectory()) && (req.flags & GetDirFlags.Dirs) === 0) return itr();
                             if ((fd.isFile = stat.isFile()) && (req.flags & GetDirFlags.Files) === 0) return itr();
-
-                            fd.dev = stat.dev;
-                            fd.size = stat.size;
-                            fd.atime = stat.atimeMs;
-                            fd.ctime = stat.ctimeMs;
-                            fd.mtime = stat.mtimeMs;
-
-                            if (fd.isDirectory) fd.size = -2;
-                            results.push(fd);
-
+                            results.push(fd.merge(stat));
                             return itr(err);
                         });
                     }
@@ -345,14 +350,8 @@ class DefaultFileSystem extends FileSystem {
                 return files;
 
             files.forEach(fn => {
-                let fd = FileSystemStat.create({
-                    exists: true,
-                    name: fn,
-                    parent: req.fullPath,
-                    isDirectory: false,
-                    isFile: false,
-                    size: 0
-                });
+                let fd = this.createStat({ exists: true, name: fn, parent: req.fullPath });
+
                 //  Does it match the pattern?
                 if (pattern && !pattern.test(fn))
                     return false;
@@ -364,18 +363,12 @@ class DefaultFileSystem extends FileSystem {
                 // Do we need to stat?
                 if ((req.flags & GetDirFlags.Defaults) > 0) {
                     let stat = fs.statSync(fullPath + '/' + fn);
-                    if ((req.flags & GetDirFlags.Dirs) === 0 && (fd.isDirectory = stat.isDirectory()))
+                    if ((fd.isDirectory = stat.isDirectory()) && (req.flags & GetDirFlags.Dirs) === 0)
                         return false;
 
-                    if ((req.flags & GetDirFlags.Files) === 0 && (fd.isFile = stat.isFile()))
+                    if ((fd.isFile = stat.isFile()) && (req.flags & GetDirFlags.Files) === 0)
                         return false;
-
-                    fd.dev = stat.dev;
-                    fd.size = stat.size;
-                    fd.atime = stat.atimeMs;
-                    fd.ctime = stat.ctimeMs;
-                    fd.mtime = stat.mtimeMs;
-                    if (fd.isDirectory) fd.size = -2;
+                    fd.merge(stat);
                 }
                 if ((req.flags & GetDirFlags.Perms) > 0) {
 
@@ -469,8 +462,8 @@ class DefaultFileSystem extends FileSystem {
                 else {
                     return callback({
                         exists: false,
-                        isDirectory: req.endsWith('/'),
-                        isFile: !req.endsWith('/'),
+                        isDirectory: false,
+                        isFile: false,
                         parent: null,
                         fileSize: req.endsWith('/') ? -2 : -1
                     }, new Error(`Path does not exist: ${req}`));
@@ -488,25 +481,24 @@ class DefaultFileSystem extends FileSystem {
         return this.translatePath(typeof req === 'string' ? req : req.relativePath, fullPath => {
             let result = false;
             if (fs.existsSync(fullPath)) {
-                let info = fs.statSync(fullPath);
-                result = {
-                    exists: true,
-                    isDirectory: info.isDirectory(),
-                    isFile: info.isFile(),
-                    fileSize: info.size,
-                    atime: info.atimeMs,
-                    mtime: info.mtimeMs,
-                    parent: null
-                };
+                result = this.createStat(fs.statSync(fullPath));
             }
-            else {
-                result = {
+            else if (typeof req === 'string') {
+                result = FileSystemStat.create({
                     exists: false,
                     isDirectory: false,
                     isFile: false,
-                    fileSize: 0,
-                    parent: null
-                };
+                    parent: null,
+                    size: req.endsWith('/') ? -2 : -1
+                });
+            }
+            else {
+                result = FileSystemStat.create({
+                    exists: false,
+                    isDirectory: false,
+                    isFile: false,
+                    size: req.fullPath.endsWith('/') ? -2 : -1
+                });
             }
             Object.freeze(result);
             return result;
