@@ -5,6 +5,7 @@
  */
 const
     MUDConfig = require('./MUDConfig'),
+    async = require('async'),
     stack = require('callsite'),
     MXC = require('./MXC');
 
@@ -72,6 +73,9 @@ class GameServer extends MUDEventEmitter {
         this.fileManager = null;
         this.heartbeatCounter = 0;
         this.heartbeatInterval = config.mudlib.heartbeatInterval;
+        /** @type {MUDObject[]} */
+        this.heartbeatObjects = [];
+        this.heartbeatStorage = {};
         this.includePath = config.mudlib.includePath || [];
         /** @type {MUDObject[]} */
         this.livings = [];
@@ -527,9 +531,35 @@ class GameServer extends MUDEventEmitter {
      */
     executeHeartbeat() {
         try {
-            this.emit('kmud.heartbeat', this.heartbeatInterval, ++this.heartbeatCounter);
+            async.forEachOfLimit(this.heartbeatObjects, this.heartbeatLimit || 10, (obj, index, itr) => {
+                let prev = this.currentContext,
+                    mxc = this.getContext(true, init => {
+                        init.note = 'heartbeat';
+                        init.thisPlayer = obj;
+                        init.truePlayer = obj;
+                    });
+                try {
+                    mxc.restore();
+                    obj.eventHeartbeat(this.heartbeatInterval, this.heartbeatCounter);
+                }
+                catch (err) {
+
+                }
+                finally {
+                    mxc.release();
+                    this.currentContext = prev;
+                    itr();
+                }
+            }, err => {
+                this.heartbeatCounter++;
+                this.heartbeatTimer = setTimeout(() => {
+                    this.executeHeartbeat();
+                }, this.heartbeatInterval);
+            });
+            //this.emit('kmud.heartbeat', this.heartbeatInterval, ++this.heartbeatCounter);
         }
         catch (err) {
+            //  TODO: This should be a game-crasher
             logger.log('Error in executeHeartbeat: ' + err);
             this.errorHandler(err, false);
         }
@@ -892,7 +922,7 @@ class GameServer extends MUDEventEmitter {
         this.gameState = GAMESTATE_RUNNING;
 
         if (this.config.mudlib.heartbeatInterval > 0) {
-            this.heartbeatTimer = setInterval(() => {
+            this.heartbeatTimer = setTimeout(() => {
                 this.executeHeartbeat();
             }, this.config.mudlib.heartbeatInterval);
         }

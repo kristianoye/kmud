@@ -102,6 +102,11 @@ declare class GameServer {
     /** The number of milliseconds between heartbeat calls */
     heartbeatInterval: number;
 
+    /** Objects with heartbeats */
+    heartbeatObjects: MUDObject[];
+
+    heartbeatStorage: Map<number, MUDStorage>;
+
     /** A list of directories to search for include files */
     includePath: string[];
 

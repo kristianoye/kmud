@@ -211,7 +211,12 @@ class MUDObject extends MUDEventEmitter {
             throw new Error('Cannot call enableHeartbeat() on that object!');
 
         try {
+            let n = driver.heartbeatObjects.indexOf(this);
             if (flag) {
+                if (n === -1) {
+                    n = driver.heartbeatObjects.push(this);
+                    driver.heartbeatStorage[n-1] = $storage;
+                }
                 if (callback) {
                     driver.removeListener('kmud.heartbeat', callback);
                 }
@@ -227,6 +232,10 @@ class MUDObject extends MUDEventEmitter {
                 driver.addLiving(thisObject);
             }
             else {
+                if (n > -1) {
+                    driver.heartbeatObjects.splice(n, 1);
+                    delete driver.heartbeatStorage[n];
+                }
                 if (listener) driver.removeListener('kmud.heartbeat', callback);
                 this.setSymbol(_heartbeat, false);
                 driver.removeLiving(thisObject);
