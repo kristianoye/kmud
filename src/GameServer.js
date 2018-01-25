@@ -531,19 +531,27 @@ class GameServer extends MUDEventEmitter {
      */
     executeHeartbeat() {
         try {
+            let heartbeatStart = new Date(),
+                maxExecTime = this.config.driver.maxCommandExecutionTime,
+                failed = [];
             async.forEachOfLimit(this.heartbeatObjects, this.heartbeatLimit || 10, (obj, index, itr) => {
                 let prev = this.currentContext,
+                    $storage = this.heartbeatStorage[index],
                     mxc = this.getContext(true, init => {
+                        init.alarm = heartbeatStart + maxExecTime;
                         init.note = 'heartbeat';
+                        init.$storage = $storage;
                         init.thisPlayer = obj;
                         init.truePlayer = obj;
+                        init.client = $storage.client;
+                        init.addFrame({ func: 'heartbeat', file: obj.filename, object: obj });
                     });
                 try {
                     mxc.restore();
                     obj.eventHeartbeat(this.heartbeatInterval, this.heartbeatCounter);
                 }
                 catch (err) {
-
+                    failed.push(obj);
                 }
                 finally {
                     mxc.release();
@@ -551,12 +559,15 @@ class GameServer extends MUDEventEmitter {
                     itr();
                 }
             }, err => {
+                let timing = new Date().getTime() - heartbeatStart.getTime();
+                if (timing > 1000) {
+                    logger.log(`\tWARNING: Last heartbeat cycle took ${timing}ms`);
+                }
                 this.heartbeatCounter++;
                 this.heartbeatTimer = setTimeout(() => {
                     this.executeHeartbeat();
                 }, this.heartbeatInterval);
             });
-            //this.emit('kmud.heartbeat', this.heartbeatInterval, ++this.heartbeatCounter);
         }
         catch (err) {
             //  TODO: This should be a game-crasher
@@ -628,8 +639,10 @@ class GameServer extends MUDEventEmitter {
 
             fullStack.push(sig);
 
-            if (fileName === this.efunProxyPath) {
-                if (funcName === 'unguarded') isUnguarded = true;
+            if (fileName === this.efunProxyPath || funcName.indexOf('unguarded') > -1) {
+                if (funcName === 'unguarded') {
+                    isUnguarded = true;
+                }
             }
             if (fileParts !== false) {
                 let instanceId = fileParts.length > 1 ? parseInt(fileParts[1]) : 0,

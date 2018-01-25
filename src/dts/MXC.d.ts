@@ -27,7 +27,7 @@ declare class MXC {
      * Creates a frame on the object stack.
      * @param frame
      */
-    addFrame(frame: MXCFrame): MXC;
+    addFrame(frame: ...MXCFrame[]): MXC;
 
     /**
      * The time at which execution should die; false indicates unlimited.

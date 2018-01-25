@@ -86,7 +86,7 @@ class MXC {
 
     /**
      * Add frames to the object stack.
-     * @param {...MXCFrame[]} frame One or more frames to add to stack
+     * @param {...MXCFrame} frames One or more frames to add to stack
      * @returns {MXC}
      */
     addFrame(...frames) {
@@ -250,6 +250,10 @@ MXC.getObjectStack = function (mxc) {
 
         if (fn === process.argv[1])
             break;
+        else if (fn === driver.efunProxyPath && func === 'unguarded') {
+            unguarded = true;
+            continue;
+        }
 
         if (typeof fn === 'string') {
             let [modulePath, instanceStr] = fn.split('#', 2);
@@ -271,6 +275,7 @@ MXC.getObjectStack = function (mxc) {
                 if (frame.object === null)
                     throw new Error(`Illegal call in constructor [${modulePath}`);
                 result.push(frame);
+                if (unguarded) break;
             }
         }
     }

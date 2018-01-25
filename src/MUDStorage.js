@@ -27,6 +27,8 @@ class MUDStorage extends MUDEventEmitter {
     constructor(owner, ctx, reload) {
         super();
 
+        this.client = false;
+
         /** @type {MUDObject} The current environment */
         this.environment = null;
 
@@ -411,6 +413,11 @@ class MUDStorage extends MUDEventEmitter {
         if (['string', 'boolean', 'number'].indexOf(vt) === -1)
             return null;
         else return v;
+    }
+
+    setClient($client) {
+        this.client = $client;
+        return this;
     }
 
     /**

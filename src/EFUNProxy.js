@@ -339,6 +339,7 @@ class EFUNProxy {
 
             if (oldContainer) oldContainer.emit('kmud.exec', execEvent);
             newContainer
+                .setClient(client)
                 .setProtected('$client', client)
                 .setProtected('$clientCaps', client.caps)
                 .emit('kmud.exec', execEvent);

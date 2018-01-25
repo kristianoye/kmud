@@ -225,7 +225,7 @@ class FileManager extends MUDEventEmitter {
         else {
             let mxc = driver.getContext(false, init => init.note = `createFileRequest:${op}:${expr}`);
             try {
-                mxc.restore();
+                mxc.join().restore();
                 let fss = fileSystem.stat(relPath);
                 let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
                 try {
