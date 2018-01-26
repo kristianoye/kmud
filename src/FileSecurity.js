@@ -254,7 +254,7 @@ class FileSecurity extends MUDEventEmitter {
      * @param {FileSystemRequest} req The file expression to be operated on.
      * @returns {boolean} True if the operation should be permitted.
      */
-    validWrite(efuns, req) {
+    validWriteFile(efuns, req) {
         throw new NotImplementedError('validWrite');
     }
 

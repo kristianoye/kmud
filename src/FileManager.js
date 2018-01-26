@@ -288,6 +288,21 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
+     * Remove a directory from the filesystem.
+     * @param {EFUNProxy} efuns The object requesting the deletion.
+     * @param {string} expr The directory to remove.
+     * @param {object} options Any additional options.
+     * @param {function(boolean,Error):void} callback A callback if deleteDirectory is async.
+     */
+    deleteDirectory(efuns, expr, options, callback) {
+        return this.createFileRequest('removeDirectory', expr, typeof callback === 'function', options, req => {
+            return req.securityManager.validDeleteDirectory(efuns, req) ?
+                req.fileSystem.deleteDirectory(req, options, callback) :
+                req.securityManager.denied('removeDirectory', req.fullPath);
+        });
+    }
+
+    /**
      * Delete/unlink a file from the filesystem.
      * @param {EFUNProxy} efuns The object requesting the deletion.
      * @param {string} expr The path expression to remove.
@@ -397,21 +412,6 @@ class FileManager extends MUDEventEmitter {
                 req.fileSystem.loadObject(req, args, callback) :
                 req.securityManager.denied('load', req.fullPath);
         })
-    }
-
-    /**
-     * Remove a directory from the filesystem.
-     * @param {EFUNProxy} efuns
-     * @param {string} expr
-     * @param {any} flags
-     * @param {function(boolean,Error):void} callback
-     */
-    removeDirectory(efuns, expr, flags, callback) {
-        return this.createFileRequest('removeDirectory', expr, typeof callback === 'function', flags, req => {
-            return req.securityManager.validDeleteDirectory(efuns, req) ?
-                req.fileSystem.deleteDirectory(req, flags, callback) :
-                req.securityManager.denied('removeDirectory', req.fullPath);
-        });
     }
 
     /**

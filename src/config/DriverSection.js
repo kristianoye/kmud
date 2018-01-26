@@ -44,6 +44,9 @@ class DriverSection {
         this.maxCommandStackSize = data.maxCommandStackSize || 100;
 
         /** @type {number} */
+        this.maxEvalTime = data.maxEvalTime > 0 ? data.maxEvalTime : 0; // unlimited
+
+        /** @type {number} */
         this.resetPollingInterval = ConfigUtil.parseTime(data.resetPollingInterval || 5000);
 
         /** @type {boolean} */

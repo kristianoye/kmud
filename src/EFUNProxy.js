@@ -1234,7 +1234,10 @@ class EFUNProxy {
     rmdir(expr, opts, callback) {
         if (typeof opts === 'function') {
             callback = opts;
-            opts = {};
+            opts = { flags: 0 };
+        }
+        else if (typeof opts === 'number') {
+            opts = { flags: opts };
         }
         return driver.fileManager.deleteDirectory(this, expr, opts || {}, callback);
     }

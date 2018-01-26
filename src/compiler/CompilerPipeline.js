@@ -33,7 +33,7 @@ class CompilerPipeline
         if (!this.enabled)
             return false;
 
-        if (!context.exists)
+        if (!context.exists && !context.isEval)
             return false;
 
         context.update(PipeContext.CTX_RUNNING);

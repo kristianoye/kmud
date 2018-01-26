@@ -78,16 +78,25 @@ class DefaultFileSecurity extends FileSecurity {
      * @param {FileSystemRequest} req
      */
     validCreateFile(efuns, req) {
-        return this.validWrite(efuns, expr);
+        return this.validWriteFile(efuns, expr);
+    }
+
+    /**
+     * Determine if the caller is permitted to remove a particular directory.
+     * @param {EFUNProxy} efuns
+     * @param {FileSystemRequest} req
+     */
+    validDeleteDirectory(efuns, req) {
+        return this.validWriteFile(efuns, req);
     }
 
     /**
      * Default security does not distinguish deleting a file from writing.
-     * @param {any} efuns
+     * @param {EFUNProxy} efuns
      * @param {FileSystemRequest} req
      */
     validDeleteFile(efuns, req) {
-        return this.validWrite(caller, expr);
+        return this.validWriteFile(efuns, expr);
     }
 
     /**

@@ -22,7 +22,7 @@ class MUDLoader {
      * @param {string} _directory The directory the target module lives in.
      */
     constructor(_efuns, _compiler, _directory, options) {
-        var
+        let
             _allowProxy = true,
             _context = false,
             _exports = {},
@@ -33,7 +33,7 @@ class MUDLoader {
             _primaryExport = false,
             _oldEfuns = _efuns,
             _options = options || {};
-        var
+        let
             self = (/** @returns {MUDLoader} @param {MUDObject} t */ function (t) {
                 return t;
             })(this);
@@ -223,6 +223,14 @@ class MUDLoader {
             },
             efuns: {
                 value: _efuns,
+                writable: false
+            },
+            eval: {
+                value: function (code) {
+                    let source = _compiler.preprocess(code),
+                        maxEvalTime = driver.config.driver.maxEvalTime || 10000;
+                    return vm.runInContext(source, self, { filename: 'eval', displayErrors: true, timeout: maxEvalTime });
+                },
                 writable: false
             },
             directory: {

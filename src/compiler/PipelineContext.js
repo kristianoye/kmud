@@ -13,8 +13,9 @@ class PipelineContext {
     /**
      * 
      * @param {string} filename The name of the file to be compiled.
+     * @param {boolean=} isEval Indicates the code is from eval()
      */
-    constructor(filename) {
+    constructor(filename, isEval) {
         var n = filename && filename.lastIndexOf('.') || -1;
 
         filename = filename.replace(/\\/g, '/');
@@ -22,7 +23,8 @@ class PipelineContext {
         this.extension = n > -1 ? filename.slice(n) : false
         this.basename = n > -1 ? filename.slice(0, n) : filename;
         this.filename = filename;
-        this.realName = driver.fileManager.toRealPath(this.filename);
+        if ((this.isEval = isEval || false) === false)
+            this.realName = driver.fileManager.toRealPath(this.filename);
         this.resolvedName = false;
         this.content = '';
         this.errors = [];
@@ -81,7 +83,7 @@ class PipelineContext {
     }
 
     update(state, content) {
-        if (state !== this.state && state === CTX_RUNNING) {
+        if (state !== this.state && state === CTX_RUNNING && !this.content) {
             this.content = driver.config.stripBOM(fs.readFileSync(this.resolvedName, 'utf8') || '');
         }
         if(content) this.content = content;

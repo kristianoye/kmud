@@ -172,6 +172,25 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
+     * Remove a directory from the filesystem.
+     * @param {FileSystemRequest} req
+     * @param {any} options
+     * @param {function(boolean, Error):void} callback The callback that receives the result.
+     */
+    deleteDirectoryAsync(req, options, callback) {
+        return this.translatePath(req.relativePath, absPath => {
+            if (!req.resolved)
+                return callback(false, new Error(`Directory does not exist: ${req.fullPath}`));
+
+            return fs.rmdir(absPath, MXC.awaiter(err => {
+                let ctx = driver.currentContext;
+                if (ctx.aborted) return callback(false, new Error('Aborted'));
+                callback(!err, err);
+            }));
+        });
+    }
+
+    /**
      * Translate an absolute path back into a virtual path.
      * @param {string} expr The absolute path to translate.
      * @returns {string|false} The virtual path if the expression exists in this filesystem or false if not.
