@@ -29,12 +29,14 @@ const
     PLURAL_CHOP = 2;
 
 var
-    MUDStorage = require('./MUDStorage').MUDStorageContainer,
+    MUDStorage = require('./MUDStorage'),
     EFUNS = require('./EFUNS'),
     SaveExtension = '.json',
     { MUDHtmlComponent } = require('./MUDHtml');
 
 class EFUNProxy {
+    test() { }
+
     /**
      * Return an absolute value
      * @param {number} n The signed value to get an ansolute value for.
@@ -1125,6 +1127,19 @@ class EFUNProxy {
             });
         }
         throw new Error(`Bad argument 1 to present(); Expected string or object but got ${typeof arguments[0]}`);
+    }
+
+    queryIdle(target) {
+        return unwrap(target, ob => {
+            let $storage = driver.storage.get(ob);
+            if ($storage.flags & MUDStorage.Interactive) {
+                if ($storage.flags & MUDStorage.Connected) {
+                    return $storage.client.idleTime;
+                }
+                return -1;
+            }
+            return 0;
+        });
     }
 
     /**

@@ -97,17 +97,9 @@ class MUDLoader {
                     if (val instanceof TimeoutError) {
                         throw val;
                     }
+                    driver.errorHandler(val, true);
                 },
-                writable: false
-            },
-            __afa: {
-                //  Assert Function Alarm
-                value: function () {
-                    let ctx = driver.getContext(),
-                        now = new Date().getTime();
-                    if (ctx.alarm && ctx.alarm < now)
-                        throw createTimeoutError();
-                },
+                enumerable: false,
                 writable: false
             },
             __ala: {
@@ -121,6 +113,28 @@ class MUDLoader {
                             throw createTimeoutError();
                     }
                 },
+                enumerable: false,
+                writable: false
+            },
+            __bfc: {
+                //  Begin Function Call
+                value: function (ob, method) {
+                    let ctx = driver.getContext(),
+                        now = new Date().getTime();
+                    if (ctx.alarm && ctx.alarm < now)
+                        throw createTimeoutError();
+                    if (ctx.objects) ctx.objects.push(ob);
+                },
+                enumerable: false,
+                writable: false
+            },
+            __efc: {
+                // End Function Call
+                value: function () {
+                    let ctx = driver.getContext();
+                    if (ctx) ctx.objects.pop();
+                },
+                enumerable: false,
                 writable: false
             },
             __dirname: {

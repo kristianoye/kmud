@@ -34,6 +34,8 @@ class MUDStorage extends MUDEventEmitter {
 
         this.filename = owner ? owner.filename : '';
 
+        this.flags = 0;
+
         /** @type {MUDObject[]}} All of the inventory contained with the object */
         this.inventory = [];
 
@@ -417,6 +419,10 @@ class MUDStorage extends MUDEventEmitter {
 
     setClient($client) {
         this.client = $client;
+        this.flags = MUDStorage.Active | MUDStorage.Interactive | MUDStorage.Connected;
+        this.client.on('disconnected', () => {
+            this.flags &= ~MUDStorage.Connected;
+        });
         return this;
     }
 
@@ -535,6 +541,19 @@ MUDStorage.configureForRuntime = function (driver) {
 
     driver.storage = manager;
 };
+
+
+/** Indicates the object is active and not idle */
+MUDStorage.Active = 1 << 0;
+
+/** Indicates the object is (or was) interactive. */
+MUDStorage.Interactive = 1 << 1;
+
+/** Indicates the object has a client attached to it */
+MUDStorage.Connected = 1 << 2;
+
+/** Indicates the object is 'alive' and can execute commands */
+MUDStorage.Living = 1 << 3;
 
 module.exports = MUDStorage;
 

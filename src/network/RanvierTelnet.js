@@ -207,7 +207,13 @@ class TelnetSocket extends EventEmitter {
          * @event TelnetSocket#error
          * @param {Error} err
          */
-        connection.on('error', err => this.emit('error', err));
+        connection.on('error', err => {
+            if (err.code === 'ECONNRESET') {
+                // Belay that order...
+                return;
+            }
+            this.emit('error', err);
+        });
 
         this.telnetCommand(Seq.DO, Opts.OPT_NAWS);
         this.telnetCommand(Seq.DO, Opts.OPT_TTYPE);
@@ -237,6 +243,9 @@ class TelnetSocket extends EventEmitter {
             // them separately. Some client auto-connect features do this
             let bucket = [];
             for (let i = 0; i < inputlen; i++) {
+                if (databuf[i] === 3) { // ctrl-c 
+                    continue; //eat it
+                }
                 if (databuf[i] !== 10) { // \n
                     bucket.push(databuf[i]);
                 } else {

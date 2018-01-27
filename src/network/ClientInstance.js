@@ -52,6 +52,7 @@ class ClientInstance extends EventEmitter {
         this.context = MXC.init();
         this.endpoint = endpoint;
         this.inputStack = [];
+        this.lastCommand = new Date();
         this.remoteAddress = _remoteAddress;
         this.$storage = false;
 
@@ -207,7 +208,7 @@ class ClientInstance extends EventEmitter {
     executeCommand(text) {
         let body = this.body(),
             cmdEvent = this.createCommandEvent(text || '');
-
+        this.lastCommand = new Date();
         driver.setThisPlayer(body, true, cmdEvent.verb);
         this.createContext(cmdEvent);
 
@@ -246,6 +247,10 @@ class ClientInstance extends EventEmitter {
         }
     }
 
+    get idleTime() {
+        return new Date().getTime() - this.lastCommand.getTime();
+    }
+
     /**
      * Handle an exec event.
      * @param {any} evt
@@ -257,6 +262,7 @@ class ClientInstance extends EventEmitter {
         driver.removePlayer(evt.oldBody);
         driver.setThisPlayer(this.body, true, '');
         this.inputStack = [];
+
         if (!this.context) {
             this.createContext({
                 args: [],
@@ -268,6 +274,7 @@ class ClientInstance extends EventEmitter {
         }
         this.context.restore();
         this.$storage.emit('kmud.exec', evt);
+        this.$storage.setClient(this);
         this.releaseContext();
     }
 

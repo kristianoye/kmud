@@ -29,6 +29,7 @@ class MXC {
         this.depth = 0;
         this.input = false;
         this.note = note || 'unspecified';
+        this.objects = [];
         this.objectStack = frames ? frames.slice(0) : [];
         this.onDestroy = false;
         this.previous = prev;
@@ -46,6 +47,7 @@ class MXC {
             this.$storage = driver.storage.get(this.thisPlayer);
             this.previous.children[this.contextId] = this;
             this.previous.children.length++;
+            this.objects = prev.objects.slice(0);
         }
 
         if (init)

@@ -6,7 +6,7 @@
     acorn = require('acorn-jsx');
 
 const
-    IllegalIdentifiers = ['__act', '__ala', '__afa'];
+    IllegalIdentifiers = ['__act', '__ala', '__afa', '__bfc', '__efc'];
 
 class JSXTranspiler extends PipelineComponent {
     constructor(config) {
@@ -25,6 +25,7 @@ class JSXTranspiler extends PipelineComponent {
 
         if (this.enabled) {
             var ast = acorn.parse(source, { plugins: { jsx: true } }),
+                inClass = false,
                 scopes = [],
                 jsxDepth = 0,
                 jsxIndent = '',
@@ -37,9 +38,11 @@ class JSXTranspiler extends PipelineComponent {
              * Instruments final source code with runtime assertions
              * designed to protect against runaway code.
              * @param {Node} e
-             * @param {string} assertText
+             * @param {string} preText Text inserted before the expression.
+             * @param {string} postText Text inserted after the expression.
+             * @param {boolean=} isCon Is it a constructor?
              */
-            function addRuntimeAssert(e, assertText) {
+            function addRuntimeAssert(e, preText, postText, isCon) {
                 let foo = source.slice(e.start, e.end),
                     bod = e.body ? source.slice(e.body.start, e.body.end) : false;
                 if (e.body.type === 'EmptyStatement') {
@@ -52,22 +55,56 @@ class JSXTranspiler extends PipelineComponent {
                                 start: e.body.start,
                                 end: e.body.end,
                                 type: 'RuntimeAssertion',
-                                text: '{ ' + assertText + ' }'
+                                text: '{ ' + preText + (postText || '') + ' }'
                             }
                         ]
                     };
                     e.body = newBody;
                 }
-                else {
-                    let first = e.body.body[0] || false,
-                        start = first ? first.start : e.body.start + 1;
+                else if (e.body && Array.isArray(e.body.body)) {
+                    /**
+                     * @type {any[]}
+                     */
+                    let body = e.body.body;
+                    if (body.length === 0) {
+                        // TODO: Does an empty block need to be on the stack?
+                    }
+                    else {
+                        let first = body[0], last = body[body.length - 1],
+                            start = first.start;
 
-                    e.body.body.unshift({
-                        end: start,
-                        type: 'RuntimeAssertion',
-                        start: start,
-                        text: assertText
-                    });
+                        if (isCon && first.type === 'ExpressionStatement' &&
+                            first.expression.type === 'CallExpression' &&
+                            first.expression.callee.type === 'Super') {
+
+                            let second = body[1];
+
+                            e.body.body = body.slice(0, 1).concat([
+                                {
+                                    end: second ? second.start : first.end,
+                                    type: 'RuntimeAssertion',
+                                    start: first.end,
+                                    text: preText
+                                }
+                            ], body.slice(1));
+                        }
+                        else {
+                            e.body.body.unshift({
+                                end: start,
+                                type: 'RuntimeAssertion',
+                                start: start,
+                                text: preText
+                            });
+                        }
+                        if (postText) {
+                            e.body.body.push({
+                                end: last.end,
+                                type: 'RuntimeAssertion',
+                                start: last.end,
+                                text: postText
+                            });
+                        }
+                    }
                 }
             }
 
@@ -81,7 +118,7 @@ class JSXTranspiler extends PipelineComponent {
                 return result;
             }
 
-            function parseElement(e, depth) {
+            function parseElement(e, depth, ident) {
                 var ret = '';
                 if (!e)
                     return '';
@@ -137,7 +174,9 @@ class JSXTranspiler extends PipelineComponent {
                         break;
 
                     case 'ClassBody':
+                        inClass = true;
                         e.body.forEach(_ => ret += parseElement(_, depth + 1));
+                        inClass = false;
                         break;
 
                     case 'ClassDeclaration':
@@ -189,13 +228,17 @@ class JSXTranspiler extends PipelineComponent {
                     case 'FunctionDeclaration':
                         ret += parseElement(e.id, depth + 1);
                         e.params.forEach(_ => ret += parseElement(_, depth + 1));
-                        ret += parseElement(e.body, depth + 1);
+                        ret += parseElement(e.body, depth + 1, e.id);
                         break;
 
                     case 'FunctionExpression':
                         ret += parseElement(e.id, depth + 1);
                         e.params.forEach(_ => ret += parseElement(_, depth + 1));
-                        addRuntimeAssert(e, '__afa(); ');
+                        if (inClass) {
+                            addRuntimeAssert(e, `__bfc(this, '${ident}'); try { `, ' } finally { __efc(); }', ident==='constructor');
+                        }
+                        else
+                            addRuntimeAssert(e, `__bfc(null, '${ident}'); `);
                         ret += parseElement(e.body, depth + 1);
                         break;
 
@@ -310,7 +353,7 @@ class JSXTranspiler extends PipelineComponent {
 
                     case 'MethodDefinition':
                         ret += parseElement(e.key, depth + 1);
-                        ret += parseElement(e.value, depth + 1);
+                        ret += parseElement(e.value, depth + 1, e.key.name);
                         break;
 
                     case 'NewExpression':
