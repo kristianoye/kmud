@@ -136,6 +136,39 @@ declare class MUDExecEvent {
     readonly oldStorage: MUDStorage;
 }
 
+declare class MUDHelp {
+    /** Describes the type of help object this is for (e.g. command, efun, etc) */
+    type: string;
+
+    /** Describes location of this help in the help hierarchy */
+    category: string | string[];
+
+    /** Contains the body of the help text */
+    description: string;
+
+    /** Contains related content */
+    seeAlso: string | string[];
+}
+
+declare class MUDCommandOption {
+    /** Contains one or more optional command switch */
+    switches: string | string[];
+
+    /** Describes the command switch and what it does */
+    description: string;
+}
+
+declare class MUDCommandHelp extends MUDHelp {
+    /** The name of the command this entry is for */
+    command: string;
+
+    /** Describes the possible options associated with the command */
+    options: MUDCommandOption[];
+
+    /** General usage help text */
+    usage: string;
+}
+
 declare class MUDPrompt {
     /** Indicates whether the receiver recaptures user input focus */
     recapture: boolean;

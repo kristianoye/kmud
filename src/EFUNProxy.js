@@ -1366,6 +1366,33 @@ class EFUNProxy {
     }
 
     /**
+     * 
+     * @param {string} text
+     * @param {number=} maxLength
+     * @param {string=} lineBreak
+     */
+    wrapText(text, maxLength, lineBreak, indent) {
+        var result = [], line = [];
+        var length = 0;
+        text = text.replace(/\n/g, ' ');
+
+        maxLength = maxLength || 80;
+
+        text.split(" ").forEach(function (word) {
+            if ((length + word.length) >= maxLength) {
+                result.push(line.join(" "));
+                line = []; length = 0;
+            }
+            length += word.length + 1;
+            line.push(word);
+        });
+        if (line.length > 0) {
+            result.push(line.join(" "));
+        }
+        return result.join('\n');
+    }
+
+    /**
      * Write a message to the current player's screen.
      * @param {any} expr
      */

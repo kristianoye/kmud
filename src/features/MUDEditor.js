@@ -635,6 +635,7 @@ class EditorInstance {
             this.content.map(s => (bc += s.length, s)).join('\n'), false, true);
         if (result !== true) {
             return this.print(`Write failed: ${(filename || this.filename)}: ${(driver.currentContext.lastError || 'Unknown Error')}`);
+
         }
         this.dirty = false;
         return this.print(`Wrote ${this.content.length} line(s) to ${(filename || this.filename)} [${bc} byte(s)]`);

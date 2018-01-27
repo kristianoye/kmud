@@ -41,14 +41,16 @@
           "web client address": "http://thor:8080/"
         },
         "address": "192.168.1.216",
-        "oldMudListId": 1514839168,
+        "oldMudListId": 1516935025,
         "$$type": "I3MUD",
         "$$file": "/daemon/I3Router"
       },
       "Emerald MUD DS": {
+        "sessions": {},
+        "state": -1,
         "name": "Emerald MUD DS",
         "password": 314705188,
-        "oldMudListId": 1,
+        "oldMudListId": 1516935025,
         "playerPort": 5000,
         "tcpPort": 5006,
         "udpPort": 5008,
@@ -80,6 +82,41 @@
           "oob port": 5006,
           "native version": "3.8.6"
         },
+        "$$type": "I3MUD",
+        "$$file": "/daemon/I3Router"
+      },
+      "Emerald MUD Dev": {
+        "name": "Emerald MUD Dev",
+        "password": -553402937,
+        "playerPort": 8000,
+        "tcpPort": 8888,
+        "udpPort": 8889,
+        "mudlib": "Emerald MUD 2.0",
+        "baseMudlib": "KMUD v0.3.1",
+        "driver": "Node.js v9.3.0",
+        "mudType": "RPG",
+        "openStatus": "mudlib development",
+        "adminEmail": "kristianoye@gmail.com",
+        "services": {
+          "tell": 1,
+          "emoteto": 1,
+          "who": 1,
+          "finger": 1,
+          "locate": 1,
+          "channel": 1,
+          "auth": 1,
+          "ucache": 1
+        },
+        "otherData": {
+          "architecture": "linux",
+          "hardware": "Intel(R) Core(TM) i7-5960X CPU @ 3.00GHz x 2",
+          "memoryUsage": "17.69MB",
+          "memoryTotal": "36.46MB",
+          "systemMemUsed": "3.35GB",
+          "systemMemTotal": "3.82GB",
+          "os build": "Linux 3.10.0-693.2.2.el7.x86_64",
+          "web client address": "http://thor:8080/"
+        },
         "sessions": {},
         "state": -1,
         "$$type": "I3MUD",
@@ -90,7 +127,7 @@
     "port": 8787,
     "routerName": "*kmud",
     "address": "192.168.1.216",
-    "mudListVersion": 1514839218
+    "mudListVersion": 1516942614
   },
   "$environment": false,
   "$inventory": [],

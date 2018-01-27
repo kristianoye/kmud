@@ -90,11 +90,8 @@ class MXC {
      * @returns {MXC}
      */
     addFrame(...frames) {
-        frames.forEach(frame => {
-            if (!(frame.sig in this.sigs)) {
-                this.objectStack.unshift(frame);
-            }
-        });
+        let newFrames = frames.filter(f => !(f.sig in this.sigs));
+        this.objectStack = newFrames.concat(this.objectStack);
         return this;
     }
 

@@ -160,6 +160,7 @@
     <Compile Include="lib\cmds\creator\Rm.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\sys\cmds\creator\rm.js" />
     <Compile Include="lib\sys\cmds\creator\RmDir.js">
       <SubType>Code</SubType>
     </Compile>
@@ -182,7 +183,7 @@
     <Compile Include="lib\cmds\common\Go.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\player\Help.js">
+    <Compile Include="lib\cmds\common\Help.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\player\Languages.js" />

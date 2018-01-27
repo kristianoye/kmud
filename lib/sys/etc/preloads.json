@@ -1,4 +1,5 @@
 ﻿[
+  "/daemon/HelpSystem",
   "/sys/daemon/PlayerDaemon",
   "/base/GameObject",
   "/base/Container",
