@@ -13,9 +13,15 @@ declare class EFUNProxy {
     featureEnabled(name: string): boolean;
 
     /**
- * Returns a list of permissions that are currently active.
- */
+     * Returns a list of permissions that are currently active.
+     */
     activePermissions(): ArrayLike<string>;
+
+    /**
+     * Adds a prompt
+     * @param prompt
+     */
+    addPrompt(prompt: MUDPrompt): void;
 
     /**
      * Returns true if the specified object has admin rights in the MUD.
@@ -91,6 +97,9 @@ declare class EFUNProxy {
     * @returns {MUDObject|false} Returns a MUD object or false on failure.
     */
     cloneObject(file: string, ...args: any[]): object;
+
+    columnText(values: string[]): string;
+    columnText(values: string[], width: number): string;
 
     /**
      * Attempts to consolidate a collection of strings into unique strings and counts.

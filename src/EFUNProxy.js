@@ -64,12 +64,26 @@ class EFUNProxy {
         }
     }
 
+    /**
+     * Determine if an object is an admin.
+     * @param {MUDObject} target
+     * @returns {boolean} True if the target is an administrator.
+     */
     adminp(target) {
-        return driver.inGroup(target, 'admin');
+        return unwrap(target, player => {
+            return driver.inGroup(target, 'admin');
+        });
     }
 
+    /**
+     * Determine if an object is an arch.
+     * @param {MUDObject} target
+     * @returns {boolean} True if the target is an arch.
+     */
     archp(target) {
-        return driver.inGroup(target, 'arch', 'admin');
+        return unwrap(target, player => {
+            return driver.inGroup(target, 'admin', 'arch');
+        });
     }
 
     arrayToSentence(list, useOr, consolidate, useNumbers) {

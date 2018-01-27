@@ -84,7 +84,9 @@ class ClientInstance extends EventEmitter {
      */
     commandComplete(nextAction, evt) {
         this.releaseContext();
-        this.displayPrompt(evt);
+        if (this.inputStack.length === 0) {
+            this.displayPrompt(evt);
+        }
         return nextAction;
     }
 
@@ -219,7 +221,7 @@ class ClientInstance extends EventEmitter {
                         this.write('\r\n');
                         this.client.toggleEcho(true);
                     }
-                    result = frame.callback.call(body, text);
+                    result = frame.callback.call(body, text, cmdEvent);
                 }
                 catch (_err) {
                     this.writeLine('Error: ' + _err);
@@ -231,8 +233,7 @@ class ClientInstance extends EventEmitter {
                 }
 
                 if (result === true) {
-                    this.inputStack.push(frame);
-                    this.write(frame.data.text);
+                    this.inputStack.unshift(frame);
                 }
             }
             else if (body) {

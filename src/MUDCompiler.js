@@ -245,6 +245,10 @@ class MUDCompiler {
                                     throw new Error(`Could not load ${context.filename} [Illegal Object]`);
                                 }
 
+                                if (isReload && typeof result.onRecompile === 'function') {
+                                    result.onRecompile(instance);
+                                }
+
                                 module.loaded = true;
                                 this.driver.cache.store(module);
 

@@ -191,5 +191,25 @@ declare class MUDInputEvent {
     readonly verb: string;
 }
 
+declare namespace HelpSystem {
+    class HelpCategory {
+        category: string;
+
+        normalized: string;
+
+        categories: Map<string, HelpCategory>;
+
+        parent: HelpCategory;
+
+        path: string;
+
+        topics: Map<string, HelpCategory>;
+
+        type: string;
+
+        validAccess(user: MUDObject): boolean;
+    }
+}
+
 let MUDEVENT_STOP = 1 << 20;
 let MUDEVENT_REMOVELISTENER = 1 << 21;
