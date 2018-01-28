@@ -43,7 +43,7 @@ declare class MXC {
      * Clones the current context and allows for an initializer.
      * @param init An optional initializer to customize the context.
      */
-    clone(init: (newCtx: MXC) => MXC);
+    clone(init: (newCtx: MXC) => MXC): MXC;
 
     /**
      * Clones the current context and allows for an initializer.
@@ -51,6 +51,9 @@ declare class MXC {
      * @param note A note describing what the context is for.
      */
     clone(init: (newCtx: MXC) => MXC, note: string);
+
+    /** The unique context ID */
+    contextId: number;
 
     /**
      * Adds any additional frames to the context's object stack.

@@ -1352,6 +1352,17 @@ class EFUNProxy {
         return prev[0] || false;
     }
 
+    thisObjectX() {
+        let ctx = driver.getContext();
+        return ctx.objects[0].object;
+    }
+    previousX() {
+        let ctx = driver.getContext();
+        let result = [], last = ctx.objects[0].object;
+        ctx.objects.forEach(o => o.object !== last && result.push(last = o.object));
+        return result;
+    }
+
     thisPlayer(flag) {
         return flag ? driver.currentContext.truePlayer : driver.currentContext.thisPlayer;
     }

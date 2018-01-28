@@ -11,6 +11,7 @@ const
     sArgs = Symbol('ConstructorArgs'),
     sLoaderEnabled = Symbol('LoaderEnabled'),
     TimeoutError = require('./ErrorTypes').TimeoutError,
+    MXC = require('./MXC'),
     loopsPerAssert = 10000;
 
 var _includeCache = [];
@@ -24,7 +25,7 @@ class MUDLoader {
     constructor(_efuns, _compiler, _directory, options) {
         let
             _allowProxy = true,
-            _context = false,
+            _contexts = MXC.initMap(),
             _exports = {},
             _extending = false,
             _isSingleton = false,
@@ -121,18 +122,35 @@ class MUDLoader {
                 value: function (ob, method) {
                     let ctx = driver.getContext(),
                         now = new Date().getTime();
-                    if (ctx.alarm && ctx.alarm < now)
-                        throw createTimeoutError();
-                    if (ctx.objects) ctx.objects.push(ob);
+                    if (ctx) {
+                        if (ctx.alarm && ctx.alarm < now)
+                            throw createTimeoutError();
+                        if (ob) {
+                            let mxc = ctx.clone(init => init.note = method),
+                                id = mxc.restore().contextId;
+                            mxc.addObject(ob, method);
+                            return id;
+                        }
+                    }
+                    return false;
                 },
                 enumerable: false,
                 writable: false
             },
             __efc: {
                 // End Function Call
-                value: function () {
-                    let ctx = driver.getContext();
-                    if (ctx) ctx.objects.pop();
+                value: function (/** @type {number} */ contextId) {
+                    try {
+                        if (contextId > 0) {
+                            let mxc = MXC.getById(contextId);
+                            if (mxc) {
+                                mxc.release();
+                            }
+                        }
+                    }
+                    catch (e) {
+
+                    }
                 },
                 enumerable: false,
                 writable: false
@@ -185,20 +203,6 @@ class MUDLoader {
                     }
                     else if (typeof type === 'function') {
                         return new MUDHtml.MUDHtmlComponent(type, props, children);
-                    }
-                },
-                writable: false
-            },
-            createInstance: {
-                value: function (callback) {
-                    if (_loaderEnabled) {
-                        try {
-                            return callback.call(this, _efuns, _context);
-                        }
-                        catch (x) {
-                            logger.log(x);
-                            throw x;
-                        }
                     }
                 },
                 writable: false

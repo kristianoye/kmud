@@ -145,7 +145,7 @@ class ClientInstance extends EventEmitter {
                 file: this.body().filename,
                 func: 'executeCommand',
                 object: this.body()
-            });
+            }).addObject(this.body(), 'executeCommand');
         });
     }
     /**

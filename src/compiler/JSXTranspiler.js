@@ -6,7 +6,10 @@
     acorn = require('acorn-jsx');
 
 const
-    IllegalIdentifiers = ['__act', '__ala', '__afa', '__bfc', '__efc'];
+    IllegalIdentifiers = ['__act', '__ala', '__afa', '__bfc', '__ctx', '__efc'],
+    ACCESS_PUBLIC = 0,
+    ACCESS_PROTECTED = 1,
+    ACCESS_PRIVATE = 2;
 
 class JSXTranspiler extends PipelineComponent {
     constructor(config) {
@@ -25,6 +28,7 @@ class JSXTranspiler extends PipelineComponent {
 
         if (this.enabled) {
             var ast = acorn.parse(source, { plugins: { jsx: true } }),
+                accessModifiers = 0,
                 inClass = false,
                 scopes = [],
                 jsxDepth = 0,
@@ -183,6 +187,7 @@ class JSXTranspiler extends PipelineComponent {
                         ret += parseElement(e.id, depth + 1);
                         ret += parseElement(e.superClass, depth + 1);
                         ret += parseElement(e.body, depth + 1);
+                        ret += `\n\n${e.id.name}.prototype.fileName = '${context.basename}';\n`;
                         break;
 
                     case 'ConditionalExpression':
@@ -235,10 +240,10 @@ class JSXTranspiler extends PipelineComponent {
                         ret += parseElement(e.id, depth + 1);
                         e.params.forEach(_ => ret += parseElement(_, depth + 1));
                         if (inClass) {
-                            addRuntimeAssert(e, `__bfc(this, '${ident}'); try { `, ' } finally { __efc(); }', ident==='constructor');
+                            addRuntimeAssert(e, `let __ctx = __bfc(this, '${ident}'); try { `, ' } finally { __efc(__ctx); }', ident==='constructor');
                         }
                         else
-                            addRuntimeAssert(e, `__bfc(null, '${ident}'); `);
+                            addRuntimeAssert(e, `__bfc(null); `);
                         ret += parseElement(e.body, depth + 1);
                         break;
 

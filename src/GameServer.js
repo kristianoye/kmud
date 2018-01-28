@@ -310,6 +310,7 @@ class GameServer extends MUDEventEmitter {
         let mxc = this.getContext(true, init => {
             init.alarm = Number.MAX_SAFE_INTEGER; // new Date().getTime() +  (60 * 2 * 1000);
             init.addFrame({ file: this.masterObject.filename, object: this.masterObject, func: 'createPreloads' });
+            init.addObject(this.masterObject, 'createPreloads');
         }, 'createPreloads');
 
         try {
@@ -545,6 +546,7 @@ class GameServer extends MUDEventEmitter {
                         init.truePlayer = obj;
                         init.client = $storage.client;
                         init.addFrame({ func: 'heartbeat', file: obj.filename, object: obj });
+                        init.addObject(obj, 'heartbeat');
                     });
                 try {
                     mxc.restore();

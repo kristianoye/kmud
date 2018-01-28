@@ -56,9 +56,10 @@ class MXC {
         if (this.objectStack.length === 0)
             MXC.getObjectStack(this);
 
+        _activeContexts[this.contextId] = this;
+        _activeContexts.length++;
+
         if (_debugging) {
-            _activeContexts[this.contextId] = this;
-            _activeContexts.length++;
             let padding = Array(this.depth + 1).join('\t');
             if (this.depth > 0) {
                 this.expr = prev.expr + '->' + this.contextId;
@@ -94,6 +95,13 @@ class MXC {
     addFrame(...frames) {
         let newFrames = frames.filter(f => !(f.sig in this.sigs));
         this.objectStack = newFrames.concat(this.objectStack);
+        return this;
+    }
+
+    addObject(ob, method) {
+        if (ob) {
+            this.objects.unshift({ object: ob, method: method, filename: ob.fileName });
+        }
         return this;
     }
 
@@ -141,6 +149,34 @@ class MXC {
         return this.objectStack.length;
     }
 
+    popStack() {
+        this.objects.shift();
+        this.thisObject = this.objects[0];
+        this.release();
+        return this;
+    }
+
+    /**
+     * Add an object to the stack.
+     * @param {MUDObject} inst
+     * @param {string} method
+     * @param {string} key
+     */
+    pushStack(inst, method, key) {
+        if (inst) {
+            let clone = this.clone(mxc => mxc.note = key);
+            clone.objects.unshift({
+                instance: inst,
+                method: method,
+                filename: inst.filename
+            });
+            clone.thisObject = inst;
+            clone.restore();
+            return clone;
+        }
+        return false;
+    }
+
     /**
      * Release the current context and restore the previous context.
      */
@@ -152,23 +188,24 @@ class MXC {
             if (--ptr.refCount < 1) {
                 if (ptr.refCount < 0)
                     throw new Error('MXC.release(): Negative reference count');
-
-                if (_debugging) {
-                    if (ptr.contextId in _activeContexts) {
-                        delete _activeContexts[ptr.contextId];
-                        _activeContexts.length--;
-                        if (ptr.depth === 0) {
-                            let elp = new Date().getTime() - ptr.start;
-                            logger.log(`${padding}- MXC Release [${ptr.expr}]: RefCount: ${ptr.refCount} [depth: ${ptr.depth}, remaining: ${_activeContexts.length}; time: ${elp}ms]`);
+                else {
+                    if (_debugging) {
+                        if (ptr.contextId in _activeContexts) {
+                            delete _activeContexts[ptr.contextId];
+                            _activeContexts.length--;
+                            if (ptr.depth === 0) {
+                                let elp = new Date().getTime() - ptr.start;
+                                logger.log(`${padding}- MXC Release [${ptr.expr}]: RefCount: ${ptr.refCount} [depth: ${ptr.depth}, remaining: ${_activeContexts.length}; time: ${elp}ms; note: ${ptr.note}]`);
+                            }
+                            else
+                                logger.log(`${padding}- MXC Release [${ptr.expr}]: RefCount: ${ptr.refCount} [depth: ${ptr.depth}, remaining: ${_activeContexts.length}; note: ${ptr.note}]`);
                         }
-                        else
-                            logger.log(`${padding}- MXC Release [${ptr.expr}]: RefCount: ${ptr.refCount} [depth: ${ptr.depth}, remaining: ${_activeContexts.length}]`);
+                        else {
+                            logger.log(`Re-release of deleted context ${ptr.contextId}`);
+                        }
                     }
-                    else {
-                        logger.log(`Re-release of deleted context ${ptr.contextId}`);
-                    }
+                    ptr.destroy();
                 }
-                ptr.destroy();
             }
             else {
                 cur = ptr;
@@ -287,11 +324,36 @@ MXC.getObjectStack = function (mxc) {
 }
 
 /**
+ * Get an active context.
+ * @param {number} id The context to find.
+ * @returns {MXC} The context
+ */
+MXC.getById = function (id) {
+    return _activeContexts[id] || false;
+};
+
+/**
  * Initialize a placeholder context (mainly for intellisense)
  * @returns {MXC} The current context
  */
 MXC.init = function () {
     return false;
 };
+
+/**
+ * Initialize a placeholder context (mainly for intellisense)
+ * @returns {MXC[]} An array of context objects.
+ */
+MXC.initArray = function () {
+    return [];
+}
+
+/**
+ * Initialize a placeholder context (mainly for intellisense)
+ * @returns {Object.<string,MXC>} A mapping of context objects.
+ */
+MXC.initMap = function () {
+    return {};
+}
 
 module.exports = MXC;
