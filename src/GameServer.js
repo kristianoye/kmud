@@ -84,9 +84,6 @@ class GameServer extends MUDEventEmitter {
         this.mudName = config.mud.name;
         this.nextResetTime = 0;
 
-        /** @type {MUDObject[]} */
-        this.objectStack = [];
-
         /** @type {MUDObject} */
         this.players = [];
         this.preCompilers = [];
@@ -171,27 +168,6 @@ class GameServer extends MUDEventEmitter {
             }
             return false;
         });
-    }
-
-    /**
-     * Add an object to the stack, execute some code, and remove the item.
-     * This is only used if object proxies are enabled and is pretty gross.
-     * @param {MUDObject} ob The object in which a method or property is being accessed.
-     * @param {function(...any):any} callback The code to execute with the current object on the stack.
-     * @returns {boolean}
-     */
-    addObjectFrame(ob, callback) {
-        let s = this.objectStack.length,
-            n = this.objectStack.push(ob);
-        if (n > s) {
-            try {
-                callback();
-                return true;
-            }
-            finally {
-                this.objectStack.pop();
-            }
-        }
     }
 
     addPlayer(body) {
@@ -309,7 +285,6 @@ class GameServer extends MUDEventEmitter {
     createPreloads() {
         let mxc = this.getContext(true, init => {
             init.alarm = Number.MAX_SAFE_INTEGER; // new Date().getTime() +  (60 * 2 * 1000);
-            init.addFrame({ file: this.masterObject.filename, object: this.masterObject, func: 'createPreloads' });
             init.addObject(this.masterObject, 'createPreloads');
         }, 'createPreloads');
 
@@ -495,7 +470,7 @@ class GameServer extends MUDEventEmitter {
                 }
             }).filter(f => typeof f === 'object');
             if (mxc) {
-                mxc.alarm = mxc.alarm && new Date().getTime() + 2000;
+                mxc.snooze(2000);
                 if (mxc.input) {
                     mxc.input.complete();
                 }
@@ -545,7 +520,6 @@ class GameServer extends MUDEventEmitter {
                         init.thisPlayer = obj;
                         init.truePlayer = obj;
                         init.client = $storage.client;
-                        init.addFrame({ func: 'heartbeat', file: obj.filename, object: obj });
                         init.addObject(obj, 'heartbeat');
                     });
                 try {
@@ -616,60 +590,6 @@ class GameServer extends MUDEventEmitter {
      */
     getMudName() {
         return this.config.mud.name;
-    }
-
-    /**
-     * Return the relevant stack frames for security-based calls.
-     * @param {MXC} ctx The context to fill.
-     * @returns {MXCFrame[]} The observed frames.
-     */
-    getObjectStack(ctx) {
-        let isUnguarded = false,
-            _stack = stack().reverse(),
-            result = [],
-            fullStack = [],
-            obs = [];
-
-        for (let i = 0, max = _stack.length - 1; i < max; i++) {
-            let cs = _stack[i],
-                colNumber = cs.getColumnNumber(),
-                fileName = cs.getFileName(),
-                lineNumber = cs.getLineNumber(),
-                funcName = cs.getMethodName() || cs.getFunctionName(),
-                fileParts = fileName ? fileName.split('#') : false,
-                sig = `${fileName}::${funcName} [${lineNumber}:${colNumber}]`;
-
-            fullStack.push(sig);
-
-            if (fileName === this.efunProxyPath || funcName.indexOf('unguarded') > -1) {
-                if (funcName === 'unguarded') {
-                    isUnguarded = true;
-                }
-            }
-            if (fileParts !== false) {
-                let instanceId = fileParts.length > 1 ? parseInt(fileParts[1]) : 0,
-                    module = this.cache.get(fileParts[0]);
-
-                if (module) {
-                    let ob = module.instances[instanceId] || { filename: fileParts[0] };
-                    let frame = {
-                        object: ob,
-                        file: fileParts[0],
-                        func: funcName || 'constructor',
-                        sig
-                    };
-                    if (frame.object === null)
-                        throw new Error(`Illegal call in constructor [${fileParts[0]}`);
-
-                    if (isUnguarded) {
-                        return [frame];
-                    }
-                    result.unshift(frame);
-                    if (ctx) ctx.addFrame(frame);
-                }
-            }
-        }
-        return result;
     }
 
     inGroup(target, groups) {

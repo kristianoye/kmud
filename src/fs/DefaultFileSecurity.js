@@ -140,12 +140,15 @@ class DefaultFileSecurity extends FileSecurity {
      */
     validReadFile(efuns, req) {
         let ctx = driver.getContext();
-        for (let i = 0; i < ctx.length; i++) {
-            if (!driver.validRead(efuns, ctx.objectStack[i], req.fullPath)) {
+        for (let i = 0, max = ctx.objects.length, c = {}; i < max; i++) {
+            let ptr = ctx.objects[i];
+            if (ptr.file in c) continue;
+            if (!driver.validRead(efuns, ptr, req.fullPath)) {
                 if (this.throwSecurityExceptions)
                     throw new SecurityError(`Permission Denied: Read: ${req.fullPath}`);
                 return false;
             }
+            c[ptr.file] = true;
         }
         return true;
     }
@@ -166,12 +169,15 @@ class DefaultFileSecurity extends FileSecurity {
      */
     validWriteFile(efuns, req) {
         let ctx = driver.getContext();
-        for (let i = 0; i < ctx.length; i++) {
-            if (!driver.validWrite(efuns, ctx.objectStack[i], req.fullPath)) {
+        for (let i = 0, max = ctx.objects.length, c = {}; i < max; i++) {
+            let ptr = ctx.objects[i];
+            if (ptr.file in c) continue;
+            if (!driver.validWrite(efuns, ptr, req.fullPath)) {
                 if (this.throwSecurityExceptions)
                     throw new SecurityError(`Permission Denied: Read: ${req.fullPath}`);
                 return false;
             }
+            c[ptr.file] = true;
         }
         return true;
     }

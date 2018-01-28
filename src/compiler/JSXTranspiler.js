@@ -77,10 +77,21 @@ class JSXTranspiler extends PipelineComponent {
                         let first = body[0], last = body[body.length - 1],
                             start = first.start;
 
-                        if (isCon && first.type === 'ExpressionStatement' &&
+                        if (first.type === 'DebuggerStatement') {
+                            let second = body[1];
+
+                            e.body.body = body.slice(0, 1).concat([
+                                {
+                                    end: second ? second.start : first.end,
+                                    type: 'RuntimeAssertion',
+                                    start: first.end,
+                                    text: preText
+                                }
+                            ], body.slice(1));
+                        }
+                        else if (isCon && first.type === 'ExpressionStatement' &&
                             first.expression.type === 'CallExpression' &&
                             first.expression.callee.type === 'Super') {
-
                             let second = body[1];
 
                             e.body.body = body.slice(0, 1).concat([
@@ -201,6 +212,12 @@ class JSXTranspiler extends PipelineComponent {
                         pos = e.end;
                         break;
 
+                    case 'DebuggerStatement':
+                        // TODO: Add config check to see if debugger is allowed...
+                        ret += source.slice(e.start, e.end);
+                        pos = e.end;
+                        break;
+
                     case 'DoWhileStatement':
                         addRuntimeAssert(e, '__ala(); ');
                         ret += parseElement(e.body, depth + 1);
@@ -240,7 +257,10 @@ class JSXTranspiler extends PipelineComponent {
                         ret += parseElement(e.id, depth + 1);
                         e.params.forEach(_ => ret += parseElement(_, depth + 1));
                         if (inClass) {
-                            addRuntimeAssert(e, `let __ctx = __bfc(this, '${ident}'); try { `, ' } finally { __efc(__ctx); }', ident==='constructor');
+                            addRuntimeAssert(e,
+                                `let __ctx = __bfc(this, '${ident}'); try { `,
+                                ' } finally { __efc(__ctx); }',
+                                ident === 'constructor');
                         }
                         else
                             addRuntimeAssert(e, `__bfc(null); `);

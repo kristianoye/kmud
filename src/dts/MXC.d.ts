@@ -7,9 +7,6 @@
 
     /** The object instance making the call */
     readonly object: MUDObject;
-
-    /** The frame 'signature' used to prevent duplicates */
-    readonly sig: string;
 }
 
 declare class MXC {
@@ -28,6 +25,13 @@ declare class MXC {
      * @param frame
      */
     addFrame(frame: ...MXCFrame[]): MXC;
+
+    /**
+     * Adds an object to the LIFO object stack.
+     * @param ob The new object on the frame.
+     * @param method The method name from the callstack.
+     */
+    addObject(ob: MUDObject, method: string): MXC;
 
     /**
      * The time at which execution should die; false indicates unlimited.
@@ -66,11 +70,19 @@ declare class MXC {
     /** Brief description of what context is doing */
     note: string;
 
+    /** The active objects in the current stack */
+    readonly objects: MXCFrame[];
+
     /** The object instances on the stack */
     readonly objectStack: MXCFrame[];
 
     /** Callback that fires when the context is destroyed */
-    onDestroy: function(MXC):void;
+    onDestroy: function(MXC): void;
+
+    /**
+     * Returns objects from earlier in the stack.
+     */
+    readonly previousObjects: MUDObject[];
 
     /**
      * Decrement the reference count and optionally restore the previous context.
@@ -84,16 +96,13 @@ declare class MXC {
     restore(): MXC;
 
     /**
-     * Run a block of code in "this" context.
-     * @param callback The code to execute as the current context.
-     */
-    run(callback: (args: ...any[]) => any): any;
-
-    /**
      * Extends the alarm time by set amount
      * @param ms The number of milliseconds to extend alarm by.
      */
     snooze(ms: number);
+
+    /** The first object in the LIFO stack */
+    readonly thisObject: MUDObject;
 
     /** The player performing the current context */
     readonly thisPlayer: MUDObject;

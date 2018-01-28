@@ -29,8 +29,8 @@ class MXC {
         this.depth = 0;
         this.input = false;
         this.note = note || 'unspecified';
+        /** @type {MXCFrame[]} */
         this.objects = [];
-        this.objectStack = frames ? frames.slice(0) : [];
         this.onDestroy = false;
         this.previous = prev;
         this.refCount = 0;
@@ -39,22 +39,20 @@ class MXC {
         this.sigs = {};
 
         if (prev) {
+            this.alarm = prev.alarm;
             this.client = prev.client;
             this.depth = prev.depth + 1;
             this.input = prev.input;
+            this.thisObject = prev.thisObject;
             this.thisPlayer = prev.thisPlayer;
             this.truePlayer = prev.truePlayer;
-            this.$storage = driver.storage.get(this.thisPlayer);
+            this.$storage = prev.$storage;
             this.previous.children[this.contextId] = this;
             this.previous.children.length++;
             this.objects = prev.objects.slice(0);
         }
 
-        if (init)
-            init(this);
-
-        if (this.objectStack.length === 0)
-            MXC.getObjectStack(this);
+        if (init) init(this);
 
         _activeContexts[this.contextId] = this;
         _activeContexts.length++;
@@ -88,19 +86,15 @@ class MXC {
     }
 
     /**
-     * Add frames to the object stack.
-     * @param {...MXCFrame} frames One or more frames to add to stack
+     * Add an object frame
+     * @param {MUDObject} ob
+     * @param {string} method
      * @returns {MXC}
      */
-    addFrame(...frames) {
-        let newFrames = frames.filter(f => !(f.sig in this.sigs));
-        this.objectStack = newFrames.concat(this.objectStack);
-        return this;
-    }
-
     addObject(ob, method) {
         if (ob) {
-            this.objects.unshift({ object: ob, method: method, filename: ob.fileName });
+            this.objects.unshift({ object: ob, func: method, file: ob.fileName });
+            this.thisObject = ob;
         }
         return this;
     }
@@ -135,53 +129,23 @@ class MXC {
     }
 
     /**
-     * Appends new frames to the context object stack.
-     * @returns {MXC}
-     */
-    join() {
-        return MXC.getObjectStack(this);
-    }
-
-    /**
      * @returns {number}
      */
     get length() {
         return this.objectStack.length;
     }
 
-    popStack() {
-        this.objects.shift();
-        this.thisObject = this.objects[0];
-        this.release();
-        return this;
-    }
-
-    /**
-     * Add an object to the stack.
-     * @param {MUDObject} inst
-     * @param {string} method
-     * @param {string} key
-     */
-    pushStack(inst, method, key) {
-        if (inst) {
-            let clone = this.clone(mxc => mxc.note = key);
-            clone.objects.unshift({
-                instance: inst,
-                method: method,
-                filename: inst.filename
-            });
-            clone.thisObject = inst;
-            clone.restore();
-            return clone;
-        }
-        return false;
+    get previousObjects() {
+        let prev = this.objects[0].object, result = [];
+        this.objects.forEach(o => o.object !== prev && result.push(prev = o.object));
+        return result;
     }
 
     /**
      * Release the current context and restore the previous context.
      */
     release() {
-        let ptr = this, cur = MXC.init();
+        let ptr = this, cur = false;
 
         while (ptr) {
             let padding = _debugging && Array(ptr.depth + 1).join('\t');
@@ -189,10 +153,10 @@ class MXC {
                 if (ptr.refCount < 0)
                     throw new Error('MXC.release(): Negative reference count');
                 else {
+                    delete _activeContexts[ptr.contextId];
+                    _activeContexts.length--;
                     if (_debugging) {
                         if (ptr.contextId in _activeContexts) {
-                            delete _activeContexts[ptr.contextId];
-                            _activeContexts.length--;
                             if (ptr.depth === 0) {
                                 let elp = new Date().getTime() - ptr.start;
                                 logger.log(`${padding}- MXC Release [${ptr.expr}]: RefCount: ${ptr.refCount} [depth: ${ptr.depth}, remaining: ${_activeContexts.length}; time: ${elp}ms; note: ${ptr.note}]`);
@@ -207,9 +171,8 @@ class MXC {
                     ptr.destroy();
                 }
             }
-            else {
+            else if (!cur)
                 cur = ptr;
-            }
             ptr = ptr.previous;
         }
         driver.restoreContext(cur);
@@ -221,8 +184,10 @@ class MXC {
      */
     restore() {
         if (!this.released) {
+            this.previousContext = driver.currentContext;
             this.refCount++;
             driver.currentContext = this;
+            driver.thisObject = this.thisObject;
             driver.thisPlayer = this.thisPlayer;
             driver.truePlayer = this.truePlayer;
             if (_debugging) {
@@ -259,7 +224,7 @@ MXC.awaiter = function (callback, note) {
     return (...args) => {
         let prev = driver.getContext();
         try {
-            clone.join().restore();
+            clone.restore();
             return callback(...args);
         }
         finally {
@@ -271,10 +236,9 @@ MXC.awaiter = function (callback, note) {
 
 /**
  * Return the relevant stack frames for security-based calls.
- * @param {MXC} mxc The context to fill.
- * @returns {MXC} A reference to the original context.
+ * @returns {MXCFrame[]} The extracted object stack.
  */
-MXC.getObjectStack = function (mxc) {
+MXC.getObjectsFromStack = function () {
     let _stack = stack(), result = [], unguarded = false,
         fullStack = [];
     let bs = new Error().stack;
@@ -299,14 +263,12 @@ MXC.getObjectStack = function (mxc) {
             if (module) {
                 let ob = module.instances[instanceId],
                     line = cs.getLineNumber(),
-                    col = cs.getColumnNumber(),
-                    sig = `${fn}:${func}:${line}:${col}`;
+                    col = cs.getColumnNumber();
 
                 let frame = {
                     object: ob,
                     file: modulePath,
-                    func: func || 'constructor',
-                    sig
+                    func: func || 'constructor'
                 };
                 if (frame.object === null)
                     throw new Error(`Illegal call in constructor [${modulePath}`);
@@ -315,12 +277,7 @@ MXC.getObjectStack = function (mxc) {
             }
         }
     }
-    if (unguarded) 
-        mxc.objectStack = result;
-    else {
-        mxc.addFrame(...result);
-    }
-    return mxc;
+    return result;
 }
 
 /**

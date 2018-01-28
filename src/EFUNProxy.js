@@ -243,8 +243,9 @@ class EFUNProxy {
      * Force the previous object to perform an in-game object.
      */
     command(input) {
-        let _thisObject = this.ThisPlayer || this.thisObject(),
-            prevPlayer = driver.thisPlayer;
+        let ctx = driver.getContext();
+        let _thisObject = ctx.thisObject,
+            prevPlayer = ctx.truePlayer;
         if (_thisObject) {
             let $storage = driver.storage.get(_thisObject),
                 client = $storage.getProtected('$client'),
@@ -1224,14 +1225,16 @@ class EFUNProxy {
     restoreObject(path) {
         let result = false;
         try {
-            let prev = this.thisObject();
-            if (prev) {
+            let ctx = driver.getContext(),
+                thisOb = ctx.thisObject;
+
+            if (thisOb) {
                 if (!path.endsWith(SaveExtension))
                     path += SaveExtension;
                 if (this.isFile(path)) {
                     let data = this.readJsonFile(path);
                     if (data) {
-                        let $storage = driver.storage.get(prev);
+                        let $storage = driver.storage.get(thisOb);
                         $storage && $storage.restore(data);
                         result = true;
                     }
@@ -1277,7 +1280,8 @@ class EFUNProxy {
      */
     saveObject(path) {
         try {
-            let prev = this.thisObject() || this.previousObject();
+            let ctx = driver.getContext();
+            let prev = ctx.thisObject;
 
             if (prev) {
                 if (!path.endsWith(SaveExtension))
@@ -1348,19 +1352,8 @@ class EFUNProxy {
      * @returns {MUDObject|false} The last object to interact with the MUD or false if none.
      */
     thisObject() {
-        var prev = this.previousObject(-1);
-        return prev[0] || false;
-    }
-
-    thisObjectX() {
         let ctx = driver.getContext();
-        return ctx.objects[0].object;
-    }
-    previousX() {
-        let ctx = driver.getContext();
-        let result = [], last = ctx.objects[0].object;
-        ctx.objects.forEach(o => o.object !== last && result.push(last = o.object));
-        return result;
+        return ctx && ctx.thisObject;
     }
 
     thisPlayer(flag) {
@@ -1582,18 +1575,10 @@ EFUNProxy.configureForRuntime = function (driver) {
     }
     else {
         EFUNProxy.prototype.previousObject = function (n) {
-            let index = (n || 0) + 1;
-            let mxc = driver.getContext(false, init => init.note = 'previousObject');
-            try {
-                mxc.join().restore();
-                result = n === -1 ?
-                    mxc.objectStack.map(f => f.object) :
-                    mxc.objectStack[index].object;
-                return result;
-            }
-            finally {
-                mxc.release();
-            }
+            let ctx = driver.getContext(),
+                back = parseInt(n);
+                prev = ctx ? ctx.previousObjects : [];
+            return n === -1 ? prev.slice(1) : prev[n - 1];
         };
     }
 };
