@@ -35,8 +35,6 @@ var
     { MUDHtmlComponent } = require('./MUDHtml');
 
 class EFUNProxy {
-    test() { }
-
     /**
      * Return an absolute value
      * @param {number} n The signed value to get an ansolute value for.
@@ -328,6 +326,15 @@ class EFUNProxy {
 
         }
         return false;
+    }
+
+    /**
+     * Remove an object from the game and (hopefully) allow it to be garbage-
+     * collected on the next gc run.  This requires that there are no objects
+     * referencing it.
+     * @param {MUDObject} ob
+     */
+    destruct(ob) {
     }
 
     /**
@@ -1577,7 +1584,7 @@ EFUNProxy.configureForRuntime = function (driver) {
         EFUNProxy.prototype.previousObject = function (n) {
             let ctx = driver.getContext(),
                 back = parseInt(n);
-                prev = ctx ? ctx.previousObjects : [];
+                prev = ctx ? ctx.objectStack : [];
             return n === -1 ? prev.slice(1) : prev[n - 1];
         };
     }

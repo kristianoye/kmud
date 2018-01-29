@@ -126,15 +126,17 @@ class MUDLoader {
                         if (ctx.alarm && ctx.alarm < now)
                             throw createTimeoutError();
                         if (ob) {
-                            let mxc = ctx.clone(init => init.note = method)
-                                .addObject(ob, method);
-                            mxc.restore();
-                            return mxc.contextId;
+                            ctx.addFrame(ob, method).increment();
+                            return ctx.contextId;
+                            //let mxc = ctx.clone(init => init.note = method)
+                            //    .addObject(ob, method);
+                            //mxc.restore();
+                            //return mxc.contextId;
                         }
                     }
                     else if (ob) {
                         ctx = driver.getContext(true, init => init.note = method)
-                            .addObject(ob, method);
+                            .addFrame(ob, method);
                         ctx.restore();
                         return ctx.contextId;
                     }
@@ -150,7 +152,7 @@ class MUDLoader {
                         if (contextId > 0) {
                             let mxc = MXC.getById(contextId);
                             if (mxc) {
-                                mxc.release();
+                                mxc.popStack();
                             }
                         }
                     }

@@ -1,6 +1,15 @@
 {
   "private": {},
-  "props": {},
+  "props": {
+    "adjectives": [],
+    "id": "unknown",
+    "idList": [
+      "unknown"
+    ],
+    "pluralIdList": [
+      "unknowns"
+    ]
+  },
   "protected": {
     "routerList": {
       "*kmud": {

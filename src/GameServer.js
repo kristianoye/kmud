@@ -285,7 +285,7 @@ class GameServer extends MUDEventEmitter {
     createPreloads() {
         let mxc = this.getContext(true, init => {
             init.alarm = Number.MAX_SAFE_INTEGER; // new Date().getTime() +  (60 * 2 * 1000);
-            init.addObject(this.masterObject, 'createPreloads');
+            init.addFrame(this.masterObject, 'createPreloads');
         }, 'createPreloads');
 
         try {
@@ -324,7 +324,10 @@ class GameServer extends MUDEventEmitter {
      */
     createSimulEfuns() {
         if (this.simulEfunPath) {
-            this.compiler.compileObject(this.simulEfunPath);
+            let module = this.compiler.compileObject(this.simulEfunPath),
+                eproxy = require('./EFUNProxy');
+            //Object.setPrototypeOf(module.classRef, eproxy.prototype);
+            //let test = new module.classRef();
         }
     }
 
@@ -520,7 +523,7 @@ class GameServer extends MUDEventEmitter {
                         init.thisPlayer = obj;
                         init.truePlayer = obj;
                         init.client = $storage.client;
-                        init.addObject(obj, 'heartbeat');
+                        init.addFrame(obj, 'heartbeat');
                     });
                 try {
                     mxc.restore();

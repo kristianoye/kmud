@@ -6,7 +6,6 @@
 var
     MUDConfig = require('./MUDConfig'),
     GameServer = require('./GameServer'),
-    MUDData = require('./MUDData'),
     EFUNProxy = require('./EFUNProxy'),
     MUDCreationContext = require('./MUDCreationContext'),
     MUDLoader = require('./MUDLoader'),

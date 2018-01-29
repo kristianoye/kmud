@@ -496,9 +496,6 @@
     <Compile Include="src\MUDCreationContext.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\MUDData.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="src\MUDEventEmitter.js">
       <SubType>Code</SubType>
     </Compile>

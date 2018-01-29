@@ -1,4 +1,13 @@
-﻿const
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ *
+ * Description: MUD eXecution Context (MXC).  Maintains object stack and
+ * important "thread" context variables (current player, true player,
+ * current object, etc).
+ */
+const
     stack = require('callsite');
 
 var
@@ -30,13 +39,13 @@ class MXC {
         this.input = false;
         this.note = note || 'unspecified';
         /** @type {MXCFrame[]} */
-        this.objects = [];
+        this.stack = [];
+        /** @type {MXCFrame[]} */
+        this.objectStack = [];
         this.onDestroy = false;
         this.previous = prev;
         this.refCount = 0;
         this.released = false;
-        /** @type {Object.<string,boolean>} */
-        this.sigs = {};
 
         if (prev) {
             this.alarm = prev.alarm;
@@ -49,7 +58,8 @@ class MXC {
             this.$storage = prev.$storage;
             this.previous.children[this.contextId] = this;
             this.previous.children.length++;
-            this.objects = prev.objects.slice(0);
+            this.objectStack = prev.objectStack.slice(0);
+            this.stack = prev.stack.slice(0);
         }
 
         if (init) init(this);
@@ -91,10 +101,13 @@ class MXC {
      * @param {string} method
      * @returns {MXC}
      */
-    addObject(ob, method) {
+    addFrame(ob, method) {
         if (ob) {
-            this.objects.unshift({ object: ob, func: method, file: ob.fileName });
-            this.thisObject = ob;
+            this.stack.unshift({ object: ob, func: method, file: ob.fileName });
+            if (this.thisObject !== ob && ob instanceof MUDObject) {
+                this.thisObject = ob;
+                this.objectStack.unshift(ob);
+            }
         }
         return this;
     }
@@ -128,6 +141,15 @@ class MXC {
         }
     }
 
+    increment() {
+        let ptr = this;
+        while (ptr) {
+            ptr.refCount++;
+            ptr = ptr.previous;
+        }
+        return this;
+    }
+
     /**
      * @returns {number}
      */
@@ -135,9 +157,20 @@ class MXC {
         return this.objectStack.length;
     }
 
+    popStack() {
+        let frame = this.stack.shift();
+        if (this.stack.length === 0)
+            this.thisObject = false;
+        else if (this.stack[0].object !== this.thisObject) {
+            this.objectStack.shift();
+            this.thisObject = this.objectStack[0];
+        }
+        return this.release();
+    }
+
     get previousObjects() {
-        let prev = this.objects[0].object, result = [];
-        this.objects.forEach(o => o.object !== prev && result.push(prev = o.object));
+        let prev = this.stack[0].object, result = [];
+        this.stack.forEach(o => o.object !== prev && result.push(prev = o.object));
         return result;
     }
 
@@ -153,7 +186,6 @@ class MXC {
                 if (ptr.refCount < 0)
                     throw new Error('MXC.release(): Negative reference count');
                 else {
-                    delete _activeContexts[ptr.contextId];
                     _activeContexts.length--;
                     if (_debugging) {
                         if (ptr.contextId in _activeContexts) {
@@ -168,6 +200,7 @@ class MXC {
                             logger.log(`Re-release of deleted context ${ptr.contextId}`);
                         }
                     }
+                    delete _activeContexts[ptr.contextId];
                     ptr.destroy();
                 }
             }

@@ -29,6 +29,7 @@ class JSXTranspiler extends PipelineComponent {
         if (this.enabled) {
             var ast = acorn.parse(source, { plugins: { jsx: true } }),
                 accessModifiers = 0,
+                appendText = '',
                 inClass = false,
                 scopes = [],
                 jsxDepth = 0,
@@ -198,7 +199,7 @@ class JSXTranspiler extends PipelineComponent {
                         ret += parseElement(e.id, depth + 1);
                         ret += parseElement(e.superClass, depth + 1);
                         ret += parseElement(e.body, depth + 1);
-                        ret += `\n\n${e.id.name}.prototype.fileName = '${context.basename}';\n`;
+                        appendText += `\n\n${e.id.name}.prototype.fileName = '${context.basename}';\n`;
                         break;
 
                     case 'ConditionalExpression':
@@ -497,7 +498,7 @@ class JSXTranspiler extends PipelineComponent {
 
             ast.body.forEach((n, i) => output += parseElement(n, 0));
             if (pos < max) output += source.slice(pos, max);
-            return context.update(PipeContext.CTX_RUNNING, output);
+            return context.update(PipeContext.CTX_RUNNING, output + appendText);
         }
     }
 }

@@ -140,7 +140,7 @@ class ClientInstance extends EventEmitter {
             mxc.note = 'executeCommand';
             mxc.$storage = this.$storage;
             mxc.thisPlayer = mxc.truePlayer = this.body();
-            mxc.addObject(this.body(), 'executeCommand');
+            mxc.addFrame(this.body(), 'executeCommand');
         });
     }
     /**
