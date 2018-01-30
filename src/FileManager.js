@@ -14,6 +14,20 @@ const
     path = require('path'),
     fs = require('fs');
 
+mudglobal.MUDFS = {
+    MoveFlags: {
+        Backup: 1,
+        NoClobber: 1 << 1,
+        Update: 1 << 2
+    },
+    MoveOptions: {
+        backupSuffix: '~',
+        flags: 0,
+        prompt: false,
+        targetDirectory: '.'
+    }
+};
+
 // Global enum-type object for directory listing flags
 mudglobal.GetDirFlags = {
     None: 0,
@@ -412,6 +426,10 @@ class FileManager extends MUDEventEmitter {
                 req.fileSystem.loadObject(req, args, callback) :
                 req.securityManager.denied('load', req.fullPath);
         })
+    }
+
+    rename(efuns, source, dest, options, callback) {
+
     }
 
     /**

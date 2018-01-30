@@ -11,7 +11,7 @@ const
     _client = Symbol('_client'),
     MXC = require('../MXC'),
     maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime,
-    tripwire = maxCommandExecutionTime > 0 ? require('tripwire') : false;
+    merge = require('merge');
 
 class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, client) {
@@ -64,7 +64,7 @@ class RanvierTelnetInstance extends ClientInstance {
         if (typeof opts === 'string') {
             opts = { text: opts, type: 'text' };
         }
-        var data = Object.extend({
+        var data = merge({
             type: 'text',
             text: 'Command: '
         }, opts), frame = { data: data, callback: callback };

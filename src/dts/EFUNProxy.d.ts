@@ -21,7 +21,7 @@ declare class EFUNProxy {
      * Adds a prompt
      * @param prompt
      */
-    addPrompt(prompt: MUDPrompt): void;
+    addPrompt(prompt: MUDPrompt, callback: (input: string) => void): void;
 
     /**
      * Returns true if the specified object has admin rights in the MUD.
@@ -302,6 +302,17 @@ declare class EFUNProxy {
      * @returns {MUDObject[]}
      */
     players(showAll: boolean): MUDObject[];
+
+    /**
+     * Returns the targets idle time in milliseconds.
+     * @param target
+     */
+    queryIdle(target: MUDObject): number;
+
+    /**
+     * Returns the verb that is currently executing.
+     */
+    queryVerb(): string;
 
     /**
      * Attempts to read the contents of a file.

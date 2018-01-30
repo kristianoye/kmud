@@ -99,6 +99,9 @@
     <Compile Include="lib\sys\cmds\creator\Chmod.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\sys\cmds\creator\cp.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\sys\cmds\creator\Edit.js">
       <SubType>Code</SubType>
     </Compile>
@@ -157,9 +160,7 @@
     <Compile Include="lib\cmds\creator\Rehash.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Rm.js">
-      <SubType>Code</SubType>
-    </Compile>
+    <Compile Include="lib\sys\cmds\creator\mv.js" />
     <Compile Include="lib\sys\cmds\creator\rm.js" />
     <Compile Include="lib\sys\cmds\creator\RmDir.js">
       <SubType>Code</SubType>
@@ -443,9 +444,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\EFUNProxy.js" />
-    <Compile Include="src\EFUNS.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="src\ErrorTypes.js" />
     <Compile Include="src\features\DomainStats.js">
       <SubType>Code</SubType>

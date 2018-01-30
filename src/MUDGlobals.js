@@ -12,13 +12,19 @@ class MUDGlobals {
         return this;
     }
 
+    freeze(ob) {
+        if (typeof ob === 'object') {
+            Object.keys(ob).forEach(k => {
+                this.freeze(ob[k]);
+            });
+            Object.freeze(ob);
+        }
+        return ob;
+    }
+
     modifyLoader(loaderPrototype) {
         Object.keys(this).forEach(key => {
-            let val = this[key];
-
-            if (typeof val === 'object')
-                Object.freeze(val);     
-
+            let val = this.freeze(this[key]);
             if (!(key in global)) {
                 Object.defineProperty(global, key, {
                     value: val,

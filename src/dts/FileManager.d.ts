@@ -1,4 +1,31 @@
-﻿declare enum GetDirFlags {
+﻿declare namespace MUDFS {
+    enum MoveFlags {
+        /** Make a backup of each existing destination file */
+        Backup = 1 << 0,
+
+        /** Do not clobber existing files */
+        NoClobber = 1 << 1,
+
+        /** Only move newer or non-existant files */
+        Update = 1 << 2
+    }
+
+    class MoveOptions {
+        /** A backup suffix to append to existing destination files */
+        backupSuffix: string;
+
+        /** Option flags */
+        flags: MoveFlags;
+
+        /** An interactive prompt callback to confirm overwrites */
+        prompt: (file: string) => boolean;
+
+        /** The target directory for the move */
+        targetDirectory: string;
+    }
+}
+
+declare enum GetDirFlags {
     /** Return files in the result set */
     Files = 1 << 1,
 

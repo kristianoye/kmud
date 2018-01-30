@@ -6,7 +6,7 @@
  * Description: This module contains core game functionality.
  */
 const ClientInstance = require('./ClientInstance'),
-    tripwire = false; // require('tripwire');
+    merge = require('merge');
 
 const
     _client = Symbol('client'),
@@ -72,7 +72,7 @@ class HTTPClientInstance extends ClientInstance {
      * @returns {HTTPClientInstance} A reference to the client interface.
      */
     addPrompt(opts, callback) {
-        var prompt = Object.extend({
+        var prompt = efuns.merge({
             type: 'text',
             target: 'console.prompt',
             text: 'Enter a command...'
@@ -162,7 +162,7 @@ class HTTPClientInstance extends ClientInstance {
     }
 
     write(text, opts) {
-        var data = Object.extend({
+        var data = efuns.merge({
             type: 'text',
             target: 'console.out',
             text: text
@@ -176,7 +176,7 @@ class HTTPClientInstance extends ClientInstance {
     }
 
     writeHtml(html, opts) {
-        return this.eventSend(Object.extend({
+        return this.eventSend(merge({
             eventType: 'consoleHtml',
             eventData: html
         }, opts)), this;

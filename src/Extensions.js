@@ -30,34 +30,6 @@ function extendPrototype(pt, spec) {
     });
 })(Array.prototype);
 
-//  Extend Object
-(function (pt) {
-    extendPrototype(pt, {
-        extend: function (target, ...obs) {
-            obs.forEach(o => {
-                if (typeof o === 'object') {
-                    Object.keys(o).forEach(k => {
-                        target[k] = o[k];
-                    });
-                }
-                else if (typeof o === 'string') {
-                    target[o] = o;
-                }
-            });
-            //for (var i = 1, len = a.length; i < len; i++) {
-            //    var copyFrom = a[i];
-            //    if (typeof copyFrom === 'object') {
-            //        for (var k in copyFrom) {
-            //            result[k] = copyFrom[k];
-            //        }
-            //    }
-            //}
-            return target;
-        }
-    });
-})(Object);
-
-
 // Extend String
 (function (pt) {
     extendPrototype(pt, {
@@ -72,10 +44,6 @@ function extendPrototype(pt, spec) {
                 s = s.replace(re, typeof a[i] === 'undefined' ? '[undefined]' : a[i].toString());
             }
             return s;
-        },
-        ucfirst: function () {
-            var s = this;
-            return s.charAt(0).toUpperCase() + s.slice(1);
         }
     });
 })(String.prototype);

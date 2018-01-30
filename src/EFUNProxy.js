@@ -144,17 +144,17 @@ class EFUNProxy {
     }
 
     clientCaps(target) {
-        let result = unwrap(target, (ob) => {
-            let $storage = driver.storage.get(ob);
-
-            if ($storage) {
-                let caps = $storage.getProtected('$clientCaps');
-                return caps.queryCaps();
-            }
-        });
-
-        if (result) return result;
-
+        let $storage = false;
+        if (!target) {
+            $storage = driver.currentContext && driver.currentContext.$storage;
+        }
+        else {
+            $storage = unwrap(target, ob => driver.storage.get(ob));
+        }
+        if ($storage) {
+            let caps = $storage.getProtected('$clientCaps');
+            return caps.queryCaps();
+        }
         return {
             clientHeight: 24,
             clientWidth: 80,
@@ -1152,6 +1152,11 @@ class EFUNProxy {
         return n === -1 ? prev.slice(1) : prev[n - 1];
     }
 
+    /**
+     * Check to see how long a particular user has been idle.
+     * @param {MUDObject} target An interactive user object.
+     * @returns {number} The amount of idle time in milliseconds.
+     */
     queryIdle(target) {
         return unwrap(target, ob => {
             let $storage = driver.storage.get(ob);
@@ -1163,6 +1168,15 @@ class EFUNProxy {
             }
             return 0;
         });
+    }
+
+    /**
+     * Returns the current verb if a command is being executed.
+     * @returns {string} The verb currently being executed.
+     */
+    queryVerb() {
+        let ctx = driver.currentContext;
+        return ctx && ctx.input && ctx.input.verb;
     }
 
     /**
@@ -1563,6 +1577,10 @@ EFUNProxy.createEfunProxy = function (filename, directory) {
         return Object.seal(w);
     })(wrapper, filename, perms);
 
+};
+
+String.prototype.ucfirst = function () {
+    return this.charAt(0).toUpperCase() + this.slice(1);
 };
 
 /**

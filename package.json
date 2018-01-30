@@ -16,8 +16,7 @@
     "merge": "^1.2.0",
     "monaco-editor": "^0.10.1",
     "socket.io": "^2.0.3",
-    "sprintf": "^0.1.5",
-    "tripwire": "^4.1.0"
+    "sprintf": "^0.1.5"
   },
   "devDependencies": {
     "bootstrap-menu": "^1.0.14"

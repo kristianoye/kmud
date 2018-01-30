@@ -7,7 +7,8 @@ const
     MUDConfig = require('./MUDConfig'),
     async = require('async'),
     stack = require('callsite'),
-    MXC = require('./MXC');
+    MXC = require('./MXC'),
+    merge = require('merge');
 
 const
     fs = require('fs'),
@@ -22,8 +23,7 @@ const
     FileManager = require('./FileManager'),
     Extensions = require('./Extensions'),
     MUDStorage = require('./MUDStorage'),
-    MUDLogger = require('./MUDLogger'),
-    tripwire = require('tripwire');
+    MUDLogger = require('./MUDLogger');
 
 var
     Instance,
@@ -227,7 +227,7 @@ class GameServer extends MUDEventEmitter {
     createMasterObject() {
         let config = this.config.mudlib, self = this,
             startupArgs = {
-                args: Object.extend({
+                args: merge({
                     driver: this,
                     resolver: driver.fileManager.toRealPath
                 }, config.inGameMaster.parameters)
@@ -789,11 +789,6 @@ class GameServer extends MUDEventEmitter {
         logger.log('Starting %s', this.mudName);
         if (this.globalErrorHandler) {
             process.on('uncaughtException', err => {
-                let ctx = tripwire.getContext();
-                if (ctx) {
-                    ctx.callback(ctx.input);
-                    tripwire.resumeTripwire();
-                }
                 logger.log(err);
                 logger.log(err.stack);
                 this.errorHandler(err, false);

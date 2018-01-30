@@ -10,6 +10,9 @@
 }
 
 declare class MXC {
+    /** Player's storage (the true player) */
+    $storage: MUDStorage;
+
     /**
      * Aborts a context, requesting all operations to cancel.
      */
@@ -58,6 +61,9 @@ declare class MXC {
 
     /** The unique context ID */
     contextId: number;
+
+    /** The current command (if any) */
+    input: MUDInputEvent;
 
     /**
      * Adds any additional frames to the context's object stack.
