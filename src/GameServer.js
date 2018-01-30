@@ -233,7 +233,11 @@ class GameServer extends MUDEventEmitter {
                 }, config.inGameMaster.parameters)
             };
 
-        let _inGameMaster = this.compiler.compileObject(config.inGameMaster.path, false, undefined, startupArgs);
+        let _inGameMaster = this.compiler.compileObject({
+            file: config.inGameMaster.path,
+            reload: false,
+            args: startupArgs
+        });
         if (!_inGameMaster) {
             throw new Error('In-game master could not be loaded; Abort!');
         }
@@ -303,8 +307,8 @@ class GameServer extends MUDEventEmitter {
                         ctx.restore();
                         var t0 = new Date().getTime();
                         var foo = Array.isArray(file) ?
-                            this.compiler.compileObject(file[0], undefined, undefined, file.slice(1)) :
-                            this.compiler.compileObject(file);
+                            this.compiler.compileObject({ file: file[0], args: file.slice(1) }) :
+                            this.compiler.compileObject({ file });
                         var t1 = new Date().getTime();
                         logger.logIf(LOGGER_DEBUG, `\tPreload: ${file}: ${(file, foo ? '[OK]' : '[Failure]')} [${(t1 - t0)} ms]`);
                     }
@@ -324,7 +328,7 @@ class GameServer extends MUDEventEmitter {
      */
     createSimulEfuns() {
         if (this.simulEfunPath) {
-            let module = this.compiler.compileObject(this.simulEfunPath),
+            let module = this.compiler.compileObject({ file: this.simulEfunPath, noParent: true }),
                 eproxy = require('./EFUNProxy');
             //Object.setPrototypeOf(module.classRef, eproxy.prototype);
             //let test = new module.classRef();

@@ -1,32 +1,30 @@
-﻿
+﻿declare class MUDCompilerOptions {
+    /** Constructor arguments */
+    args: any;
+
+    /** The module to compile */
+    file: string;
+
+    /** The resulting class will not have a parent (reserved for special objects like SimulEfuns) */
+    noParent: boolean;
+
+    /** The relative path to the compiler request */
+    relativePath: string;
+
+    /** Indicates whether the request is a reload of an existing object */
+    reload: boolean;
+}
+
 declare class MUDCompiler {
+    /**
+     * Compile module using options object.
+     * @param options
+     */
+    compileObject(options: MUDCompilerOptions): MUDModule;
+
     /**
      * Compiles an in-game module syncronously.
      * @param filename The name of the module being compiled.
      */
     compileObject(filename: string): MUDModule;
-
-    /**
-     * Compiles an in-game module syncronously.
-     * @param filename The name of the module being compiled.
-     * @param reload Set to true if the module should be recompiled and existing data preserved.
-     */
-    compileObject(filename: string, reload: boolean): MUDModule;
-
-    /**
-     * Compiles an in-game module syncronously.
-     * @param filename The name of the module being compiled.
-     * @param reload Set to true if the module should be recompiled and existing data preserved.
-     * @param relativePath The path of the object requesting the module load.
-     */
-    compileObject(filename: string, reload: boolean, relativePath: string): MUDModule;
-
-    /**
-     * Compiles an in-game module syncronously.
-     * @param filename The name of the module being compiled.
-     * @param reload Set to true if the module should be recompiled and existing data preserved.
-     * @param relativePath The path of the object requesting the module load.
-     * @param constructorArgs Constructor arguments to pass to the initial instance.
-     */
-    compileObject(filename: string, reload: boolean, relativePath: string, constructorArgs: object): MUDModule;
 }

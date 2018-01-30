@@ -336,7 +336,7 @@ class MUDModule {
                 async.forEach(this.children, (childName, innerCallback) => {
                     try {
                         logger.log('Re-compiling ' + childName.filename);
-                        driver.compiler.compileObject(childName.filename, true);
+                        driver.compiler.compileObject({ file: childName.filename, reload: true });
                     }
                     catch (e) {
                         driver.errorHandler(e, false);

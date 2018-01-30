@@ -62,7 +62,7 @@ class MUDCache {
      */
     getType(file, typeName) {
         let filename = this.normalize(file),
-            module = this.get(filename) || driver.compiler.compileObject(filename);
+            module = this.get(filename) || driver.compiler.compileObject({ file: filename });
         return module && module.getType(typeName);
     }
 

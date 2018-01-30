@@ -158,27 +158,25 @@ class MUDCompiler {
 
     /**
      * Attempts to compile the requested file into a usable MUD object.
-     * @param {string} filename The name of the file
-     * @param {boolean} reload Indicates the object is reloading.
-     * @param {string} relativePath Look for the file relative to this directory.
-     * @param {object} constructorArgs Objects to pass to the constructor.
+     * @param {MUDCompilerOptions} options
+     * @returns {MUDModule}
      */
-    compileObject(filename, reload, relativePath, constructorArgs) {
-        if (!filename)
-            return false;
-
-        let mxc = driver.getContext(false, init => init.note = `Loading ${filename}`)
-            .addFrame({ filename }, 'compileObject').restore();
+    compileObject(options) {
+        if (!options)
+            throw new Error('compileObject() called with invalid parameter(s)');
+        
+        let mxc = driver.getContext(false, init => init.note = `Loading ${options.file}`)
+            .addFrame({ filename: options.file }, 'compileObject').restore();
         try {
-            let context = new PipeContext.PipelineContext(filename),
+            let context = new PipeContext.PipelineContext(options.file),
                 module = this.driver.cache.get(context.basename),
                 t0 = new Date().getTime(), virtualData = false;
 
-            if (module && !reload && module.loaded === true)
+            if (module && !options.reload && module.loaded === true)
                 return module;
 
             if (this.driver.masterObject) {
-                virtualData = this.driver.masterObject.compileVirtualObject(filename);
+                virtualData = this.driver.masterObject.compileVirtualObject(options.file);
                 context.virtualContext(virtualData);
             }
             if (!context.validExtension()) {
@@ -239,7 +237,7 @@ class MUDCompiler {
 
                         if (typeof module.classRef === 'function') {
                             try {
-                                var instance = module.createInstance(0, isReload, constructorArgs);
+                                var instance = module.createInstance(0, isReload, options.args);
 
                                 if (!this.driver.validObject(instance)) {
                                     throw new Error(`Could not load ${context.filename} [Illegal Object]`);
@@ -293,7 +291,7 @@ class MUDCompiler {
             }
             finally {
                 var t1 = new Date().getTime();
-                logger.log(`\t\tLoad timer: ${filename} [${(t1 - t0)} ms]`);
+                logger.log(`\t\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
             }
             return false;
         }

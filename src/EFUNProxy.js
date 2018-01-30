@@ -175,7 +175,7 @@ class EFUNProxy {
         if (driver.validRead(this, filename)) {
             var module = driver.cache.get(filename);
             if (!module || !module.loaded) {
-                module = driver.compiler.compileObject(filename);
+                module = driver.compiler.compileObject({ file: filename });
             }
             if (module) {
                 if (module.singleton)

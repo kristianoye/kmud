@@ -279,7 +279,7 @@ class DefaultFileSystem extends FileSystem {
 
         if (forceReload) {
             if (instanceId > 0) throw new Error(`You cannot reload individual instances.`);
-            let result = driver.compiler.compileObject(virtualPath, true);
+            let result = driver.compiler.compileObject({ file: virtualPath, reload: true });
             return result !== false;
         }
         return this.translatePath(virtualPath, absolutePath => {
@@ -295,7 +295,8 @@ class DefaultFileSystem extends FileSystem {
                     return false;
             }
             else if (instanceId === 0) {
-                module = driver.compiler.compileObject(virtualPath, false, undefined, args);
+                module = driver.compiler.compileObject({ file: virtualPath, reload: false, args });
+                //module = driver.compiler.compileObject(virtualPath, false, undefined, args);
                 return module ? module.getWrapper(0) : false;
             }
             else

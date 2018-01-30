@@ -288,7 +288,7 @@ class MUDLoader {
 
                             default:
                                 var filename = self.efuns.resolvePath(exp, self.efuns.directory),
-                                    module = driver.compiler.compileObject(filename);
+                                    module = driver.compiler.compileObject({ file: filename });
                                 if (!module)
                                     throw new Error('Failed to load parent module: ' + filename);
                                 return module.importScope(self);
@@ -316,7 +316,7 @@ class MUDLoader {
 
                                 default:
                                     var filename = _.efuns.resolvePath(src, _.efuns.directory),
-                                        module = driver.compiler.compileObject(src, false, _efuns.directory);
+                                        module = driver.compiler.compileObject({ file: src, reload: false, relativePath: _efuns.directory });
                                     if (!module)
                                         throw new Error('Failed to load parent module: ' + filename);
                                     module.importScope(_);
