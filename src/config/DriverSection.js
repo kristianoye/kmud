@@ -3,6 +3,7 @@
     { DriverNetworking } = require('./DriverNetworking'),
     DriverCompiler = require('./DriverCompiler'),
     DriverFeature = require('./DriverFeature'),
+    merge = require('merge'),
     path = require('path');
 
 /** 
@@ -65,10 +66,10 @@ class DriverSection {
         this.objectCreationMethod = typeof data.objectCreationMethod === 'string' ? data.objectCreationMethod : 'inline';
 
         /** @type {DriverCompiler} */
-        this.compiler = data.compiler ? new DriverCompiler(data.compiler) : new DriverCompiler(DriverCompiler.defaults);
+        this.compiler = new DriverCompiler(merge(DriverCompiler.defaults, data.compiler || {}));
 
         /** @type {DriverNetworking} */
-        this.networking = data.networking ? new DriverNetworking(data.networking) : new DriverNetworking(DriverNetworking.defaults);
+        this.networking = new DriverNetworking(merge(DriverNetworking.defaults, data.networking || {}));
     }
 
     assertValid() {

@@ -14,7 +14,8 @@ const
     util = require('util'),
     fs = require('fs'),
     vm = require('vm'),
-    MXC = require('./MXC');
+    MXC = require('./MXC'),
+    merge = require('merge');
 
 const
     KiloByte = 1024,
@@ -30,7 +31,6 @@ const
 
 var
     MUDStorage = require('./MUDStorage'),
-    EFUNS = require('./EFUNS'),
     SaveExtension = '.json',
     { MUDHtmlComponent } = require('./MUDHtml');
 
@@ -602,6 +602,10 @@ class EFUNProxy {
     log(file, message, callback) {
         let logPath = this.resolvePath(file, driver.config.mudlib.logDirectory);
         return driver.fileManager.appendFile(this, logPath, message + '\n', callback);
+    }
+
+    merge(...o) {
+        return merge(...o);
     }
 
     /**

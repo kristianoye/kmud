@@ -13,10 +13,10 @@
     "bcrypt": "^1.0.3",
     "callsite": "^1.0.0",
     "js-beautify": "^1.7.5",
+    "merge": "^1.2.0",
     "monaco-editor": "^0.10.1",
     "socket.io": "^2.0.3",
     "sprintf": "^0.1.5",
-    "telnet": "0.0.1",
     "tripwire": "^4.1.0"
   },
   "devDependencies": {
