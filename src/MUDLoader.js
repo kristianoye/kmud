@@ -21,8 +21,10 @@ class MUDLoader {
      * @param {EFUNProxy} _efuns The efuns instance
      * @param {MUDCompiler} _compiler A reference to the compiler.
      * @param {string} _directory The directory the target module lives in.
+     * @param {object} options
+     * @param {MUDCompilerOptions} compilerOptions Options passed to the compiler.
      */
-    constructor(_efuns, _compiler, _directory, options) {
+    constructor(_efuns, _compiler, _directory, options, compilerOptions) {
         let
             _allowProxy = true,
             _contexts = MXC.initMap(),
@@ -43,7 +45,7 @@ class MUDLoader {
 
         function addExport(name, val) {
             if (typeof val === 'function' && val.toString().startsWith('class ')) {
-                if (val.prototype instanceof MUDObject) {
+                if (val.prototype instanceof MUDObject || compilerOptions.noParent || compilerOptions.altParent) {
                     if (_primaryExport)
                         throw 'The module already has a primary export!';
                     _primaryExport = val;

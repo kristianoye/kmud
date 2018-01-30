@@ -326,12 +326,44 @@ class GameServer extends MUDEventEmitter {
     /**
      * Create the simul efuns object.
      */
-    createSimulEfuns() {
-        if (this.simulEfunPath) {
-            let module = this.compiler.compileObject({ file: this.simulEfunPath, noParent: true }),
-                eproxy = require('./EFUNProxy');
-            //Object.setPrototypeOf(module.classRef, eproxy.prototype);
-            //let test = new module.classRef();
+    createSimulEfuns(filename, mudpath) {
+        if (filename) {
+            let efuns = new this.simulEfunType();
+            Object.defineProperties(efuns, {
+                directory: {
+                    value: mudpath,
+                    writable: false,
+                    enumerable: true
+                },
+                filename: {
+                    value: filename,
+                    writable: false,
+                    enumerable: true
+                },
+                homeDirectory: {
+                    value: '',
+                    writable: false,
+                    enumerable: true
+                },
+                permissions: {
+                    value: [],
+                    writable: false,
+                    enumerable: true
+                }
+            });
+            return Object.seal(efuns);
+        }
+        else {
+            if (this.simulEfunPath) {
+                let module = this.compiler.compileObject({
+                    file: this.simulEfunPath,
+                    noCreate: true,
+                    altParent: require('./EFUNProxy'),
+                    noSeal: true
+                });
+                Object.seal(module.classRef);
+                this.simulEfunType = module.classRef;
+            }
         }
     }
 
@@ -986,8 +1018,7 @@ class GameServer extends MUDEventEmitter {
     validObject(arg) {
         let result = unwrap(arg, ob => {
             if (ob.filename === this.simulEfunPath) {
-                logger.log('\tRe-merging SimulEfuns...');
-                this.mergeEfuns(ob);
+                this.createSimulEfuns();
                 return true;
             }
             else if (this.gameState <  GAMESTATE_INITIALIZING)

@@ -110,14 +110,15 @@ class MUDCompiler {
      * Create a loader for the specified pipeline and module.
      * @param {CompilerPipeline} pipeline The pipeline to execute.
      * @param {MUDModule} module The module to load.
+     * @param {MUDCompilerOptions} compilerOptions Options to the compiler.
      * @returns {MUDLoader} A mud loader instance.
      */
-    getLoader(pipeline, module) {
+    getLoader(pipeline, module, compilerOptions) {
         let loader = this.loaders[pipeline.loaderName];
         if (!loader) {
             throw new Error('Invalid loader requested');
         }
-        return new loader(module.efunProxy, this, module.directory, pipeline.loaderOptions);
+        return new loader(module.efunProxy, this, module.directory, pipeline.loaderOptions, compilerOptions);
     }
 
     /**
@@ -214,10 +215,13 @@ class MUDCompiler {
                         module.allowProxy = true;
                     }
 
-                    module.loader = this.getLoader(pipeline, module);
-                    VM.run(context, module);
+                    module.loader = this.getLoader(pipeline, module, options);
+                    if (options.altParent) {
+                        module.loader[options.altParent.name] = options.altParent;
+                    }
+                    let vmresult = VM.run(context, module);
 
-                    let result = module.context.primaryExport;
+                    let result = module.context.primaryExport || (options.noParent && vmresult);
 
                     if (!module.efunProxy.isClass(result)) {
                         throw new Error(`Error: Module ${context.filename} did not return a class; Did you forget to export?`);
@@ -231,18 +235,20 @@ class MUDCompiler {
                         module.setClassRef(module.context.primaryExport);
                         module.singleton = isVirtual ? module.singleton || virtualData.singleton : module.context.isSingleton();
 
-                        if (this.sealTypesAfterCompile) {
+                        if (this.sealTypesAfterCompile && !options.noSeal) {
                             Object.seal(module.classRef);
                         }
 
                         if (typeof module.classRef === 'function') {
                             try {
-                                var instance = module.createInstance(0, isReload, options.args);
+                                let instance = false;
+                                if (!options.noCreate) {
+                                    instance = module.createInstance(0, isReload, options.args);
 
-                                if (!this.driver.validObject(instance)) {
-                                    throw new Error(`Could not load ${context.filename} [Illegal Object]`);
+                                    if (!this.driver.validObject(instance)) {
+                                        throw new Error(`Could not load ${context.filename} [Illegal Object]`);
+                                    }
                                 }
-
                                 if (isReload && typeof result.onRecompile === 'function') {
                                     result.onRecompile(instance);
                                 }

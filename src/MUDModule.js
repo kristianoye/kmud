@@ -36,7 +36,7 @@ class MUDModule {
 
         this.context = null;
 
-        this.efunProxy = EFUNProxy.createEfunProxy(filename, mudpath);
+        this.efunProxy = driver.simulEfunType ? driver.createSimulEfuns(filename, mudpath) : EFUNProxy.createEfunProxy(filename, mudpath);
 
         /** @type {MUDObject[]} */
         this.instances = [];

@@ -56,7 +56,7 @@ class DriverSection {
         this.useLazyResets = data.useLazyResets || false;
 
         /** @type {boolean} */
-        this.useObjectProxies = typeof data.useObjectProxies === 'boolean' ? data.useObjectProxies : true;
+        this.useObjectProxies = typeof data.useObjectProxies === 'boolean' ? data.useObjectProxies : false;
 
         /** @type {boolean} */
         this.useRevocableProxies = typeof data.useRevocableProxies === 'boolean' ? data.useRevocableProxies : false;
@@ -65,10 +65,10 @@ class DriverSection {
         this.objectCreationMethod = typeof data.objectCreationMethod === 'string' ? data.objectCreationMethod : 'inline';
 
         /** @type {DriverCompiler} */
-        this.compiler = new DriverCompiler(data.compiler);
+        this.compiler = data.compiler ? new DriverCompiler(data.compiler) : new DriverCompiler(DriverCompiler.defaults);
 
         /** @type {DriverNetworking} */
-        this.networking = new DriverNetworking(data.networking);
+        this.networking = data.networking ? new DriverNetworking(data.networking) : new DriverNetworking(DriverNetworking.defaults);
     }
 
     assertValid() {

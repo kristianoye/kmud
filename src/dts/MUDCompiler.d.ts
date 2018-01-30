@@ -5,8 +5,14 @@
     /** The module to compile */
     file: string;
 
+    /** Do not create the "master" copy/instance when compiling */
+    noCreate: boolean;
+
     /** The resulting class will not have a parent (reserved for special objects like SimulEfuns) */
     noParent: boolean;
+
+    /** Do not seal the type once compiled  (defaults to false) */
+    noSeal: boolean;
 
     /** The relative path to the compiler request */
     relativePath: string;

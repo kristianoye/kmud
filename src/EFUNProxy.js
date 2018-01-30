@@ -1137,6 +1137,17 @@ class EFUNProxy {
         throw new Error(`Bad argument 1 to present(); Expected string or object but got ${typeof arguments[0]}`);
     }
 
+    /**
+     * 
+     * @param {number=} n
+     */
+    previousObject(n) {
+        let ctx = driver.getContext(),
+            back = parseInt(n) || 0,
+            prev = ctx ? ctx.objectStack : [];
+        return n === -1 ? prev.slice(1) : prev[n - 1];
+    }
+
     queryIdle(target) {
         return unwrap(target, ob => {
             let $storage = driver.storage.get(ob);
@@ -1557,37 +1568,6 @@ EFUNProxy.createEfunProxy = function (filename, directory) {
 EFUNProxy.configureForRuntime = function (driver) {
     SaveExtension = driver.config.mudlib.defaultSaveExtension;
     driver.efuns = EFUNProxy.createEfunProxy('/', '/');
-
-    if (driver.config.driver.useObjectProxies) {
-        EFUNProxy.prototype.previousObject = function (n) {
-            throw new Error('Not implemented yet');
-        };
-    }
-    else if (driver.config.driver.objectCreationMethod === 'inline') {
-        EFUNProxy.prototype.previousObject = function (n) {
-            let objectStack = [], index = (n || 0) + 1;
-            stack().forEach((cs, i) => {
-                let fn = cs.getFileName();
-                if (typeof fn === 'string' && !fn.startsWith(driver.config.driver.driverPath)) {
-                    let mudPath = driver.fileManager.toMudPath(fn);
-                    let module = driver.cache.get(mudPath);
-                    if (module) {
-                        let ob = unwrap(module.getWrapper(0));
-                        if (objectStack[0] !== ob) objectStack.unshift(ob);
-                    }
-                }
-            });
-            return n === -1 ? objectStack.reverse() : objectStack[index];
-        };
-    }
-    else {
-        EFUNProxy.prototype.previousObject = function (n) {
-            let ctx = driver.getContext(),
-                back = parseInt(n);
-                prev = ctx ? ctx.objectStack : [];
-            return n === -1 ? prev.slice(1) : prev[n - 1];
-        };
-    }
 };
 
 module.exports = EFUNProxy;

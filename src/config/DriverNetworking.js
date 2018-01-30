@@ -154,6 +154,51 @@ class DriverNetworking {
     }
 }
 
+//  Default network settings
+DriverNetworking.defaults = {
+    "endpoints": {
+        "http": {
+            "enabled": true,
+            "handlers": [
+                {
+                    "id": "default-http",
+                    "file": "./network/HTTPClientEndpoint",
+                    "name": "Standard Web Server (HTTP)",
+                    "default": true
+                }
+            ]
+        },
+        "https": {
+            "enabled": false,
+            "handlers": [
+                {
+                    "id": "default-https",
+                    "file": "./network/HTTPClientEndpoint",
+                    "name": "Standard Web Server (HTTP)",
+                    "default": true
+                }
+            ]
+        },
+        "telnet": {
+            "enabled": true,
+            "handlers": [
+                {
+                    "default": true,
+                    "id": "ranvier-telnet",
+                    "file": "./network/RanvierTelnetEndpoint",
+                    "name": "Ranvier Telnet Server",
+                    "options": {
+                        "offerGMCP": false,
+                        "offerMCP": false,
+                        "offerMSP": false,
+                        "offerMXP": false
+                    }
+                }
+            ]
+        }
+    }
+};
+
 module.exports = {
     DriverNetworking,
     DriverNetworkingEndpointConfig,

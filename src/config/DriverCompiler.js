@@ -44,4 +44,55 @@ class DriverCompiler {
     }
 }
 
+// Default compiler settings.
+DriverCompiler.defaults = {
+    maxCompileTime: 2000,
+    maxConstructorTime: 1000,
+    sealTypesAfterCompile: true,
+    virtualMachine: "vm",
+    components: [
+        {
+            id: "JSXTranspiler",
+            name: "JSX Transpiler",
+            file: "./compiler/JSXTranspiler"
+        }
+    ],
+    languages: {
+        ".js": {
+            id: "JavaScript",
+            loader: "MUDOSLoader",
+            loaderOptions: {},
+            name: "JavaScript Pipeline",
+            pipeline: [
+                {
+                    extension: ".js",
+                    id: "JSXTranspiler",
+                    name: "JSX Transpiler Without JSX",
+                    allowJsx: false
+                }
+            ]
+        },
+        ".jsx": {
+            id: "JSX",
+            enabled: true,
+            loader: "MUDOSLoader",
+            loaderOptions: {},
+            name: "MUD JSX",
+            pipeline: [
+                "JSXTranspiler"
+            ]
+        }
+    },
+    loaders: {
+        MUDLoader: {
+            name: "KMUD Standard Loader",
+            file: "./MUDLoader"
+        },
+        MUDOSLoader: {
+            name: "MudOS Compatibility Loader",
+            file: "./MUDOSLoader"
+        }
+    }
+};
+
 module.exports = DriverCompiler;
