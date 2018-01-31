@@ -484,7 +484,7 @@ class FileManager extends MUDEventEmitter {
         return this.createFileRequest('writeFile', expr, typeof callback === 'function', 0, req => {
             return req.securityManager.validWriteFile(efuns, req) ?
                 req.fileSystem.writeFile(req, content, callback) :
-                req.securityManager.denied('write', req.fullPath);
+                req.securityManager.denied('write', req.fullPath, callback);
         });
     }
 }

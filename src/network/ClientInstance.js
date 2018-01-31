@@ -85,8 +85,9 @@ class ClientInstance extends EventEmitter {
      */
     commandComplete(nextAction, evt) {
         this.releaseContext();
-        if (this.inputStack.length === 0) {
+        if (this.inputStack.length === 0 && !evt.finished) {
             this.displayPrompt(evt);
+            evt.finished = true;
         }
         return nextAction;
     }
@@ -141,6 +142,9 @@ class ClientInstance extends EventEmitter {
             mxc.$storage = this.$storage;
             mxc.thisPlayer = mxc.truePlayer = this.body();
             mxc.addFrame(this.body(), 'executeCommand');
+            mxc.onDestroy = (ctx) => {
+                mxc.input.complete();
+            };
         });
     }
     /**
@@ -275,7 +279,7 @@ class ClientInstance extends EventEmitter {
 
     releaseContext() {
         if (this.context) {
-            this.context.release();
+            if (this.context.refCount > 0) this.context.release();
             //if (this.context.refCount !== 0)
             //    logger.log(`WARNING: Context [${this.context.contextId}] refCount was ${this.context.refCount}`);
             this.context = false;

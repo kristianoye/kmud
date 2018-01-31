@@ -280,7 +280,7 @@ class DefaultFileSystem extends FileSystem {
         if (forceReload) {
             if (instanceId > 0) throw new Error(`You cannot reload individual instances.`);
             let result = driver.compiler.compileObject({ file: virtualPath, reload: true });
-            return result !== false;
+            return result !== false ? result.getWrapper(0) : false;
         }
         return this.translatePath(virtualPath, absolutePath => {
             let module = driver.cache.get(virtualPath),
@@ -565,7 +565,7 @@ class DefaultFileSystem extends FileSystem {
     writeFileAsync(req, content, callback) {
         return this.translatePath(req.relativePath, fullPath => {
             try {
-                return fs.writeFile(filepath, content, {
+                return fs.writeFile(fullPath, content, {
                     encoding: this.encoding || 'utf8',
                     flag: 'w'
                 }, MXC.awaiter(err => callback(!err, err), `fs.writeFile:${req}`));

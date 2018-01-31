@@ -1149,7 +1149,7 @@ class EFUNProxy {
         let ctx = driver.getContext(),
             back = parseInt(n) || 0,
             prev = ctx ? ctx.objectStack : [];
-        return n === -1 ? prev.slice(1) : prev[n - 1];
+        return n === -1 ? prev.slice(1).map(f => f) : prev[n + 1];
     }
 
     /**

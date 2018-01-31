@@ -93,9 +93,9 @@ class PipelineContext {
     validExtension(ext) {
         if ((ext = ext || this.extension) === false)
             return false;
-
-        if (fs.existsSync(this.realName + ext)) {
-            var stat = fs.statSync(this.resolvedName = this.realName + ext);
+        let fileName = this.realName.endsWith(ext) ? this.realName : this.realName + ext;
+        if (fs.existsSync(fileName)) {
+            var stat = fs.statSync(this.resolvedName = fileName);
             if (stat.isFile()) {
                 var n = this.filename.lastIndexOf('/');
                 this.extension = ext;
