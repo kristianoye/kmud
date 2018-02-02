@@ -7,7 +7,13 @@
         NoClobber = 1 << 1,
 
         /** Only move newer or non-existant files */
-        Update = 1 << 2
+        Update = 1 << 2,
+
+        /** Verbose mode.  Print what's happening. */
+        Verbose = 1 << 3,
+
+        /** Interactive mode */
+        Interactive: 1 << 4
     }
 
     class MoveOptions {
@@ -19,6 +25,9 @@
 
         /** An interactive prompt callback to confirm overwrites */
         prompt: (file: string) => boolean;
+
+        /** A list of file objects that are being moved */
+        source: FileSystemStat[][];
 
         /** The target directory for the move */
         targetDirectory: string;
@@ -138,6 +147,23 @@ declare class FileManager {
     createDirectory(efuns: EFUNProxy, expr: string, opts: MkDirOptions, callback: (success: boolean, err: Error) => void): boolean;
 
     /**
+     * Clone an object syncronously.
+     * @param efuns The requesting object.
+     * @param expr The file/module to clone.
+     * @param args Constructor args for clone.
+     */
+    cloneObject(efuns: EFUNProxy, expr: string, args: any): MUDObject;
+
+    /**
+     * Clone an object asyncronously.
+     * @param efuns The requesting object.
+     * @param expr The file/module to clone.
+     * @param args Constructor args for clone.
+     * @param callback A callback to receive the cloned object (or error).
+     */
+    cloneObject(efuns: EFUNProxy, expr: string, args: any, callback: (ob: MUDObject, error: Error) => void): void;
+
+    /**
      * Removes a directory from the filesystem.
      * @param efuns The caller requesting to remove the directory.
      * @param expr The path expression to remove.
@@ -194,6 +220,16 @@ declare class FileManager {
      * @param callback An asyncronous callback that fires when the load is complete.
      */
     loadObject(efuns: EFUNProxy, expr: string, args: object, callback: (result: MUDObject, err: Error) => void): void;
+
+    /**
+     * Move/rename a file
+     * @param efuns The efuns object of the calling object.
+     * @param expr1 The old filename
+     * @param expr2 The new filename
+     * @param options The options controlling the move operation.
+     * @param callback A callback to execute when the move is complete.
+     */
+    movePath(efuns: EFUNProxy, source: string, destination: string, options: MUDFS.MoveOptions, callback: (result: FileSystemStat, error: Error) => void): void;
 
     /**
      * Read directory table from disk.

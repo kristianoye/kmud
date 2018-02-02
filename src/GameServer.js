@@ -199,7 +199,11 @@ class GameServer extends MUDEventEmitter {
             showDriverFrames = sdf || this.config.driver.showDriverFrames,
             mpl = mp.length,
             v = /[a-zA-Z0-9\\\/\._]/,
-            newStack = [l.shift()];
+            newStack = [];
+
+        while (!l[0].match(/^\s+at /)) {
+            newStack.push(l.shift());
+        }
 
         l.forEach(t => {
             let s1 = t.indexOf('(') + 1, s2 = t.lastIndexOf(')'),
@@ -846,6 +850,7 @@ class GameServer extends MUDEventEmitter {
             this.endpoints[i]
                 .bind()
                 .on('kmud.connection', (client) => {
+                    var ctx = client.createContext(client.createCommandEvent(''));
                     var newLogin = this.efuns.cloneObject(this.config.mudlib.loginObject);
                     if (newLogin) {
                         driver.storage.get(newLogin).setProtected('$client', client,

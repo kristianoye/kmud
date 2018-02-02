@@ -98,6 +98,41 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
+     * 
+     * @param {FileSystemRequest} req The filesystem request
+     * @param {any} args Constructor args
+     * @param {function(MUDObject,Error):void} callback The callback to receive the result
+     */
+    cloneObjectAsync(req, args, callback) {
+        if (!this.assertAsync(FileSystem.FS_ASYNC))
+            return callback(false, new Error('Filesystem does not support async'));
+
+    }
+
+    /**
+     * Clone an object syncronously.
+     * @param {FileSystemRequest} req The request to clone an object.
+     * @param {any} args Constructor args to pass to the new object.
+     * @returns {MUDObject} The newly cloned object.
+     */
+    cloneObjectSync(req, args) {
+        if (!this.assert(FileSystem.FS_SYNC))
+            return false;
+        let filename = req.fullPath,
+            module = driver.cache.get(filename);
+
+        if (!module || !module.loaded) {
+            module = driver.compiler.compileObject({ file: filename });
+        }
+        if (module) {
+            if (module.singleton)
+                throw new SecurityError(filename + ' is a singleton and cannot be cloned');
+            return module.createInstance(-1, false, args);
+        }
+        return false;
+    }
+
+    /**
      * Check to see if the expression contains wildcards.
      * @param {FileSystemRequest} req The request to check
      * @returns {boolean} True if the filename contains wildcards.
@@ -324,7 +359,7 @@ class DefaultFileSystem extends FileSystem {
 
                 async.forEachOfLimit(files, this.asyncReaderLimit, (fn, i, itr) => {
                     if (ctx.aborted) return itr();
-                    let fd = this.createStat({ exists: true, name: fn, parent: req.pathFull });
+                    let fd = this.createStat({ exists: true, name: fn, parent: req.pathFull, path: req.pathFull + fn });
 
                     //  Does it match the pattern?
                     if (pattern && !pattern.test(fn)) return itr();
@@ -333,7 +368,7 @@ class DefaultFileSystem extends FileSystem {
                     if ((req.flags & GetDirFlags.Hidden) === 0 && fn.startsWith('.')) return itr();
 
                     // Do we need to stat?
-                    if ((req.flags & GetDirFlags.Defaults) > 0) {
+                    if ((req.flags & GetDirFlags.Files) > 0 || (req.flags & GetDirFlags.Dirs) > 0) {
                         return fs.stat(fullPath + '/' + fn, (err, stat) => {
                             if (ctx.aborted) return itr(new Error('Aborted'));
                             if ((fd.isDirectory = stat.isDirectory()) && (req.flags & GetDirFlags.Dirs) === 0) return itr();

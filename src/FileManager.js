@@ -18,7 +18,9 @@ mudglobal.MUDFS = {
     MoveFlags: {
         Backup: 1,
         NoClobber: 1 << 1,
-        Update: 1 << 2
+        Update: 1 << 2,
+        Verbose: 1 << 3,
+        Interactive: 1 << 4
     },
     MoveOptions: {
         backupSuffix: '~',
@@ -85,6 +87,9 @@ class FileSystemRequest {
 
         /** @type {number} */
         this.flags = typeof flags === 'number' ? flags : 0;
+
+        /** @type {FileSystemStat} */
+        this.parent = null;
 
         /** @type {string} */
         this.pathFull = '';
@@ -200,6 +205,29 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
+     * Clone an object
+     * @param {EFUNProxy} efuns The object requesting the clone
+     * @param {string} expr The module to clone
+     * @param {any} args Constructor args for clone
+     * @param {function(MUDObject, Error):void} callback A callback if clone asyncronously
+     */
+    cloneObject(efuns, expr, args, callback) {
+        let req = this.createFileRequest('cloneObject', expr, typeof callback !== 'undefined', 0);
+        if (req.securityManager.validLoadObject(efuns, req)) {
+            try {
+                return req.fileSystem.cloneObject(req, args, callback);
+            }
+            catch (err) {
+                if (typeof callback === 'function')
+                    return callback(false, err);
+                else
+                    throw err; 
+            }
+        }
+        else req.securityManager.denied('cloneObject', expr, callback);
+    }
+
+    /**
      * Returns the filesystem for the specified path.
      * @param {string} expr The path being requested.
      * @param {boolean} isAsync Indicates the operation being performed is async or not.
@@ -211,9 +239,6 @@ class FileManager extends MUDEventEmitter {
             fileSystem = this.fileSystems['/'] || false,
             relParts = [], relPath = expr.slice(1),
             dir = '/';
-
-        if (typeof callback !== 'function')
-            throw new Error('createFileRequest called without callback');
 
         while (parts.length) {
             dir = parts.join('/');
@@ -237,21 +262,9 @@ class FileManager extends MUDEventEmitter {
             }, `createFileRequest:${op}:${expr}`));
         }
         else {
-            let mxc = driver.getContext(false, init => init.note = `createFileRequest:${op}:${expr}`);
-            try {
-                mxc.restore();
-                let fss = fileSystem.stat(relPath);
-                let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
-                try {
-                    return callback(resultSync);
-                }
-                catch (err) {
-                    throw driver.cleanError(err);
-                }
-            }
-            finally {
-                mxc.release();
-            }
+            let fss = fileSystem.stat(relPath);
+            let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
+            return typeof callback === 'function' ? callback(resultSync) : resultSync;
         }
     }
 
@@ -382,6 +395,21 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
+     * Move or rename a file
+     * @param {EFUNProxy} efuns The object requesting the move.
+     * @param {string} source The file to be moved.
+     * @param {string} destination The destination to move the file to.
+     * @param {MUDFS.MoveOptions} options Options related to the move operation.
+     * @param {function(boolean,Error):void} callback Optional callback for async mode.
+     */
+    movePath(efuns, source, destination, options, callback) {
+        let reqLeft = this.createFileRequest('moveFile', source, options.flags);
+        let reqRight = this.createFileRequest('moveRight', destination, options.flags);
+        return typeof callback === 'function' ?
+            callback(false, new Error('Not implemented')) : false
+    }
+
+    /**
      * Read files from a directory.
      * @param {EFUNProxy} efuns The object requesting the directory listing.
      * @param {string} expr The MUD virtual path to read from.
@@ -426,10 +454,6 @@ class FileManager extends MUDEventEmitter {
                 req.fileSystem.loadObject(req, args, callback) :
                 req.securityManager.denied('load', req.fullPath);
         })
-    }
-
-    rename(efuns, source, dest, options, callback) {
-
     }
 
     /**

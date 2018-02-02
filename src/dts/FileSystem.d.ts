@@ -47,6 +47,21 @@ declare class FileSystem {
     appendFile(expr: string, content: string, callback: (success: boolean, error: Error) => void): void;
 
     /**
+     * 
+     * @param expr
+     * @param args
+     */
+    cloneObject(expr: string, args: any): MUDObject;
+
+    /**
+     * Clone an object asyncronously.
+     * @param expr
+     * @param args
+     * @param callback
+     */
+    cloneObject(expr: string, args: any, callback: (clone: MUDObject, error: Error) => void): void;
+
+    /**
      * Checks to see if the expression is a directory.
      * @param req The path being evaluated.
      * @param callback An optional callback to receive the result.

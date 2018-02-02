@@ -140,8 +140,14 @@ class ClientInstance extends EventEmitter {
             mxc.input = cmdEvent;
             mxc.note = 'executeCommand';
             mxc.$storage = this.$storage;
-            mxc.thisPlayer = mxc.truePlayer = this.body();
-            mxc.addFrame(this.body(), 'executeCommand');
+            if (this.body) {
+                mxc.thisPlayer = mxc.truePlayer = this.body();
+                mxc.addFrame(this.body(), 'executeCommand');
+            }
+            else {
+                mxc.thisPlayer = mxc.truePlayer = false;
+                mxc.addFrame(driver.masterObject, 'connect');
+            }
             mxc.onDestroy = (ctx) => {
                 mxc.input.complete();
             };

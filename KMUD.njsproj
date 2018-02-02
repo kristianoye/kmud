@@ -139,9 +139,7 @@
     <Compile Include="lib\sys\cmds\creator\Compile.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\Eval.js">
-      <SubType>Code</SubType>
-    </Compile>
+    <Compile Include="lib\sys\cmds\creator\eval.js" />
     <Compile Include="lib\sys\cmds\creator\Force.js">
       <SubType>Code</SubType>
     </Compile>

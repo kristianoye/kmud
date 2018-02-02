@@ -32,7 +32,8 @@ const
 var
     MUDStorage = require('./MUDStorage'),
     SaveExtension = '.json',
-    { MUDHtmlComponent } = require('./MUDHtml');
+    { MUDHtmlComponent } = require('./MUDHtml'),
+    MUDArgs = require('./MUDArgs');
 
 class EFUNProxy {
     /**
@@ -166,25 +167,18 @@ class EFUNProxy {
         };
     }
 
-    cloneObject(file) {
-        if (arguments.length === 0)
-            throw new Error('Bad call to cloneObject; Expected string got null');
-        let args = [].slice.call(arguments),
-            filename = this.resolvePath(args[0], this.directory + '/');
-
-        if (driver.validRead(this, filename)) {
-            var module = driver.cache.get(filename);
-            if (!module || !module.loaded) {
-                module = driver.compiler.compileObject({ file: filename });
-            }
-            if (module) {
-                if (module.singleton)
-                    throw new SecurityError(filename + ' is a singleton and cannot be cloned');
-                return module.createInstance(-1, false, args[1]);
-            }
-            return false;
+    /**
+     * Clone an existing in-game object.
+     * @param {string} file The object to clone
+     * @param {any} args Constructor args
+     * @param {function(MUDObject,Error):void} callback
+     */
+    cloneObject(file, args, callback) {
+        if (typeof args === 'function') {
+            callback = args;
+            args = undefined;
         }
-        throw new SecurityError();
+        return driver.fileManager.cloneObject(this, this.resolvePath(file), args, callback);
     }
 
     /**
@@ -591,6 +585,20 @@ class EFUNProxy {
     loadObject(expr, args, callback) {
         let result = driver.fileManager.loadObject(this, this.resolvePath(expr), args, callback);
         return result;
+    }
+
+    /**
+     * 
+     * @param {string} source The file to move.
+     * @param {string} destination The destination for the new file.
+     * @param {MUDFS.MoveOptions} options Options related to the move operation.
+     * @param {function(boolean,Error):void} callback Optional callback indicates async mode.
+     */
+    movePath(source, destination, options, callback) {
+        return driver.fileManager.movePath(this,
+            this.resolvePath(source),
+            this.resolvePath(destination),
+            options);
     }
 
     /**

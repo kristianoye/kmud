@@ -4,14 +4,6 @@
  * Provides an API that may be used by every object in the game.
  */
 declare class EFUNProxy {
-    currentVerb(): string;
-    deepInventory(target: MUDObject): MUDObject[];
-    deepInventory(target: MUDObject, callback: (inv: MUDObject[]) => void): void;
-    driver: GameServer;
-    exec(oldBody: MUDObject, newBody: MUDObject): boolean;
-    exec(oldBody: MUDObject, newBody: MUDObject, callback: (oldBody: MUDObject, newBody: MUDObject) => void): boolean;
-    featureEnabled(name: string): boolean;
-
     /**
      * Returns a list of permissions that are currently active.
      */
@@ -120,6 +112,8 @@ declare class EFUNProxy {
      */
     createPassword(plain: string, callback: (enc: string) => void): void;
 
+    currentVerb(): string;
+
     /**
     * Returns the nested inventory of the object
     * (e.g. inventory of the object and all containers within that object).
@@ -127,7 +121,17 @@ declare class EFUNProxy {
     * @param {object} target The object to get inventory for.
     * @returns {MUDObject[]} Array of MUD objects.
     */
-    deepInventory(target: object): object[];
+    deepInventory(target: MUDObject): MUDObject[];
+
+    deepInventory(target: MUDObject, callback: (inv: MUDObject[]) => void): void;
+
+    driver: GameServer;
+
+    exec(oldBody: MUDObject, newBody: MUDObject): boolean;
+
+    exec(oldBody: MUDObject, newBody: MUDObject, callback: (oldBody: MUDObject, newBody: MUDObject) => void): boolean;
+
+    featureEnabled(name: string): boolean;
 
     /**
     * Use this to define a symbol in a module.  This will ensure the same symbol
@@ -263,6 +267,23 @@ declare class EFUNProxy {
      * @param {function} callback The callback to execute when the attempt is complete.
      */
     mkdir(path: string, callback: (success: boolean, err: Error) => void): void;
+
+    /**
+     * Move a path expression between locations.
+     * @param source
+     * @param destination
+     * @param options
+     */
+    movePath(source: string, destination: string, options: MUDFS.MoveOptions): boolean;
+
+    /**
+     * Asyncronously move a path expression between locations.
+     * @param source
+     * @param destination
+     * @param options
+     * @param callback
+     */
+    movePath(source: string, destination: string, options: MUDFS.MoveOptions, callback: (success: boolean, error: Error) => void): void;
 
     /**
     * Returns information about the running MUD.

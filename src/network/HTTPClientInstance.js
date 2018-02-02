@@ -72,7 +72,7 @@ class HTTPClientInstance extends ClientInstance {
      * @returns {HTTPClientInstance} A reference to the client interface.
      */
     addPrompt(opts, callback) {
-        var prompt = efuns.merge({
+        var prompt = merge({
             type: 'text',
             target: 'console.prompt',
             text: 'Enter a command...'
@@ -162,7 +162,7 @@ class HTTPClientInstance extends ClientInstance {
     }
 
     write(text, opts) {
-        var data = efuns.merge({
+        var data = merge({
             type: 'text',
             target: 'console.out',
             text: text

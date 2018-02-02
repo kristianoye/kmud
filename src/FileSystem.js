@@ -99,6 +99,9 @@ class FileSystemStat {
         /** @type {FileSystemStat} */
         this.parent = data.parent || this.parent || false;
 
+        /** @type {string} */
+        this.path = data.path || this.parent + this.name;
+
         /** @type {Object.<string,number>} */
         this.perms = data.perms || this.perms || {};
 
@@ -166,7 +169,7 @@ class FileSystem extends MUDEventEmitter {
 
     assert(flags, error) {
         if ((this.flags & flags) !== flags)
-            throw new Error(error);
+            return false;
         return true;
     }
 
@@ -223,6 +226,18 @@ class FileSystem extends MUDEventEmitter {
      */
     appendFileSync(req, content) {
         throw new NotImplementedError('appendFileSync');
+    }
+
+    /**
+     * Clone an object
+     * @param {FileSystemRequest} req The clone request
+     * @param {any} args Constructor args
+     * @param {function(MUDObject,Error):void} callback Callback for async cloneObject() request
+     */
+    cloneObject(req, args, callback) {
+        return typeof callback !== 'undefined' ?
+            this.cloneObjectAsync(req, args, callback) :
+            this.cloneObjectSync(req, args);
     }
 
     /**
