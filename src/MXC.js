@@ -141,6 +141,28 @@ class MXC {
         }
     }
 
+    /**
+     * Get the list of object frames to consider in security calls.
+     */
+    get effective() {
+        let result = [], prev = {}, unguarded = false;
+        for (let i = 0, max = this.stack.length; i < max; i++) {
+            let o = this.stack[i];
+            if (o.func === 'unguarded' && o.file === driver.simulEfunPath) {
+                unguarded = true;
+                prev = o.object;
+                continue;
+            }
+            if (o.object !== prev) {
+                result.push(o);
+                prev = o.object;
+                if (unguarded)
+                    break;
+            }
+        }
+        return result;
+    }
+
     increment() {
         let ptr = this;
         while (ptr) {
@@ -168,6 +190,7 @@ class MXC {
         return this.release();
     }
 
+    /** Get the previous objects */
     get previousObjects() {
         let prev = this.stack[0].object, result = [];
         this.stack.forEach(o => o.object !== prev && result.push(prev = o.object));

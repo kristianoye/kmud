@@ -1423,11 +1423,14 @@ class EFUNProxy {
      * @returns {any} The result of the unguarded call.
      */
     unguarded(callback) {
-        let result = false;
+        let result = false,
+            mxc = driver.currentContext;
         try {
+            mxc.addFrame(this, 'unguarded').increment();
             result = callback();
         }
         finally {
+            mxc.popStack();
         }
         return typeof result === 'undefined' ? this : result;
     }

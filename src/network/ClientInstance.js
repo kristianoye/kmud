@@ -304,12 +304,7 @@ class ClientInstance extends EventEmitter {
     releaseContext() {
         if (this.context) {
             if (this.context.refCount > 0) this.context.release();
-            //if (this.context.refCount !== 0)
-            //    logger.log(`WARNING: Context [${this.context.contextId}] refCount was ${this.context.refCount}`);
             this.context = false;
-        }
-        else {
-            logger.log(`WARNING: Context was released too early!`);
         }
     }
 

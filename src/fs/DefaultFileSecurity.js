@@ -140,6 +140,7 @@ class DefaultFileSecurity extends FileSecurity {
      */
     validReadFile(efuns, req) {
         let ctx = driver.getContext();
+        let foo = ctx.effective;
         for (let i = 0, max = ctx.stack.length, c = {}; i < max; i++) {
             let ptr = ctx.stack[i];
             if (ptr.file in c) continue;
@@ -169,8 +170,9 @@ class DefaultFileSecurity extends FileSecurity {
      */
     validWriteFile(efuns, req) {
         let ctx = driver.getContext();
-        for (let i = 0, max = ctx.stack.length, c = {}; i < max; i++) {
-            let ptr = ctx.stack[i];
+        let test = ctx.effective;
+        for (let i = 0, max = test.length, c = {}; i < max; i++) {
+            let ptr = test[i];
             if (ptr.file in c) continue;
             if (!driver.validWrite(efuns, ptr, req.fullPath)) {
                 if (this.throwSecurityExceptions)
