@@ -89,6 +89,9 @@ class ClientInstance extends EventEmitter {
             this.displayPrompt(evt);
             evt.finished = true;
         }
+        else if (this.inputStack.length) {
+            this.renderPrompt(this.inputStack[0]);
+        }
         return nextAction;
     }
 
@@ -228,6 +231,9 @@ class ClientInstance extends EventEmitter {
                         this.client.toggleEcho(true);
                     }
                     result = frame.callback.call(body, text, cmdEvent);
+                    if (result === true) {
+                        this.inputStack.unshift(frame);
+                    }
                 }
                 catch (_err) {
                     this.writeLine('Error: ' + _err);
@@ -236,10 +242,6 @@ class ClientInstance extends EventEmitter {
                 }
                 finally {
                     this.releaseContext();
-                }
-
-                if (result === true) {
-                    this.inputStack.unshift(frame);
                 }
             }
             else if (body) {
@@ -293,6 +295,10 @@ class ClientInstance extends EventEmitter {
         else {
             logger.log(`WARNING: Context was released too early!`);
         }
+    }
+
+    renderPrompt() {
+        throw new Error('Not implemented');
     }
 }
 

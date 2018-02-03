@@ -790,7 +790,7 @@ class GameServer extends MUDEventEmitter {
         if (!this.loginObject) {
             throw new Error('Login object must be specified');
         }
-        logger.log('Starting %s', this.mudName);
+        logger.log('Starting %s', this.mudName.ucfirst());
         if (this.globalErrorHandler) {
             process.on('uncaughtException', err => {
                 logger.log(err);

@@ -89,10 +89,12 @@ class MUDPasswordPolicy {
             else
                 callback(null, checks);
         }
-        else if (checks.length === 0)
+        else if (checks === true)
             return bcrypt.hashSync(str, this.saltRounds);
-        else
+        else if (Array.isArray(checks) && checks.length > 0)
             throw new Error('Password policy: ' + checks.join(', '));
+        else
+            throw new Error('Password policy failure; No error specified!');
     }
 
     /**

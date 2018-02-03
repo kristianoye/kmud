@@ -72,9 +72,13 @@ class RanvierTelnetInstance extends ClientInstance {
         if (frame.data.error) {
             this.writeLine(frame.data.error);
         }
-        this.client.toggleEcho(data.type !== 'password');
-        this.write(frame.data.text);
         this.inputStack.push(frame);
+        return this.renderPrompt(frame);
+    }
+
+    renderPrompt(input) {
+        this.client.toggleEcho(input.data.type !== 'password');
+        this.write(input.data.text);
         return this;
     }
 

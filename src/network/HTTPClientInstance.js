@@ -85,7 +85,7 @@ class HTTPClientInstance extends ClientInstance {
             callback: callback
         };
         if (prompt.nostack !== true) this.inputStack.push(frame);
-        return this.renderPrompt(frame.data);
+        return this.renderPrompt(frame);
     }
 
     close(reason) {
@@ -131,6 +131,7 @@ class HTTPClientInstance extends ClientInstance {
         if (typeof data.eventType !== 'string')
             throw new Error('Invalid MUD event: ' + JSON.stringify(data));
         this.client.emit('kmud', data);
+        return this;
     }
 
     /**
@@ -153,12 +154,11 @@ class HTTPClientInstance extends ClientInstance {
         this[_callbacks][name] = callback;
     }
 
-    renderPrompt(prompt) {
-        this.eventSend({
+    renderPrompt(input) {
+        return this.eventSend({
             eventType: 'renderPrompt',
-            eventData: prompt
+            eventData: input.data
         });
-        return this;
     }
 
     write(text, opts) {

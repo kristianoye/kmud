@@ -24,6 +24,7 @@ class VMWrapper extends VMAbstraction {
      */
     run(context, module) {
         module.context = vm.createContext(module.loader);
+        module.efunProxy.extendGlobal(module.context);
         module.loader.ctx = module.context;
 
         vm.runInContext(ExtensionText, module.context, {

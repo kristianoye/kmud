@@ -378,6 +378,13 @@ class EFUNProxy {
 
     /**
      * 
+     * @param {any} global
+     */
+    extendGlobal(global) {
+    }
+
+    /**
+     * 
      * @param {string[]} exits
      */
     clientExits(prefix, exits, target) {

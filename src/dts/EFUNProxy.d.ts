@@ -449,6 +449,12 @@ declare class EFUNProxy {
     unguarded(callback: (...args: any[]) => any);
 
     /**
+     * Check to see if the given password meets the MUD password policy.
+     * @param plain The plain text password to check.
+     */
+    validPassword(plain: string): boolean | string[];
+
+    /**
      * Returns true if the supplied target is an immortal.
      * @param {any} target
      * @returns {boolean} True if the target is a wizard or false if not.

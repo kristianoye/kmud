@@ -459,9 +459,6 @@ class MUDLoader {
                 value: global.setTimeout,
                 writable: false
             },
-            String: {
-                value: global.String
-            },
             thisPlayer: {
                 get: function (flag) {
                     return flag ? driver.currentContext.truePlayer : driver.currentContext.thisPlayer;

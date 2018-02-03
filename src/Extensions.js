@@ -44,6 +44,9 @@ function extendPrototype(pt, spec) {
                 s = s.replace(re, typeof a[i] === 'undefined' ? '[undefined]' : a[i].toString());
             }
             return s;
+        },
+        ucfirst: function () {
+            return this.charAt(0).toUpperCase() + this.slice(1);
         }
     });
 })(String.prototype);
