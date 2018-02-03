@@ -20,12 +20,9 @@ class HTTPClientInstance extends ClientInstance {
         var self = this, body, $storage;
 
         this[_callbacks] = {};
-        client.echoing = true; // total hack for now
 
-        client.on('disconnect', client => {
-            self.emit('disconnected', self);
-            driver.removePlayer(self.body);
-        });
+        client.echoing = true; // total hack for now
+        client.on('disconnect', msg => self.disconnect('http', msg));
 
         client.on('kmud', data => {
             switch (data.eventType) {

@@ -630,9 +630,8 @@ class EditorInstance {
      * @param {string=} filename
      */
     writeFile(filename) {
-        let bc = 0;
-        result = this.efuns.writeFile(filename || this.filename,
-            this.content.map(s => (bc += s.length, s)).join('\n'), false, true);
+        let bc = 0, content = this.content.map(s => (bc += s.length, s)).join('\n');
+        let result = this.efuns.writeFile(filename || this.filename, content);
         if (result !== true) {
             return this.print(`Write failed: ${(filename || this.filename)}: ${(driver.currentContext.lastError || 'Unknown Error')}`);
 

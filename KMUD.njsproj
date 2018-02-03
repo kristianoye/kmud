@@ -971,6 +971,9 @@
       <SubType>Code</SubType>
     </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\MUDModule.d.ts" />
+    <TypeScriptCompile Include="src\dts\MUDStorage.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\MUDStorageContainer.d.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>

@@ -26,13 +26,8 @@ class RanvierTelnetInstance extends ClientInstance {
         this.client.on('data', (buffer) => {
             let text = buffer.toString('utf8');
             this.enqueueCommand(text);
-            //dispatchInput.call(this, buffer.toString('utf8'));
         });
-
-        this.client.on('close', () => {
-            this.emit('kmud.connection.closed', this, 'telnet');
-            this.emit('disconnected', this);
-        });
+        this.client.on('close', msg => self.disconnect('telnet', msg || 'not specified'));
     }
 
     eventSend(data) {

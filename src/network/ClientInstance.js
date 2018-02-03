@@ -173,6 +173,17 @@ class ClientInstance extends EventEmitter {
     }
 
     /**
+     * The client has disconnected
+     * @param {string} protocol The client protocol (should be endpoint?)
+     * @param {string} msg The reason for the disconnect.
+     */
+    disconnect(protocol, msg) {
+        if (this.$storage) this.$storage.setClient(false);
+        this.emit('kmud.connection.closed', this, protocol);
+        this.emit('disconnected', this);
+    }
+
+    /**
      * Dispatch commands from the command stack in the order received.
      * @param {any} flag
      */
@@ -264,10 +275,15 @@ class ClientInstance extends EventEmitter {
      */
     handleExec(evt) {
         this.removeAllListeners('disconnected');
+        if (evt.oldStorage) {
+            evt.oldStorage.setClient(false);
+        }
         this.$storage = driver.storage.get(this.body = evt.newBody);
+
         driver.addPlayer(this.body);
         driver.removePlayer(evt.oldBody);
         driver.setThisPlayer(this.body, true, '');
+
         this.inputStack = [];
 
         if (!this.context) {

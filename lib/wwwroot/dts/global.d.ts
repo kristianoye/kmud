@@ -54,20 +54,6 @@ declare class MUDInfo {
     readonly uptime: number;
 }
 
-declare interface MUDStorage {
-    /** Listen for a particular event from the mudlib/driver */
-    on(event: string, callback: (...args: any[]) => any): void;
-
-    /** get a property from the storage layer */
-    getProperty(prop: string, defaultValue: any): any
-
-    /** set a property in the storage layer */
-    setProperty(prop: string, value: any): MUDObject;
-
-    /** set a symbol in the storage layer */
-    setSymbol(prop: Symbol, value: any): MUDObject;
-}
-
 /**
  * Contains information required to construct a MUD object.
  */

@@ -417,12 +417,18 @@ class MUDStorage extends MUDEventEmitter {
         else return v;
     }
 
-    setClient($client) {
-        this.client = $client;
-        this.flags = MUDStorage.Active | MUDStorage.Interactive | MUDStorage.Connected;
-        this.client.on('disconnected', () => {
-            this.flags &= ~MUDStorage.Connected;
-        });
+    /**
+     * Associate a client with this store and its related object.
+     * @param {any} client
+     */
+    setClient(client) {
+        this.client = client;
+        if (client) {
+            this.flags |= MUDStorage.OB_CONNECTED | MUDStorage.OB_INTERACTIVE;
+        }
+        else {
+            this.flags &= ~MUDStorage.OB_CONNECTED;
+        }
         return this;
     }
 
@@ -542,18 +548,26 @@ MUDStorage.configureForRuntime = function (driver) {
     driver.storage = manager;
 };
 
+/** Indicates the object is interactive */
+MUDStorage.OB_INTERACTIVE = 1 << 0;
 
-/** Indicates the object is active and not idle */
-MUDStorage.Active = 1 << 0;
+/** Indicates the object is connected (not linkdead) */
+MUDStorage.OB_CONNECTED = 1 << 1;
 
-/** Indicates the object is (or was) interactive. */
-MUDStorage.Interactive = 1 << 1;
+/** Indicates the object is living and can execute commands */
+MUDStorage.OB_LIVING = 1 << 2;
 
-/** Indicates the object has a client attached to it */
-MUDStorage.Connected = 1 << 2;
+/** Indicates the object has wizard permissions */
+MUDStorage.OB_WIZARD = 1 << 3;
 
-/** Indicates the object is 'alive' and can execute commands */
-MUDStorage.Living = 1 << 3;
+/** Indicates the interactive object is idle */
+MUDStorage.OB_IDLE = 1 << 4;
+
+/** Indicates the object is in edit mode */
+MUDStorage.OB_EDITING = 1 << 5;
+
+/** Indicates the object is in input mode */
+MUDStorage.OB_INPUT = 1 << 6;
 
 module.exports = MUDStorage;
 
