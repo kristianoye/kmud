@@ -241,9 +241,13 @@ class EFUNProxy {
         if (_thisObject) {
             let $storage = driver.storage.get(_thisObject),
                 client = $storage.getProtected('$client'),
-                evt = client ? client.createCommandEvent(_thisObject) : false;
+                evt = client ? client.createCommandEvent(_thisObject) : false,
+                mxc = ctx.clone(init => {
+                    init.note = 'command';
+                    init.thisPlayer = _thisObject;
+                    init.truePlayer = ctx.truePlayer;
+                });
             try {
-                driver.thisPlayer = _thisObject;
                 if (!evt) {
                     let words = input.trim().split(/\s+/g),
                         verb = words.shift();
@@ -265,10 +269,12 @@ class EFUNProxy {
                         }
                     };
                 }
+                mxc.input = evt;
+                mxc.restore();
                 $storage.emit('kmud.command', evt);
             }
             finally {
-                driver.thisPlayer = prevPlayer;
+                mxc.release();
             }
         }
     }
