@@ -133,6 +133,30 @@ class EFUNProxy {
         else throw new Error(`Bad argument 1 to assemble_class(); Expected array got ${typeof arr}`);
     }
 
+    callOut(func, delay, ...args) {
+        let mxc = driver.currentContext,
+            tob = mxc.thisObject,
+            callback = typeof func === 'function' ? func : false;
+        if (typeof func === 'string') {
+            let method = tob[func];
+            if (typeof method === 'function') {
+                callback = method.bind(tob, args);
+            }
+        }
+        if (typeof callback !== 'function')
+            throw new Error(`Bad argument 1 to function; Expected string or function but got ${typeof func}`);
+        let ctx = driver.currentContext.clone();
+        let handle = setTimeout(() => {
+            try {
+                ctx.restore();
+                callback();
+            }
+            finally {
+                ctx.release();
+            }
+        }, delay);
+    }
+
     /**
      * Validate a password.
      * @param {string} plain The plain text entered as a password.
