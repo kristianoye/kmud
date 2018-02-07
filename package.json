@@ -15,6 +15,7 @@
     "js-beautify": "^1.7.5",
     "merge": "^1.2.0",
     "monaco-editor": "^0.10.1",
+    "mysql": "^2.15.0",
     "socket.io": "^2.0.3",
     "sprintf": "^0.1.5"
   },

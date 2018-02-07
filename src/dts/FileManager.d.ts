@@ -1,21 +1,147 @@
-﻿declare namespace MUDFS {
-    enum MoveFlags {
+﻿/**
+ * Contains types and enumerations for file operations 
+ */
+declare namespace MUDFS {
+    /**
+     * Flags for copy operation
+     */
+    enum CopyFlags {
+        /** There are no flags associated with the operation */
+        None = 0,
+
+        /** The operation should report what actions are being taken */
+        Verbose = 1 << 0,
+
+        /** The operation should prompt user for confirmation */
+        Interactive = 1 << 1,
+
         /** Make a backup of each existing destination file */
-        Backup = 1 << 0,
+        Backup = 1 << 21,
 
         /** Do not clobber existing files */
-        NoClobber = 1 << 1,
+        NoClobber = 1 << 22,
 
         /** Only move newer or non-existant files */
-        Update = 1 << 2,
-
-        /** Verbose mode.  Print what's happening. */
-        Verbose = 1 << 3,
-
-        /** Interactive mode */
-        Interactive: 1 << 4
+        Update = 1 << 23
     }
 
+    /**
+     * Common flags used across multiple filesystem operations
+     */
+    enum FileFlags {
+        /** There are no flags associated with the operation */
+        None = 0,
+
+        /** The operation should report what actions are being taken */
+        Verbose = 1 << 0,
+
+        /** The operation should prompt user for confirmation */
+        Interactive = 1 << 1
+
+        // Reserve: Bits 3-8
+    }
+
+    /**
+     * Which details to retrieve in stat operation
+     */
+    enum StatFlags {
+        None = 1 << 0,
+
+        Size = 1 << 9,
+
+        Perms = 1 << 10,
+
+        Details = (1 << 10) | (1 << 9)
+
+        // Reserve: Bits 11-12
+    }
+
+    /**
+     * Flags used by GetDir / ReadDirectory operation
+     */
+    enum GetDirFlags {
+        // Base FileFlags
+        /** There are no flags associated with the operation */
+        None = 0,
+
+        /** The operation should report what actions are being taken */
+        Verbose = 1 << 0,
+
+        /** The operation should prompt user for confirmation */
+        Interactive = 1 << 1,
+
+        // StatFlags
+        /** Get file size */
+        Size = 1 << 9,
+
+        /** Get permissions */
+        Perms = 1 << 10,
+
+        // Start GetDirFlags
+        /** Include files in results */
+        Files = 1 << 13,
+
+        /** Include directories in results */
+        Dirs = 1 << 14,
+
+        /** Dirs without trailing slash imply dir + '/*' */
+        Implicit = 1 << 15,
+
+        /** Include system files in results */
+        System = 1 << 16,
+
+        /** Include hidden files with a . prefix */
+        Hidden = 1 << 17
+
+        // Reserve: Bits: 18-20
+    }
+
+    /**
+     * Flags for creating new directories
+     */
+    enum MkdirFlags {
+        /** No special flags */
+        None = 0,
+
+        /** Verbose output */
+        Verbose = 1 << 0,
+
+        /** Ensure whole path exists */
+        EnsurePath = 1 << 21,
+
+        /** Set explicit permissions while creating */
+        ExplicitPerms = 1 << 22
+    }
+
+    /**
+     * Flags used by a move request
+     */
+    enum MoveFlags {
+        /** There are no flags associated with the operation */
+        None = 0,
+
+        /** The operation should report what actions are being taken */
+        Verbose = 1 << 0,
+
+        /** The operation should prompt user for confirmation */
+        Interactive = 1 << 1,
+
+        /** Make a backup of each existing destination file */
+        Backup = 1 << 21,
+
+        /** Do not clobber existing files */
+        NoClobber = 1 << 22,
+
+        /** Only move newer or non-existant files */
+        Update = 1 << 23,
+
+        /** The move destination is a single, regular file */
+        SingleFile = 1 << 24
+    }
+
+    /**
+     * Details on a filesystem move operation
+     */
     class MoveOptions {
         /** A backup suffix to append to existing destination files */
         backupSuffix: string;

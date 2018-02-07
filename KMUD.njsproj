@@ -441,6 +441,15 @@
     <Compile Include="src\config\MudSection.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\DBManager.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\db\Database.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\db\MySqlDb.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\EFUNProxy.js" />
     <Compile Include="src\ErrorTypes.js" />
     <Compile Include="src\features\DomainStats.js">
@@ -469,6 +478,9 @@
     </Compile>
     <Compile Include="src\fs\DefaultFileSecurity.js" />
     <Compile Include="src\fs\FileSystemStat.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\fs\MySqlFilesystem.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\GameServer.js">
@@ -926,6 +938,7 @@
     <Folder Include="src\network\impl\zmud\" />
     <Folder Include="src\fs\" />
     <Folder Include="src\dts\" />
+    <Folder Include="src\db\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
   </ItemGroup>

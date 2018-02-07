@@ -15,18 +15,56 @@ const
     fs = require('fs');
 
 mudglobal.MUDFS = {
+    GetDirFlags: {
+        // FileFlags
+        None: 0,
+        Verbose: 1 << 0,
+        Interactive: 1 << 1,
+
+        // StatFlags
+        Size: 1 << 9,
+        Perms: 1 << 10,
+
+        Files: 1 << 13,
+        Dirs: 1 << 14,
+        Implicit: 1 << 15,
+        System: 1 << 16,
+        Hidden: 1 << 17,
+
+        //  Size + Permissions
+        Details: 1 << 9 | 1 << 10,
+
+        //  Files + Dirs + Implicit
+        Default: (1 << 13) | (1 << 14) | (1 << 15)
+    },
+    MkdirFlags: {
+        None: 0,
+        Verbose: 1,
+        EnsurePath: 1 << 21,
+        ExplicitPerms: 1 << 22
+    },
     MoveFlags: {
-        Backup: 1,
-        NoClobber: 1 << 1,
-        Update: 1 << 2,
-        Verbose: 1 << 3,
-        Interactive: 1 << 4
+        // FileFlags enum
+        None: 0,
+        Verbose: 1 << 0,
+        Interactive: 1 << 1,
+
+        Backup: 1 << 21,
+        NoClobber: 1 << 22,
+        Update: 1 << 23,
+        SingleFile: 1 << 24
     },
     MoveOptions: {
         backupSuffix: '~',
         flags: 0,
         prompt: false,
         targetDirectory: '.'
+    },
+    StatFlags: {
+        None: 0,
+        Size: 1 << 9,
+        Perms: 1 << 10,
+        Details: 1 << 9 | 1 << 10
     }
 };
 
@@ -403,10 +441,15 @@ class FileManager extends MUDEventEmitter {
      * @param {function(boolean,Error):void} callback Optional callback for async mode.
      */
     movePath(efuns, source, destination, options, callback) {
-        let reqLeft = this.createFileRequest('moveFile', source, options.flags);
-        let reqRight = this.createFileRequest('moveRight', destination, options.flags);
-        return typeof callback === 'function' ?
-            callback(false, new Error('Not implemented')) : false
+        let reqLeft = this.createFileRequest('moveFile', source, typeof callback !== 'undefined', options.flags);
+        let reqRight = this.createFileRequest('moveRight', destination, typeof callback !== 'undefined', options.flags);
+
+        if (typeof callback !== 'undefined') {
+
+        }
+        else {
+
+        }
     }
 
     /**

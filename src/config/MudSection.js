@@ -1,6 +1,7 @@
 ﻿const
     MUDPasswordPolicy = require('./MUDPasswordPolicy'),
-    ConfigUtil = require('..//ConfigUtil'),
+    ConfigUtil = require('../ConfigUtil'),
+    DBManager = require('../DBManager'),
     MudPort = require('./MudPort');
 
 class MudSection {
@@ -13,6 +14,8 @@ class MudSection {
 
         /** @type {string} */
         this.adminEmail = data.adminEmail || '[Unspecified]';
+
+        this.dbm = new DBManager(data.databases || {});
 
         /** @type {Object.<string,boolean>} */
         this.features = data.features || {};
