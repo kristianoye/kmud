@@ -100,7 +100,7 @@ class FileSecurity extends MUDEventEmitter {
      * @param {FileSystemRequest} req
      * @param {function=} callback
      */
-    readDirectory(efuns, req, callback) {
+    async readDirectory(efuns, req, callback) {
         throw new NotImplementedError('readDirectory');
     }
 

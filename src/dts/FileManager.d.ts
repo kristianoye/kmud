@@ -91,9 +91,18 @@ declare namespace MUDFS {
         System = 1 << 16,
 
         /** Include hidden files with a . prefix */
-        Hidden = 1 << 17
+        Hidden = 1 << 17,
 
-        // Reserve: Bits: 18-20
+        /** Default get directory flags */
+        Defaults = 1 << 13 | 1 << 14 | 1 << 15,
+
+        /** Get stat details */
+        Details = 1 << 9 | 1 << 10,
+
+        /** Get child directories */
+        GetChildren = 1 << 18
+
+        // Reserve: Bits: 19-20
     }
 
     /**
@@ -158,60 +167,6 @@ declare namespace MUDFS {
         /** The target directory for the move */
         targetDirectory: string;
     }
-}
-
-declare enum GetDirFlags {
-    /** Return files in the result set */
-    Files = 1 << 1,
-
-    /** Return subdirectories in the result set */
-    Dirs = 1 << 2,
-
-    /** Return permissions for each item in the result */
-    Perms = 1 << 3,
-
-    /** Include hidden system files in the result */
-    System = 1 << 4,
-
-    /** Include file size information in the result */
-    Size = 1 << 0,
-
-    /** Show hidden files */
-    Hidden = 1 << 5,
-
-    /** If the path used looks like a directory then get contents of 
-        directory even if trailing slash was omitted */
-    ImplicitDirs = 1 << 6,
-
-    /** Resolves the parent directory if one exists */
-    ResolveParent = 1 << 7,
-
-    /** Details please */
-    Details = Size | Perms,
-
-    /** Default for listing */
-    Defaults = Files | Dirs | ImplicitDirs
-}
-
-declare enum MkdirFlags {
-    /** If set then mkdir() will try and create the entire directory struct.
-      Any missing or incomplete part will be created and no errors will be
-      generated even if the entire path already exists. */
-    EnsurePath = 1
-}
-
-declare enum StatFlags {
-    /** No additional flags requested. */
-    None = 0,
-
-    /** Retrieve file size information. */
-    Size = 1 << 0,
-
-    /** Fetch the permissions from security manager */
-    Perms = 1 << 1,
-
-    /** Return the parent(s) object stat in the result */
-    Parent = 1 << 2
 }
 
 declare class FileSystemRequest {

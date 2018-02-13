@@ -168,7 +168,7 @@ class DefaultFileSystem extends FileSystem {
     createDirectorySync(req) {
         return this.translatePath(req.relativePath, fullPath => {
             let parts = path.relative(this.root, fullPath).split(path.sep),
-                ensure = (req.flags & MkdirFlags.EnsurePath) === MkdirFlags.EnsurePath;
+                ensure = (req.flags & MUDFS.MkdirFlags.EnsurePath) === MUDFS.MkdirFlags.EnsurePath;
 
             for (let i = 0, max = parts.length; i < max; i++) {
                 let dir = this.root + path.sep + parts.slice(0, i).join(path.sep),
@@ -347,7 +347,7 @@ class DefaultFileSystem extends FileSystem {
     readDirectoryAsync(req, callback) {
         return this.translatePath(req.pathRel, fullPath => {
             let pattern = req.fileName ? new RegExp('^' + req.fileName.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
-            if (req.flags & GetDirFlags.ImplicitDirs && !fullPath.endsWith('/')) fullPath += path.sep;
+            if (req.flags & MUDFS.GetDirFlags.ImplicitDirs && !fullPath.endsWith('/')) fullPath += path.sep;
 
             fs.readdir(fullPath, { encoding: this.encoding }, MXC.awaiter((/** @type {Error} */ err, /** @type {string[]} */ files) => {
                 if (req.flags === 0)
@@ -365,14 +365,14 @@ class DefaultFileSystem extends FileSystem {
                     if (pattern && !pattern.test(fn)) return itr();
 
                     //  Is the file hidden?
-                    if ((req.flags & GetDirFlags.Hidden) === 0 && fn.startsWith('.')) return itr();
+                    if ((req.flags & MUDFS.GetDirFlags.Hidden) === 0 && fn.startsWith('.')) return itr();
 
                     // Do we need to stat?
-                    if ((req.flags & GetDirFlags.Files) > 0 || (req.flags & GetDirFlags.Dirs) > 0) {
+                    if ((req.flags & MUDFS.GetDirFlags.Files) > 0 || (req.flags & MUDFS.GetDirFlags.Dirs) > 0) {
                         return fs.stat(fullPath + '/' + fn, (err, stat) => {
                             if (ctx.aborted) return itr(new Error('Aborted'));
-                            if ((fd.isDirectory = stat.isDirectory()) && (req.flags & GetDirFlags.Dirs) === 0) return itr();
-                            if ((fd.isFile = stat.isFile()) && (req.flags & GetDirFlags.Files) === 0) return itr();
+                            if ((fd.isDirectory = stat.isDirectory()) && (req.flags & MUDFS.GetDirFlags.Dirs) === 0) return itr();
+                            if ((fd.isFile = stat.isFile()) && (req.flags & MUDFS.GetDirFlags.Files) === 0) return itr();
                             results.push(fd.merge(stat));
                             return itr(err);
                         });
@@ -397,7 +397,7 @@ class DefaultFileSystem extends FileSystem {
     readDirectorySync(req) {
         return this.translatePath(req.pathRel, fullPath => {
             let pattern = req.fileName ? new RegExp('^' + req.fileName.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
-            if (req.flags & GetDirFlags.ImplicitDirs && !fullPath.endsWith('/')) fullPath += path.sep;
+            if (req.flags & MUDFS.GetDirFlags.ImplicitDirs && !fullPath.endsWith('/')) fullPath += path.sep;
             let files = fs.readdirSync(fullPath, { encoding: this.encoding }),
                 result = [];
 
@@ -412,20 +412,20 @@ class DefaultFileSystem extends FileSystem {
                     return false;
 
                 //  Is the file hidden?
-                if ((req.flags & GetDirFlags.Hidden) === 0 && fn.startsWith('.'))
+                if ((req.flags & MUDFS.GetDirFlags.Hidden) === 0 && fn.startsWith('.'))
                     return false;
 
                 // Do we need to stat?
-                if ((req.flags & GetDirFlags.Defaults) > 0) {
+                if ((req.flags & MUDFS.GetDirFlags.Defaults) > 0) {
                     let stat = fs.statSync(fullPath + '/' + fn);
-                    if ((fd.isDirectory = stat.isDirectory()) && (req.flags & GetDirFlags.Dirs) === 0)
+                    if ((fd.isDirectory = stat.isDirectory()) && (req.flags & MUDFS.GetDirFlags.Dirs) === 0)
                         return false;
 
-                    if ((fd.isFile = stat.isFile()) && (req.flags & GetDirFlags.Files) === 0)
+                    if ((fd.isFile = stat.isFile()) && (req.flags & MUDFS.GetDirFlags.Files) === 0)
                         return false;
                     fd.merge(stat);
                 }
-                if ((req.flags & GetDirFlags.Perms) > 0) {
+                if ((req.flags & MUDFS.GetDirFlags.Perms) > 0) {
 
                 }
                 result.push(fd);

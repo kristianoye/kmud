@@ -786,7 +786,7 @@ class GameServer extends MUDEventEmitter {
      * @param {function?} callback Callback to execute when the MUD is running.
      * @returns {GameServer} A reference to the GameServer.
      */
-    run(callback) {
+    async run(callback) {
         if (!this.loginObject) {
             throw new Error('Login object must be specified');
         }

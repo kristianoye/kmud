@@ -450,6 +450,9 @@
     <Compile Include="src\db\MySqlDb.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\db\orm\ActiveRecordBase.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\EFUNProxy.js" />
     <Compile Include="src\ErrorTypes.js" />
     <Compile Include="src\features\DomainStats.js">
@@ -927,6 +930,7 @@
     <Folder Include="lib\wwwroot\sound\ogg\sword\" />
     <Folder Include="lib\wwwroot\templates\" />
     <Folder Include="src\" />
+    <Folder Include="src\db\orm\" />
     <Folder Include="src\network\" />
     <Folder Include="src\compiler\" />
     <Folder Include="src\config\" />

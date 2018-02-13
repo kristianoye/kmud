@@ -31,11 +31,13 @@ mudglobal.MUDFS = {
         System: 1 << 16,
         Hidden: 1 << 17,
 
+        GetChildren: 1 << 18,
+
         //  Size + Permissions
         Details: 1 << 9 | 1 << 10,
 
         //  Files + Dirs + Implicit
-        Default: (1 << 13) | (1 << 14) | (1 << 15)
+        Defaults: (1 << 13) | (1 << 14) | (1 << 15)
     },
     MkdirFlags: {
         None: 0,
@@ -66,31 +68,6 @@ mudglobal.MUDFS = {
         Perms: 1 << 10,
         Details: 1 << 9 | 1 << 10
     }
-};
-
-// Global enum-type object for directory listing flags
-mudglobal.GetDirFlags = {
-    None: 0,
-    Files: 1 << 1,
-    Defaults: 1 << 1 | 1 << 2 | 1 << 6,
-    Details: 1 | 1 << 3,
-    Dirs: 1 << 2,
-    ImplicitDirs: 1 << 6,
-    Perms: 1 << 3,
-    System: 1 << 5,
-    System: 1 << 4,
-    Size: 1 << 0
-};
-
-mudglobal.MkdirFlags = {
-    EnsurePath: 1
-};
-
-mudglobal.StatFlags = {
-    None: 0,
-    Size: 1 << 0,
-    Perms: 1 << 3,
-    Parent: 1 << 4
 };
 
 var
@@ -459,10 +436,14 @@ class FileManager extends MUDEventEmitter {
      * @param {number} flags Flags indicating request for additional details.
      * @param {function(string[], Error):void} callback A callback for asyncronous reading.
      */
-    readDirectory(efuns, expr, flags, callback) {
-        return this.createFileRequest('readDirectory', expr, typeof callback === 'function', flags, req => {
+    async readDirectory(efuns, expr, flags, callback) {
+        let req = this.createFileRequest('readDirectory', expr, false, flags);
+        if (callback === true)
+            return await req.securityManager.readDirectory(efuns, req, callback);
+        else if (typeof callback === 'function')
             return req.securityManager.readDirectory(efuns, req, callback);
-        });
+        else
+            return req.securityManager.readDirectory(efuns, req, undefined);
     }
 
     /**

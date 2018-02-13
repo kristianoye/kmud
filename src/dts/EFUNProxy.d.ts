@@ -159,15 +159,6 @@ declare class EFUNProxy {
     findPlayer(target: string, allowPartial: boolean): Player;
 
     /**
-    * Attempt to read file information from the disk.
-    * @param {String} expr A file expression to evaluate.
-    * @param {Number} flags Flags indicating additional information is requested.
-    * @param {Function} callback A callback if perming an async getDir.
-    * If no callback is specified then the call is synchronous.
-    */
-    getDir(expr: string, flags: number, callback?: (files: String[], error: Error) => void): Array;
-
-    /**
     * Formats a numeric value as an amount of memory (e.g. 1024 => 1KB)
     * @param value A numeric value to convert.
     * @returns {string} A string version in human readable form.
@@ -334,6 +325,15 @@ declare class EFUNProxy {
      * Returns the verb that is currently executing.
      */
     queryVerb(): string;
+
+    /**
+    * Attempt to read file information from the disk.
+    * @param {String} expr A file expression to evaluate.
+    * @param {Number} flags Flags indicating additional information is requested.
+    * @param {Function} callback A callback if perming an async getDir.
+    * If no callback is specified then the call is synchronous.
+    */
+    readDirectory(expr: string, flags: number, callback?: (files: String[], error: Error) => void): Array;
 
     /**
      * Attempts to read the contents of a file.

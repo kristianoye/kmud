@@ -505,9 +505,15 @@ class EFUNProxy {
      * @param {number=} flags Additional detail flags.
      * @param {function=} callback An optional callback for async operation.
      */
-    getDir(expr, flags, callback) {
+    async readDirectory(expr, flags, callback) {
         if (typeof flags === 'function') (callback = flags), (flags = 0);
-        return driver.fileManager.readDirectory(this, this.resolvePath(expr), flags, callback);
+        if (typeof callback === 'function') {
+            return driver.fileManager.readDirectory(this, this.resolvePath(expr), flags, callback);
+        }
+        else if (callback === true)
+            return await driver.fileManager.readDirectory(this, this.resolvePath(expr), flags, true);
+        else
+            return driver.fileManager.readDirectory(this, this.resolvePath(expr), flags);
     }
 
     /**
