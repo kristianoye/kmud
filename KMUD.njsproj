@@ -1,4 +1,4 @@
-﻿<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">14.0</VisualStudioVersion>
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
@@ -82,7 +82,7 @@
     <Compile Include="lib\base\Weapon.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Reset.js">
+    <Compile Include="lib\cmds\creator\reset.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\player\Reply.js" />
@@ -95,30 +95,30 @@
     <Compile Include="lib\sys\cmds\arch\Reboot.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\Call.js" />
-    <Compile Include="lib\sys\cmds\creator\Chmod.js">
+    <Compile Include="lib\sys\cmds\creator\call.js" />
+    <Compile Include="lib\sys\cmds\creator\chmod.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\creator\cp.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\Edit.js">
+    <Compile Include="lib\sys\cmds\creator\edit.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Find.js">
+    <Compile Include="lib\cmds\creator\find.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Goto.js">
+    <Compile Include="lib\cmds\creator\goto.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Invis.js">
+    <Compile Include="lib\cmds\creator\invis.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\People.js" />
-    <Compile Include="lib\cmds\creator\Scan.js">
+    <Compile Include="lib\cmds\creator\people.js" />
+    <Compile Include="lib\cmds\creator\scan.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Vis.js">
+    <Compile Include="lib\cmds\creator\vis.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\items\Put.js">
@@ -130,46 +130,46 @@
     <Compile Include="lib\cmds\player\Alias.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\Cd.js">
+    <Compile Include="lib\sys\cmds\creator\cd.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Clone.js">
+    <Compile Include="lib\cmds\creator\clone.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\Compile.js">
+    <Compile Include="lib\sys\cmds\creator\compile.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\creator\eval.js" />
-    <Compile Include="lib\sys\cmds\creator\Force.js">
+    <Compile Include="lib\sys\cmds\creator\force.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\Ls.js">
+    <Compile Include="lib\sys\cmds\creator\ls.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\Mkdir.js">
+    <Compile Include="lib\sys\cmds\creator\mkdir.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\More.js">
+    <Compile Include="lib\sys\cmds\creator\more.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Pwd.js">
+    <Compile Include="lib\cmds\creator\pwd.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\Rehash.js">
+    <Compile Include="lib\cmds\creator\rehash.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\creator\mv.js" />
     <Compile Include="lib\sys\cmds\creator\rm.js" />
-    <Compile Include="lib\sys\cmds\creator\RmDir.js">
+    <Compile Include="lib\sys\cmds\creator\rmdir.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\admin\Shutdown.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\SetEnv.js">
+    <Compile Include="lib\cmds\creator\setenv.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\Update.js">
+    <Compile Include="lib\sys\cmds\creator\update.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\player\Body.js" />
