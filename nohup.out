@@ -1,0 +1,57 @@
+MudlibSection constructor called.
+eth0 173.160.221.131
+eth1 192.168.1.63
+Starting Emerald MUD Dev
+Creating filesystem(s)
+		Load timer: /sys/lib/SimulEfuns [23 ms]
+		Load timer: /sys/daemon/GameMaster [25 ms]
+	Enabling driver feature: MudOS-like Domain Stats
+	Enabling driver feature: Line Editor Support
+	Enabling driver feature: MudOS-like Verb Support
+Creating preloads.
+		Load timer: /base/Command [3 ms]
+		Load timer: /daemon/HelpSystem [12 ms]
+		Load timer: /daemon/ChatDaemon [11 ms]
+		Load timer: /sys/daemon/PlayerDaemon [23 ms]
+		Load timer: /base/GameObject [6 ms]
+		Load timer: /base/Container [2 ms]
+		Load timer: /base/Room [4 ms]
+		Load timer: /daemon/BodyDaemon [3 ms]
+		Load timer: /base/Body [8 ms]
+		Load timer: /sys/daemon/CommandResolver [7 ms]
+		Load timer: /daemon/EmoteDaemon [11 ms]
+		Load timer: /base/Living [29 ms]
+		Load timer: /base/Interactive [13 ms]
+		Load timer: /base/Player [3 ms]
+		Load timer: /base/Creator [5 ms]
+		Load timer: /base/Verb [1 ms]
+		Load timer: /daemon/I3Router [18 ms]
+		Load timer: /daemon/I3Daemon [13 ms]
+Startup took 0.267 seconds [267 ms]
+{ Error: listen EADDRINUSE 173.160.221.131:8787
+    at Object._errnoException (util.js:999:13)
+    at _exceptionWithHostPort (util.js:1020:20)
+    at Server.setupListenHandle [as _listen2] (net.js:1379:14)
+    at listenInCluster (net.js:1420:12)
+    at doListen (net.js:1535:7)
+    at process._tickCallback (internal/process/next_tick.js:152:19)
+    at Function.Module.runMain (module.js:703:11)
+    at startup (bootstrap_node.js:194:16)
+    at bootstrap_node.js:618:3
+  errno: 'EADDRINUSE',
+  code: 'EADDRINUSE',
+  syscall: 'listen',
+  address: '173.160.221.131',
+  port: 8787 }
+Error: listen EADDRINUSE 173.160.221.131:8787
+    at Object._errnoException (util.js:999:13)
+    at _exceptionWithHostPort (util.js:1020:20)
+    at Server.setupListenHandle [as _listen2] (net.js:1379:14)
+    at listenInCluster (net.js:1420:12)
+    at doListen (net.js:1535:7)
+    at process._tickCallback (internal/process/next_tick.js:152:19)
+    at Function.Module.runMain (module.js:703:11)
+    at startup (bootstrap_node.js:194:16)
+    at bootstrap_node.js:618:3
+Port Error: Binding: telnet://0.0.0.0:8000 reports address+port already in use (game already running?)
+Exiting (with error code 0)
