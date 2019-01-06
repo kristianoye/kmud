@@ -48,7 +48,7 @@ class EFUNProxy {
     /**
      * Bind an action to the current player.
      * @param {string} verb The command to bind.
-     * @param {any} callback
+     * @param {function} callback The callback that executes when the action is triggered.
      */
     addAction(verb, callback) {
         var prevObject = this.previousObject(),
@@ -67,7 +67,7 @@ class EFUNProxy {
 
     /**
      * Determine if an object is an admin.
-     * @param {MUDObject} target
+     * @param {MUDObject} target The target object to check.
      * @returns {boolean} True if the target is an administrator.
      */
     adminp(target) {
@@ -78,8 +78,8 @@ class EFUNProxy {
 
     /**
      * Determine if an object is an arch.
-     * @param {MUDObject} target
-     * @returns {boolean} True if the target is an arch.
+     * @param {MUDObject} target The target objecto  check.
+     * @returns {boolean} True if the target is an arch.ca
      */
     archp(target) {
         return unwrap(target, player => {
@@ -121,7 +121,8 @@ class EFUNProxy {
 
     /**
      * Not sure what MudOS does with this, but okay...
-     * @param {any} arr
+     * @param {any[]} arr The data to construct.
+     * @returns {object} The result of the assemble class
      */
     assembleClass(arr) {
         var s = '(function() { return function(o) {\n';
@@ -195,7 +196,8 @@ class EFUNProxy {
      * Clone an existing in-game object.
      * @param {string} file The object to clone
      * @param {any} args Constructor args
-     * @param {function(MUDObject,Error):void} callback
+     * @param {function(MUDObject,Error):void} callback Optional callback for async mode.
+     * @returns {MUDObject|false} The object if successfully cloned.
      */
     cloneObject(file, args, callback) {
         if (typeof args === 'function') {
@@ -558,6 +560,7 @@ class EFUNProxy {
     /**
      * Compute the possible file locations of one or more include files.
      * @param {...string[]} files One or more files to locate.
+     * @returns {string[]} One or more computed file paths.
      */
     includePath (...files) {
         let includePath = driver.includePath.slice(0).concat([this.directory]), result = [];
@@ -605,6 +608,7 @@ class EFUNProxy {
      * @param {string} expr The file expression to check.
      * @param {number=} flags Optional flags to request additional details.
      * @param {function(boolean,Error):void} callback An optional callback for async operation.
+     * @returns {boolean} True if the parameter is a normal file.
      */
     isFile(expr, flags, callback) {
         return driver.fileManager.isFile(this, expr, callback);

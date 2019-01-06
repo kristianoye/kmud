@@ -48,7 +48,6 @@ class GameServer extends MUDEventEmitter {
         ResetInterval = config.mudlib.objectResetInterval;
         UseLazyResets = config.driver.useLazyResets;
 
-
         if (!this.config) {
             throw new Error('FATAL: GameServer created without configuration!');
         }
@@ -252,7 +251,7 @@ class GameServer extends MUDEventEmitter {
         function locateApply(name, required) {
             let func = self.masterObject[config.applyNames[name] || name];
             if (typeof func !== 'function' && required === true)
-                throw new Error(`Invalid master object; Could not locate required ${name} apply: ${(config.applyNames[name] || 'validRead')}`);
+                throw new Error(`Invalid master object; Could not locate required ${name} apply: ${(config.applyNames[name] || name)}`);
             return func || false;
         }
 
@@ -263,6 +262,7 @@ class GameServer extends MUDEventEmitter {
         this.applyValidExec = locateApply('validExec', false);
         this.applyValidObject = locateApply('validObject', false);
         this.applyValidRead = locateApply('validRead', true);
+        this.applyValidRequire = locateApply('validRequire', true);
         this.applyValidSocket = locateApply('validSocket', false);
         this.applyValidShutdown = locateApply('validShutdown', true);
         this.applyValidWrite = locateApply('validWrite', true);
@@ -1065,6 +1065,10 @@ class GameServer extends MUDEventEmitter {
             return true;
         else
             return this.applyValidRead.call(this.masterObject, path, frame.object || frame.file, frame.func);
+    }
+
+    validRequire(efuns, moduleName) {
+        return true;
     }
 
     /**

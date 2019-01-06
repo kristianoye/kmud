@@ -95,18 +95,8 @@ class RanvierTelnetInstance extends ClientInstance {
     }
 
     /**
-     * @deprecated
-     * @param {any} html
-     */
-    writeHtml(html) {
-        this.writeLine(html
-            .replace(/<br[\/]{0,1}>/ig, '\\n')
-            .replace(/<[^>]+>/g, ''));
-    }
-
-    /**
-     * 
-     * @param {any} text
+     * Render a line of text to the client.
+     * @param {string} text The text to render on the client.
      */
     writeLine(text) {
         this.write(text + '\n');

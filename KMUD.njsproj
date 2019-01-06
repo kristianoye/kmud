@@ -10,7 +10,10 @@
     <TypeScriptModuleKind>CommonJS</TypeScriptModuleKind>
     <ScriptArguments>
     </ScriptArguments>
-    <Environment>TRIPWIRE_NATIVE=E:\KLF\kmud\node_modules\tripwire\build\Release\tripwire</Environment>
+    <Environment>
+    </Environment>
+    <LastActiveSolutionConfig>Debug|Any CPU</LastActiveSolutionConfig>
+    <SaveNodeJsSettingsInProjectFile>True</SaveNodeJsSettingsInProjectFile>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -652,12 +655,16 @@
     <Compile Include="src\setup\SectionSetup.js">
       <SubType>Code</SubType>
     </Compile>
+    <Content Include=".eslint">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="lib\sys\etc\accessEx.json">
       <SubType>Code</SubType>
     </Content>
     <Content Include="lib\sys\etc\accessMk3.json">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="mudconfig.json" />
     <Content Include="src\setup\BaseConfig.json">
       <SubType>Code</SubType>
     </Content>

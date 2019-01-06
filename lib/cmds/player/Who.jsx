@@ -75,7 +75,7 @@ class Who extends Command {
                 }
             }
         });
-        thisPlayer.writeHtml(result.render());
+        thisPlayer.write(result.render());
         return true;
     }
 

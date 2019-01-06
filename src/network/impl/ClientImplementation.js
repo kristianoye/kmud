@@ -48,6 +48,8 @@ ClientImplementation.create = function (caps, /** @type {Object.<string,boolean>
     let components = [];
     switch (caps.terminalType) {
         case 'ansi':
+        case 'linux':
+        case 'vt100':
             components.push(
                 require('./ansi/TerminalColorAnsi'),
                 require('./MudHtmlImplementation'));

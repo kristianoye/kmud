@@ -6,12 +6,9 @@
 const
     MUDObject = require('./MUDObject'),
     MUDHtml = require('./MUDHtml'),
-    vm = require('vm'),
-    sEfuns = Symbol('LoaderEfuns'),
-    sArgs = Symbol('ConstructorArgs'),
-    sLoaderEnabled = Symbol('LoaderEnabled'),
     TimeoutError = require('./ErrorTypes').TimeoutError,
     MXC = require('./MXC'),
+    vm = require('vm'),
     loopsPerAssert = 10000;
 
 var _includeCache = [];
@@ -21,7 +18,7 @@ class MUDLoader {
      * @param {EFUNProxy} _efuns The efuns instance
      * @param {MUDCompiler} _compiler A reference to the compiler.
      * @param {string} _directory The directory the target module lives in.
-     * @param {object} options
+     * @param {object} options Various options passed by the driver.
      * @param {MUDCompilerOptions} compilerOptions Options passed to the compiler.
      */
     constructor(_efuns, _compiler, _directory, options, compilerOptions) {
@@ -36,10 +33,7 @@ class MUDLoader {
             _primaryExport = false,
             _oldEfuns = _efuns,
             _options = options || {};
-        let
-            self = (/** @returns {MUDLoader} @param {MUDObject} t */ function (t) {
-                return t;
-            })(this);
+        let self = this;
 
         this.console = console;
 
@@ -130,10 +124,6 @@ class MUDLoader {
                         if (ob) {
                             ctx.addFrame(ob, method).increment();
                             return ctx.contextId;
-                            //let mxc = ctx.clone(init => init.note = method)
-                            //    .addObject(ob, method);
-                            //mxc.restore();
-                            //return mxc.contextId;
                         }
                     }
                     else if (ob) {
@@ -159,7 +149,7 @@ class MUDLoader {
                         }
                     }
                     catch (e) {
-
+                        console.log(e);
                     }
                 },
                 enumerable: false,
@@ -279,6 +269,9 @@ class MUDLoader {
                 value: function (exp) {
                     if (typeof exp === 'string') {
                         switch (exp) {
+                            case 'async':
+                                return self[exp] = require('async');
+                                
                             case 'crypto':
                                 return self[exp] = require('crypto');
 
@@ -304,6 +297,17 @@ class MUDLoader {
                 value: function (src) {
                     var _ = this || self;
                     [].slice.call(arguments).forEach(exp => {
+                        if (exp.indexOf('/') === -1) {
+                            if (driver.validRequire(_efuns, exp)) {
+                                _[exp] = require(exp) || false;
+                                if (_[exp]) {
+                                    throw new Error(`Required library ${expr} not found`);
+                                }
+                            }
+                            else {
+                                throw new Error(`Could not import module ${expr}: Permission denied`);
+                            }
+                        }
                         if (typeof exp === 'string') {
                             //  TODO: Add valid_external apply to let master decide which objects can use external node modules.
                             switch (exp) {
@@ -313,6 +317,7 @@ class MUDLoader {
 
                                 case 'async':
                                 case 'net':
+
                                     _[exp] = require(exp);
                                     break;
 

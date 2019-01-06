@@ -9,8 +9,8 @@
 class DefaultFileSystem extends FileSystem {
     /**
      * 
-     * @param {FileManager} fm
-     * @param {Object.<string,any>} options
+     * @param {FileManager} fm The filemanager instance
+     * @param {Object.<string,any>} options Dictionary containing options.
      */
     constructor(fm, options) {
         super(fm, options);
@@ -41,7 +41,7 @@ class DefaultFileSystem extends FileSystem {
                 break;
             default:
                 this.normalizer = false;
-                break;''
+                break;
         }
 
         /** @type {RegExp} */
@@ -65,6 +65,7 @@ class DefaultFileSystem extends FileSystem {
      * @param {FileSystemRequest} req The file to write to.
      * @param {string|Buffer} content The content to write to file.
      * @param {function(boolean,Error):void} callback Callback that fires to indicate success or failure.
+     * @returns {string} Returns the absolute path of the file that was written to.
      */
     appendFileAsync(req, content, callback) {
         return this.translatePath(req.relativePath, fullPath => {
@@ -82,8 +83,9 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Appends content to a file syncronously.
-     * @param {FileSystemRequest} req
+     * @param {FileSystemRequest} req The filesystem request.
      * @param {string|Buffer} content The content to write to file.
+     * @returns {string} The absolute path to the file.
      */
     appendFileSync(req, content) {
         return this.translatePath(req.relativePath, fullPath => {
@@ -100,13 +102,12 @@ class DefaultFileSystem extends FileSystem {
     /**
      * 
      * @param {FileSystemRequest} req The filesystem request
-     * @param {any} args Constructor args
+     * @param {object} args Constructor args
      * @param {function(MUDObject,Error):void} callback The callback to receive the result
      */
     cloneObjectAsync(req, args, callback) {
         if (!this.assertAsync(FileSystem.FS_ASYNC))
-            return callback(false, new Error('Filesystem does not support async'));
-
+            callback(false, new Error('Filesystem does not support async'));
     }
 
     /**
@@ -144,13 +145,14 @@ class DefaultFileSystem extends FileSystem {
     /**
      * Create a directory asyncronously.
      * @param {FileSystemRequest} req The directory to create.
-     * @param {MkDirOptions} opts
-     * @param {function(boolean, Error):void} callback
+     * @param {MkDirOptions} opts Options used to create directory (recursive, case, etc)
+     * @param {function(boolean, Error):void=} callback Optional callback
+     * @returns {string} The full path to the directory.
      */
     createDirectoryAsync(req, opts, callback) {
         return this.translatePath(req.relativePath, fullPath => {
             if (req.resolved)
-                return callback(false, new Error(`Directory already exists: ${req.fullPath}`));
+                callback(false, new Error(`Directory already exists: ${req.fullPath}`));
 
             return fs.mkdir(fullPath, MXC.awaiter(err => {
                 let ctx = driver.currentContext;
@@ -164,6 +166,7 @@ class DefaultFileSystem extends FileSystem {
      * Create a directory syncronously.
      * @param {FileSystemRequest} req The directory expression to create.
      * @param {MkDirOptions} opts Additional options for createDirectory.
+     * @returns {string} The full path to the newly created directory.
      */
     createDirectorySync(req) {
         return this.translatePath(req.relativePath, fullPath => {
@@ -562,7 +565,8 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Returns a string without a Byte Order Marker (BOM)
-     * @param {string|Buffer} content
+     * @param {string|Buffer} content The content to check for BOM
+     * @returns {string} The string minus any BOM.
      */
     stripBOM(content) {
         if (this.autoStripBOM) {
@@ -576,7 +580,7 @@ class DefaultFileSystem extends FileSystem {
     /**
      * Translates a virtual path into an absolute path
      * @param {FileSystemRequest|string} req The virtual MUD path.
-     * @param {function(string):void=} callback 
+     * @param {function(string):void=} callback  An optional callback... this is depricated.
      * @returns {string} The absolute filesystem path.
      */
     translatePath(req, callback) {

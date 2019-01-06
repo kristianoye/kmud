@@ -39,7 +39,20 @@ class HTTPClientInstance extends ClientInstance {
                     }
                     break;
             }
-            self.emit('kmud', data);
+            let ctx = driver.getContext(true, ctx => {
+                ctx.note = 'HTTPClientInstance.on';
+                ctx.thisPlayer = self.body();
+                ctx.truePlayer = ctx.thisPlayer;
+            });
+            try {
+                self.emit('kmud', data);
+            }
+            catch (err) {
+                self.writeLine(err.message);
+            }
+            finally {
+                if (ctx.refCount > 0) ctx.release();
+            }
         });
 
         Object.defineProperties(this, {
@@ -96,18 +109,18 @@ class HTTPClientInstance extends ClientInstance {
 
     /**
      * The default prompt painted on the client when a command completes.
-     * @returns {string}
+     * @returns {string} Returns the default command prompt text.
      */
     get defaultPrompt() { return 'Enter a command...'; }
 
     /**
-     * @returns {string}
+     * @returns {string} Returns the terminal type for this client.
      */
     get defaultTerminalType() { return 'kmud'; }
 
     /**
      * Write a prompt on the client.
-     * @param {MUDInputEvent} evt
+     * @param {MUDInputEvent} evt The current input event data.
      */
     displayPrompt(evt) {
         if (this.inputStack.length === 0) {
@@ -122,7 +135,8 @@ class HTTPClientInstance extends ClientInstance {
 
     /**
      * Send an arbitrary event to the client.
-     * @param {any} data
+     * @param {MUDInputEvent} data The data packet to send to the client.
+     * @returns {HTTPClientInstance} The current client
      */
     eventSend(data) {
         if (typeof data.eventType !== 'string')
@@ -132,8 +146,8 @@ class HTTPClientInstance extends ClientInstance {
     }
 
     /**
-     * 
-     * @param {any} evt
+     * Handle a body switch.
+     * @param {MUDInputEvent} evt Handle a body switch.
      */
     handleExec(evt) {
         super.handleExec(evt);
@@ -170,13 +184,6 @@ class HTTPClientInstance extends ClientInstance {
             eventData: data
         });
         return this;
-    }
-
-    writeHtml(html, opts) {
-        return this.eventSend(merge({
-            eventType: 'consoleHtml',
-            eventData: html
-        }, opts)), this;
     }
 
     writeLine(text) {

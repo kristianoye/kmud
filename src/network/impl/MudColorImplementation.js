@@ -43,7 +43,7 @@ class MudColorImplementation extends ClientImplementation {
                 // Increment or decrement RESET stack to determine 
                 // how many resets to add to end
                 d += m === 'RESET' ? -1 : r ? 1 : 0;
-                r = r || org;
+                r = typeof r === 'undefined' ? org : r;
                 s = s.substr(0, c) + r + s.substr(l + 2);
                 c = s.indexOf('%^', c + r.length);
             }
