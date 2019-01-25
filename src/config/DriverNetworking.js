@@ -46,12 +46,13 @@ class DriverNetworkingEndpointHandlerConfig {
     }
 }
 
+/** @typedef {{ enabled: boolean, maxCommandLength: number, handlers: any[] }} DriverNetworkEndpointConfig */
 class DriverNetworkingEndpointConfig {
     /**
-     * 
-     * @param {Object} data
-     * @param {number} protoIndex
-     * @param {string} protocol
+     * Construct a network endpoint.
+     * @param {DriverNetworkEndpointConfig} data The data from the config file.
+     * @param {number} protoIndex The position of this entry in the config file.
+     * @param {string} protocol The protocol of the endpoint.
      */
     constructor(data, protoIndex, protocol) {
         /** @type {boolean} */

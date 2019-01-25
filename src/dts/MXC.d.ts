@@ -27,7 +27,7 @@ declare class MXC {
      * Creates a frame on the object stack.
      * @param frame
      */
-    addFrame(frame: ...MXCFrame[]): MXC;
+    addFrame(...frame: MXCFrame[]): MXC;
 
     /**
      * Adds an object to the LIFO object stack.

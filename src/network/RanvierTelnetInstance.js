@@ -50,8 +50,11 @@ class RanvierTelnetInstance extends ClientInstance {
      * @param {MUDInputEvent} evt
      */
     displayPrompt(evt) {
-        if (this.inputStack.length === 0) {
+        if (this.inputStack.length === 0 && evt.prompt) {
             this.write(evt.prompt.text);
+        }
+        else if (this.inputStack.length === 1) {
+            this.renderPrompt(this.inputStack[0]);
         }
     }
 
@@ -68,12 +71,17 @@ class RanvierTelnetInstance extends ClientInstance {
             this.writeLine(frame.data.error);
         }
         this.inputStack.push(frame);
-        return this.renderPrompt(frame);
+        return opts.drawPrompt === true ? this.renderPrompt(frame) : this;
     }
 
     renderPrompt(input) {
-        this.client.toggleEcho(input.data.type !== 'password');
-        this.write(input.data.text);
+        if (!input) {
+            input = this.inputStack[this.inputStack.length - 1] || false;
+        }
+        if (input) {
+            this.client.toggleEcho(input.data.type !== 'password');
+            this.write(input.data.text);
+        }
         return this;
     }
 

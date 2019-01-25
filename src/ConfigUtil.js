@@ -12,7 +12,7 @@ const
 class ConfigUtil {
     /**
      * Check to see if the specified directory exists.
-     * @param {any} path
+     * @param {string[]} expr One or more paths to join together.
      */
     assertExists(...expr) {
         expr.unshift(__dirname);
@@ -38,17 +38,18 @@ class ConfigUtil {
 
     /**
      * Parse a string into a numeric time expression.
-     * @param {string} s
+     * @param {string} dateStr The expression to parse (e.g. 1h30m)
+     * @returns {number} The expression in seconds.
      */
-    parseTime(s) {
-        if (typeof s === 'number')
-            return s;
-        else if (typeof s !== 'string')
-            return s;
+    parseTime(dateStr) {
+        if (typeof dateStr === 'number')
+            return dateStr;
+        else if (typeof dateStr !== 'string')
+            return dateStr;
 
-        s = s.replace(/[^a-zA-Z0-9\.]+/, '').toLowerCase();
+        dateStr = dateStr.replace(/[^a-zA-Z0-9\.]+/, '').toLowerCase();
         let re = /([\d\.]+)([^\d]+)/g,
-            m = re.exec(s), r = 0;
+            m = re.exec(dateStr), r = 0;
         while (m) {
             let t = parseFloat(m[1]), u = m[2];
             switch (u.charAt(0)) {
@@ -58,7 +59,7 @@ class ConfigUtil {
                 case 's': r += t * 1000; break;
                 default: throw new Error(`Invalid timespan expression: ${m[0]}`);
             }
-            m = re.exec(s);
+            m = re.exec(dateStr);
         }
         return r;
     }

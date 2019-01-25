@@ -7,7 +7,9 @@ class Who extends Command {
         var players = efuns.players(),
             count = players.length,
             tp = thisPlayer;
-
+        if (args[0] && args[0] === 'html') {
+            return this.webcmd(args, cmdline);
+        }
         tp.writeLine(`There are ${count} player(s) on-line:`);
         players.forEach((player, i) => {
             tp.writeLine(player.getTitle());

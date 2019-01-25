@@ -29,7 +29,7 @@
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <ProjectTypeGuids>{3AF33F2E-1136-4D97-BBB7-1795711AC8B8};{349c5851-65df-11da-9384-00065b846f21};{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}</ProjectTypeGuids>
     <NodejsPort>1337</NodejsPort>
-    <StartWebBrowser>True</StartWebBrowser>
+    <StartWebBrowser>False</StartWebBrowser>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -85,11 +85,11 @@
     <Compile Include="lib\base\Weapon.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\reset.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="lib\cmds\player\Reply.js" />
     <Compile Include="lib\daemon\EmoteDaemon.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\sys\cmds\admin\I3Router.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\arch\Emotes.js">
@@ -108,22 +108,6 @@
     <Compile Include="lib\sys\cmds\creator\edit.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\find.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="lib\cmds\creator\goto.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="lib\cmds\creator\invis.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="lib\cmds\creator\people.js" />
-    <Compile Include="lib\cmds\creator\scan.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="lib\cmds\creator\vis.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="lib\cmds\items\Put.js">
       <SubType>Code</SubType>
     </Compile>
@@ -134,9 +118,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\creator\cd.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="lib\cmds\creator\clone.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\creator\compile.js">
@@ -153,12 +134,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\creator\more.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="lib\cmds\creator\pwd.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="lib\cmds\creator\rehash.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\creator\mv.js" />
@@ -662,6 +637,9 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="lib\sys\etc\accessMk3.json">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\sys\etc\singletons.json">
       <SubType>Code</SubType>
     </Content>
     <Content Include="mudconfig.json" />

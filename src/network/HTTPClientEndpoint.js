@@ -99,25 +99,23 @@ class HTTPClientEndpoint extends ClientEndpoint {
      * @returns {HTTPClientEndpoint} Reference to self
      */
     bind() {
-        var T = this;
-
-        T[_server] = createHttpServer();
-        T.httpServer.listen({ port: this.port, host: this.address });
-        T.httpServer.on('error', (error) => {
+        this[_server] = createHttpServer();
+        this.httpServer.listen({ port: this.port, host: this.address });
+        this.httpServer.on('error', (error) => {
             if (error.code === 'EADDRINUSE') {
                 this.emit('error', error, this);
             }
         });
 
-        this.WebSocket = require('socket.io')(T.httpServer, {
+        this.WebSocket = require('socket.io')(this.httpServer, {
             log: true,
             transports: ['websocket']
         });
 
-        this.WebSocket.on('connection', function (client) {
-            var wrapper = new HTTPClientInstance(T, client);
-            T.emit('kmud.connection', wrapper);
-            T.emit('kmud.connection.new', wrapper, 'http');
+        this.WebSocket.on('connection', (client) => {
+            let wrapper = new HTTPClientInstance(this, client);
+            this.emit('kmud.connection', wrapper);
+            this.emit('kmud.connection.new', wrapper, 'http');
         });
         return this;
     }

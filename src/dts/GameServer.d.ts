@@ -39,9 +39,9 @@ declare class GameServer {
     addPlayer(body: MUDObject): void;
 
     /** The in-game master called when an error occurs */
-    applyErrorHandler: function(Error, boolean) | false;
+    applyErrorHandler: ((Error, boolean) => void) | false;
 
-    applyGetPreloads: false | function(): string[];
+    applyGetPreloads: false | (() => string[]);
 
     /** Information about the currently loaded game objects */
     cache: MUDCache;

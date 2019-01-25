@@ -176,7 +176,7 @@ declare class EFUNProxy {
      * Includes one or more files.
      * @param {...string} file
      */
-    includePath(file: ...string[]): void;
+    includePath(...file: string[]): void;
 
     /**
      * Returns true if the target is a class reference.
@@ -429,7 +429,7 @@ declare class EFUNProxy {
      * @param {...any[]} args An ordered list of items to inject into the formatting string.
      * @returns {string} The formatted string.
      */
-    sprintf(expr: string, args: ...any[]): string;
+    sprintf(expr: string, ...args: any[]): string;
 
     /**
      * Removes the Unicode Byte Order Mark (BOM) if it exists at the beginning of the string.

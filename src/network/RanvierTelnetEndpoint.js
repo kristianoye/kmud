@@ -16,8 +16,8 @@ const ClientEndpoint = require('./ClientEndpoint'),
 class RanvierTelnetEndpoint extends ClientEndpoint {
     /**
      * 
-     * @param {any} gameMaster
-     * @param {MudPort} config
+     * @param {any} gameMaster The game master object
+     * @param {MudPort} config The configuration
      */
     constructor(gameMaster, config) {
         super(gameMaster, config);
@@ -28,15 +28,12 @@ class RanvierTelnetEndpoint extends ClientEndpoint {
      * @returns {RanvierTelnetEndpoint} A reference to itself
      */
     bind() {
-        let self = this;
-
         let server = new TelnetServer((socket) => {
-            let opts = { maxInputLength: this.config.maxCommandLength || 80 };
             let client = new TelnetSocket(this.options).attach(socket);
-            let wrapper = new RanvierTelnetInstance(self, client);
+            let wrapper = new RanvierTelnetInstance(this, client);
 
-            self.emit('kmud.connection.new', client, 'telnet');
-            self.emit('kmud.connection', wrapper);
+            this.emit('kmud.connection.new', client, 'telnet');
+            this.emit('kmud.connection', wrapper);
         });
         server.on('error', (error) => {
             if (error.code === 'EADDRINUSE') {

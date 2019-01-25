@@ -1,3 +1,3 @@
-﻿interface GameObject extends GameObject {
+﻿interface GameObject {
 
 }

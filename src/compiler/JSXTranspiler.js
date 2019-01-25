@@ -132,7 +132,9 @@ function jsxWhitespace(op, isElement) {
  * @returns {string} The element as source code.
  */
 function parseElement(op, e, depth, ident) {
-    let ret = '', context = op.context;
+    let ret = '',
+        context = op.context,
+        allowJsx = op.allowJsx;
     if (e) {
         if (e.start > op.pos) {
             ret += op.source.slice(op.pos, e.start);

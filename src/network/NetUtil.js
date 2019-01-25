@@ -34,7 +34,8 @@ class NetUtil extends EventEmitter {
 
     /**
      * Perform network discovery operation.
-     * @param {function} callback The callback for when operation is complete.
+     * @param {function(NetworkInterface[]):void} callback The callback for when operation is complete.
+     * @param {boolean} refresh Flag indicating whether or not cache should be ignored (if true).
      */
     discovery(callback, refresh) {
         let _ifaces = os.networkInterfaces(),
@@ -46,6 +47,7 @@ class NetUtil extends EventEmitter {
         this.networks = [];
 
         process.stdout.write('\nPerforming network scan ');
+
         let working = setInterval(function () {
             process.stdout.write('.');
         }, 500);
@@ -78,18 +80,24 @@ class NetUtil extends EventEmitter {
             });
         });
 
+        let privateNetworks = [
+            [this.ip4toint('10.0.0.0'), this.ip4toint('10.255.255.255')],
+            [this.ip4toint('192.168.0.0'), this.ip4toint('192.168.255.255')],
+            [this.ip4toint('172.16.0.0'), this.ip4toint('172.31.255.255')]
+        ];
+
         this.networks.sort((a, b) => {
-            if (a.address.startsWith('192.')) {
-                if (b.address.startsWith('192.'))
-                    return a.address < b.address ? -1 : a.address === b.address ? 0 : 1;
-                return 2;
+            let na = this.ip4toint(a), nb = this.ip4toint(b);
+            for (let i = 0; i < privateNetworks.length; i++) {
+                let [min, max] = privateNetworks[i];
+
+                if (na >= min && na <= max) {
+                    if (nb >= min && nb <= max)
+                        return na < nb ? -1 : na === nb ? 0 : 1;
+                    return i;
+                }
             }
-            else if (a.address.startsWith('10.')) {
-                if (b.address.startsWith('10.'))
-                    return a.address < b.address ? -1 : a.address === b.address ? 0 : 1;
-                return 1;
-            }
-            return a.address < b.address ? -1 : a.address === b.address ? 0 : 1;
+            return na < nb ? -1 : na === nb ? 0 : 1;
         });
 
         this.networks.forEach(network => {
@@ -103,15 +111,14 @@ class NetUtil extends EventEmitter {
                     client.end();
                     if (++finished === this.networks.length) {
                         clearInterval(working);
-                        process.stdout.write(' Complete.\n');
                         callback(this.networks);
                     }
                 });
+
                 client.on('error', err => {
                     network.internetAccess = false;
                     if (++finished === this.networks.length) {
                         clearInterval(working);
-                        process.stdout.write(' Complete.\n');
                         callback(this.networks);
                     }
                 });
@@ -120,11 +127,50 @@ class NetUtil extends EventEmitter {
                 network.internetAccess = false;
                 if (++finished === this.networks.length) {
                     clearInterval(working);
-                    process.stdout.write(' Complete.\n');
                     callback(this.networks);
                 }
             }
         });
+    }
+
+    /**
+     * Attempts to determine which networks have internet access.
+     * @returns {Promise<NetworkInterface[]>} All network interfaces on local server.
+     */
+    async discoveryAsync() {
+        return new Promise(async (resolved, failed) => {
+            try {
+                this.discovery(nets => resolved(nets));
+            }
+            catch (err) {
+                failed(err.message);
+            }
+        });
+    }
+
+    /**
+     * Convert an IPv4 address to an integer.
+     * @param {string|NetworkInterface} ip The ip address.
+     * @returns {number} The ip address as an integer.
+     */
+    ip4toint(ip) {
+        if (typeof ip === 'object' && ip.constructor.name === 'NetworkInterface') {
+            ip = ip.address;
+        }
+        try {
+            let parts = ip.split('.').map(v => Number.parseInt(v)), r = 0;
+            if (parts.length !== 4)
+                throw new Error(`Invalid IPv4 address: ${ip}`);
+            parts.reverse().forEach((n, i) => {
+                if (n < 0 || n > 255)
+                    throw new Error(`Octet #${i} is invalid: 0 <= ${n} <= 255`);
+                r += (Math.pow(255, i) * n);
+            });
+            return r;
+        }
+        catch(x) {
+            throw new Error(`Bad IP address ${ip}: ${x.message}`);
+        }
     }
 }
 

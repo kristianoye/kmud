@@ -8,11 +8,6 @@
  */
 const
     ClientImplementation = require('./impl/ClientImplementation'),
-    MudColorImplementation = require('./impl/MudColorImplementation'),
-    MudHtmlImplementation = require('./impl/MudHtmlImplementation'),
-    MudRoomImplementation = require('./impl/MudRoomImplementation'),
-    MudSoundImplementation = require('./impl/MudSoundImplementation'),
-    MudVideoImplementation = require('./impl/MudVideoImplementation'),
     MUDEventEmitter = require('../MUDEventEmitter');
 
 
@@ -30,7 +25,7 @@ class ClientCaps extends MUDEventEmitter {
             height = 24,
             width = 80;
 
-        function setTerminalType(term) {
+        let setTerminalType = (term) => {
             let newTerm = term.toLowerCase();
             if (newTerm !== terminalType) {
                 let list = [];
@@ -46,13 +41,13 @@ class ClientCaps extends MUDEventEmitter {
                 terminalType = newTerm;
 
                 try {
-                    ClientImplementation.create(self, flags, methods, interfaces);
+                    ClientImplementation.create(this, flags, methods, interfaces);
                 }
                 catch (err) {
                     logger.log('Could not create client implementation:', err);
                 }
             }
-        }
+        };
 
         if (client) {
             client.on('terminal type', (ttype) => {
@@ -91,9 +86,7 @@ class ClientCaps extends MUDEventEmitter {
             },
             flags: {
                 get: function () {
-                    let result = {};
-                    Object.keys(flags).forEach(k => result[k] = flags[k]);
-                    return result;
+                    return Object.assign({}, flags);
                 }
             },
             getMethod: {
@@ -107,16 +100,17 @@ class ClientCaps extends MUDEventEmitter {
             },
             terminalType: {
                 get: function () { return terminalType; }
-            },
+            }
         });
 
-        setTerminalType(client.defaultTerminalType);
+        setTerminalType.apply(this, [client.defaultTerminalType]);
     }
 
     /**
      * Call a feature implementation.
      * @param {string} method The feature method to invoke.
      * @param {...any[]} args THe arguments to apply to the implementation call.
+     * @returns {boolean} True if the method is implemented and the function performed.
      */
     do(method, ...args) {
         let implementation = this.getMethod(method);
@@ -135,13 +129,15 @@ class ClientCaps extends MUDEventEmitter {
     }
 
     queryCaps() {
-        let result = {
-            clientHeight: this.clientHeight,
-            clientWidth: this.clientWidth,
-            flags: this.flags,
-            interfaces: this.interfaces.slice(0),
-            terminalType: this.terminalType
-        };
+        let iflist = this.interfaces.slice(0),
+            result = {
+                clientHeight: this.clientHeight,
+                clientWidth: this.clientWidth,
+                flags: Object.assign({}, this.flags),
+                interfaces: iflist,
+                terminalType: this.terminalType
+            };
+
         return result;
     }
 }

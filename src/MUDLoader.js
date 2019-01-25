@@ -460,6 +460,22 @@ class MUDLoader {
                     else throw new Error('Module cannot export more than one MUDObject type!');
                 }
             },
+            prompt: {
+                value: function (optsIn, callback) {
+                    if (typeof optsIn === 'string') {
+                        optsIn = { text: optsIn }; 
+                    }
+                    if (typeof callback !== 'function') {
+                        throw new Error(`Bad argument 2 to prompt: Expected function but got ${typeof callback}`);
+                    }
+                    let opts = Object.assign({
+                        default: false,
+                        text: 'Prompt: ',
+                        type: 'text'
+                    }, optsIn), mxc = driver.getContext();
+                    mxc.client && mxc.client.addPrompt(opts, callback);
+                }
+            },
             setTimeout: {
                 value: global.setTimeout,
                 writable: false

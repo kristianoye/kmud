@@ -37,15 +37,14 @@ class ClientInstance extends EventEmitter {
     /**
      * 
      * @param {ClientEndpoint} endpoint
-     * @param {any} _client
-     * @param {string} _remoteAddress
+     * @param {any} client
+     * @param {string} remoteAddress
      */
-    constructor(endpoint, _client, _remoteAddress) {
+    constructor(endpoint, client, remoteAddress) {
         super();
-        var self = this;
 
         this.body = null;
-        this.client = _client;
+        this.client = client;
         this.caps = new ClientCaps(this);
         this.commandStack = [];
         this.commandTimer = false;
@@ -53,16 +52,12 @@ class ClientInstance extends EventEmitter {
         this.endpoint = endpoint;
         this.inputStack = [];
         this.lastCommand = new Date();
-        this.remoteAddress = _remoteAddress;
+        this.port = endpoint.port;
+        this.remoteAddress = remoteAddress;
         this.$storage = false;
 
-        this.client.on('terminal type', ttype => {
-            self.emit('terminal type', ttype);
-        });
-
-        this.client.on('window size', spec => {
-            self.emit('window size', spec);
-        });
+        this.client.on('terminal type', ttype => this.emit('terminal type', ttype));
+        this.client.on('window size', spec => this.emit('window size', spec));
     }
 
     /**
@@ -70,7 +65,7 @@ class ClientInstance extends EventEmitter {
      * @param {Object} opts Options to include in the prompt request.
      * @param {String} opts.type The type of prompt.  May be 'text' or 'password'.
      * @param {String} opts.text The text to display to the user when prompting.
-     * @param {Function} callback A function that catches the user's input.
+     * @param {function(string):void} callback A function that catches the user's input.
      * @returns {ClientInstance} A reference to the client interface.
      */
     addPrompt(opts, callback) {
@@ -82,15 +77,13 @@ class ClientInstance extends EventEmitter {
      * release the current context and re-draw the user prompt.
      * @param {number} nextAction What should the command event handler do next.
      * @param {MUDInputEvent} evt The event that is now finished.
+     * @returns {number} An enumeration indicating what the client should do next.
      */
     commandComplete(nextAction, evt) {
         this.releaseContext();
-        if (this.inputStack.length === 0 && !evt.finished) {
-            this.displayPrompt(evt);
+        if (!evt.finished) {
+            this.inputStack.length === 0 ? this.displayPrompt(evt) : this.renderPrompt();
             evt.finished = true;
-        }
-        else if (this.inputStack.length) {
-            this.renderPrompt(this.inputStack[0]);
         }
         return nextAction;
     }
@@ -101,8 +94,8 @@ class ClientInstance extends EventEmitter {
      * @returns {MUDInputEvent} The input event.
      */
     createCommandEvent(input) {
-        let words = input.trim().split(/\s+/g),
-            verb = words.shift(), self = this;
+        let words = input && input.trim().split(/\s+/g) || [],
+            verb = words && words.shift() || '';
         let evt = {
             args: words,
             callback: () => { },
@@ -111,14 +104,14 @@ class ClientInstance extends EventEmitter {
             complete: function () { },
             error: DefaultError.replace('$verb', verb),
             fromHistory: false,
-            input: input.slice(verb.length).trim(),
-            original: input,
-            prompt: {
+            input: input === false ? '' : input.slice(verb.length).trim(),
+            original: input || '',
+            prompt: input !== false && {
                 type: 'text',
                 text: this.defaultPrompt,
                 recapture: false
             },
-            verb: verb.trim(),
+            verb: verb.trim()
         };
 
         evt.complete = (eventResult) => {
@@ -185,7 +178,8 @@ class ClientInstance extends EventEmitter {
 
     /**
      * Dispatch commands from the command stack in the order received.
-     * @param {any} flag
+     * @param {boolean} flag A flag indicating the cooldown timer may be ignored.
+     * @returns {NodeJS.Timeout} A timeout handle
      */
     dispatchCommands(flag) {
         if (!this.commandTimer || flag) {
@@ -271,7 +265,7 @@ class ClientInstance extends EventEmitter {
 
     /**
      * Handle an exec event.
-     * @param {any} evt
+     * @param {MUDInputEvent} evt User input event
      */
     handleExec(evt) {
         this.removeAllListeners('disconnected');

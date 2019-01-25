@@ -64,11 +64,16 @@ W       like the 'w' command but appends instead
 z       display 19 lines, possible args are . + - --
 Z       display 24 lines, possible args are . + - --
 `;
+
+/**
+ * @typedef {number|number[]} lineRange
+ * @typedef {{ dirty: boolean, line: number, lineTotal: number, filename: string, showLineNumbers: boolean }} EditorStatus
+ */
     
 class EditorInstance {
     /**
      * Create an editor instance
-     * @param {Object.<string,any>} options
+     * @param {Object.<string,any>} options The options for the editor.
      */
     constructor(options) {
         /** @type {string[]} */
@@ -97,8 +102,12 @@ class EditorInstance {
         /** @type {number} */
         this.mode = options.mode || MODE_INPUT;
 
-        /** @type {function} */
-        this.onComplete = function () { };
+        /** 
+         *  @param {EditorStatus} status THe status of the editor.
+         *  @returns {boolean} Returns true if editing should be allowed to quit.
+         *  @type {function(EditorStatus): boolean}
+         */
+        this.onComplete = function (status) { return true; };
 
         /** @type {MUDObject} */
         this.owner = options.owner;
@@ -147,9 +156,9 @@ class EditorInstance {
     }
 
     /**
-     * Copy lines
-     * @param {number|number[]} range
-     * @param {number=} pos
+     * Copy lines from one location to another.
+     * @param {lineRange} range A range of lines to copy.
+     * @param {number} pos The position to copy the lines to.
      */
     copyLines(range, pos) {
         this.appendBuffer(this.content.slice(range[0], range[1]), pos);
@@ -157,7 +166,7 @@ class EditorInstance {
 
     /**
      * Delete a range of lines.
-     * @param {number|number[]} range
+     * @param {lineRange} range The line(s) to delete from the buffer.
      */
     deleteRange(range) {
         if (Array.isArray(range)) {
@@ -171,9 +180,9 @@ class EditorInstance {
 
     /**
      * Process an editor command.
-     * @param {string} cmd
-     * @param {number[]=} range
-     * @returns {string}
+     * @param {string} cmd The command (and parameters) to execute.
+     * @param {number[]} range The range of lines to operate on.
+     * @returns {string} Returns possible message from editor.
      */
     executeCommand(cmd, range) {
         if (this.mode === MODE_INPUT) {
@@ -209,9 +218,6 @@ class EditorInstance {
 
                     case '=':
                         return this.print(`Current line: ${(this.currentLine + 1)}`);
-
-                    case '/':
-                        break;
 
                     case 'a': case 'o':
                         if (Array.isArray(rangeLeft))
@@ -325,15 +331,17 @@ class EditorInstance {
 
     /**
      * Format a line number for display.
-     * @param {number} n
+     * @param {number} ln Format a line number for display.
+     * @returns {string} The formatted line.
      */
-    formatLineNumber(n) {
-        let s = n.toString(), p = 5 - s.length;
+    formatLineNumber(ln) {
+        let s = ln.toString(), p = 5 - s.length;
         return '  ' + s + Array(p).join(' ');
     }
 
     /**
      * Format the code.
+     * @returns {string} The result of the formatting operation.
      */
     indentCode() {
         try {
@@ -367,8 +375,9 @@ class EditorInstance {
 
     /**
      * Moves lines from one location to another.
-     * @param {number[]|number} range The range of lines to move.
+     * @param {lineRange} range The range of lines to move.
      * @param {number} pos The position to move the lines to.
+     * @returns {string|void} Returns a possible error message.
      */
     moveLines(range, pos) {
         if (pos >= range[0] && pos <= range[1])
@@ -391,7 +400,8 @@ class EditorInstance {
 
     /**
      * Print text to the user.
-     * @param {...string[]} str The message to print to the user.
+     * @param {...string} str The message to print to the user.
+     * @returns {void} Returns nothing.
      */
     print(...str) {
         return this.owner.writeLine(str.join('\n'));
@@ -401,6 +411,7 @@ class EditorInstance {
      * Print a line range
      * @param {number} start The line to start printing from
      * @param {number} lineCount The number of lines to try and print.
+     * @returns {void} 
      */
     printLines(start, lineCount) {
         let page = this.content.slice(start, start + lineCount);
@@ -409,7 +420,6 @@ class EditorInstance {
             return this.print('At end of file.');
         }
         else if (this.showLineNumbers) {
-
             this.print(page.map((line, n) => `${this.formatLineNumber(n + start + 1)}  ${line}`).join('\n'));
         }
         else {
@@ -420,7 +430,8 @@ class EditorInstance {
 
     /**
      * Query the state of the editor.
-     * @param {object=} state
+     * @param {EditorStatus} state The state object to populate.
+     * @returns {number} The current line number.
      */
     queryState(state) {
         let result = 0;
@@ -429,29 +440,34 @@ class EditorInstance {
             result = this.currentLine + 1;
 
         if (typeof state === 'object') {
-            state.line = this.currentLine + 1 + this.buffer.length;
-            state.lineTotal = this.content.length;
-            state.dirty = this.dirty;
-            state.filename = this.filename;
-            state.showLineNumbers = this.showLineNumbers;
+            Object.assign(state, {
+                dirty: this.dirty,
+                line: this.currentLine + 1 + this.buffer.length,
+                lineTotal: this.content.length,
+                filename: this.filename,
+                showLineNumbers: this.showLineNumbers
+            });
         }
         return result;
     }
 
     /**
      * Clean up and exit the editor.
+     * @returns {boolean|void} Returns 
      */
     quitEditor() {
+        let state = {};
+        this.queryState(state);
         this.content = false;
         this.buffer = false;
-
-        return this.onComplete();
+        return this.onComplete(state);
     }
 
     /**
      * Search for the specified pattern.
-     * @param {number} dir
-     * @param {string} term
+     * @param {number} dir The search direction.
+     * @param {string} term The term to search for in the source.
+     * @returns {void} 
      */
     search(dir, term) {
         if (term && term.length > 0)
@@ -480,8 +496,9 @@ class EditorInstance {
 
     /**
      * Perform an action on all matching lines.
-     * @param {number[]|number} range
-     * @param {string} expr
+     * @param {lineRange} range The line range to search through.
+     * @param {string} expr The expression to search for.
+     * @returns {void}
      */
     searchExecute(range, expr) {
         if (expr.charAt(0) !== '/')
@@ -511,6 +528,7 @@ class EditorInstance {
      * Perform search and replace.
      * @param {number[]|number} range The range in which to search and replace.
      * @param {string} expr The search/replace pattern
+     * @returns {void}
      */
     searchReplace(range, expr) {
         let parts = [];
@@ -545,7 +563,8 @@ class EditorInstance {
 
     /**
      * Display help to the user.
-     * @param {string=} topic The optional specific topic  to search for.
+     * @param {string} topic The optional specific topic to search for.
+     * @returns {void}
      */
     showHelp(topic) {
         if (!topic) {
@@ -616,6 +635,16 @@ class EditorInstance {
                     '\t\tm - Multiline - TODO',
                     '\t\tu - Treat pattern as unicode code points - See MDN.\n');
 
+            case 'z':
+                return this.print('Command: z',
+                    'Usage: <line>z or z',
+                    'Display 19 lines.');
+
+            case 'Z':
+                return this.print('Command: Z',
+                    'Usage: <line>Z or Z',
+                    'Display a full page of lines');
+
             default:
                 return this.print(`Help topic '${topic}' not found.`);
         }
@@ -627,7 +656,7 @@ class EditorInstance {
 
     /**
      * Write to file
-     * @param {string=} filename
+     * @param {string} filename The file to write back to.
      */
     writeFile(filename) {
         let bc = 0, content = this.content.map(s => (bc += s.length, s)).join('\n');
@@ -642,7 +671,9 @@ class EditorInstance {
 }
 
 /**
- * @returns {EditorInstance}
+ * Get the editor instance for the specified object.
+ * @param {object} ob The instance owner.
+ * @returns {EditorInstance} The editor instance.
  */
 EditorInstance.get = function (ob) {
     let $storage = driver.storage.get(ob);

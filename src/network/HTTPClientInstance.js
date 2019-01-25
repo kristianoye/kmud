@@ -6,6 +6,7 @@
  * Description: This module contains core game functionality.
  */
 const ClientInstance = require('./ClientInstance'),
+    ClientEndpoint = require('./ClientEndpoint'),
     merge = require('merge');
 
 const
@@ -14,16 +15,18 @@ const
     MUDEventEmitter = require('../MUDEventEmitter');
 
 class HTTPClientInstance extends ClientInstance {
+    /**
+     * 
+     * @param {ClientEndpoint} endpoint The endpoint 
+     * @param {any} client
+     */
     constructor(endpoint, client) {
         super(endpoint, client, client.request.connection.remoteAddress);
-
-        var self = this, body, $storage;
 
         this[_callbacks] = {};
 
         client.echoing = true; // total hack for now
-        client.on('disconnect', msg => self.disconnect('http', msg));
-
+        client.on('disconnect', msg => this.disconnect('http', msg));
         client.on('kmud', data => {
             switch (data.eventType) {
                 case 'consoleInput':
@@ -31,24 +34,24 @@ class HTTPClientInstance extends ClientInstance {
                     return this.enqueueCommand(data.eventData.cmdline);
 
                 default:
-                    var eventType = data.eventType,
-                        callback = self[_callbacks][eventType];
+                    let eventType = data.eventType,
+                        callback = this[_callbacks][eventType];
 
                     if (callback) {
-                        callback.call(self.body(), data);
+                        callback.call(this.body(), data);
                     }
                     break;
             }
             let ctx = driver.getContext(true, ctx => {
                 ctx.note = 'HTTPClientInstance.on';
-                ctx.thisPlayer = self.body();
+                ctx.thisPlayer = this.body();
                 ctx.truePlayer = ctx.thisPlayer;
             });
             try {
-                self.emit('kmud', data);
+                this.emit('kmud', data);
             }
             catch (err) {
-                self.writeLine(err.message);
+                this.writeLine(err.message);
             }
             finally {
                 if (ctx.refCount > 0) ctx.release();

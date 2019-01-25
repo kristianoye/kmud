@@ -6,6 +6,7 @@
 const
     stack = require('callsite'),
     async = require('async'),
+    crypto = require('crypto'),
     path = require('path'),
     os = require('os'),
     sprintf = require('sprintf').sprintf,
@@ -58,6 +59,11 @@ class EFUNProxy {
         }
     }
 
+    /**
+     * 
+     * @param {any} opts
+     * @param {any} callback
+     */
     addPrompt(opts, callback) {
         let mxc = driver.getContext();
         if (mxc && mxc.client) {
@@ -208,9 +214,10 @@ class EFUNProxy {
     }
 
     /**
-     * 
-     * @param {string[]} list
-     * @param {number} width
+     * Render a list of words into columns of the specified width.
+     * @param {string|string[]} list A collection of words to format.
+     * @param {number} width The maximum column width.
+     * @returns {string} A page of columns.
      */
     columnText(list, width) {
         let rows = [],
@@ -218,6 +225,10 @@ class EFUNProxy {
             longest = 0,
             colCount = 0,
             colWidth = 0;
+
+        if (typeof list === 'string') {
+            list = list.split(/\s+/);
+        }
 
         width = (width || this.clientCaps(driver.thisPlayer).clientWidth || 80);
 
@@ -259,11 +270,11 @@ class EFUNProxy {
 
     /**
      * Force the previous object to perform an in-game object.
+     * @param {string} input The complete command to execute.
      */
     command(input) {
         let ctx = driver.getContext();
-        let _thisObject = ctx.thisObject,
-            prevPlayer = ctx.truePlayer;
+        let _thisObject = ctx.thisObject;
         if (_thisObject) {
             let $storage = driver.storage.get(_thisObject),
                 client = $storage.getProtected('$client'),
@@ -316,6 +327,19 @@ class EFUNProxy {
     }
 
     /**
+     * Generate semi-secure, random data.
+     * @param {number} bs The size of random bytes to generate.
+     * @returns {number} The random data.
+     */
+    createRandomValue(bs) {
+        let result = 0, buffer = crypto.randomBytes(typeof bs === 'number' && bs || 128);
+        for (let i = 0, l = buffer.length; i < l; i += 4) {
+            result ^= buffer.readInt32LE(i);
+        }
+        return result & 0xFFFFFFFF;
+    }
+
+    /**
      * Returns the currently executing verb.
      * @returns {string|false} The current verb or false if none.
      */
@@ -326,8 +350,9 @@ class EFUNProxy {
     /**
      * Return the complete inventory of an object, including contained objects.
      * TODO: Make Async
-     * @param {MUDObject} target
-     * @param {any} callback
+     * @param {MUDObject} target The target to scan
+     * @param {function(MUDObject[]):void} callback An optional callback to receive the deep inventory.
+     * @returns {MUDObject[]|false} Returns the deep inventory.
      */
     deepInventory(target, callback) {
         var _async = typeof callback === 'function',
@@ -348,7 +373,9 @@ class EFUNProxy {
                         result.push(_o);
                 });
             }
-            return _async ? callback(result) : result;
+            if (typeof callback === 'function')
+                callback(result);
+            return result;
 
         }
         return false;
@@ -358,25 +385,22 @@ class EFUNProxy {
      * Remove an object from the game and (hopefully) allow it to be garbage-
      * collected on the next gc run.  This requires that there are no objects
      * referencing it.
-     * @param {MUDObject} ob
+     * @param {MUDObject} ob The object to destruct.
      */
     destruct(ob) {
+        let unw = unwrap(ob);
     }
 
     /**
      * Switch an interactive object's body instance.
-     * @param {MUDObject} oldBody
-     * @param {MUDObject} newBody
-     * @param {any} client
-     * @param {any} callback
+     * @param {MUDObject} oldBody The body that is being left behind.
+     * @param {MUDObject} newBody The body that the user is switching into.
+     * @param {function(MUDObject,MUDObject):any} callback The callback to execute when the switch is complete.
+     * @returns {boolean} True if the 
      */
-    exec(oldBody, newBody, client, callback) {
-        if (typeof client === 'function') {
-            callback = client;
-            client = false;
-        }
-        if (driver.validExec(this, oldBody, newBody, client)) {
-            var oldContainer = oldBody ? driver.storage.get(oldBody) : false,
+    exec(oldBody, newBody, callback) {
+        if (driver.validExec(this, oldBody, newBody)) {
+            let oldContainer = oldBody ? driver.storage.get(oldBody) : false,
                 newContainer = driver.storage.get(newBody),
                 client = oldContainer.getProtected('$client'),
                 execEvent = {
@@ -387,7 +411,8 @@ class EFUNProxy {
                     client: client
                 };
 
-            if (oldContainer) oldContainer.emit('kmud.exec', execEvent);
+            if (oldContainer)
+                oldContainer.emit('kmud.exec', execEvent);
             newContainer
                 .setClient(client)
                 .setProtected('$client', client)
@@ -399,7 +424,7 @@ class EFUNProxy {
             if (typeof client === 'object') {
                 if (driver.exec(oldBody, newBody, client)) {
                     if (typeof callback === 'function')
-                        callback.call(oldBody, newBody);
+                        callback(oldBody, newBody);
                     return true;
                 }
             }
@@ -416,8 +441,11 @@ class EFUNProxy {
     }
 
     /**
-     * 
-     * @param {string[]} exits
+     * Render the exits to the client.  (There must be a better way?)
+     * @param {string} prefix Not sure
+     * @param {string[]} exits A list of exits available to the client.
+     * @param {MUDObject} target The recipient of the exit list.
+     * @returns {boolean} True if the exits were sent.
      */
     clientExits(prefix, exits, target) {
         let player = target || driver.thisPlayer;
@@ -433,8 +461,8 @@ class EFUNProxy {
 
     /**
      * Old school ed() support.
-     * @param {string} fileName
-     * @param {string|function} writeFunc
+     * @param {string} fileName The name of the file to edit.
+     * @param {string|function} writeFunc 
      * @param {string|function} exitFunc
      * @param {boolean} restrict
      */
@@ -446,6 +474,11 @@ class EFUNProxy {
             restricted = args.optional('boolean', false);
     }
 
+    /**
+     * Determine if a particular feature is enabled.
+     * @param {string} feature The name of the feature to check.
+     * @returns {boolean} Returns true if the specified feature is enabled.
+     */
     driverFeature(feature) {
         let result = driver.config.readValue(`driver.featureFlags.${feature}`, false);
         return result === true;
@@ -463,7 +496,7 @@ class EFUNProxy {
 
     /**
      * Locate an object within the game.
-     * @param {string} filename
+     * @param {string} filename The path to search for.
      */
     findObject(filename) {
         var parts = filename.split('#', 2),
@@ -665,10 +698,11 @@ class EFUNProxy {
 
     /**
      * Send a message to one or more recipients.
-     * @param {string} messageType
-     * @param {string|MUDHtmlComponent|number|function} expr
-     * @param {MUDObject[]} audience
-     * @param {MUDObject[]} excluded
+     * @param {string} messageType The message classification.
+     * @param {string|MUDHtmlComponent|number|function} expr The message expression to display.
+     * @param {MUDObject|MUDObject[]} audience One or more recipients to send the message to.
+     * @param {MUDObject|MUDObject[]} excluded One or more objects to explicitly exclude from receiving the message.
+     * @returns {void} Returns nothing.
      */
     message(messageType, expr, audience, excluded) {
         if (expr) {
@@ -903,24 +937,20 @@ class EFUNProxy {
                 else if (whatLC === 'fife') {
                     found = PLURAL_SUFFIX;
                 }
+                break;
 
             case 'g':
-                switch (whatLC) {
-                    case 'gum':
-                    case 'giraffe':
-                        found = PLURAL_SUFFIX;
-                        break;
-                    case 'glasses':
-                        found = PLURAL_SAME;
-                        break;
-                    case 'goose':
-                        found = PLURAL_CHOP + 4;
-                        suffix = 'eese';
-                        break;
-                    case 'go':
-                        found = PLURAL_SUFFIX;
-                        suffix = 'es';
-                        break;
+                if (whatLC === 'gum' || whatLC === 'giraffe')
+                    found = PLURAL_SUFFIX;
+                else if (whatLC === 'glasses')
+                    found = PLURAL_SAME;
+                else if (whatLC === 'goose') {
+                    found = PLURAL_CHOP + 4;
+                    suffix = 'eese';
+                }
+                else if (whatLC === 'go') {
+                    found = PLURAL_SUFFIX;
+                    suffix = 'es';
                 }
                 break;
 
@@ -1055,12 +1085,12 @@ class EFUNProxy {
         }
 
         if (!found) {
-            function getEnd(n) {
+            let getEnd = (n) => {
                 var a = [].slice.call(arguments, 1),
                     r = whatLC.slice(whatLC.length - n);
                 if (a.length) return a.filter(_ => _ === r).length > 0;
                 return r;
-            }
+            };
             switch (getEnd(1)) {
                 case 'e':
                     if (whatLC.endsWith('fe')) {
@@ -1161,7 +1191,7 @@ class EFUNProxy {
                 which = parseInt(idList[idList.length - 1]);
 
             if (isNaN(which)) which = 0;
-            else { idList.pop(), which-- };
+            else { idList.pop(), which--; }
 
             for (let i = 0; i < targets.length; i++) {
                 let result = unwrap(targets[i], o => {
@@ -1415,14 +1445,19 @@ class EFUNProxy {
     /**
      * Removes color codes from a string.
      * @param {string} str The string to remove color from.
-     * @returns {string}
+     * @returns {string} The string minus any color encoding.
      */
     stripColor(str) {
         return str.replace(/(\%\^[A-Z]+\%\^)/g, '');
     }
 
+    /**
+     * Shut the game down
+     * @param {number} errCode The error code associated with the shutdown.
+     * @param {string} reason The reason given for the shutdown.
+     */
     shutdown(errCode, reason) {
-        if (driver.validShutdown(this)) {
+        if (driver.validShutdown(this, reason)) {
             process.exit(errCode || 0);
         }
     }
@@ -1450,6 +1485,14 @@ class EFUNProxy {
     thisPlayer(flag) {
         return flag ? driver.currentContext.truePlayer : driver.currentContext.thisPlayer;
     }
+
+    /**
+     * Simulates a */
+    time() {
+        let t = new Date().getTime() / 1000;
+        return Math.floor(t);
+    }
+
 
     /**
      * Perform an operation using only the current object's permissions.

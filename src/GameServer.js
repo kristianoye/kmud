@@ -5,6 +5,7 @@
  */
 const
     MUDConfig = require('./MUDConfig'),
+    { NetUtil, NetworkInterface } = require('./network/NetUtil'),
     async = require('async'),
     stack = require('callsite'),
     MXC = require('./MXC'),
@@ -120,22 +121,29 @@ class GameServer extends MUDEventEmitter {
                 });
             });
 
+            var privateNetworks = [
+                [NetUtil.ip4toint('10.0.0.0'), NetUtil.ip4toint('10.255.255.255')],
+                [NetUtil.ip4toint('192.168.0.0'), NetUtil.ip4toint('192.168.255.255')],
+                [NetUtil.ip4toint('172.16.0.0'), NetUtil.ip4toint('172.31.255.255')]
+            ];
+
             _addressList.sort((a, b) => {
-                if (a.startsWith('192.')) {
-                    if (b.startsWith('192.'))
-                        return a < b ? -1 : a === b ? 0 : 1;
-                    return 2;
+                let na = NetUtil.ip4toint(a), nb = NetUtil.ip4toint(b);
+                for (let i = 0; i < privateNetworks.length; i++) {
+                    let [min, max] = privateNetworks[i];
+
+                    if (na >= min && na <= max) {
+                        if (nb >= min && nb <= max)
+                            return na < nb ? -1 : na === nb ? 0 : 1;
+                        return i;
+                    }
                 }
-                else if (a.startsWith('10.')) {
-                    if (b.startsWith('10.'))
-                        return a < b ? -1 : a === b ? 0 : 1;
-                    return 1;
-                }
-                return a < b ? -1 : a === b ? 0 : 1;
+                return na < nb ? -1 : na === nb ? 0 : 1;
             });
             return _addressList.length ? _addressList[0] : '127.0.0.1';
         }
-        this.serverAddress = determineDefaultAddress.call(this);
+
+        //this.serverAddress = determineDefaultAddress.call(this);
 
         this.endpoints = config.mud.portBindings.map(binding => {
             logger.logIf(LOGGER_DEBUG, () => `Adding ${binding.type} ${binding.address} port ${binding.port}`);
@@ -783,10 +791,18 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Runs the MUD
-     * @param {function?} callback Callback to execute when the MUD is running.
+     * @param {function(MUDConfig):void} callback Callback to execute when the MUD is running.
      * @returns {GameServer} A reference to the GameServer.
      */
     async run(callback) {
+        let nets = await NetUtil.discoveryAsync()
+            .catch(err => { throw new Error(`Could not start GameServer: ${err}`); }),
+            list = nets.filter(n => n.internetAccess);
+
+        if (list.length === 0)
+            throw new Error('Could not start GameServer: No suitable network interfaces');
+        this.serverAddress = list[0].address;
+
         if (!this.loginObject) {
             throw new Error('Login object must be specified');
         }
@@ -821,6 +837,8 @@ class GameServer extends MUDEventEmitter {
         finally {
             mxc.release();
         }
+        return this;
+
     }
 
     runStarting() {
@@ -850,12 +868,12 @@ class GameServer extends MUDEventEmitter {
             this.endpoints[i]
                 .bind()
                 .on('kmud.connection', (client) => {
-                    var ctx = client.createContext(client.createCommandEvent(''));
-                    var newLogin = this.efuns.cloneObject(this.config.mudlib.loginObject);
+                    let ctx = client.createContext(client.createCommandEvent(false));
+                    let newLogin = this.masterObject.connect(client.port);
                     if (newLogin) {
                         driver.storage.get(newLogin).setProtected('$client', client,
                             ($storage, _client) => {
-                                var evt = {
+                                let evt = {
                                     newBody: newLogin,
                                     newStorage: driver.storage.get(newLogin),
                                     client: _client

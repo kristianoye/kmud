@@ -546,7 +546,8 @@ class MUDObject extends MUDEventEmitter {
     }
 
     setSymbol(key, value) {
-        driver.storage.get(this).setSymbol(key, value);
+        let storage = driver.storage.get(this);
+        storage && storage.setSymbol(key, value);
         return this;
     }
 }
