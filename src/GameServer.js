@@ -8,8 +8,7 @@ const
     { NetUtil, NetworkInterface } = require('./network/NetUtil'),
     async = require('async'),
     stack = require('callsite'),
-    MXC = require('./MXC'),
-    merge = require('merge');
+    MXC = require('./MXC');
 
 const
     fs = require('fs'),
@@ -239,7 +238,7 @@ class GameServer extends MUDEventEmitter {
     createMasterObject() {
         let config = this.config.mudlib, self = this,
             startupArgs = {
-                args: merge({
+                args: Object.assign({
                     driver: this,
                     resolver: driver.fileManager.toRealPath
                 }, config.inGameMaster.parameters)

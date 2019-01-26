@@ -16,8 +16,7 @@ const
     VMAbstraction = require('./compiler/VMAbstraction'),
     GameServer = require('./GameServer'),
     MUDModule = require('./MUDModule'),
-    MUDCache = require('./MUDCache'),
-    merge = require('merge');
+    MUDCache = require('./MUDCache');
 
 var
     VM;
@@ -56,7 +55,7 @@ class MUDCompiler {
 
                 this.components[comp.id] = {
                     module: mod,
-                    parameters: merge({ reusable: reuse, name: comp.name, enabled: enabled }, comp.parameters),
+                    parameters: Object.assign({ reusable: reuse, name: comp.name, enabled: enabled }, comp.parameters),
                     refCount: 0
                 };
                 comps++;
@@ -89,7 +88,7 @@ class MUDCompiler {
                     throw new Error(`Configured language ${language.name} references undefined pipeline component: ${name}`);
                 }
                 var module = initData.module,
-                    args = merge({}, initData.parameters, xtra);
+                    args = Object.assign({}, initData.parameters, xtra);
                 args.extension = ext;
                 initData.refCount++;
                 return args.reusable === false ? [module, args] : new module(args);

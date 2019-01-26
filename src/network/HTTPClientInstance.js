@@ -6,8 +6,7 @@
  * Description: This module contains core game functionality.
  */
 const ClientInstance = require('./ClientInstance'),
-    ClientEndpoint = require('./ClientEndpoint'),
-    merge = require('merge');
+    ClientEndpoint = require('./ClientEndpoint');
 
 const
     _client = Symbol('client'),
@@ -85,7 +84,7 @@ class HTTPClientInstance extends ClientInstance {
      * @returns {HTTPClientInstance} A reference to the client interface.
      */
     addPrompt(opts, callback) {
-        var prompt = merge({
+        var prompt = Object.assign({
             type: 'text',
             target: 'console.prompt',
             text: 'Enter a command...'
@@ -177,7 +176,7 @@ class HTTPClientInstance extends ClientInstance {
     }
 
     write(text, opts) {
-        var data = merge({
+        var data = Object.assign({
             type: 'text',
             target: 'console.out',
             text: text

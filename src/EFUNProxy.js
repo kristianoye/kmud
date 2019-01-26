@@ -15,8 +15,7 @@ const
     util = require('util'),
     fs = require('fs'),
     vm = require('vm'),
-    MXC = require('./MXC'),
-    merge = require('merge');
+    MXC = require('./MXC');
 
 const
     KiloByte = 1024,
@@ -697,7 +696,7 @@ class EFUNProxy {
     }
 
     merge(...o) {
-        return merge(...o);
+        return Object.assign({}, ...o);
     }
 
     /**
