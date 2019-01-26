@@ -169,10 +169,11 @@ class HTTPClientInstance extends ClientInstance {
     }
 
     renderPrompt(input) {
-        return this.eventSend({
+        input && this.eventSend({
             eventType: 'renderPrompt',
             eventData: input.data
         });
+        return this;
     }
 
     write(text, opts) {

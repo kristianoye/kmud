@@ -362,6 +362,7 @@
     <Compile Include="lib\wwwroot\monaco\min\vs\language\typescript\src\mode.js" />
     <Compile Include="lib\wwwroot\monaco\min\vs\language\typescript\src\worker.js" />
     <Compile Include="lib\wwwroot\monaco\min\vs\loader.js" />
+    <Compile Include="src\compiler\JSXTranspilerForAcornJsx5.js" />
     <Compile Include="src\compiler\LPCPreprocessor.js">
       <SubType>Code</SubType>
     </Compile>

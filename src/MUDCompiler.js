@@ -172,7 +172,7 @@ class MUDCompiler {
         try {
             let context = new PipeContext.PipelineContext(options.file),
                 module = this.driver.cache.get(context.basename),
-                t0 = new Date().getTime(), virtualData = false;
+                t0 = new Date().getTime(), virtualData = false, cerr = false;
 
             if (module && !options.reload && module.loaded === true)
                 return module;
@@ -292,13 +292,18 @@ class MUDCompiler {
                 if (module && !module.loaded) {
                     MUDCache.delete(context.filename);
                 }
-                this.driver.cleanError(err);
+                this.driver.cleanError(cerr = err);
                 this.driver.logError(context.filename, err);
                 throw err;
             }
             finally {
                 var t1 = new Date().getTime();
-                logger.log(`\t\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
+                if (cerr) {
+                    logger.log(`\t\tLoad timer: ${options.file} [${(t1 - t0)} ms; ERROR: ${cerr.message}]`);
+                    logger.log(cerr.stack || cerr.trace);
+                }
+                else
+                    logger.log(`\t\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
             }
             return false;
         }

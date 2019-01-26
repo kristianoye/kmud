@@ -326,6 +326,10 @@ class EFUNProxy {
         return driver.config.mud.passwordPolicy.hashPasword(plainText, callback);
     }
 
+    createPasswordAsync(plainText) {
+        return driver.config.mud.passwordPolicy.hashPasswordAsync(plainText);
+    }
+
     /**
      * Generate semi-secure, random data.
      * @param {number} bs The size of random bytes to generate.

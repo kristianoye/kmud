@@ -105,6 +105,8 @@ declare class EFUNProxy {
      */
     createPassword(plain: string): string;
 
+    async createPasswordAsync(plain: string): Promise<string>;
+
     /**
      * Encrypts a plain text password.
      * @param plain

@@ -43,6 +43,13 @@ class VMWrapper extends VMAbstraction {
             options.timeout = CompilerTimeout;
         }
 
+        vm.runInContext(`Promise.prototype.always = function(onResolveOrReject) {
+            return this.then(onResolveOrReject,
+            function(reason) {
+                onResolveOrReject(reason);
+                throw reason;
+            });
+        };`, module.context, options);
         let result = vm.runInContext(context.content, module.context, options);
 
         return result;

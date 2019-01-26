@@ -7,8 +7,8 @@
     "name": "Kristian Oye <kristianoye@gmail.com>"
   },
   "dependencies": {
-    "acorn": "^5.7.3",
-    "acorn-jsx": "^4.1.1",
+    "acorn": "^6.0.5",
+    "acorn-jsx": "^5.0.1",
     "async": "^2.6.1",
     "bcrypt": "^1.0.3",
     "callsite": "^1.0.0",

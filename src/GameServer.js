@@ -193,8 +193,9 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Removes absolute paths from a stack trace if possible.
-     * @param {Error} e
+     * @param {Error} e The error to sanitize.
      * @param {boolean} sdf Show external frames
+     * @returns {Error} The cleaned up error.
      */
     cleanError(e, sdf) {
         if (e.clean)

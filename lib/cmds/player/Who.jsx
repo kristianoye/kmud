@@ -22,7 +22,7 @@ class Who extends Command {
             count = players.length;
 
         var result =
-        <div className="who-results">
+            <div className="who-results">
             <table>
                 <thead>
                     <tr>

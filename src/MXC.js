@@ -83,6 +83,7 @@ class MXC {
 
     /**
      * Abort the context and any child contexts
+     * @returns {void}
      */
     abort() {
         let prev = this.previous;
@@ -97,9 +98,9 @@ class MXC {
 
     /**
      * Add an object frame
-     * @param {MUDObject} ob
-     * @param {string} method
-     * @returns {MXC}
+     * @param {MUDObject} ob The MUD object on the frame.
+     * @param {string} method The object's method name.
+     * @returns {MXC} A reference to the current context.
      */
     addFrame(ob, method) {
         if (ob) {
@@ -173,7 +174,7 @@ class MXC {
     }
 
     /**
-     * @returns {number}
+     * @returns {number} Returns the number of object frames.
      */
     get length() {
         return this.objectStack.length;

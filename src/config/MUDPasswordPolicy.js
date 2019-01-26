@@ -97,6 +97,30 @@ class MUDPasswordPolicy {
             throw new Error('Password policy failure; No error specified!');
     }
 
+    hashPasswordAsync(str) {
+        return new Promise((resolve, reject) => {
+            try {
+                let checks = this.validPassword(str);
+                if (checks === true) {
+                    bcrypt.hash(str, this.saltRounds, (err, enc) => {
+                        err ? reject(err) : resolve(enc);
+                    });
+                }
+                else if (!Array.isArray(checks) || typeof checks[0] !== 'string') {
+                    reject(new Error(`${typeof this}.validPassword() returned ${typeof checks}; Expected true|string[]`));
+                }
+                else {
+                    let err = new Error(checks[0]);
+                    err.Errors = checks;
+                    reject(err);
+                }
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
+    }
+
     /**
      * Check to see if the password provided meets the MUD policy.
      * @param {string} str A possible password

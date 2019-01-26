@@ -16,18 +16,8 @@ const
 class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, client) {
         super(endpoint, client, client.remoteAddress);
-        let self = this,
-            context = MXC.init(),
-            clientHeight = 24,
-            clientWidth = 80,
-            $storage,
-            body;
-
-        this.client.on('data', (buffer) => {
-            let text = buffer.toString('utf8');
-            this.enqueueCommand(text);
-        });
-        this.client.on('close', msg => self.disconnect('telnet', msg || 'not specified'));
+        this.client.on('data', (buffer) => this.enqueueCommand(buffer.toString('utf8')));
+        this.client.on('close', msg => this.disconnect('telnet', msg || 'not specified'));
     }
 
     eventSend(data) {
@@ -47,7 +37,7 @@ class RanvierTelnetInstance extends ClientInstance {
 
     /**
      * Write a prompt on the client.
-     * @param {MUDInputEvent} evt
+     * @param {MUDInputEvent} evt 
      */
     displayPrompt(evt) {
         if (this.inputStack.length === 0 && evt.prompt) {

@@ -11,7 +11,16 @@ const
     vm = require('vm'),
     loopsPerAssert = 10000;
 
-var _includeCache = [];
+var _includeCache = [], _asyncContexts = {};
+
+function createTimeoutError() {
+    let error = new TimeoutError('Maximum execution time exceeded');
+    Error.captureStackTrace(error, createTimeoutError);
+    let stack = error.stack.split('\n');
+    stack.splice(1, 1);
+    error.stack = stack.join('\n');
+    return error;
+}
 
 class MUDLoader {
     /**
@@ -68,15 +77,6 @@ class MUDLoader {
                 }
                 _exports[name] = val;
             }
-        }
-
-        function createTimeoutError() {
-            let error = new TimeoutError('Maximum execution time exceeded');
-            Error.captureStackTrace(error, createTimeoutError);
-            let stack = error.stack.split('\n');
-            stack.splice(1, 1);
-            error.stack = stack.join('\n');
-            return error;
         }
 
         Object.defineProperties(this, {
@@ -137,6 +137,16 @@ class MUDLoader {
                 enumerable: false,
                 writable: false
             },
+            __dac: {
+                //  Decrement Async Context
+                value: function (aid) {
+                    let ctx = _asyncContexts[aid] || false;
+                    if (ctx) {
+                        ctx.popStack();
+                        delete _contexts[aid];
+                    }
+                }
+            },
             __efc: {
                 // End Function Call
                 value: function (/** @type {number} */ contextId) {
@@ -178,6 +188,30 @@ class MUDLoader {
                         if ((m = re.exec(foo[i])) && c++ === 1) return parseInt(m[1]);
                     }
                 }
+            },
+            __iac: {
+                ///   Increment Async Context
+                value: function (ob, aid) {
+                    let ctx = driver.getContext(),
+                        now = new Date().getTime();
+                    if (ctx) {
+                        if (ctx.alarm && ctx.alarm < now)
+                            throw createTimeoutError();
+                        if (ob) {
+                            ctx.addFrame(ob, 'async').increment();
+                            return ctx.contextId;
+                        }
+                    }
+                    else if (ob) {
+                        ctx = driver.getContext(true, init => init.note = method)
+                            .addFrame(ob, 'async');
+                        ctx.restore();
+                        return ctx.contextId;
+                    }
+                    _asyncContexts[aid] = ctx;
+                },
+                enumerable: false,
+                writable: false
             },
             allowProxy: {
                 get: function () { return _allowProxy; },

@@ -11,5 +11,6 @@
   "/base/Creator",
   "/base/Command",
   "/base/Verb",
-  "/daemon/ChatDaemon"
+  "/daemon/ChatDaemon",
+  "/sys/lib/Login"
 ]
