@@ -313,13 +313,22 @@ declare class FileManager {
     movePath(efuns: EFUNProxy, source: string, destination: string, options: MUDFS.MoveOptions, callback: (result: FileSystemStat, error: Error) => void): void;
 
     /**
-     * Read directory table from disk.
+     * Read directory table from disk asyncronously.
      * @param efuns The object requesting the listing.
      * @param expr The filepath expression to query (may contain wildcards)
      * @param flags Flags requesting additional information in the results.
      * @param callback
      */
-    readDirectory(efuns: EFUNProxy, expr: string, flags: number, callback: (files: string[], err: Error) => void): void;
+    readDirectoryAsync(efuns: EFUNProxy, expr: string, flags: number, callback: (files: string[], err: Error) => void): void;
+
+    /**
+     * Read directory table from disk syncronously.
+     * @param efuns The object requesting the listing.
+     * @param expr The filepath expression to query (may contain wildcards)
+     * @param flags Flags requesting additional information in the results.
+     * @param callback
+     */
+    readDirectorySync(efuns: EFUNProxy, expr: string, flags: number): string[];
 
     /**
      * Read a file from external storage.

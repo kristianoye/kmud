@@ -5,6 +5,9 @@
     /** The module to compile */
     file: string;
 
+    /** Disables certain checks, adds another */
+    isMixin: boolean;
+
     /** Do not create the "master" copy/instance when compiling */
     noCreate: boolean;
 

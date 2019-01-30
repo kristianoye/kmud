@@ -1,15 +1,21 @@
-﻿const
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ * 
+ * TODO: Merge added functionality back into original JSXTranspiler
+ */
+const
     PipelineComponent = require('./PipelineComponent'),
     PipeContext = require('./PipelineContext'),
     PipelineContext = PipeContext.PipelineContext,
-    { TimeoutError } = require('../ErrorTypes'),
     acorn = require('acorn'),
     jsx = require('acorn-jsx');
 
 var parser = acorn.Parser.extend(jsx());
 
 const
-    IllegalIdentifiers = ['__act', '__ala', '__afa', '__bfc', '__ctx', '__efc', '__iac', '__dac()'];
+    IllegalIdentifiers = ['__act', '__ala', '__afa', '__bfc', '__ctx', '__efc', '__iac', '__dac', '__pcc'];
 
 var nextAsyncHandleId = 1;
 
@@ -37,9 +43,28 @@ class JSXTranspilerOp {
     }
 }
 
+/** 
+ *  A superset of all possible node properties.  Should separate into 
+ *  individual jsdoc types at some point...
+ *  
+ * @typedef {Object} NodeType
+ * @property {NodeType|NodeType[]} [body] A body node.
+ * @property {NodeType} [callee] The target of a method call operation.
+ * @property {number} end The ending character index for the node (and all children)
+ * @property {NodeType[]} [elements] An array of element nodes.
+ * @property {NodeType} [left] The left side of a statement.
+ * @property {NodeType[]} [param] 
+ * @property {NodeType[]} [params] Parameters to a function or method call.
+ * @property {NodeType} [right] THe right side of an assignment operation.
+ * @property {number} start The starting character index for the node.
+ * @property {NodeType} [test] The test expression for an operation.
+ * @property {string} [text] The text representation of the node.
+ * @property {string} type The type of node
+ */
+
 /**
  * Instruments final source code with runtime assertions designed to protect against runaway code.
- * @param {Node} e The node that is being transpiled.
+ * @param {NodeType} e The node that is being transpiled.
  * @param {string} preText Text inserted before the expression.
  * @param {string} postText Text inserted after the expression.
  * @param {boolean=} isCon Is it a constructor?
@@ -133,7 +158,7 @@ function jsxWhitespace(op, isElement) {
 /**
  * Parse a single element and return the transpiled source.
  * @param {JSXTranspilerOp} op The current operation
- * @param {Node} e The current node
+ * @param {NodeType} e The current node
  * @param {number} depth The stack depth
  * @param {number} ident The level of indentation
  * @returns {string} The element as source code.
@@ -208,9 +233,13 @@ function parseElement(op, e, depth, ident) {
 
             case 'ClassDeclaration':
                 ret += parseElement(op, e.id, depth + 1);
-                ret += parseElement(op, e.superClass, depth + 1);
+                if (e.superClass)
+                    ret += parseElement(op, e.superClass, depth + 1);
+                else if (op.injectedSuperClass)
+                    ret += ` extends ${op.injectedSuperClass}`;
                 ret += parseElement(op, e.body, depth + 1);
-                op.appendText += `\n\n${e.id.name}.prototype.fileName = '${context.basename}';\n`;
+                // op.appendText += `\n\n${e.id.name}.prototype.fileName = '${context.basename}';\n`;
+                ret += ` ${e.id.name}.prototype.fileName = '${context.basename}'; `;
                 break;
 
             case 'ConditionalExpression':
@@ -314,7 +343,7 @@ function parseElement(op, e, depth, ident) {
                     throw new Error(`JSX is not enabled for ${op.context.extension} files`);
                 if (op.jsxDepth === 0) {
                     var jsxInX = op.source.slice(0, e.start).lastIndexOf('\n') + 1;
-                    op.jsxIndent = op.source.slice(jsxInX, e.start);
+                    op.jsxIndent = ' '.repeat(e.start - jsxInX) 
                 }
                 ret += jsxWhitespace(op, true) + 'MUD.createElement(\n';
                 op.jsxDepth++;
@@ -369,7 +398,7 @@ function parseElement(op, e, depth, ident) {
             case 'JSXText':
                 if (!allowJsx)
                     throw new Error(`JSX is not enabled for ${this.extension} files`);
-                ret += e.value.trim().length === 0 ? ret : `"${e.raw.replace(/\n/g, '\\n')}"`;
+                ret += e.value.trim().length === 0 ? ret : `"${e.raw.replace(/([\r\n]+)/g, "\\ $1")}"`;
                 op.pos = e.end;
                 break;
 
@@ -394,11 +423,22 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'NewExpression':
-                ret += parseElement(op, e.callee, depth + 1);
+                let callee = op.source.slice(e.callee.start, e.callee.end);
+                ret += `__pcc(${callee}, () => { return `;
                 e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
+                if (op.pos !== e.end) {
+                    if (op.pos > e.end) throw new Error('Oops?');
+                    ret += op.source.slice(op.pos, e.end);
+                    op.pos = e.end;
+                }
+                ret += ' })';
                 break;
 
             case 'ObjectExpression':
+                e.properties.forEach(_ => ret += parseElement(op, _, depth + 1));
+                break;
+
+            case 'ObjectPattern':
                 e.properties.forEach(_ => ret += parseElement(op, _, depth + 1));
                 break;
 

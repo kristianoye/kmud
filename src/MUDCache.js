@@ -1,4 +1,4 @@
-﻿/**
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
@@ -9,7 +9,6 @@ const
     path = require('path');
 
 /**
- * @class
  * Contains information about all loaded MUD modules.
  */
 class MUDCache {
@@ -40,17 +39,18 @@ class MUDCache {
 
     /**
      * Gets an existing module or creates a new one and returns it.
-     * @param {string} filename
-     * @param {string} fullPath
-     * @param {string} muddir
-     * @param {boolean} isVirtual
+     * @param {string} filename The filename of the module.
+     * @param {string} fullPath The full path
+     * @param {string} muddir The mud directory
+     * @param {boolean} isVirtual Is the module a virtual type?
+     * @param {boolean} [isMixin] Is the module expected to be a mixin type?
      * @returns {MUDModule} The module
      */
-    getOrCreate(filename, fullPath, muddir, isVirtual) {
+    getOrCreate(filename, fullPath, muddir, isVirtual, isMixin) {
         filename = this.normalize(filename);
         let module = this[filename];
         if (!module) {
-            this[filename] = module = new MUDModule(filename, fullPath, muddir, isVirtual);
+            this[filename] = module = new MUDModule(filename, fullPath, muddir, isVirtual, isMixin);
         }
         return module;
     }

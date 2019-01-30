@@ -87,15 +87,12 @@ class MUDCreationContext {
             },
             shared: {
                 get: function () {
-                    var self = this;
-                    return function (key, value) {
-                        return setter.call(self, self.shared, key, value);
-                    };
+                    return (key, value) => setter.call(this, this.shared, key, value);
                 }
             },
             symbols: {
                 get: function () {
-                    return function (key, value) {
+                    return (key, value) => {
                         if (typeof key !== 'symbol')
                             throw new Error('Bad argument 1 to symbols');
                         return setter.call(this, this.symbols, key, value);

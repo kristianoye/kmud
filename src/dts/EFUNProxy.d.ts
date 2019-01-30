@@ -1,5 +1,9 @@
-﻿/// <reference path="GameServer.d.ts"/>
-
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
+/// <reference path="GameServer.d.ts"/>
 /**
  * Provides an API that may be used by every object in the game.
  */
@@ -335,7 +339,16 @@ declare class EFUNProxy {
     * @param {Function} callback A callback if perming an async getDir.
     * If no callback is specified then the call is synchronous.
     */
-    readDirectory(expr: string, flags: number, callback?: (files: String[], error: Error) => void): Array;
+    readDirectoryAsync(expr: string, flags: number, callback?: (files: string[], error: Error) => void): Array;
+
+    /**
+    * Attempt to read file information from the disk.
+    * @param {String} expr A file expression to evaluate.
+    * @param {Number} flags Flags indicating additional information is requested.
+    * @param {Function} callback A callback if perming an async getDir.
+    * If no callback is specified then the call is synchronous.
+    */
+    readDirectorySync(expr: string, flags: number): string[];
 
     /**
      * Attempts to read the contents of a file.

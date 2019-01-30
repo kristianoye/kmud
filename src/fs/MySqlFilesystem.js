@@ -1,7 +1,6 @@
 ﻿const
     { FileSystem, FileSystemStat } = require('../FileSystem'),
     FileManager = require('../FileManager'),
-    async = require('async'),
     mysql = require('mysql'),
     MXC = require('../MXC'),
     path = require('path'),

@@ -13,7 +13,6 @@ const
 var
     _nextContextId = 1,
     _activeContexts = { length: 0 },
-    _currentContext = null,
     _debugging = false;
 
 /**
@@ -34,6 +33,7 @@ class MXC {
 
         /** @type {Object.<number,MXC>} */
         this.children = { length: 0 };
+        this.conStack = [];
         this.contextId = _nextContextId++;
         this.depth = 0;
         this.input = false;
@@ -50,6 +50,7 @@ class MXC {
         if (prev) {
             this.alarm = prev.alarm;
             this.client = prev.client;
+            this.conStack = prev.conStack;
             this.depth = prev.depth + 1;
             this.input = prev.input;
             this.thisObject = prev.thisObject;
@@ -128,6 +129,20 @@ class MXC {
         return ret;
     }
 
+    get currentFileName() {
+        for (let s = stack(), i = 0, m = s.length; i < m; i++) {
+            let fn = s[i].getFileName(),
+                fp = fn && driver.fileManager.toMudPath(fn);
+            if (fp) {
+                let x = fp.lastIndexOf('/'),
+                    n = fp.lastIndexOf('.');
+                if (n > x) fp = fp.slice(0, n);
+                return fp;
+            }
+        }
+        return false;
+    }
+
     /**
      * Clean up a dead context to decrement object references.
      * TODO: Delete/remove all properties to try and free mem faster.
@@ -164,6 +179,11 @@ class MXC {
         return result;
     }
 
+    get efuns() {
+        let fn = this.currentFileName;
+        return fn && driver.createEfunInstance(fn);
+    }
+
     increment() {
         let ptr = this;
         while (ptr) {
@@ -178,6 +198,11 @@ class MXC {
      */
     get length() {
         return this.objectStack.length;
+    }
+
+    get module() {
+        let fn = this.currentFileName;
+        return fn && driver.cache.get(fn);
     }
 
     popStack() {

@@ -429,21 +429,14 @@ class FileManager extends MUDEventEmitter {
         }
     }
 
-    /**
-     * Read files from a directory.
-     * @param {EFUNProxy} efuns The object requesting the directory listing.
-     * @param {string} expr The MUD virtual path to read from.
-     * @param {number} flags Flags indicating request for additional details.
-     * @param {function(string[], Error):void} callback A callback for asyncronous reading.
-     */
-    async readDirectory(efuns, expr, flags, callback) {
-        let req = this.createFileRequest('readDirectory', expr, false, flags);
-        if (callback === true)
-            return await req.securityManager.readDirectory(efuns, req, callback);
-        else if (typeof callback === 'function')
-            return req.securityManager.readDirectory(efuns, req, callback);
-        else
-            return req.securityManager.readDirectory(efuns, req, undefined);
+    readDirectoryAsync(efuns, expr, flags, callback) {
+        let req = this.createFileRequest('readDirectoryAsync', expr, true, flags);
+        return req.securityManager.readDirectoryAsync(efuns, req, callback);
+    }
+
+    readDirectorySync(efuns, expr, flags) {
+        let req = this.createFileRequest('readDirectorySync', expr, false, flags);
+        return req.securityManager.readDirectorySync(efuns, req);
     }
 
     /**

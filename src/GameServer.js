@@ -7,27 +7,21 @@ const
     MUDConfig = require('./MUDConfig'),
     { NetUtil, NetworkInterface } = require('./network/NetUtil'),
     async = require('async'),
-    stack = require('callsite'),
     MXC = require('./MXC');
 
 const
     fs = require('fs'),
     path = require('path'),
     os = require('os'),
-    ClientEndpoint = require('./network/ClientEndpoint'),
-    ClientInstance = require('./network/ClientInstance'),
     MUDEventEmitter = require('./MUDEventEmitter');
 
 const
     FileSecurity = require('./FileSecurity'),
     FileManager = require('./FileManager'),
-    Extensions = require('./Extensions'),
-    MUDStorage = require('./MUDStorage'),
-    MUDLogger = require('./MUDLogger');
+    MUDStorage = require('./MUDStorage');
 
 var
     Instance,
-    MUDCompiler,
     MUDObject,
     ResetInterval = 1000 * 60 * 60 * 2,
     UseLazyResets = false;
@@ -336,95 +330,117 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
-     * Create the simul efuns object.
+     * Create an efuns instance for the specified module.
+     * @param {string} fileName The filename to create an efuns object for.
+     * @returns {EFUNProxy} The file-specific efun proxy object.
      */
-    createSimulEfuns(filename, mudpath) {
-        if (filename) {
-            let efuns = new this.simulEfunType();
-            Object.defineProperties(efuns, {
-                directory: {
-                    value: mudpath,
-                    writable: false,
-                    enumerable: true
-                },
-                filename: {
-                    value: filename,
-                    writable: false,
-                    enumerable: true
-                },
-                homeDirectory: {
-                    value: '',
-                    writable: false,
-                    enumerable: true
-                },
-                permissions: {
-                    value: [],
-                    writable: false,
-                    enumerable: true
-                }
-            });
-            return Object.seal(efuns);
+    createEfunInstance(fileName) {
+        let module = this.cache.get(fileName) || false;
+        if (module && module.efuns)
+            return module.efuns;
+        let efuns = this.simulEfunType && new this.simulEfunType(fileName);
+        if (efuns) {
+            Object.freeze(efuns);
+            return module.efuns = efuns;
+        }
+        return false;
+    }
+
+    /**
+     * Create the simul efuns object.
+     * @returns {EFUNProxy} The sealed simul efun object.
+     */
+    createSimulEfuns() {
+        let EFUNProxy = require('./EFUNProxy');
+
+        //  For bootstrapping
+        if (!this.efuns) {
+            let sp = this.simulEfunPath;
+            this.efuns = new EFUNProxy(sp.slice(0, sp.lastIndexOf('/')), sp);
+            this.simulEfunType = require('./EFUNProxy');
         }
         else {
-            if (this.simulEfunPath) {
-                let module = this.compiler.compileObject({
-                    file: this.simulEfunPath,
-                    noCreate: true,
-                    altParent: require('./EFUNProxy'),
-                    noSeal: true
-                });
-                Object.seal(module.classRef);
-                this.simulEfunType = module.classRef;
+            try {
+                if (this.simulEfunPath) {
+                    let module = this.compiler.compileObject({
+                        file: this.simulEfunPath,
+                        noCreate: true,
+                        altParent: require('./EFUNProxy'),
+                        noSeal: true
+                    });
+                    this.simulEfunType = module.classRef;
+                }
+
+                Object.seal(this.simulEfunType);
+                this.efuns = new this.simulEfunType('/', '/');
+                this.efuns.SaveExtension = this.config.mudlib.defaultSaveExtension;
+                Object.freeze(this.efuns);
+            }
+            catch (err) {
+                // Oh snap... what now?
+                throw err;
             }
         }
+        return this.efuns;
     }
 
     /**
      * Configure the various components attached to the driver.
      */
     configureRuntime() {
-        const
-            ClientInstance = require('./network/ClientInstance'),
-            MUDCache = require('./MUDCache'),
-            MUDCompiler = require('./MUDCompiler'),
-            EFUNProxy = require('./EFUNProxy'),
-            MUDModule = require('./MUDModule'),
-            MUDStorage = require('./MUDStorage'),
-            MUDLoader = require('./MUDLoader');
+        try {
+            let
+                ClientInstance = require('./network/ClientInstance'),
+                MUDCache = require('./MUDCache'),
+                MUDCompiler = require('./MUDCompiler'),
+                EFUNProxy = require('./EFUNProxy'),
+                MUDModule = require('./MUDModule'),
+                MUDStorage = require('./MUDStorage'),
+                MUDLoader = require('./MUDLoader');
 
-        MUDObject = require('./MUDObject');
-        EFUNProxy.configureForRuntime(this);
-        MUDCompiler.configureForRuntime(this);
-        MUDLoader.configureForRuntime(this);
-        MUDModule.configureForRuntime(this);
-        ClientInstance.configureForRuntime(this);
-        MUDStorage.configureForRuntime(this);
+            MUDObject = require('./MUDObject');
+            EFUNProxy.configureForRuntime();
+            MUDCompiler.configureForRuntime(this);
+            MUDLoader.configureForRuntime(this);
+            MUDModule.configureForRuntime(this);
+            ClientInstance.configureForRuntime(this);
+            MUDStorage.configureForRuntime(this);
 
-        global.MUDObject = MUDObject;
-        this.cache = new MUDCache();
-        this.compiler = new MUDCompiler(this, this.config.driver.compiler);
+            global.MUDObject = MUDObject;
+            this.cache = new MUDCache();
+            this.compiler = new MUDCompiler(this, this.config.driver.compiler);
 
-        global.unwrap = function (target, success) {
-            var result = false;
-            if (typeof target === 'function' && target._isWrapper === true) {
-                result = target() instanceof MUDObject ? target() : false;
-            }
-            else if (typeof target === 'object' && target instanceof MUDObject) {
-                result = target;
-            }
-            return result === false ? false : (success ? success.call(this, result) : result);
-        };
+            global.unwrap = function (target, success, hasDefault) {
+                let result = false, defaultValue = hasDefault || false,
+                    onSuccess = typeof success === 'function' && success || function (s) {
+                        return s;
+                    };
+                if (typeof target === 'function' && target._isWrapper === true) {
+                    result = target();
+                    if (!(result instanceof MUDObject)) result = defaultValue;
+                }
+                else if (typeof target === 'object' && target instanceof MUDObject) {
+                    result = target;
+                }
+                return result && onSuccess(result);
+            };
 
-        global.wrapper = function (_o) {
-            if (typeof _o === 'function' && _o._isWrapper === true) return _w;
-            else if (typeof _o === 'object' && typeof _o.wrapper === 'function') return _o.wrapper;
-            else if (_o instanceof MUDObject) {
-                throw new Error('wrapper() failed');
-            }
-            return false;
-        };
+            global.wrapper = function (_o) {
+                if (typeof _o === 'function' && _o._isWrapper === true) return _w;
+                else if (typeof _o === 'object' && typeof _o.wrapper === 'function') return _o.wrapper;
+                else if (_o instanceof MUDObject) {
+                    throw new Error('wrapper() failed');
+                }
+                return false;
+            };
 
-        require('./MUDCache').configureForRuntime(this);
+            require('./MUDCache').configureForRuntime(this);
+        }
+        catch (err) {
+            console.log(err.message);
+            console.log(err.stack);
+            throw err;
+        }
     }
 
     /**
@@ -461,16 +477,18 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Trap unhandled errors to prevent possible game crashes.
+     * @param {boolean} flag A flag indicating whether global error handler is enabled.
+     * @returns {GameServer} A reference to the game server.
      */
-    enableGlobalErrorHandler() {
-        this.globalErrorHandler = true;
+    enableGlobalErrorHandler(flag) {
+        this.globalErrorHandler = flag === true;
         return this;
     }
 
     /**
      * Let the in-game master possibly handle an exception.
-     * @param {Error} err
-     * @param {boolean} caught
+     * @param {Error} err The exception that must be handled.
+     * @param {boolean} caught Indicates whether the exception was caught elsewhere.
      */
     errorHandler(err, caught) {
         if (this.applyErrorHandler) {
@@ -533,10 +551,11 @@ class GameServer extends MUDEventEmitter {
     /**
      * Switch an interactives body
      * @deprecated
-     * @param {any} oldBody
-     * @param {any} newBody
-     * @param {any} client
-     * @param {any} callback
+     * @param {MUDObject} oldBody Original body the interactive user is leaving.
+     * @param {MUDObject} newBody The new body the interactive user is switching to.
+     * @param {ClientInstance} client The client instance 
+     * @param {function(MUDObject,MUDObject):any} callback A callback that fires when the exec is completed.
+     * @returns {boolean} True if the operation was successful.
      */
     exec(oldBody, newBody, client, callback) {
         var result = false;
@@ -621,7 +640,8 @@ class GameServer extends MUDEventEmitter {
      * Returns the currently executing context.
      * @param {boolean} createNew Force the creation of a new context.
      * @param {function(MXC):void} init A context initializing callback.
-     * @returns {MXC}
+     * @param {string} note An optional note to include in the execution context.
+     * @returns {MXC} Returns the current execution context.
      */
     getContext(createNew, init, note) {
         if (typeof createNew === 'boolean') {
@@ -654,8 +674,8 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Allow the in-game master object to handle an error.
-     * @param {any} path
-     * @param {any} error
+     * @param {string} path The file to write logs to.
+     * @param {Error} error The error to log.
      */
     logError(path, error) {
         if (!this.applyLogError) {
@@ -669,7 +689,7 @@ class GameServer extends MUDEventEmitter {
      * Allow the in-game simul efuns to extend the efuns object.  This
      * should actually be the other way around.  The in-game efuns should
      * inherit the driver's efuns to allow for overrides.
-     * @param {any} simul
+     * @param {MUDObject} simul The efuns defined within the mudlib source tree.
      */
     mergeEfuns(simul) {
         if (simul) {
@@ -706,9 +726,9 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Register the time at which an object should reset.
-     * @param {MUDObject} ob
-     * @param {number=} resetTime
-     * @param {MUDStorage=} $storage
+     * @param {MUDObject} ob The object that contains a reset() method.
+     * @param {number} resetTime The time at which the next reset should occur.
+     * @param {MUDStorage} $storage The storage object associated with the object.
      */
     registerReset(ob, resetTime, $storage) {
         if (typeof ob().reset === 'function') {
@@ -720,7 +740,7 @@ class GameServer extends MUDEventEmitter {
             }
             let prev = $storage.resetTime;
 
-            resetTime = Math.floor(resetTime / 5000 * 5000);
+            resetTime = Math.floor((resetTime / 5000) * 5000);
             $storage.nextReset = resetTime;
 
             if (prev > 0 && prev in this.resetTimes) {
@@ -745,8 +765,8 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Removes a living object from the list of living objects.
-     * @param {MUDObject} body
-     * @returns {boolean}
+     * @param {MUDObject} body Remove a living object from the list maintained by the game.
+     * @returns {boolean} Returns true if the living item existed in the list and was removed.
      */
     removeLiving(body) {
         return unwrap(body, living => {
@@ -762,6 +782,7 @@ class GameServer extends MUDEventEmitter {
     /**
      * Remove a player from the list of active players.
      * @param {MUDObject} body The player to remove.
+     * @returns {boolean} True if the player was removed successfully.
      */
     removePlayer(body) {
         return unwrap(body, player => {
@@ -1035,12 +1056,7 @@ class GameServer extends MUDEventEmitter {
 
     validObject(arg) {
         let result = unwrap(arg, ob => {
-            if (ob.filename === this.simulEfunPath) {
-                this.createSimulEfuns();
-                return true;
-            }
-            else if (this.gameState <  GAMESTATE_INITIALIZING)
-                return true;
+            if (this.gameState < GAMESTATE_INITIALIZING) return true;
             else if (this.applyValidObject === false) return true;
             else return this.applyValidObject.apply(this.masterObject, arguments);
         });

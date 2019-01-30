@@ -4,22 +4,19 @@
  * Date: October 1, 2017
  */
 const
-    acorn = require('acorn-jsx'),
-    fs = require('fs'),
-    ExtensionText = fs.readFileSync('src/Extensions.js', 'utf8');
+    fs = require('fs');
 
 const
     MUDLoader = require('./MUDLoader'),
     PipeContext = require('./compiler/PipelineContext'),
     PipelineContext = PipeContext.PipelineContext,
     CompilerPipeline = require('./compiler/CompilerPipeline'),
-    VMAbstraction = require('./compiler/VMAbstraction'),
     GameServer = require('./GameServer'),
     MUDModule = require('./MUDModule'),
     MUDCache = require('./MUDCache');
 
 var
-    VM;
+    VM, loaders = {};
 
 class MUDCompiler {
     /**
@@ -109,16 +106,19 @@ class MUDCompiler {
     /**
      * Create a loader for the specified pipeline and module.
      * @param {CompilerPipeline} pipeline The pipeline to execute.
-     * @param {MUDModule} module The module to load.
      * @param {MUDCompilerOptions} compilerOptions Options to the compiler.
      * @returns {MUDLoader} A mud loader instance.
      */
-    getLoader(pipeline, module, compilerOptions) {
-        let loader = this.loaders[pipeline.loaderName];
-        if (!loader) {
-            throw new Error('Invalid loader requested');
+    getLoader(pipeline) {
+        let instance = loaders[pipeline.loaderName] || false;
+        if (!instance) {
+            let loaderType = this.loaders[pipeline.loaderName];
+            if (!loaderType) {
+                throw new Error(`Pipeline '${pipeline.name}' did not specify a loader type!`);
+            }
+            instance = loaders[pipeline.loaderName] = new loaderType(this);
         }
-        return new loader(module.efunProxy, this, module.directory, pipeline.loaderOptions, compilerOptions);
+        return instance;
     }
 
     /**
@@ -159,8 +159,8 @@ class MUDCompiler {
 
     /**
      * Attempts to compile the requested file into a usable MUD object.
-     * @param {MUDCompilerOptions} options
-     * @returns {MUDModule}
+     * @param {MUDCompilerOptions} options Hints for the compiler.
+     * @returns {MUDModule} The compiled module
      */
     compileObject(options) {
         if (!options)
@@ -209,66 +209,60 @@ class MUDCompiler {
                         context.filename,
                         context.resolvedName,
                         context.directory,
-                        virtualData !== false);
+                        virtualData !== false,
+                        options.isMixin === true);
 
-                    if (driver.config.driver.useObjectProxies) {
-                        module.allowProxy = true;
-                    }
-
-                    module.loader = this.getLoader(pipeline, module, options);
+                    module.loader = this.getLoader(pipeline, options);
                     if (options.altParent) {
                         module.loader[options.altParent.name] = options.altParent;
                     }
-                    let vmresult = VM.run(context, module);
 
-                    let result = module.context.primaryExport || (options.noParent && vmresult);
-
-                    if (!module.efunProxy.isClass(result)) {
-                        throw new Error(`Error: Module ${context.filename} did not return a class; Did you forget to export?`);
-                    }
-
-                    module.allowProxy = module.loader.allowProxy;
+                    VM.run(context, module);
+                    let result = module.classRef, isReload = module.loaded;
 
                     if (result) {
-                        var isReload = module.loaded;
-
-                        module.setClassRef(module.context.primaryExport);
-                        module.singleton = isVirtual ? module.singleton || virtualData.singleton : module.context.isSingleton();
+                        module.singleton = false;
 
                         if (this.sealTypesAfterCompile && !options.noSeal) {
                             Object.seal(module.classRef);
                         }
 
-                        if (typeof module.classRef === 'function') {
+                        if (module.efuns.isClass(result)) {
                             try {
                                 let instance = false;
+
                                 if (!options.noCreate) {
                                     instance = module.createInstance(0, isReload, options.args);
 
                                     if (!this.driver.validObject(instance)) {
-                                        throw new Error(`Could not load ${context.filename} [Illegal Object]`);
+                                        if (options.isMixin) {
+                                            if (instance() instanceof MUDMixin === false)
+                                                throw new Error(`Could not load ${context.filename} [Illegal Mixin]`);
+                                        }
+                                        else
+                                            throw new Error(`Could not load ${context.filename} [Illegal Object]`);
                                     }
                                 }
                                 if (isReload && typeof result.onRecompile === 'function') {
+                                    // TODO: Make this an event
                                     result.onRecompile(instance);
                                 }
-
-                                module.loaded = true;
-                                this.driver.cache.store(module);
-
-                                if (isReload) {
-                                    module.recompiled();
-                                }
-                                return module;
                             }
                             catch (e) {
                                 throw this.driver.cleanError(e);
                             }
                         }
-                        else {
-                            throw new Error(`Could not load ${context.filename} [File did not return class definition]`);
-                        }
+
                     }
+
+                    module.loaded = true;
+
+                    if (!isReload)
+                        this.driver.cache.store(module);
+                    else
+                        module.recompiled();
+
+                    return module;
                 }
                 else {
                     switch (context.state) {
@@ -285,6 +279,7 @@ class MUDCompiler {
                 }
             }
             catch (err) {
+                let t1 = new Date().getTime();
                 if (module && module.stats) {
                     module.stats.errors++;
                 }
@@ -293,16 +288,13 @@ class MUDCompiler {
                 }
                 this.driver.cleanError(cerr = err);
                 this.driver.logError(context.filename, err);
+                logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ERROR: ${cerr.message}]`);
+                logger.log(cerr.stack || cerr.trace);
                 throw err;
             }
             finally {
-                var t1 = new Date().getTime();
-                if (cerr) {
-                    logger.log(`\t\tLoad timer: ${options.file} [${(t1 - t0)} ms; ERROR: ${cerr.message}]`);
-                    logger.log(cerr.stack || cerr.trace);
-                }
-                else
-                    logger.log(`\t\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
+                let t1 = new Date().getTime();
+                if (!cerr) logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
             }
             return false;
         }

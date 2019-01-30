@@ -40,7 +40,14 @@
      * @param req
      * @param callback
      */
-    readDirectory(efuns: EFUNProxy, req: FileSystemRequest, callback: (results: any[], err: Error) => void): any[];
+    readDirectoryAsync(efuns: EFUNProxy, req: FileSystemRequest, callback: (results: any[], err: Error) => void): any[];
+
+    /**
+     * Read contents from a directory in the filesystem.
+     * @param efuns
+     * @param req
+     */
+    readDirectorySync(efuns: EFUNProxy, req: FileSystemRequest): any[];
 
     /**
      * Read a file from the filesystem.

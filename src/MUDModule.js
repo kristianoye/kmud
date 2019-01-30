@@ -4,9 +4,7 @@
  * Date: October 1, 2017
  */
 var
-    MUDConfig = require('./MUDConfig'),
     GameServer = require('./GameServer'),
-    EFUNProxy = require('./EFUNProxy'),
     MUDCreationContext = require('./MUDCreationContext'),
     MUDLoader = require('./MUDLoader'),
     async = require('async'),
@@ -14,8 +12,6 @@ var
 
 var
     creationContext = false,
-    DomainStats = false,
-    useProxies = false,
     useAuthorStats = false,
     useDomainStats = false,
     useStats = false;
@@ -24,9 +20,15 @@ var
  * Contains information about a previously loaded MUD module.
  */
 class MUDModule {
-    constructor(filename, fullPath, mudpath, isVirtual) {
-        this.allowProxy = false;
-
+    /**
+     * 
+     * @param {string} filename The name of the file?
+     * @param {string} fullPath The full filesystem path
+     * @param {string} mudpath The full mud path
+     * @param {boolean} isVirtual Is this a virtual request?
+     * @param {boolean} isMixin Is this a mixin module?
+     */
+    constructor(filename, fullPath, mudpath, isVirtual, isMixin) {
         /**
          * Contains reference to all the child modules that inherit this module.
          * @type {MUDModule[]} */
@@ -36,21 +38,21 @@ class MUDModule {
 
         this.context = null;
 
-        this.efunProxy = driver.simulEfunType ? driver.createSimulEfuns(filename, mudpath) : EFUNProxy.createEfunProxy(filename, mudpath);
+        this.exports = false;
 
         /** @type {MUDObject[]} */
         this.instances = [];
 
-        /** @type {string} */
+        this.isMixin = isMixin === true;
+
         this.directory = mudpath;
 
-        /** @type {string} */
         this.filename = filename;
 
-        /** @type {string} */
+        this.name = filename.slice(filename.lastIndexOf('/') + 1);
+
         this.fullPath = fullPath;
 
-        /** @type {boolean} */
         this.isVirtual = isVirtual;
 
         /** @type {boolean} */
@@ -62,8 +64,6 @@ class MUDModule {
         /** @type {MUDModule} */
         this.parent = null;
 
-        this.proxies = [null];
-
         this.singleton = false;
 
         this.wrappers = [null];
@@ -71,20 +71,58 @@ class MUDModule {
         driver.preCompile(this);
     }
 
+    addExport(val) {
+        if (this.efuns.isClass(this.exports)) {
+            let exports = {}, mod = this.exports;
+
+            exports[mod.name] = mod;
+            this.exports = exports;
+        }
+        else if (Array.isArray(this.exports)) {
+            let exports = {};
+
+            this.exports.forEach(exp => { exports[exp.name] = exp; });
+            this.exports = exports;
+        }
+        if (this.efuns.isClass(val)) {
+            if (this.exports)
+                this.exports[val.name] = val;
+            else
+                this.exports = val;
+        }
+        else if (typeof val === 'object') {
+            this.exports = Object.assign(this.exports || {}, val);
+        }
+        else if (Array.isArray(val)) {
+            if (this.exports) {
+                val.forEach(exp => this.exports[exp.name] = exp);
+            } else {
+                this.exports = val;
+            }
+        }
+        this.classRef = this.exports[this.name] || this.exports;
+    }
+
+    createCreationContext() {
+
+    }
     /**
      * Creates an instance of an object.
      * @param {number} instanceId The instance ID being generated.
      * @param {boolean} isReload Indicates whether object is being reloaded
      * @param {object} args Arguments to pass to the object constructor
+     * @param {MUDObject} instance An instance is already created.  It needs context.
+     * @returns {MUDObject|false} Returns a new instance wrapper or false on failure.
      */
-    createInstance(instanceId, isReload, args) {
+    createInstance(instanceId, isReload, args, instance) {
         let prevContext = creationContext,
             nextId = this.instances.length,
             oldInstance = instanceId > -1 ? this.instances[instanceId] || false : false,
-            thisInstanceId = instanceId === -1 ? nextId : instanceId;
+            thisInstanceId = instanceId === -1 ? nextId : instanceId,
+            needContext = typeof instance === 'object';
 
         try {
-            var instanceWrapper = this.getWrapper(thisInstanceId, isReload);
+            let instanceWrapper = this.getWrapper(thisInstanceId, isReload);
             creationContext = new MUDCreationContext(
                 thisInstanceId,
                 this.filename,
@@ -93,55 +131,68 @@ class MUDModule {
                 args,
                 this.directory);
 
-            var instance = null; // new this.classRef(creationContext);
-            if (true) {
-                if (instanceId === -1) {
-                    if (this.singleton)
-                        throw 'That object cannot be cloned!';
+            if (!instance)
+                instance = false;
+
+            if (instanceId === -1) {
+                if (this.singleton)
+                    throw 'That object cannot be cloned!';
+                if (!instance)
                     instance = this.createObject(thisInstanceId, creationContext);
-                    this.instances.push(instance);
-                    instanceId = nextId;
-                }
-                else {
-                    if (instanceId > nextId)
-                        throw 'Instance does not exist!  This should not happen!';
+                this.instances.push(instance);
+                instanceId = nextId;
+            }
+            else {
+                if (instanceId > nextId)
+                    throw 'Instance does not exist!  This should not happen!';
 
-                    if (oldInstance) {
-                        oldInstance.destroy(isReload);
-                    }
+                if (oldInstance) {
+                    oldInstance.destroy(isReload);
+                }
+                if (!instance)
                     instance = this.createObject(thisInstanceId, creationContext);
-                    this.instances[instanceId] = instance;
-                }
-                if (useProxies) {
-                    this.proxies[instanceId] = this.getProxy(instanceId, isReload);
-                }
-                let store = driver.storage.get(instance);
-
-                instance.create(store);
-
-                if (this.stats) {
-                    store.stats = this.stats;
-                    this.stats.objects++;
-                    this.stats.arrays += store.getSizeOf();
-                }
-
-                Object.defineProperty(instance, 'wrapper', {
-                    value: instanceWrapper,
-                    writable: false,
-                    enumerable: false
-                });
-
-                driver.registerReset(instanceWrapper, false, store);
-
+                this.instances[instanceId] = instance;
+            }
+            if (this.isMixin) {
                 return instanceWrapper;
             }
-            creationContext = prevContext;
+            let store = needContext && driver.storage.get(instance);
+
+            !needContext && instance.create(store);
+
+            if (this.stats && !this.isMixin) {
+                store.stats = this.stats;
+                this.stats.objects++;
+                this.stats.arrays += store.getSizeOf();
+            }
+
+            Object.defineProperty(instance, 'wrapper', {
+                value: instanceWrapper,
+                writable: false,
+                enumerable: false
+            });
+
+            driver.registerReset(instanceWrapper, false, store);
+
+            return needContext ? creationContext : instanceWrapper;
         }
         catch (_e) {
-            creationContext = prevContext;
             throw _e;
         }
-        return false;
+        finally {
+            creationContext = prevContext;
+        }
+    }
+
+    createObject(id, creationContext) {
+        try {
+            return this.isMixin ?
+                new this.classRef() :
+                new this.classRef(creationContext);
+        }
+        catch (err) {
+            throw err;
+        }
     }
 
     destroyInstance(t) {
@@ -149,89 +200,6 @@ class MUDModule {
         var id = t.instanceId;
         this.wrappers[id] = null;
         this.instances[id] = null;
-    }
-
-    getProxy(n, isReload) {
-        var self = this,
-            proxy = this.proxies[n];
-
-        if (!proxy || isReload) {
-            this.proxies[n] = proxy = (function (_this) {
-                var _proxy = new Proxy(_this, {
-                    apply: function (target, thisArg, argList) {
-                        return driver.addObjectFrame(_this, () => {
-                            return Reflect.apply(_this, thisArg, argList);
-                        });
-                    },
-                    construct: function () {
-                        throw new Error('Illegal operation');
-                    },
-                    defineProperty: function (target, property, descriptor) {
-                        return driver.addObjectFrame(_this, () => {
-                            return Reflect.defineProperty(target, property, descriptor);
-                        });
-                    },
-                    deleteProperty: function (target, property) {
-                        return driver.addObjectFrame(_this, () => {
-                            return Reflect.deleteProperty(target, property);
-                        });
-                    },
-                    get: function (target, property, receiver) {
-                        const originalMethod = _this[property];
-
-                        if (property === 'wrapper')
-                            return _this.wrapper;
-
-                        if (typeof originalMethod === 'function') {
-                            return function (...args) {
-                                return driver.addObjectFrame(_this, () => {
-                                    return originalMethod.apply(this, args);
-                                });
-                            };
-                        }
-                        return Reflect.get(_this, property, receiver);
-                    },
-                    getOwnPropertyDescriptor: function (target, property) {
-                        return driver.addObjectFrame(_this, () => {
-                            return Object.getOwnPropertyDescriptor(_this, property);
-                        });
-                    },
-                    getPrototypeOf: function (target) {
-                        return driver.addObjectFrame(_this, () => {
-                            return Object.getPrototypeOf(_this);
-                        });
-                    },
-                    has: function (target, prop) {
-                        return driver.addObjectFrame(_this, () => {
-                            return prop in _this;
-                        });
-                    },
-                    isExtensible: function (target) {
-                        return false;
-                    },
-                    ownKeys: function (target) {
-                        return driver.addObjectFrame(_this, () => {
-                            return Reflect.ownKeys(_this);
-                        });
-                    },
-                    preventExtensions: function (target) {
-                        Object.preventExtensions(_this);
-                        return true;
-                    },
-                    set: function (target, prop, value, receiver) {
-                        return driver.addObjectFrame(_this, () => {
-                            target[prop] = value;
-                            return true;
-                        });
-                    },
-                    setPrototypeOf: function (target, prototype) {
-                        throw new Error('Access violation');
-                    }
-                });
-                return _proxy;
-            })(this.instances[n]);
-        }
-        return proxy;
     }
 
     /**
@@ -247,34 +215,16 @@ class MUDModule {
         if (typeof n === 'object') {
             n = this.instances.indexOf(n);
         }
-        var self = this,
-            wrapper = this.wrappers[n];
-
+        let wrapper = this.wrappers[n];
         if (!wrapper) {
-            if (useProxies) {
-                wrapper = this.wrappers[n] = (function (_n) {
-                    return function () {
-                        var result = self.allowProxy ? self.proxies[_n] : self.instances[_n];
-                        if (!result) {
-                            self.createInstance(_n, true);
-                            result = self.allowProxy ? self.proxies[_n] : self.instances[_n];
-                        }
-                        return result;
-                    };
-                })(n);
-            }
-            else {
-                wrapper = this.wrappers[n] = (function (_n) {
-                    return function () {
-                        var result = self.instances[_n];
-                        if (!result) {
-                            self.createInstance(_n, true);
-                            result = self.instances[_n];
-                        }
-                        return result;
-                    };
-                })(n);
-            }
+            wrapper = this.wrappers[n] = () => {
+                let result = this.instances[n];
+                if (!result) {
+                    this.createInstance(n, true);
+                    result = this.instances[n];
+                }
+                return result;
+            };
             wrapper._isWrapper = true;
         }
         return wrapper;
@@ -282,7 +232,7 @@ class MUDModule {
 
     /**
      * Import a module into the global scope.
-     * @param {any} target
+     * @param {Object.<string,any>} target The namespace to import to.
      */
     importScope(target) {
         let exports = {}, count = 0;
@@ -348,58 +298,6 @@ class MUDModule {
             }
         });
     }
-
-    setClassRef(cr) {
-        var module = this;
-
-        module.classRef = cr;
-
-        Object.defineProperties(cr.prototype, {
-            basename: {
-                value: module.efunProxy.filename,
-                writable: false
-            },
-            directory: {
-                value: module.efunProxy.directory,
-                writable: false
-            },
-            filename: {
-                get: function () {
-                    return module.efunProxy.filename + (this.instanceId ? '#' + this.instanceId : '');
-                }
-            },
-            permissions: {
-                value: module.efunProxy.permissions,
-                writable: false
-            }
-        });
-        Object.defineProperties(cr, {
-            filename: {
-                get: function () { return module.efunProxy.filename; }
-            }
-        });
-        if (module.isVirtual) {
-            let parent = driver.cache.resolve(module.fullPath);
-            if (parent) {
-                module.parent = parent;
-                parent.children.pushDistinct(module);
-            }
-        }
-        else if (cr.prototype) {
-            if (cr.prototype.__proto__) {
-                if (cr.prototype.__proto__.constructor) {
-                    if (cr.prototype.__proto__.constructor.filename) {
-                        let pfn = cr.prototype.__proto__.constructor.filename,
-                            parent = driver.cache.get(pfn);
-                        if (parent) {
-                            module.parent = parent;
-                            parent.children.pushDistinct(module);
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 /**
@@ -407,69 +305,10 @@ class MUDModule {
  * @param {GameServer} driver The active game driver
  */
 MUDModule.configureForRuntime = function (driver) {
-    useProxies = driver.config.driver.useObjectProxies;
     useAuthorStats = driver.config.driver.featureFlags.authorStats === true;
     useDomainStats = driver.config.driver.featureFlags.domainStats === true;
     useStats = useAuthorStats | useDomainStats;
     if (useStats) DomainStats = require('./features/DomainStats');
-
-    var creationContext = new MUDCreationContext(0);
-
-    let objectCreationMethod = driver.config.driver.objectCreationMethod;
-
-    if (objectCreationMethod === 'inline') {
-        MUDModule.prototype.createObject = function (id, creationContext) {
-            return new this.classRef(creationContext);
-        };
-    }
-    else if (objectCreationMethod === 'thinWrapper') {
-        MUDModule.prototype.createObject = function (id, creationContext) {
-            let scriptSource = `(function($ctx) {  
-                        class WrapperType extends ${this.classRef.name} { 
-                            constructor(ctx) { super(ctx); }
-
-                        }
-                        return new WrapperType($ctx);
-                    })`.trim();
-            let script = new vm.Script(scriptSource, {
-                filename: creationContext.filename + (id !== 0 ? '#' + id : '')
-            });
-            let foo = script.runInContext(this.context);
-            return foo(creationContext);
-        };
-    }
-    else if (objectCreationMethod === 'fullWrapper') {
-        MUDModule.prototype.createObject = function (id, creationContext) {
-            let moduleName = this.classRef.name,
-                methodBlock = Object.getOwnPropertyNames(this.classRef.prototype).filter(propId => {
-                    if (propId === 'constructor') return false;
-                    var desc = Object.getOwnPropertyDescriptor(this.classRef.prototype, propId);
-                    return typeof desc.value === 'function';
-                }).concat(['preprocessInput']).map(name => `\t${name}() { return super.${name}.apply(this, arguments); }\n`).join('\n');
-            let scriptSource = [`
-(function($ctx, $storage) {  
-    class ${moduleName}Wrapper extends ${this.classRef.name} { 
-        constructor(ctx) { super(ctx); }
-`.trim(),
-                methodBlock,
-            `}
-
-    return new ${moduleName}Wrapper($ctx);
-})`].join('\n');
-            let options = {
-                displayErrors: true,
-                filename: creationContext.filename + (id !== 0 ? '#' + id : ''),
-                lineOffset: 1
-            };
-            if (driver.config.driver.compiler.maxConstructorTime > 0) {
-                options.timeout = driver.config.driver.compiler.maxConstructorTime;
-            }
-            let script = new vm.Script(scriptSource, options);
-            let foo = script.runInContext(this.context);            
-            let instance = foo(creationContext, driver.storage.createForId(creationContext.filename, id));
-            return instance;
-        };
-    }
 };
 
 module.exports = MUDModule;

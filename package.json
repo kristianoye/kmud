@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "KMUD",
   "main": "server.js",
+  "directories": {
+    "lib": "./lib"
+  },
   "author": {
     "name": "Kristian Oye <kristianoye@gmail.com>"
   },

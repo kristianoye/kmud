@@ -1,4 +1,9 @@
-﻿const
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
+const
     { FileSystem, FileSystemStat } = require('../FileSystem'),
     FileManager = require('../FileManager'),
     async = require('async'),
@@ -405,7 +410,7 @@ class DefaultFileSystem extends FileSystem {
                 result = [];
 
             if (req.flags === 0)
-                return files;
+                return pattern ? files.filter(fn => pattern.test(fn)) : files;
 
             files.forEach(fn => {
                 let fd = this.createStat({ exists: true, name: fn, parent: req.fullPath });
@@ -427,9 +432,6 @@ class DefaultFileSystem extends FileSystem {
                     if ((fd.isFile = stat.isFile()) && (req.flags & MUDFS.GetDirFlags.Files) === 0)
                         return false;
                     fd.merge(stat);
-                }
-                if ((req.flags & MUDFS.GetDirFlags.Perms) > 0) {
-
                 }
                 result.push(fd);
             });

@@ -1,4 +1,9 @@
-﻿const
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
+const
     MUDEventEmitter = require('./MUDEventEmitter'),
     { NotImplementedError, SecurityError } = require('./ErrorTypes'),
     GameServer = require('./GameServer');
@@ -96,12 +101,21 @@ class FileSecurity extends MUDEventEmitter {
 
     /**
      * Attempt to read a directory.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
-     * @param {function=} callback
+     * @param {EFUNProxy} efuns The object requesting the operation.
+     * @param {FileSystemRequest} req The filesystem request.
+     * @param {function} [callback] A callback for non-Promise style async.
      */
-    async readDirectory(efuns, req, callback) {
-        throw new NotImplementedError('readDirectory');
+    async readDirectoryAsync(efuns, req, callback) {
+        throw new NotImplementedError('readDirectoryAsync');
+    }
+
+    /**
+     * Attempt to read a directory.
+     * @param {EFUNProxy} efuns The object requesting the operation.
+     * @param {FileSystemRequest} req The filesystem request.
+     */
+    async readDirectorySync(efuns, req) {
+        throw new NotImplementedError('NotImplementedError');
     }
 
     /**

@@ -4,25 +4,17 @@
  * Date: October 1, 2017
  */
 const
-    stack = require('callsite'),
-    async = require('async'),
     crypto = require('crypto'),
+    fs = require('fs'),
     path = require('path'),
     os = require('os'),
-    sprintf = require('sprintf').sprintf,
-    MUDConfig = require('./MUDConfig'),
-    { SecurityError } = require('./ErrorTypes'),
-    util = require('util'),
-    fs = require('fs'),
-    vm = require('vm'),
-    MXC = require('./MXC');
+    sprintf = require('sprintf').sprintf;
 
 const
     KiloByte = 1024,
     MegaByte = KiloByte * 1000,
     GigaByte = MegaByte * 1000,
-    TeraByte = GigaByte * 1000,
-    _unguarded = '_unguarded';
+    TeraByte = GigaByte * 1000;
 
 const
     PLURAL_SUFFIX = 1,
@@ -36,6 +28,18 @@ var
     MUDArgs = require('./MUDArgs');
 
 class EFUNProxy {
+    /**
+     * Construct a proxy object.
+     * @param {string} file The filename of the module holding this instance.
+     */
+    constructor(file) {
+        this.directory = file.slice(0, file.lastIndexOf('/'));
+        this.fullPath = file;
+        this.fileName = file.slice(file.lastIndexOf('/') + 1);
+        this.exported = {};
+        this.imported = {};
+    }
+
     /**
      * Return an absolute value
      * @param {number} n The signed value to get an ansolute value for.
@@ -59,9 +63,9 @@ class EFUNProxy {
     }
 
     /**
-     * 
-     * @param {any} opts
-     * @param {any} callback
+     * Add a prompt to the current user's input stack.
+     * @param {string|MUDPrompt} opts The prompt options.
+     * @param {function(string):void} callback The callback that fires when the user has entered text.
      */
     addPrompt(opts, callback) {
         let mxc = driver.getContext();
@@ -174,8 +178,14 @@ class EFUNProxy {
         return driver.config.mud.passwordPolicy.checkPassword(plain, crypto, callback);
     }
 
+    /**
+     * Retrieve client capabilities.
+     * @param {MUDObject|MUDWrapper} target The object to retrieve caps for.
+     * @returns {{ clientHeight: number, clientWidth: number, colorEnabled: boolean, htmlEnabled: boolean, soundEnabled: boolean }} Client capabilities.
+     */
     clientCaps(target) {
         let $storage = false;
+
         if (!target) {
             $storage = driver.currentContext && driver.currentContext.$storage;
         }
@@ -184,7 +194,7 @@ class EFUNProxy {
         }
         if ($storage) {
             let caps = $storage.getProtected('$clientCaps');
-            return caps.queryCaps();
+            if (caps) return caps.queryCaps();
         }
         return {
             clientHeight: 24,
@@ -249,22 +259,17 @@ class EFUNProxy {
         return rows.join('\n');
     }
 
+    /**
+     * Consolidates a number of short descriptions into an array to be used in a sentence.
+     * @param {string[]|MUDObject[]} arr An array of strings and/or MUD Objects.
+     * @returns {string[]} A considated array (e.g. ["two swords", "three buckets"])
+     */
     consolidateArray (arr) {
-        var shorts = {},
-            strings = arr.map(s => {
-                if (typeof s === 'string')
-                    return s;
-                var uw = unwrap(s);
-                return uw ? uw.shortDescription : false;
-            }).filter(s => s !== false);
-        strings.forEach(s => {
-            if (typeof shorts[s] === 'undefined')
-                shorts[s] = 0;
-            shorts[s]++;
-        });
-        return Object.keys(shorts).map(s => {
-            return this.consolidate(shorts[s], s).ucfirst();
-        });
+        let shorts = {};
+        arr.map(s => typeof s === 'string' && s || unwrap(uw => uw.shortDescription) || false)
+            .filter(s => s !== false)
+            .forEach(s => shorts[s] = (shorts[s] || 0) + 1);
+        return Object.keys(shorts).map(s => this.consolidate(shorts[s], s).ucfirst());
     }
 
     /**
@@ -437,10 +442,22 @@ class EFUNProxy {
     }
 
     /**
+     * Extends a class using functionality from another type (pseudo-mixin)
+     * @param {function} target The target type to extend.
+     * @param {string} exp The module that contains the extension
      * 
-     * @param {any} global
      */
-    extendGlobal(global) {
+    addMixin(target, exp) {
+        let filename = this.resolvePath(exp, this.directory),
+            module = driver.compiler.compileObject({
+                file: filename,
+                isMixin: true,
+                reload: false,
+                relativePath: this.directory
+            });
+        if (!module)
+            throw new Error(`Failed to load required module '${filename}'`);
+        module.instances[0].$extendType(target);
     }
 
     /**
@@ -487,6 +504,16 @@ class EFUNProxy {
         return result === true;
     }
 
+    get exports() {
+        let module = driver.cache.get(this.fullPath);
+        return module.exports;
+    }
+
+    set exports(val) {
+        let module = driver.cache.get(this.fullPath);
+        return module.addExport(val);
+    }
+
     /**
      * Check to see if a specific Mudlib feature is enabled or not.
      * @param {string} feature The name of the feature to check.
@@ -500,6 +527,7 @@ class EFUNProxy {
     /**
      * Locate an object within the game.
      * @param {string} filename The path to search for.
+     * @returns {MUDObject|false} Returns the object reference or null.
      */
     findObject(filename) {
         var parts = filename.split('#', 2),
@@ -516,7 +544,8 @@ class EFUNProxy {
     /**
      * Find a player in the game.
      * @param {string} name The name of the character to find.
-     * @param {bool=} partial If true then partial name matches are permitted (default: false)
+     * @param {bool} partial If true then partial name matches are permitted (default: false)
+     * @returns {MUDObject|false} Attempts to return the specified player.
      */
     findPlayer(name, partial) {
         if (typeof name !== 'string')
@@ -524,8 +553,11 @@ class EFUNProxy {
 
         let search = name.toLowerCase().replace(/[^a-zA-Z0-9]+/g, ''),
             len = search.length,
-            matches = driver.players.filter(p => p().getName() === search || (partial && p().getName().slice(0, len) === search));
-
+            matches = driver.players
+                .filter(p => {
+                    let pn = p().getName();
+                    return pn === search || partial && pn.slice(0, len) === search;
+                });
         return matches.length === 1 ? matches[0] : false;
     }
 
@@ -540,8 +572,9 @@ class EFUNProxy {
     /**
      * Return filenames matching the specified file pattern.
      * @param {string} expr The pattern to match.
-     * @param {number=} flags Additional detail flags.
-     * @param {function=} callback An optional callback for async operation.
+     * @param {number} flags Additional detail flags.
+     * @param {function} callback An optional callback for async operation.
+     * @returns {void}
      */
     async readDirectory(expr, flags, callback) {
         if (typeof flags === 'function') (callback = flags), (flags = 0);
@@ -552,6 +585,28 @@ class EFUNProxy {
             return await driver.fileManager.readDirectory(this, this.resolvePath(expr), flags, true);
         else
             return driver.fileManager.readDirectory(this, this.resolvePath(expr), flags);
+    }
+
+    /**
+     * Read a directory asyncronously.
+     * @param {string} expr The path expression to read.
+     * @param {number} flags Flags to indicate what type of information is being requested.
+     * @param {function(string[],Error):void} callback If specified, use callback-style async instead of returning a Promise
+     * @returns {Promise<string[]>|void} Returns a Promise unless 
+     */
+    readDirectoryAsync(expr, flags, callback) {
+        return driver.fileManager.readDirectoryAsync(
+            this,
+            this.resolvePath(expr, this.directory),
+            flags || 0,
+            callback || true);
+    }
+
+    readDirectorySync(expr, flags) {
+        return driver.fileManager.readDirectorySync(
+            this,
+            this.resolvePath(expr, this.directory),
+            flags || 0);
     }
 
     /**
@@ -580,6 +635,12 @@ class EFUNProxy {
         }
     }
 
+    hasBrowser(target) {
+        return unwrap(target, o => {
+            return this.clientCaps(o).htmlEnabled;
+        }) || false;
+    }
+
     /**
      * Indents a string by prefixing each line with whitespace.
      * @param {string} str The string to indent.
@@ -593,23 +654,6 @@ class EFUNProxy {
             .join('\n');
     }
 
-    /**
-     * Compute the possible file locations of one or more include files.
-     * @param {...string[]} files One or more files to locate.
-     * @returns {string[]} One or more computed file paths.
-     */
-    includePath (...files) {
-        let includePath = driver.includePath.slice(0).concat([this.directory]), result = [];
-
-        files.forEach(fn => {
-            includePath.forEach(dir => {
-                var path = this.resolvePath(fn, dir);
-                if (!path.endsWith('.js')) path += '.js';
-                result.push(path);
-            });
-        });
-        return files.length === 0 ? driver.includePath : result;
-    }
 
     /**
      * Determines whether the specified path expression is a directory.
@@ -627,7 +671,7 @@ class EFUNProxy {
      * @returns {boolean} True if the value is a class reference.
      */
     isClass (o) {
-        return o && /\s*class /.test(o.toString());
+        return typeof o === 'function' && /^\s*class /.test(o.toString());
     }
 
     /**
@@ -656,17 +700,19 @@ class EFUNProxy {
      * @returns {boolean} True if the object is alive or false if not.
      */
     isLiving(target) {
-        return unwrap(target, (ob) => ob.isLiving());
+        return unwrap(target, (ob) => ob.isLiving(), false);
     }
 
     /**
      * Attempts to find the specified object.  If not found then the object is compiled and returned.
      * @param {string} expr The filename of the object to try and load.
      * @param {any} args If the object is not found then these arguments are passed to the constructor.
-     * @param {function=} callback The optional callback if loading asyncronously.
+     * @param {function(MUDObject):void} [callback] The optional callback if loading asyncronously.
+     * @returns {MUDObject} The object (or false if object failed to load)
      */
     loadObject(expr, args, callback) {
-        let result = driver.fileManager.loadObject(this, this.resolvePath(expr), args, callback);
+        let result = driver.fileManager
+            .loadObject(this, this.resolvePath(expr), args, callback);
         return result;
     }
 
@@ -1308,20 +1354,72 @@ class EFUNProxy {
     }
 
     /**
+     * Import one or more required resources from another module.
+     * @param {string} moduleName The module name to import.
+     * @returns {any} The results of the import.
+     */
+    require(moduleName) {
+        if (typeof moduleName === 'string') {
+            switch (moduleName) {
+                case 'lpc':
+                    return require('./LPCCompat');
+
+                case 'path':
+                    return path.posix;
+
+                case 'async':
+                case 'net':
+                    return require(moduleName);
+
+                default:
+                    let isInclude = moduleName.indexOf('/') === -1,
+                        filename = isInclude ?
+                            this.resolveInclude(moduleName) :
+                            this.resolvePath(moduleName, this.directory),
+                        module = driver.compiler.compileObject({
+                            file: filename,
+                            reload: false,
+                            relativePath: this.directory
+                        });
+                    if (!module)
+                        throw new Error(`Failed to load required module '${filename}'`);
+                    return module.exports;
+            }
+        }
+    }
+
+    /**
+     * Attempt to find an include file.
+     * @param {string} file The include file to locate.
+     * @returns {string|false} Returns the path name of the file or false if not found.
+     */
+    resolveInclude(file) {
+        let result = driver.includePath.map(p => {
+            try {
+                let files = this.readDirectorySync(path.posix.join(p, file) + '*');
+                return files[0] ? path.posix.join(p, files[0]) : false;
+            }
+            catch (err) {
+                // Empty by design
+            }
+            return false;
+        }).filter(p => p)[0] || false;
+        return result;
+    }
+
+    /**
      * Attempt to convert a partial MUD path into a fully-qualified MUD path.
-     * @param {string} expr
-     * @param {string} expr2
-     * @param {any} callback
-     * @returns {string}
+     * TODO: Rewrite this ugly method to be more like path.resolve()
+     * @param {string} expr The expression to resolve.
+     * @param {string} expr2 The relative directory to resolve from.
+     * @param {function(string): any} callback The callback to execute when complete... why?
+     * @returns {string} The resolved directory
      */
     resolvePath(expr, expr2, callback) {
-        if (typeof expr2 === 'function') {
-            callback = expr2;
-            expr2 = false;
-        }
-        else if (typeof expr2 !== 'string') {
-            expr2 = false;
-        }
+        callback = callback || typeof expr2 === 'function' && expr2;
+        expr2 = typeof expr2 === 'string' && expr2 || this.directory;
+        if (expr[0] === '/')
+            return typeof callback === 'function' && callback(expr) || expr;
         if (expr[0] === '~') {
             var re = /^~([\\\/])*([^\\\/]+)/, m = re.exec(expr) || [];
             if (m.length === 2) {
@@ -1336,9 +1434,7 @@ class EFUNProxy {
                 expr = '/realms/' + expr.slice(1);
             }
         }
-        var result = expr.startsWith('/') ?
-            path.join('/', expr.substr(1)).replace(/\\/g, '/') :
-            path.join(expr2 || this.directory, expr).replace(/\\/g, '/');
+        let result = path.posix.join(expr2, expr);
         return typeof callback === 'function' ? callback(result) : result;
     }
 
@@ -1567,12 +1663,10 @@ class EFUNProxy {
 
     /**
      * Write a message to the current player's screen.
-     * @param {any} expr
+     * @param {string|number|function(...any):string|MUDHtmlComponent} expr The expression to display.
+     * @returns {true} Always returns true.
      */
     write(expr) {
-        let mxc = driver.getContext();
-        if (mxc && mxc.thisPlayer) {
-        }
         this.message('write', expr, driver.thisPlayer);
         return true;
     }
@@ -1581,8 +1675,9 @@ class EFUNProxy {
      * @param {string} filename The file to write to.
      * @param {string} content The content to write.
      * @param {function(boolean,Error):void} callback Optional callback for async mode.
+     * @returns {void}
      */
-    writeFile(filename, content, callback, overwrite) {
+    writeFile(filename, content, callback) {
         return driver.fileManager.writeFile(this,
             this.resolvePath(filename),
             content,
@@ -1594,106 +1689,15 @@ class EFUNProxy {
     }
 }
 
-Object.defineProperties(EFUNProxy.prototype, {
-    getProxy: {
-        value: function (n) {
-            var module = driver.cache.get(this.filename);
-            return module.getProxy(n);
-        },
-        writable: false
-    },
-    getStack: {
-        value: function () {
-            var result = [];
-            stack().forEach(sf => {
-                result.push({
-                    filename: sf.getFileName() || '[Unknown File]',
-                    function: (sf.getFunction() || '').toString(),
-                    functionName: sf.getFunctionName() || '[Anonymous]',
-                    methodName: sf.getMethodName() || '',
-                    foo: sf.getTypeName() || ''
-                });
-            });
-            return JSON.stringify(result, null, 3);
-        },
-        writable: false
-    },
-    hasBrowser: {
-        value: function (target) {
-            var o = unwrap(target);
-            return (typeof o === 'object') &&
-                (typeof o.client === 'object') &&
-                (o.client.isBrowser === true);
-        }
-    }
-});
-
-/**
- * @param {string} filename File to create proxy for.
- * @param {string} directory The directory portion of the filename.
- */
-EFUNProxy.createEfunProxy = function (filename, directory) {
-    let wrapper = new EFUNProxy(), perms = [];
-
-    if (driver.masterObject) {
-        perms = [];// driver.masterObject.getPermissions(filename);
-    }
-    else if (!driver.masterObject) {
-        if (filename === '/') {
-            perms = [driver.config.mudlib.rootUid];
-        }
-        else {
-            perms = [driver.config.mudlib.backboneUid];
-        }
-    }
-    return (function (w, fn, p) {
-        var hd = directory;
-
-        p.forEach(function (s, i) {
-            if (s.startsWith('REALM:'))
-                hd = '/realms/' + s.slice(6);
-            else if (s.startsWith('DOMAIN:'))
-                hd = '/world/' + s.slice(7);
-        });
-
-        Object.defineProperties(w, {
-            directory: {
-                value: directory,
-                writable: false,
-                enumerable: true
-            },
-            filename: {
-                value: fn,
-                writable: false,
-                enumerable: true
-            },
-            homeDirectory: {
-                value: hd,
-                writable: false,
-                enumerable: true
-            }, // TODO: Make this dynamic call to master object.
-            permissions: {
-                value: p,
-                writable: false,
-                enumerable: true
-            }
-        });
-        return Object.seal(w);
-    })(wrapper, filename, perms);
-
-};
-
 String.prototype.ucfirst = function () {
     return this.charAt(0).toUpperCase() + this.slice(1);
 };
 
 /**
  * Configure the EFUNProxy based on configuration
- * @param {GameServer} driver
  */
-EFUNProxy.configureForRuntime = function (driver) {
+EFUNProxy.configureForRuntime = function () {
     SaveExtension = driver.config.mudlib.defaultSaveExtension;
-    driver.efuns = EFUNProxy.createEfunProxy('/', '/');
 };
 
 module.exports = EFUNProxy;

@@ -171,7 +171,7 @@ class MUDConfig {
             /** @type {GameServer} The game server instance */
             gameMaster
                 .setLoginObject('/sys/lib/Login')
-                .enableGlobalErrorHandler()
+                .enableGlobalErrorHandler(true)
                 .run(() => {
                     logger.log('Done with startup');
                 });

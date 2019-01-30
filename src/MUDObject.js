@@ -1,4 +1,4 @@
-﻿/**
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
@@ -6,8 +6,7 @@
 const
     MUDCreationContext = require('./MUDCreationContext'),
     MUDEventEmitter = require('./MUDEventEmitter'),
-    MUDConfig = require('./MUDConfig'),
-    _heartbeat = Symbol('_heartbeat'),
+    $heartbeat = Symbol('_heartbeat'),
     callsite = require('callsite');
 
 const
@@ -76,9 +75,9 @@ function assertProtectedCall(filename) {
 }
 
 function getEfunProxy(t) {
-    var fn = t.basename,
+    let fn = t.basename,
         module = driver.cache.get(fn),
-        efuns = module ? module.efunProxy : false;
+        efuns = module ? module.efuns : false;
     return efuns;
 }
 
@@ -108,16 +107,27 @@ function parseIdentifierList(args, mn) {
 class MUDObject extends MUDEventEmitter {
     /**
      * Initialize the object instance with the context.
-     * @param {MUDCreationContext} ctx
+     * @param {MUDCreationContext} ctx The creation context passed to the constructor.
      */
     constructor(ctx) {
         super();
-        var self = this, fn = false;
+        let lateContext = false;
+
+        if (!ctx) {
+            let mxc = driver.getContext(), tt = mxc.conStack[mxc.conStack.length - 1];
+            let module = driver.cache.get(tt.prototype.fileName);
+            ctx = module.createInstance(-1, module.loaded, undefined, this);
+            lateContext = true;
+        }
 
         if (ctx instanceof MUDCreationContext) {
             Object.defineProperties(this, {
                 createTime: {
                     value: new Date().getTime(),
+                    writable: false
+                },
+                filename: {
+                    value: ctx.filename,
                     writable: false
                 },
                 instanceId: {
@@ -131,6 +141,12 @@ class MUDObject extends MUDEventEmitter {
                     enumerable: true
                 }
             });
+
+            if (lateContext) {
+                let store = ctx.$storage = global.driver.storage.create(this, ctx);
+                this.create(store);
+                return;
+            }
         }
         else {
             logger.log('Illegal constructor call');
@@ -197,13 +213,14 @@ class MUDObject extends MUDEventEmitter {
                 mod.destroyInstance(this);
             }
             catch (e) {
+                /* nothing to do here */
             }
         }
         return this;
     }
 
     enableHeartbeat(flag) {
-        let callback = this.getSymbol(_heartbeat) || false;
+        let callback = this.getSymbol($heartbeat) || false;
         let thisObject = global.wrapper(this),
             $storage = driver.storage.get(this);
 
@@ -227,7 +244,7 @@ class MUDObject extends MUDEventEmitter {
                         env.stats.heartbeats++;
                     }
                 };
-                this.setSymbol(_heartbeat, callback);
+                this.setSymbol($heartbeat, callback);
                 driver.addListener('kmud.heartbeat', callback);
                 driver.addLiving(thisObject);
             }
@@ -237,7 +254,7 @@ class MUDObject extends MUDEventEmitter {
                     delete driver.heartbeatStorage[n];
                 }
                 if (listener) driver.removeListener('kmud.heartbeat', callback);
-                this.setSymbol(_heartbeat, false);
+                this.setSymbol($heartbeat, false);
                 driver.removeLiving(thisObject);
             }
         }
@@ -343,7 +360,7 @@ class MUDObject extends MUDEventEmitter {
     }
 
     isLiving() {
-        var callback = this.getSymbol(_heartbeat);
+        var callback = this.getSymbol($heartbeat);
         return typeof callback === 'function';
     }
 
@@ -552,6 +569,30 @@ class MUDObject extends MUDEventEmitter {
     }
 }
 
+const $blockedMethods = ['constructor', '$extendType', '$copyMethods'];
+
+class MUDMixin {
+    $copyMethods(type, listOrMethod) {
+        let filter = listOrMethod || function (s) { return !s.startsWith('$'); },
+            proto = this.constructor.prototype;
+        if (Array.isArray(listOrMethod)) {
+            filter = function (s) { return listOrMethod.indexOf(s) > -1; };
+        }
+        let methodList = Object.getOwnPropertyNames(proto)
+            .filter(s => typeof proto[s] === 'function' && filter(s) && $blockedMethods.indexOf(s) === -1);
+
+        methodList
+            .forEach(mn => {
+                if (typeof type.prototype[mn] === 'undefined')
+                    type.prototype[mn] = proto[mn];
+            });
+    }
+
+    $extendType(type) {
+        this.$copyMethods(type, false);
+    }
+}
 
 module.exports = MUDObject;
 global.MUDObject = MUDObject;
+global.MUDMixin = MUDMixin;

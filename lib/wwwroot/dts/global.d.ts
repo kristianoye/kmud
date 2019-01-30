@@ -1,4 +1,16 @@
-﻿declare class MUDObject
+﻿declare class MUDMixin {
+    $copyMethods(type: function): MUDMixin;
+    $copyMethods(type: function, like: function(string): boolean): MUDMixin;
+    $copyMethods(type: function, like: string[]): MUDMixin;
+
+    /**
+     * Extend the target type using 
+     * @param type
+     */
+    $extendType(type: function): any;
+}
+
+declare class MUDObject
 {
     /** Basename is like filename except the clone number is not attached */
     readonly basename: string;
@@ -32,6 +44,8 @@
      */
     matchesId(idList: string[]): boolean;
 }
+
+declare type MUDWrapper = () => MUDObject;
 
 declare class MUDInfo {
     readonly arch: string;
@@ -102,8 +116,9 @@ declare class MUDArgs {
     required<T>(typeName: string, defaultValue: T): T;
 }
 
-declare function unwrap(target: any): MUDObject | false;
-declare function unwrap(target: any, success: (ob: MUDObject) => MUDObject): MUDObject | false;
+declare function unwrap(target: MUDObject | MUDWrapper): MUDObject | false;
+
+declare function unwrap(target: MUDObject | MUDWrapper, success: (ob: MUDObject) => MUDObject): MUDObject | false;
 
 declare class MUDClientCaps {
     readonly clientHeight: number;

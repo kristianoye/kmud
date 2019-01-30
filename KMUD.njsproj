@@ -144,7 +144,7 @@
     <Compile Include="lib\sys\cmds\admin\Shutdown.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\setenv.js">
+    <Compile Include="lib\cmds\creator\SetEnv.jsx">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\creator\update.js">
@@ -154,7 +154,7 @@
     <Compile Include="lib\cmds\player\Cls.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\player\Emote.js">
+    <Compile Include="lib\cmds\player\Emote.jsx">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\common\Go.js">
@@ -265,7 +265,7 @@
     <Compile Include="lib\world\sarta\obj\chest.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\world\sarta\square.js">
+    <Compile Include="lib\world\sarta\Square.jsx">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\world\sarta\obj\weapon\sword.js" />

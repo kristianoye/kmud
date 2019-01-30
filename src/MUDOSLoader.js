@@ -7,8 +7,11 @@ const
     MUDLoader = require('./MUDLoader');
 
 class MUDOSLoader extends MUDLoader {
-    constructor(_efuns, _compiler, _directory, _options, compilerOptions) {
-        super(_efuns, _compiler, _directory, _options, compilerOptions);
+    /**
+     * @param {MUDCompiler} compiler The compiler.
+     */
+    constructor(compiler) {
+        super(compiler);
         var T = this;
 
         Object.defineProperties(this, {

@@ -1,3 +1,8 @@
+/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
 /// <reference path="../dts/GameServer.d.ts"/>
 /// <reference path="../dts/EFUNProxy.d.ts"/>
 const
@@ -31,15 +36,26 @@ class DefaultFileSecurity extends FileSecurity {
 
     /**
      * Attempt to read a directory.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
-     * @param {number} flags
-     * @param {function(any[], Error):void} callback
+     * @param {EFUNProxy} efuns The object requesting the operation.
+     * @param {FileSystemRequest} req The filesystem request.
+     * @param {function} [callback] A callback for non-Promise style async.
      */
-    readDirectory(efuns, req, callback) {
+    readDirectoryAsync(efuns, req, callback) {
         return this.validReadDirectory(efuns, req) ?
-            this.fileSystem.readDirectory(req, callback) :
-            this.denied('readDirectory', req.fullPath, callback);
+            this.fileSystem.readDirectoryAsync(req, callback) :
+            this.denied('readDirectoryAsync', req.fullPath, callback);
+    }
+
+    /**
+     * Attempt to read a directory.
+     * @param {EFUNProxy} efuns The object requesting the operation.
+     * @param {FileSystemRequest} req The filesystem request.
+     * @param {function} [callback] A callback for non-Promise style async.
+     */
+    readDirectorySync(efuns, req) {
+        return this.validReadDirectory(efuns, req) ?
+            this.fileSystem.readDirectorySync(req) :
+            this.denied('readDirectorySync', req.fullPath);
     }
 
     /**

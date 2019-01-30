@@ -1,8 +1,11 @@
-﻿
+﻿/**
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
 const
-    PipelineContext = require('./PipelineContext').PipelineContext,
+    { PipelineContext } = require('./PipelineContext'),
     VMAbstraction = require('./VMAbstraction'),
-    MUDConfig = require('../MUDConfig'),
     MUDModule = require('../MUDModule'),
     fs = require('fs'),
     vm = require('vm');
@@ -18,13 +21,12 @@ class VMWrapper extends VMAbstraction {
 
     /**
      * Load an object in its own virtual sandbox;
-
      * @param {PipelineContext} context The compiler context.
      * @param {MUDModule} module The module being loaded.
+     * @returns {any} Returns a value from the virtual machine.
      */
     run(context, module) {
         module.context = vm.createContext(module.loader);
-        module.efunProxy.extendGlobal(module.context);
         module.loader.ctx = module.context;
 
         vm.runInContext(ExtensionText, module.context, {
@@ -43,15 +45,17 @@ class VMWrapper extends VMAbstraction {
             options.timeout = CompilerTimeout;
         }
 
-        vm.runInContext(`Promise.prototype.always = function(onResolveOrReject) {
-            return this.then(onResolveOrReject,
-            function(reason) {
-                onResolveOrReject(reason);
-                throw reason;
-            });
-        };`, module.context, options);
-        let result = vm.runInContext(context.content, module.context, options);
+        let content = [`(() => { const [__DIR__, __FILE__] = ['${module.directory}', '${module.filename}'], `,
+            '__filename = __FILE__, __dirname = __DIR__, efuns = createEfuns(), module = efuns, ',
+            'require = function(str) { return efuns.require(str);  };',
+            context.content,
+            ' })()'].join('');
+        let ctx = driver.getContext();
 
+        ctx.directory = module.directory;
+        ctx.filename = module.filename;
+
+        let result = vm.runInContext(content, module.context, options);
         return result;
     }
 }
