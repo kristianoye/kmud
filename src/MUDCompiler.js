@@ -159,12 +159,22 @@ class MUDCompiler {
 
     /**
      * Attempts to compile the requested file into a usable MUD object.
-     * @param {MUDCompilerOptions} options Hints for the compiler.
+     * @param {MUDCompilerOptions|string} options Hints for the compiler.
+     * @param {MUDCompilerOptions} moreOptions Hints for the compiler.
      * @returns {MUDModule} The compiled module
      */
-    compileObject(options) {
+    compileObject(options, moreOptions) {
         if (!options)
             throw new Error('compileObject() called with invalid parameter(s)');
+        else if (typeof options === 'string') {
+            options = { file: options, reload: false };
+        }
+        else if (typeof options !== 'object') {
+            throw new Error('compileObject() called with invalid parameter(s)');
+        }
+        if (typeof moreOptions === 'object') {
+            options = Object.assign(options, moreOptions);
+        }
         
         let mxc = driver.getContext(false, init => init.note = `Loading ${options.file}`)
             .addFrame({ filename: options.file }, 'compileObject').restore();
@@ -218,15 +228,16 @@ class MUDCompiler {
                     }
 
                     VM.run(context, module);
+
+                    if (this.sealTypesAfterCompile && !options.noSeal) {
+                        module.sealTypes();
+                    }
                     let result = module.classRef, isReload = module.loaded;
 
                     if (result) {
-                        module.singleton = false;
-
                         if (this.sealTypesAfterCompile && !options.noSeal) {
                             Object.seal(module.classRef);
                         }
-
                         if (module.efuns.isClass(result)) {
                             try {
                                 let instance = false;

@@ -32,7 +32,7 @@
       "validRead": "validRead",
       "validWrite": "validWrite"
     },
-    "inGameMaster": {
+    "master": {
       "path": "/sys/daemon/GameMaster",
       "parameters": {
         "permissionsFile": "/sys/etc/permissions.json",

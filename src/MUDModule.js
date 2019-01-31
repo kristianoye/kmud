@@ -7,8 +7,7 @@ var
     GameServer = require('./GameServer'),
     MUDCreationContext = require('./MUDCreationContext'),
     MUDLoader = require('./MUDLoader'),
-    async = require('async'),
-    vm = require('vm');
+    async = require('async');
 
 var
     creationContext = false,
@@ -38,6 +37,9 @@ class MUDModule {
 
         this.context = null;
 
+        /** @type {Object.<string,function>} */
+        this.types = false;
+
         this.exports = false;
 
         /** @type {MUDObject[]} */
@@ -66,46 +68,85 @@ class MUDModule {
 
         this.singleton = false;
 
+        this.singletons = false;
+
         this.wrappers = [null];
 
         driver.preCompile(this);
     }
 
     addExport(val) {
-        if (this.efuns.isClass(this.exports)) {
-            let exports = {}, mod = this.exports;
+        //  Step 1: Do we have exports already? In which case we need to create an export mapping
+        if (this.exports) {
+            let newExports = {}, newTypes = {}, singles = {}, sc = 0, old = this.exports;
+            if (typeof old === 'object') {
+                let o = this.exports, c = o.constructor;
+                if (c) {
+                    newExports[c.name] = o;
+                    newTypes[c.name] = c;
+                    singles[c.name] = true;
+                }
+                else
+                    newExports = Object.assign(newExports, o);
+            }
+            else if (Array.isArray(this.exports)) {
+                this.exports.forEach(ex => {
+                    if (typeof ex === 'object') {
+                        let c = ex.constructor;
+                        if (c) {
+                            newExports[c.name] = ex;
+                            newTypes[c.name] = c;
+                        }
+                        else {
+                            newExports = Object.assign(newExports, ex);
+                        }
+                    }
+                    else if (typeof ex === 'function') {
+                        newExports[ex.name] = ex;
+                    }
+                    else
+                        throw new Error(`Illegal exports; Cannot merge exports of type ${typeof ex}`);
+                });
+            }
+            else if (typeof this.exports === 'function') {
+                let f = this.exports;
+            }
+            else throw new Error(`Unable to merge additional exports with type ${typeof this.exports}`);
 
-            exports[mod.name] = mod;
-            this.exports = exports;
-        }
-        else if (Array.isArray(this.exports)) {
-            let exports = {};
+            if (typeof val === 'object') {
+                let c = val.constructor;
+                this.classRef = this.classRef || c || false;
+                this.singleton = this.singleton || c && true;
 
-            this.exports.forEach(exp => { exports[exp.name] = exp; });
-            this.exports = exports;
+                if (c) {
+                    this.types[c.name] = c;
+                    newExports[c.name] = val;
+                }
+            }
+            else if (efuns.isClass(val)) {
+                this.classRef = this.classRef || val;
+                this.types[val.name] = val;
+            }
+
+            this.exports = newExports;
+            this.types = newTypes;
         }
-        if (this.efuns.isClass(val)) {
-            if (this.exports)
-                this.exports[val.name] = val;
-            else
-                this.exports = val;
-        }
-        else if (typeof val === 'object') {
-            this.exports = Object.assign(this.exports || {}, val);
-        }
-        else if (Array.isArray(val)) {
-            if (this.exports) {
-                val.forEach(exp => this.exports[exp.name] = exp);
-            } else {
-                this.exports = val;
+        //  Step 2: Create new exports entry
+        else {
+            this.exports = val;
+            if (typeof val === 'object') {
+                let c = val.constructor;
+                this.classRef = c || false;
+                this.singleton = c && true;
+                if (c) this.types[c.name] = c;
+            }
+            else if (efuns.isClass(val)) {
+                this.classRef = val;
+                this.types[val.name] = val;
             }
         }
-        this.classRef = this.exports[this.name] || this.exports;
     }
 
-    createCreationContext() {
-
-    }
     /**
      * Creates an instance of an object.
      * @param {number} instanceId The instance ID being generated.
@@ -297,6 +338,10 @@ class MUDModule {
                 });
             }
         });
+    }
+
+    sealTypes() {
+
     }
 }
 

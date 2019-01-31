@@ -148,18 +148,20 @@ class MUDConfig {
     }
 
     /**
-     * 
+     * Read an arbitrary value from the configuration.
      * @param {string} key The value to read from the config.
+     * @param {any} [defaultValue] The default value if the config is not found.
+     * @returns {any} Returns the value or the default value.
      */
     readValue(key, defaultValue) {
-        let path = key.split('.'),
-            ptr = this;
+        let path = key.split('.'), ptr = this;
 
         while (path.length) {
             let key = path.shift();
             ptr = ptr[key];
+            if (!ptr) break;
         }
-        return typeof ptr === 'undefined' ? defaultValue : ptr;
+        return typeof ptr === 'undefined' || path.length ? defaultValue : ptr;
     }
 
     run() {

@@ -32,7 +32,7 @@ class MudlibSection {
         this.includePath = Array.isArray(data.includePath) ? data.includePath : [];
 
         /** @type {MudlibMasterObject} */
-        this.inGameMaster = new MudlibMasterObject(data.inGameMaster);
+        this.master = new MudlibMasterObject(data.master || {});
 
         /** @type {string} */
         this.logDirectory = data.logDirectory || '/log';
@@ -63,7 +63,7 @@ class MudlibSection {
     }
 
     assertValid() {
-        this.inGameMaster.assertValid();
+        this.master.assertValid();
         this.fileSystem.assertValid();
     }
 

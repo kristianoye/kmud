@@ -74,7 +74,7 @@ class GameServer extends MUDEventEmitter {
         /** @type {MUDObject[]} */
         this.livings = [];
         this.logDirectory = config.mudlib.logDirectory;
-        this.masterFilename = config.mudlib.inGameMaster.path;
+        this.masterFilename = config.mudlib.master.path;
         this.mudName = config.mud.name;
         this.nextResetTime = 0;
 
@@ -231,44 +231,36 @@ class GameServer extends MUDEventEmitter {
     }
 
     createMasterObject() {
-        let config = this.config.mudlib, self = this,
-            startupArgs = {
-                args: Object.assign({
-                    driver: this,
-                    resolver: driver.fileManager.toRealPath
-                }, config.inGameMaster.parameters)
-            };
+        let config = this.config.mudlib;
 
-        let _inGameMaster = this.compiler.compileObject({
-            file: config.inGameMaster.path,
-            reload: false,
-            args: startupArgs
-        });
-        if (!_inGameMaster) {
+        let gameMaster = this.compiler.compileObject(config.master.path);
+        if (!gameMaster) {
             throw new Error('In-game master could not be loaded; Abort!');
         }
-        this.masterWrapper = _inGameMaster.getWrapper(0);
-        /** @type {MasterObject} */
-        this.masterObject = _inGameMaster.instances[0];
 
-        function locateApply(name, required) {
-            let func = self.masterObject[config.applyNames[name] || name];
+        this.masterWrapper = gameMaster.getWrapper(0);
+
+        /** @type {MasterObject} */
+        this.masterObject = gameMaster.instances[0];
+
+        let locateApply = (name, required) => {
+            let func = this.masterObject[config.applyNames[name] || name];
             if (typeof func !== 'function' && required === true)
                 throw new Error(`Invalid master object; Could not locate required ${name} apply: ${(config.applyNames[name] || name)}`);
             return func || false;
-        }
+        };
 
         /* validate in-game master */
-        this.applyErrorHandler = locateApply('errorHandler', false);
-        this.applyGetPreloads = locateApply('getPreloads', false);
-        this.applyLogError = locateApply('logError', false);
-        this.applyValidExec = locateApply('validExec', false);
-        this.applyValidObject = locateApply('validObject', false);
-        this.applyValidRead = locateApply('validRead', true);
-        this.applyValidRequire = locateApply('validRequire', true);
-        this.applyValidSocket = locateApply('validSocket', false);
-        this.applyValidShutdown = locateApply('validShutdown', true);
-        this.applyValidWrite = locateApply('validWrite', true);
+        this.applyErrorHandler = locateApply.call(this, 'errorHandler', false);
+        this.applyGetPreloads = locateApply.call(this, 'getPreloads', false);
+        this.applyLogError = locateApply.call(this, 'logError', false);
+        this.applyValidExec = locateApply.call(this, 'validExec', false);
+        this.applyValidObject = locateApply.call(this, 'validObject', false);
+        this.applyValidRead = locateApply.call(this, 'validRead', true);
+        this.applyValidRequire = locateApply.call(this, 'validRequire', true);
+        this.applyValidSocket = locateApply.call(this, 'validSocket', false);
+        this.applyValidShutdown = locateApply.call(this, 'validShutdown', true);
+        this.applyValidWrite = locateApply.call(this, 'validWrite', true);
 
         this.rootUid = typeof this.masterObject.get_root_uid === 'function' ?
             this.masterObject.get_root_uid() || 'ROOT' : 'ROOT';
