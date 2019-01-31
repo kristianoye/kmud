@@ -1,17 +1,17 @@
 ﻿/*
- * Part of the Emerald MUDLib
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-MUD.include('Base');
+const
+    Base = require('Base'),
+    Command = require(Base.Command);
 
 const
     MKDIR_VERBOSE = 1 << 0,
-    MKDIR_PARENTS = 1 << 1,
-    Command = require(LIB_COMMAND);
+    MKDIR_PARENTS = 1 << 1;
 
-class MkDir extends Command {
+class MkDirCommand extends Command {
     create(ctx) {
         this.FileIndex = efuns.loadObject('/sys/daemon/FileIndex');
     }
@@ -86,4 +86,4 @@ class MkDir extends Command {
     }
 }
 
-module.exports = MkDir;
+module.exports = new MkDirCommand();

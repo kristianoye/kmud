@@ -1,8 +1,13 @@
-﻿MUD.include('Base', 'Daemon');
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
+const
+    Base = require('Base'),
+    Command = require(Base.Command);
 
-MUD.imports(LIB_COMMAND);
-
-class Update extends Command {
+class UpdateCommand extends Command {
     cmd(args, cmdline) {
         if (args.length === 0 || !args[0])
             args[0] = thisPlayer.environment.filename;
@@ -13,4 +18,4 @@ class Update extends Command {
     }
 }
 
-MUD.export(Update);
+module.exports = new UpdateCommand();

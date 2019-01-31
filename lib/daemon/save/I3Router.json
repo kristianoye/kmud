@@ -1,54 +1,11 @@
 {
-  "private": {
-    "E:\\KLF\\KMUD\\lib\\daemon\\I3Router.js": {}
-  },
+  "private": {},
   "props": {},
   "protected": {
-    "mudList": {
-      "Emerald MUD": {
-        "name": "Emerald MUD",
-        "password": 81249893,
-        "playerPort": 8000,
-        "tcpPort": 8888,
-        "udpPort": 8889,
-        "mudlib": "Emerald MUD 2.0",
-        "baseMudlib": "KMUD v0.3.1",
-        "driver": "Node.js v8.9.3",
-        "mudType": "RPG",
-        "openStatus": "mudlib development",
-        "adminEmail": "kristianoye@gmail.com",
-        "services": {
-          "tell": 1,
-          "emoteto": 1,
-          "who": 1,
-          "finger": 1,
-          "locate": 1,
-          "channel": 1,
-          "auth": 1,
-          "ucache": 1
-        },
-        "otherData": {
-          "architecture": "win32",
-          "hardware": "Intel(R) Core(TM) i7-5960X CPU @ 3.00GHz x 16",
-          "memoryUsage": "34.74MB",
-          "memoryTotal": "51.84MB",
-          "systemMemUsed": "26.03GB",
-          "systemMemTotal": "67.01GB",
-          "os build": "Windows_NT 10.0.17134",
-          "uptime": 46,
-          "web client address": "http://thor:8080/"
-        },
-        "sessions": {},
-        "state": -1,
-        "$$type": "I3MUD",
-        "$$file": "/daemon/I3Router"
-      }
-    },
+    "mudList": {},
     "channels": {},
-    "mudListVersion": 1548031989,
     "port": 8787,
-    "routerName": "*kmud",
-    "address": "192.168.1.175"
+    "routerName": "*kmud"
   },
   "$environment": false,
   "$inventory": [],

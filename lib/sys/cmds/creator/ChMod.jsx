@@ -1,12 +1,13 @@
-﻿
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
 const
-    Command = require('../../../base/Command');
+    Base = require('Base'),
+    Command = require(Base.Command);
 
 class ChmodCommand extends Command {
-    /**
-     * Modify permissions on a directory or file.
-     * @param {string[]} args
-     */
     cmd(args) {
         if (args.length === 0)
             return 'Usage: chmod [options] file(s)...';
@@ -15,4 +16,4 @@ class ChmodCommand extends Command {
     }
 }
 
-module.exports = ChmodCommand;
+module.exports = new ChmodCommand();

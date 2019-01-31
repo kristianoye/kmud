@@ -5,6 +5,7 @@
  */
 const
     MUDConfig = require('./MUDConfig'),
+    ExecutionContext = require('./ExecutionContext'),
     { NetUtil, NetworkInterface } = require('./network/NetUtil'),
     async = require('async'),
     MXC = require('./MXC');
@@ -655,6 +656,13 @@ class GameServer extends MUDEventEmitter {
         return this.currentContext;
     }
 
+    getExecution(ob, method, fileName, classRef) {
+        if (!this.executionContext) {
+            this.executionContext = new ExecutionContext();
+        }
+        return this.executionContext.push(ob, method, fileName, classRef);
+    }
+
     /**
      * Returns the name of the MUD.
      * @returns {string} The name of the MUD.
@@ -933,7 +941,7 @@ class GameServer extends MUDEventEmitter {
 
     runMain() {
         this.gameState = GAMESTATE_RUNNING;
-
+        this.masterObject.emit('ready', this.masterObject);
         if (this.config.mudlib.heartbeatInterval > 0) {
             this.heartbeatTimer = setTimeout(() => {
                 this.executeHeartbeat();

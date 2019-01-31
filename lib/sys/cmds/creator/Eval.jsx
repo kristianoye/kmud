@@ -1,13 +1,13 @@
-
+/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
 const
-    Command = require('../../../base/Command');
+    Base = require('Base'),
+    Command = require(Base.Command);
 
 class EvalCommand extends Command {
-    /**
-     * 
-     * @param {string[]} args
-     * @param {MUDInputEvent} evt
-     */
     cmd(args, evt) {
         let tempFile = efuns.resolvePath(`/realms/${thisPlayer.name}/CMD_TMP_FILE.js`),
             source = `
@@ -44,5 +44,4 @@ class EvalCommand extends Command {
     }
 }
 
-module.exports = EvalCommand;
-
+module.exports = new EvalCommand();

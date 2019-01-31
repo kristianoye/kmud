@@ -1,4 +1,5 @@
-﻿declare class MUDMixin {
+﻿
+declare class MUDMixin {
     $copyMethods(type: function): MUDMixin;
     $copyMethods(type: function, like: function(string): boolean): MUDMixin;
     $copyMethods(type: function, like: string[]): MUDMixin;
@@ -43,6 +44,28 @@ declare class MUDObject
      * @returns {boolean} Returns true if the object matches all specified IDs.
      */
     matchesId(idList: string[]): boolean;
+}
+
+declare class ExecutionContext {
+    /** Releases/destroys the context */
+    dispose(): ExecutionContext;
+
+    /** Called when a frame pops off the stack */
+    pop(): ExecutionContext;
+
+    /**
+     * Called when a new execution frame enters the stack
+     * @param ob The object that has a method executing.
+     * @param method The name of the method that is being executed.
+     */
+    push(ob: MUDObject, method: string): ExecutionContext;
+
+    /** Restores a context back to running state */
+    restore(): ExecutionContext;
+
+    /** Suspends the execution context for an async operation */
+    suspend(): ExecutionContext;
+
 }
 
 declare type MUDWrapper = () => MUDObject;

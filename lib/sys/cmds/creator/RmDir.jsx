@@ -1,26 +1,20 @@
 ﻿/*
- * Part of the Emerald MUDLib
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-MUD.include('Base');
-
 const
-    MKDIR_VERBOSE = 1 << 0,
-    MKDIR_PARENTS = 1 << 1,
-    Command = require(LIB_COMMAND);
+    Base = require('Base'),
+    Daemon = require('Daemon'),
+    Command = require(Base.Command),
+    RMDIR_VERBOSE = 1 << 0,
+    RMDIR_PARENTS = 1 << 1;
 
-class MkDir extends Command {
+class RmDir extends Command {
     create(ctx) {
-        this.FileIndex = efuns.loadObject('/sys/daemon/FileIndex');
+        this.FileIndex = efuns.loadObject(Daemon.FileIndex);
     }
 
-    /**
-     * Create a directory
-     * @param {string[]} args
-     * @param {MUDInputEvent} cmdline
-     */
     cmd(args, cmdline) {
         let player = thisPlayer,
             dirList = [],
@@ -31,26 +25,26 @@ class MkDir extends Command {
             let opt = args[i];
 
             if (opt.startsWith('-')) {
-                let opts = opt.charAt(1)==='-' ? [opt] : opt.slice(1).split('');
+                let opts = opt.charAt(1) === '-' ? [opt] : opt.slice(1).split('');
                 for (var j = 0; j < opts.length; j++) {
                     switch (opts[j]) {
                         case 'p': case '--parents':
                             flags |= MUDFS.MkdirFlags.EnsurePath;
                             break;
                         case 'v': case '--verbose':
-                            options |= MKDIR_VERBOSE;
+                            options |= RMDIR_VERBOSE;
                             break;
                         default:
-                            return `Mkdir: Unknown option: ${opts[j]}`;
+                            return `Rmdir: Unknown option: ${opts[j]}`;
                     }
                 }
             }
             else {
                 if (flags & MUDFS.MkdirFlags.EnsurePath) {
-                    let parts = opt.split('/'), dir = [];
+                    let parts = opt.split('/');
                     while (parts.length) {
-                        dir.push(parts.shift());
-                        dirList.push(efuns.resolvePath(dir.join('/'), player.workingDirectory));
+                        dirList.push(efuns.resolvePath(parts.join('/'), player.workingDirectory));
+                        parts.pop();
                     }
                 }
                 else
@@ -58,32 +52,28 @@ class MkDir extends Command {
             }
         }
         if (dirList.length === 0)
-            return 'Mkdir: Missing parameter';
-        this.createDirectories(dirList, flags, options, cmdline);
+            return 'Rmdir: Missing parameter';
+        this.removeDirectories(dirList, flags, options, cmdline);
         return cmdline.complete;
     }
 
     /**
-     * 
+     * Does the work of actually deleting the directories.
      * @param {string[]} dirList
      * @param {number} flags
      * @param {number} options
      * @param {MUDInputEvent} cmdline
      */
-    createDirectories(dirList, flags, options, cmdline) {
+    removeDirectories(dirList, flags, options, cmdline) {
         let dir = dirList.shift();
 
-        efuns.mkdir(dir, flags, (success, error) => {
-            if (options & MKDIR_VERBOSE)
-                write('Mkdir: ' + (success ? `Created ${dir}` : `Failed: ${error.message}`));
+        efuns.rmdir(dir, flags, (success, error) => {
+            if (options & RMDIR_VERBOSE)
+                write('Rmdir: ' + (success ? `Removed ${dir}` : `Failed: ${error.message}`));
             if (dirList.length === 0) return cmdline.complete();
-            else this.createDirectories(dirList, flags, options, cmdline);
+            else this.removeDirectories(dirList, flags, options, cmdline);
         });
-    }
-
-    help() {
-
     }
 }
 
-module.exports = MkDir;
+module.exports = new RmDir();

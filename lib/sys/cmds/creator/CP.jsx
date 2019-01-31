@@ -7,9 +7,8 @@ const
     Base = require('Base'),
     Command = require(Base.Command);
 
-
-class RouterCommand extends Command {
+class CopyCommand extends Command {
 
 }
 
-module.exports = RouterCommand;
+module.exports = new CopyCommand();

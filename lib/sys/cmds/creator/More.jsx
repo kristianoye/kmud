@@ -1,13 +1,13 @@
-﻿MUD.include('Base');
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
+const
+    Base = require('Base'),
+    Command = require(Base.Command);
 
-MUD.imports(LIB_COMMAND);
-
-class More extends Command {
-    /**
-     * 
-     * @param {string[]} args
-     * @param {MUDInputEvent} cmdline
-     */
+class MoreCommand extends Command {
     cmd(args, cmdline) {
         try {
             if (args.length === 0) 'Usage: more <filename>';
@@ -48,5 +48,4 @@ class More extends Command {
     }
 }
 
-MUD.export(More);
-
+module.exports = new MoreCommand();

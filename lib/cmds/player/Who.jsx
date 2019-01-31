@@ -1,8 +1,13 @@
-MUD.include('Base', 'Daemon');
+/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
+const
+    Base = require('Base'),
+    Command = require(Base.Command);
 
-MUD.imports(LIB_COMMAND);
-
-class Who extends Command {
+class WhoCommand extends Command {
     cmd(args, cmdline) {
         var players = efuns.players(),
             count = players.length,
@@ -86,4 +91,4 @@ class Who extends Command {
     }
 }
 
-MUD.export(Who);
+module.exports = WhoCommand;

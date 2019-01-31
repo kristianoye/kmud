@@ -15,7 +15,7 @@ const
 var parser = acorn.Parser.extend(jsx());
 
 const
-    IllegalIdentifiers = ['__act', '__ala', '__afa', '__bfc', '__ctx', '__efc', '__iac', '__dac', '__pcc'];
+    IllegalIdentifiers = ['__act', '__ala', '__afa', '__bfc', '__ctx', '__efc', '__iac', '__dac', '__pcc', '__mec' ];
 
 var nextAsyncHandleId = 1;
 
@@ -226,12 +226,12 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'ClassBody':
-                op.inClass = true;
                 e.body.forEach(_ => ret += parseElement(op, _, depth + 1));
                 op.inClass = false;
                 break;
 
             case 'ClassDeclaration':
+                op.inClass = e.id.name;
                 ret += parseElement(op, e.id, depth + 1);
                 if (e.superClass)
                     ret += parseElement(op, e.superClass, depth + 1);
@@ -291,6 +291,13 @@ function parseElement(op, e, depth, ident) {
             case 'FunctionDeclaration':
                 ret += parseElement(op, e.id, depth + 1);
                 e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
+                if (op.inClass) {
+                    addRuntimeAssert(e,
+                        `let [ __ctx, __mec ] = __bfc(false, '${(e.id ? e.id.name : '(anonymous)')}', __FILE__, ${op.inClass}); try { `,
+                        ' } finally { __efc(__ctx, __mec); }');
+                }
+                else
+                    addRuntimeAssert(e, `__bfc(false, '${(e.id ? e.id.name : '(anonymous)')}', __FILE__, false); `);
                 ret += parseElement(op, e.body, depth + 1, e.id);
                 break;
 
@@ -299,12 +306,12 @@ function parseElement(op, e, depth, ident) {
                 e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
                 if (op.inClass) {
                     addRuntimeAssert(e,
-                        `let __ctx = __bfc(this, '${ident}'); try { `,
-                        ' } finally { __efc(__ctx); }',
+                        `let [ __ctx, __mec ] = __bfc(this, '${ident}', __FILE__, ${op.inClass}); try { `,
+                        ' } finally { __efc(__ctx, __mec); }',
                         ident === 'constructor');
                 }
                 else
-                    addRuntimeAssert(e, `__bfc(null); `);
+                    addRuntimeAssert(e, `__bfc(false, -1, __FILE__, false); `);
                 ret += parseElement(op, e.body, depth + 1);
                 break;
 
@@ -398,7 +405,7 @@ function parseElement(op, e, depth, ident) {
             case 'JSXText':
                 if (!allowJsx)
                     throw new Error(`JSX is not enabled for ${this.extension} files`);
-                ret += e.value.trim().length === 0 ? ret : `"${e.raw.replace(/([\r\n]+)/g, "\\ $1")}"`;
+                ret += e.value.trim().length === 0 ? ret : `"${e.raw.replace(/([\r\n]+)/g, "\\$1")}"`;
                 op.pos = e.end;
                 break;
 
@@ -418,7 +425,8 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'MethodDefinition':
-                ret += parseElement(op, e.key, depth + 1);
+                let methodName = parseElement(op, e.key, depth + 1);
+                ret += methodName;
                 ret += parseElement(op, e.value, depth + 1, e.key.name);
                 break;
 

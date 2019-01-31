@@ -1,14 +1,11 @@
 ﻿/*
- * Part of the Emerald MUDLib
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-MUD.include('Base');
-
 const
-    Command = require(LIB_COMMAND),
-    async = require('async');
+    Base = require('Base'),
+    Command = require(Base.Command);
 
 const
     LS_OPT_LONGFORMAT = 1 << 0, // Show output in long format
@@ -19,12 +16,7 @@ const
     LS_OPT_COLOR = 1 << 5,      // Show colors
     LS_OPT_CLASSIFY = 1 << 6;   // Append classification for file types (e.g. / for directories)
 
-class LsCommand extends Command {
-    /**
-     * List files on the filesystem.
-     * @param {string[]} args
-     * @param {MUDInputEvent} cmdline
-     */
+class ListCommand extends Command {
     cmd(args, cmdline) {
         var player = thisPlayer,
             getDirFlags = 0,
@@ -312,4 +304,4 @@ class LsCommand extends Command {
     }
 }
 
-module.exports = LsCommand;
+module.exports = new ListCommand();

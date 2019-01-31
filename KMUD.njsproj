@@ -98,14 +98,14 @@
     <Compile Include="lib\sys\cmds\arch\Reboot.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\call.js" />
-    <Compile Include="lib\sys\cmds\creator\chmod.js">
+    <Compile Include="lib\sys\cmds\creator\Call.jsx" />
+    <Compile Include="lib\sys\cmds\creator\ChMod.jsx">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\cp.js">
+    <Compile Include="lib\sys\cmds\creator\CP.jsx">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\edit.js">
+    <Compile Include="lib\sys\cmds\creator\Edit.jsx">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\items\Put.js">
@@ -117,28 +117,28 @@
     <Compile Include="lib\cmds\player\Alias.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\cd.js">
+    <Compile Include="lib\sys\cmds\creator\CD.jsx">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\compile.js">
+    <Compile Include="lib\sys\cmds\creator\Compile.jsx">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\eval.js" />
-    <Compile Include="lib\sys\cmds\creator\force.js">
+    <Compile Include="lib\sys\cmds\creator\Eval.jsx" />
+    <Compile Include="lib\sys\cmds\creator\Force.jsx">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\ls.js">
+    <Compile Include="lib\sys\cmds\creator\Ls.jsx">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\mkdir.js">
+    <Compile Include="lib\sys\cmds\creator\MkDir.jsx">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\more.js">
+    <Compile Include="lib\sys\cmds\creator\More.jsx">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\mv.js" />
-    <Compile Include="lib\sys\cmds\creator\rm.js" />
-    <Compile Include="lib\sys\cmds\creator\rmdir.js">
+    <Compile Include="lib\sys\cmds\creator\Mv.jsx" />
+    <Compile Include="lib\sys\cmds\creator\Rm.jsx" />
+    <Compile Include="lib\sys\cmds\creator\RmDir.jsx">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\admin\Shutdown.js">
@@ -147,7 +147,7 @@
     <Compile Include="lib\cmds\creator\SetEnv.jsx">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\creator\update.js">
+    <Compile Include="lib\sys\cmds\creator\Update.jsx">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\player\Body.js" />
@@ -483,6 +483,7 @@
     <Compile Include="src\MUDConfig.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\ExecutionContext.js" />
     <Compile Include="src\MUDCreationContext.js">
       <SubType>Code</SubType>
     </Compile>

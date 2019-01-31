@@ -77,24 +77,25 @@ class MUDLoader {
             },
             __bfc: {
                 //  Begin Function Call
-                value: function (ob, method) {
+                value: function (ob, method, fileName, classRef) {
                     let ctx = driver.getContext(),
+                        mec = driver.getExecution(ob || false, method || '(undefined)', fileName, classRef),
                         now = new Date().getTime();
                     if (ctx) {
                         if (ctx.alarm && ctx.alarm < now)
                             throw createTimeoutError();
                         if (ob) {
                             ctx.addFrame(ob, method).increment();
-                            return ctx.contextId;
+                            return [ ctx.contextId, mec ];
                         }
                     }
                     else if (ob) {
                         ctx = driver.getContext(true, init => init.note = method)
                             .addFrame(ob, method);
                         ctx.restore();
-                        return ctx.contextId;
+                        return [ctx.contextId, mec];
                     }
-                    return false;
+                    return [false,mec];
                 },
                 enumerable: false,
                 writable: false
@@ -111,7 +112,7 @@ class MUDLoader {
             },
             __efc: {
                 // End Function Call
-                value: function (/** @type {number} */ contextId) {
+                value: function (/** @type {number} */ contextId, /** @type {ExecutionContext} */ mec) {
                     try {
                         if (contextId > 0) {
                             let mxc = MXC.getById(contextId);
@@ -119,6 +120,7 @@ class MUDLoader {
                                 mxc.popStack();
                             }
                         }
+                        mec && mec.pop();
                     }
                     catch (e) {
                         console.log(e);

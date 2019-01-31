@@ -1,7 +1,11 @@
-MUD.include('Base');
-
+/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
 const
-    Command = require(LIB_COMMAND);
+    Base = require('Base'),
+    Command = require(Base.Command);
 
 class CallCommand extends Command {
     cmd(args, cmdline) {
@@ -40,4 +44,4 @@ class CallCommand extends Command {
     }
 }
 
-module.exports = CallCommand;
+module.exports = new CallCommand();

@@ -1,11 +1,13 @@
-﻿MUD.imports('/base/Command');
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
+const
+    Base = require('Base'),
+    Command = require(Base.Command);
 
-class Edit extends Command {
-    /**
-     * 
-     * @param {string[]} args
-     * @param {MUDInputEvent} evt
-     */
+class EditFileCommand extends Command {
     cmd(args, evt) {
         var fullPath = efuns.resolvePath(args[0], thisPlayer.workingDirectory),
             fileName = fullPath.slice(fullPath.lastIndexOf('/') + 1),
@@ -54,4 +56,4 @@ class Edit extends Command {
     }
 }
 
-MUD.export(Edit);
+module.exports = new EditFileCommand();

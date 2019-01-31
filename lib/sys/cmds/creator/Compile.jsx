@@ -1,8 +1,13 @@
-﻿MUD.include('Base');
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
+const
+    Base = require('Base'),
+    Command = require(Base.Command);
 
-MUD.imports(LIB_COMMAND);
-
-class Compile extends Command {
+class CompileCommand extends Command {
     cmd(args) {
         var player = thisPlayer,
             path = efuns.resolvePath(args[0], player.workingDirectory);
@@ -18,4 +23,4 @@ class Compile extends Command {
     }
 }
 
-MUD.export(Compile);
+module.exports = new CompileCommand();

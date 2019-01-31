@@ -1,7 +1,11 @@
+/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
 const
-    Command = require('../../../base/Command');
-
-const
+    Base = require('Base'),
+    Command = require(Base.Command),
     RM_OPT_INTERACTIVE = 1 << 0,
     RM_OPT_RMEMPTYDIRS = 1 << 1,
     RM_OPT_SMARTPROMPT = 1 << 2,
@@ -132,4 +136,4 @@ class RmCommand extends Command {
     }
 }
 
-module.exports = RmCommand;
+module.exports = new RmCommand();
