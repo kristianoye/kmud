@@ -424,18 +424,6 @@ class FileSystem extends MUDEventEmitter {
      * Loads an object from storage.
      * @param {FileSystemRequest} req The path to load the object from.
      * @param {any} args Optional constructor args.
-     * @param {function(MUDModule,Error):void} callback The callback if load object is called async
-     */
-    loadObject(req, args, callback) {
-        return typeof callback === 'function' ?
-            this.assertAsync() && this.loadObjectAsync(req, args, callback) :
-            this.assertSync() && this.loadObjectSync(req, args);
-    }
-
-    /**
-     * Loads an object from storage.
-     * @param {FileSystemRequest} req The path to load the object from.
-     * @param {any} args Optional constructor args.
      * @param {function(MUDModule,Error):void} callback Callback that fires if load object was async.
      */
     loadObjectAsync(req, args, callback) {
@@ -445,9 +433,11 @@ class FileSystem extends MUDEventEmitter {
     /**
      * Loads an object from storage.
      * @param {FileSystemRequest} req The path to load the object from.
+     * @param {PathExpr} expr The path split into parts.
      * @param {any} args Optional constructor args.
+     * @param {function(MUDObject):any} callback An optional callback
      */
-    loadObjectSync(req, args) {
+    loadObjectSync(req, expr, args, callback) {
         throw new NotImplementedError('loadObjectSync');
     }
 

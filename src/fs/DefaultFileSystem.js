@@ -309,41 +309,46 @@ class DefaultFileSystem extends FileSystem {
     /**
      * Loads an object from storage.
      * @param {FileSystemRequest} req The path to load the object from.
+     * @param {PathExpr} expr The path split into parts.
      * @param {any} args Optional constructor args.
-     * @returns {MUDObject}
+     * @param {function(MUDObject):any} callback An optional callback
+     * @returns {MUDObject} Returns the MUD object if successful.
      */
-    loadObjectSync(req, args) {
-        let [virtualPath, instanceStr] = req.fullPath.split('#', 2),
-            instanceId = instanceStr ? parseInt(instanceStr) : 0,
-            forceReload = req.flags & 1 === 1;
+    loadObjectSync(req, expr, args, callback) {
+        let module = driver.cache.get(expr.file),
+            forceReload = !module || req.flags & 1 === 1;
 
-        if (isNaN(instanceId))
-            throw new Error(`Invalid instance identifier: ${instanceStr}`);
-
-        if (forceReload) {
-            if (instanceId > 0) throw new Error(`You cannot reload individual instances.`);
-            let result = driver.compiler.compileObject({ file: virtualPath, reload: true });
-            return result !== false ? result.getWrapper(0) : false;
+        if (!forceReload) {
+            let result = module.getInstance(expr);
+            return callback ? callback(result) : result;
         }
-        return this.translatePath(virtualPath, absolutePath => {
-            let module = driver.cache.get(virtualPath),
-                icmax = module && module.instances.length;
+        return this.translatePath(req.fullPath, absolutePath => {
+            let files = this.readDirectorySync(req.clone(c => {
+                c.fileName += '*';
+                c.flags = MUDFS.GetDirFlags.FullPath;
+            }));
 
-            if (module && module.loaded && (!instanceId || instanceId < icmax)) {
-                if (module.instances[instanceId])
-                    return module.getWrapper(instanceId);
-                else if (instanceId === 0)
-                    return module.createInstance(0, false, args);
-                else
-                    return false;
-            }
-            else if (instanceId === 0) {
-                module = driver.compiler.compileObject({ file: virtualPath, reload: false, args });
-                //module = driver.compiler.compileObject(virtualPath, false, undefined, args);
-                return module ? module.getWrapper(0) : false;
-            }
-            else
-                return false;
+            if (files.length === 0)
+                throw new Error(`File not found: ${expr.file}`);
+            else if (files.length > 1)
+                throw new Error(`File ambiguity: ${files.join(', ')}`);
+
+            let absFile = this.translatePath(files[0]);
+            let source = this.stripBOM(fs.readFileSync(absFile,
+                { encoding: this.encoding || 'utf8' }));
+
+            if (!source)
+                throw new Error(`File (${files[0]}) appears to be empty!`);
+
+            module = driver.compiler.compileObject({
+                file: files[0],
+                reload: forceReload,
+                source: source,
+                sourceFile: absFile,
+                args: args
+            });
+            let result = module.getInstance(expr);
+            return callback ? callback(result) : result;
         });
     }
 
@@ -409,6 +414,11 @@ class DefaultFileSystem extends FileSystem {
             let files = fs.readdirSync(fullPath, { encoding: this.encoding }),
                 result = [];
 
+            if (req.flags === MUDFS.GetDirFlags.FullPath) {
+                return (pattern ? files.filter(fn => pattern.test(fn)) : files)
+                    .map(fn => req.pathFull + (req.pathFull.endsWith('/') ? '' : '/') + fn);
+            }
+
             if (req.flags === 0)
                 return pattern ? files.filter(fn => pattern.test(fn)) : files;
 
@@ -426,11 +436,13 @@ class DefaultFileSystem extends FileSystem {
                 // Do we need to stat?
                 if ((req.flags & MUDFS.GetDirFlags.Defaults) > 0) {
                     let stat = fs.statSync(fullPath + '/' + fn);
+
                     if ((fd.isDirectory = stat.isDirectory()) && (req.flags & MUDFS.GetDirFlags.Dirs) === 0)
                         return false;
 
                     if ((fd.isFile = stat.isFile()) && (req.flags & MUDFS.GetDirFlags.Files) === 0)
                         return false;
+
                     fd.merge(stat);
                 }
                 result.push(fd);

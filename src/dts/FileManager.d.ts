@@ -100,7 +100,10 @@ declare namespace MUDFS {
         Details = 1 << 9 | 1 << 10,
 
         /** Get child directories */
-        GetChildren = 1 << 18
+        GetChildren = 1 << 18,
+
+        /** Return filenames as full paths */
+        FullPath = 1 << 19
 
         // Reserve: Bits: 19-20
     }

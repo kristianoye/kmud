@@ -32,6 +32,7 @@ mudglobal.MUDFS = {
         Hidden: 1 << 17,
 
         GetChildren: 1 << 18,
+        FullPath: 1 << 19,
 
         //  Size + Permissions
         Details: 1 << 9 | 1 << 10,
@@ -88,6 +89,8 @@ class FileSystemRequest {
      * @param {FileSystemStat} fss
      */
     constructor(fileSystem, flags, op, expr, relPath, fss) {
+        this.expr = expr;
+
         /** @type {string} */
         this.fileName = '';
 
@@ -160,6 +163,12 @@ class FileSystemRequest {
                 this.pathRel = relPath;
             }
         }
+    }
+
+    clone(init) {
+        let c = new FileSystemRequest(this.fileSystem, this.flags, this.op, this.expr, this.relativePath, { exists: false });
+        init(c);
+        return c;
     }
 
     toString() {
@@ -397,16 +406,17 @@ class FileManager extends MUDEventEmitter {
     /**
      * Load an object from disk.
      * @param {EFUNProxy} efuns The efuns instance making the call.
-     * @param {string} mudpath
-     * @param {any} args
-     * @param {function=} callback
+     * @param {PathExpr} expr Information about what is being requested.
+     * @param {any} args Data to pass to the constructor.
+     * @param {function(MUDObject): any} callback Uhhh sync callback
+     * @returns {MUDObject} The loaded object... hopefully
      */
-    loadObject(efuns, mudpath, args, callback) {
-        return this.createFileRequest('loadObject', mudpath, typeof callback === 'function', 0, req => {
-            return req.securityManager.validLoadObject(efuns, req) ?
-                req.fileSystem.loadObject(req, args, callback) :
-                req.securityManager.denied('load', req.fullPath);
-        });
+    loadObjectSync(efuns, expr, args, callback) {
+        let req = this.createFileRequest('loadObjectSync', expr.file, false, 0);
+
+        return req.securityManager.validLoadObject(efuns, req) ?
+            req.fileSystem.loadObjectSync(req, expr, args, callback) :
+            req.securityManager.denied('loadObjectSync', req.fullPath);
     }
 
     /**

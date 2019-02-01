@@ -33,14 +33,15 @@ class MUDModule {
          * @type {MUDModule[]} */
         this.children = [];
 
-        this.classRef = null;
-
         this.context = null;
 
         /** @type {Object.<string,function>} */
         this.types = false;
 
         this.exports = false;
+
+        /** @type {Object.<string,MUDObject[]> */
+        this.instanceMap = {};
 
         /** @type {MUDObject[]} */
         this.instances = [];
@@ -59,9 +60,6 @@ class MUDModule {
 
         /** @type {boolean} */
         this.loaded = false;
-
-        /** @type {MUDLoader} */
-        this.loader = null;
 
         /** @type {MUDModule} */
         this.parent = null;
@@ -140,7 +138,6 @@ class MUDModule {
             else if (efuns.isClass(val)) {
                 this.classRef = this.classRef || val;
                 newTypes[val.name] = val;
-                singles[val.name] = ++sc;
             }
 
             this.exports = newExports;
@@ -251,7 +248,12 @@ class MUDModule {
     }
 
     createInstances() {
-
+        Object.keys(this.types).forEach(typeName => {
+            let type = this.types[typeName];
+            if (type.prototype instanceof MUDObject) {
+                let instance = new type();
+            }
+        });
     }
 
     createObject(id, creationContext) {
@@ -270,6 +272,22 @@ class MUDModule {
         var id = t.instanceId;
         this.wrappers[id] = null;
         this.instances[id] = null;
+    }
+
+    /**
+     * Request a specific instance of a type.
+     * @param {PathExpr} req The instance request.
+     * @returns {MUDObject} The specified instance.
+     */
+    getInstance(req) {
+        if (req.file !== this.fullPath)
+            throw new Error(`Bad argument 1 to getInstance(); Path mismatch ${req.file} vs ${this.fullPath}`);
+        let instances = this.instanceMap[req.type] || [];
+        if (!this.types[req.type])
+            throw new Error(`Module ${this.fullPath} does not appear to define type ${req.type}`);
+        else if (req.instance < 0 || req.instance > instances.length)
+            throw new Error(`Module ${this.fullPath} does not have that many ${req.type} instance(s)`);
+        return instances[req.instance];
     }
 
     /**

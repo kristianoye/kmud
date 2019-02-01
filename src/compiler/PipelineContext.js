@@ -40,8 +40,9 @@ class PipelineContext {
 
     /**
      * Add an arbitrary value to the context collection.
-     * @param {string} key
-     * @param {any} val
+     * @param {string} key The name of the value
+     * @param {any} val The actual value of the value
+     * @returns {PipelineContext} A reference to itself
      */
     addValue(key, val) {
         this[key] = val;
@@ -76,11 +77,33 @@ class PipelineContext {
 
     /**
      * Get a value from the context object.
-     * @param {any} key
+     * @param {any} key The name of the value
+     * @returns {any} The value of the value or false if it does not exist.
      */
     getValue(key) {
-        return key in this ? this[key] : false;
+        return key in this ? this[key] : undefined;
     }
+
+    setContent(options) {
+        this.content = options.source || '';
+        this.resolvedName = options.sourceFile;
+        this.exists = true;
+        this.isEval = false;
+
+        let n = (this.filename = options.file).lastIndexOf('/'),
+            p = this.filename.lastIndexOf('.');
+
+        this.directory = this.filename.slice(0, n);
+        this.extension = this.filename.slice(p);
+        this.filename = this.basename = this.filename.slice(0, p);
+        this.exists = true;
+
+        delete options.source;
+        delete options.sourceFile;
+
+        return this;
+    }
+
 
     update(state, content) {
         if (state !== this.state && state === CTX_RUNNING && !this.content) {
@@ -91,22 +114,25 @@ class PipelineContext {
     }
 
     validExtension(ext) {
-        if ((ext = ext || this.extension) === false)
-            return false;
-        let fileName = this.realName.endsWith(ext) ? this.realName : this.realName + ext;
-        if (fs.existsSync(fileName)) {
-            var stat = fs.statSync(this.resolvedName = fileName);
-            if (stat.isFile()) {
-                var n = this.filename.lastIndexOf('/');
-                this.extension = ext;
-                this.filename = this.basename;
-                this.lastModified = stat.mtime;
-                this.exists = true;
-                this.directory = this.filename.slice(0, n);
-                return true;
+        if (!this.content) {
+            if ((ext = ext || this.extension) === false)
+                return false;
+            let fileName = this.realName.endsWith(ext) ? this.realName : this.realName + ext;
+            if (fs.existsSync(fileName)) {
+                var stat = fs.statSync(this.resolvedName = fileName);
+                if (stat.isFile()) {
+                    var n = this.filename.lastIndexOf('/');
+                    this.extension = ext;
+                    this.filename = this.basename;
+                    this.lastModified = stat.mtime;
+                    this.exists = true;
+                    this.directory = this.filename.slice(0, n);
+                    return true;
+                }
             }
+            return false;
         }
-        return false;
+        return true;
     }
 
     virtualContext(virtualData) {

@@ -718,6 +718,15 @@ class EFUNProxy {
     }
 
     /**
+     * Join path
+     * @param {...string} expr
+     */
+    resolvePath(...expr) {
+        expr.unshift(this.directory);
+        return path.posix.resolve(...expr);
+    }
+
+    /**
      * Attempts to find the specified object.  If not found then the object is compiled and returned.
      * @param {string} expr The filename of the object to try and load.
      * @param {any} args If the object is not found then these arguments are passed to the constructor.
@@ -725,8 +734,16 @@ class EFUNProxy {
      * @returns {MUDObject} The object (or false if object failed to load)
      */
     loadObject(expr, args, callback) {
+        let req = this.parsePath(expr),
+            { file, type, instance } = req,
+            module = driver.cache.get(file);
+
+        if (module) {
+            let result = module.instances[0];
+            if (result) return result;
+        }
         let result = driver.fileManager
-            .loadObject(this, this.resolvePath(expr), args, callback);
+            .loadObjectSync(this, req, args, callback);
         return result;
     }
 
@@ -883,6 +900,28 @@ class EFUNProxy {
      */
     playerp(target) {
         return unwrap(target, (player) => player.isPlayer());
+    }
+
+    /**
+     * Splits a file/object name into it's components (path, type name, instance ID)
+     * @param {string} fileExpr The file expression.
+     * @returns {{ file: string, type: string, instance: number }} Information about the path.
+     */
+    parsePath(fileExpr) {
+        if (typeof fileExpr !== 'string' || fileExpr.length < 2)
+            throw new Error('Bad argument 1 to parsePath');
+
+        let [path, instance] = this.resolvePath(fileExpr).split('#'),
+            [file, type] = path.split('$');
+
+        if ((instance = parseInt(instance)) < 0 || isNaN(instance))
+            instance = 0;
+        if (!type || type.length === 0) {
+            type = file.slice(file.lastIndexOf('/') + 1);
+        }
+        if (!type)
+            throw new Error(`Bad file expression: ${fileExpr}`);
+        return { file, type, instance };
     }
 
     /**

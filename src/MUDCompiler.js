@@ -183,6 +183,9 @@ class MUDCompiler {
                 module = this.driver.cache.get(context.basename),
                 t0 = new Date().getTime(), virtualData = false, cerr = false;
 
+            if (options.source)
+                context.setContent(options);
+
             if (module && !options.reload && module.loaded === true)
                 return module;
 

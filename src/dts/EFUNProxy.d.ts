@@ -506,6 +506,14 @@ declare class EFUNProxy {
      * @param {function} callback The callback to execute when the write is complete.
      */
     writeJsonFile(filename: string, content: any, callback: (success: boolean, err: Error) => undefined): undefined;
+
+    directory: string;
+}
+
+declare class PathExpr {
+    readonly file: string;
+    readonly type: string;
+    readonly instance: number;
 }
 
 let efuns = new EFUNProxy;
