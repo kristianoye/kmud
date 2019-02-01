@@ -425,14 +425,15 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'MethodDefinition':
-                let methodName = parseElement(op, e.key, depth + 1);
+                let methodName = op.thisMethod = parseElement(op, e.key, depth + 1);
                 ret += methodName;
                 ret += parseElement(op, e.value, depth + 1, e.key.name);
+                op.thisMethod = false;
                 break;
 
             case 'NewExpression':
                 let callee = op.source.slice(e.callee.start, e.callee.end);
-                ret += `__pcc(${callee}, () => { return `;
+                ret += `__pcc(${callee}, __FILE__, '${op.thisMethod || '(function)'}', this, () => { return `;
                 e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
                 if (op.pos !== e.end) {
                     if (op.pos > e.end) throw new Error('Oops?');

@@ -172,16 +172,16 @@ class MUDStorage extends MUDEventEmitter {
      * @param {MUDCreationContext} ctx The context to merge from
      */
     merge(ctx) {
-        Object.keys(ctx.private).forEach(key => {
+        ctx.private && Object.keys(ctx.private).forEach(key => {
             this.private[key] = ctx.private[key];
         });
-        Object.keys(ctx.props).forEach(key => {
+        ctx.props && Object.keys(ctx.props).forEach(key => {
             this.properties[key] = ctx.props[key];
         });
-        Object.keys(ctx.protected).forEach(key => {
+        ctx.protected && Object.keys(ctx.protected).forEach(key => {
             this.protected[key] = ctx.protected[key];
         });
-        Object.getOwnPropertySymbols(ctx.symbols).forEach(key => {
+        ctx.symbols && Object.getOwnPropertySymbols(ctx.symbols).forEach(key => {
             this.symbols[key] = ctx.symbols[key];
         });
         return this;
@@ -495,12 +495,12 @@ class MUDStorageContainer {
      */
     create(ob, ctx) {
         return unwrap(ob, item => {
-            return this.storage[item._propKeyId] = new MUDStorage(item, ctx);
+            return this.storage[item.filename] = new MUDStorage(item, ctx);
         });
     }
 
     createForId(filename, id) {
-        let instanceId = `${filename}.${id}`;
+        let instanceId = `${filename}@${id}`;
         return this.storage[instanceId] = new MUDStorage(null, null);
     }
 
@@ -525,7 +525,7 @@ class MUDStorageContainer {
      * @returns {MUDStorage} The storage object for the item or false.
      */
     get(ob) {
-        return unwrap(ob, item => this.storage[item._propKeyId] || false);
+        return unwrap(ob, item => this.storage[item.filename] || false);
     }
 
     /**
@@ -534,7 +534,7 @@ class MUDStorageContainer {
      * @param {MUDCreationContext} ctx
      */
     reload(item, ctx) {
-        return unwrap(item, ob => this.storage[ob._propKeyId].reload(item, ctx));
+        return unwrap(item, ob => this.storage[ob.filename].reload(item, ctx));
     }
 }
 

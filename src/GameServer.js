@@ -238,10 +238,12 @@ class GameServer extends MUDEventEmitter {
             throw new Error('In-game master could not be loaded; Abort!');
         }
 
-        this.masterWrapper = gameMaster.getWrapper(0);
-
         /** @type {MasterObject} */
-        this.masterObject = gameMaster.instances[0];
+        this.masterObject = gameMaster.getInstance(0);
+
+        if (!this.masterObject) {
+            throw new Error(`Failed to load master object (${config.master.path})`);
+        }
 
         let locateApply = (name, required) => {
             let func = this.masterObject[config.applyNames[name] || name];

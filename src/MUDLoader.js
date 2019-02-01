@@ -139,18 +139,25 @@ class MUDLoader {
             },
             __pcc: {
                 //  Prepare constructor call
-                value: function (type, con) {
-                    let result = undefined, ctx = driver.getContext();
-
-                    ctx.conStack.push(type);
+                value: function (type, file, method, thisRef, con) {
+                    let result = undefined, ecc = false,
+                        fn = type.prototype && type.prototype.fileName;
                     try {
+                        if (fn) {
+                            let thisArg = thisRef && thisRef instanceof MUDObject && thisRef;
+                                module = driver.cache.get(fn);
+                            if (module) {
+                                ecc = driver.getExecution(thisArg, method, file, false);
+                                ecc.newContext = module.getNewContext(type);
+                            }
+                        }
                         result = con();
                     }
                     catch (err) {
                         throw err;
                     }
                     finally {
-                        ctx.conStack.pop();
+                        ecc && ecc.pop();
                     }
                     return result;
                 },

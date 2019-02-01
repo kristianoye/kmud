@@ -111,16 +111,11 @@ class MUDObject extends MUDEventEmitter {
      */
     constructor(ctx) {
         super();
-        let lateContext = false;
 
-        if (!ctx) {
-            let mxc = driver.getContext(), tt = mxc.conStack[mxc.conStack.length - 1];
-            let module = driver.cache.get(tt.prototype.fileName);
-            ctx = module.createInstance(-1, module.loaded, undefined, this);
-            lateContext = true;
-        }
-
-        if (ctx instanceof MUDCreationContext) {
+        let ecc = driver.getExecution();
+        if (ecc && ecc.newContext) {
+            ctx = ecc.newContext;
+            delete ecc.newContext;
             Object.defineProperties(this, {
                 createTime: {
                     value: new Date().getTime(),
@@ -134,25 +129,14 @@ class MUDObject extends MUDEventEmitter {
                     value: ctx.instanceId,
                     writable: false,
                     enumerable: true
-                },
-                _propKeyId: {
-                    value: ctx.getKeyId(this),
-                    writable: false,
-                    enumerable: true
                 }
             });
-
-            if (lateContext) {
-                let store = ctx.$storage = global.driver.storage.create(this, ctx);
-                this.create(store);
-                return;
-            }
         }
         else {
-            logger.log('Illegal constructor call');
-            throw new Error('Illegal constructor call');
+            throw new Error(`Bad constructor setup for type ${this.constructor.name}`);
         }
-        ctx.$storage = global.driver.storage.create(this, ctx);
+        let store = ctx.$storage = global.driver.storage.create(this, ctx);
+        this.create(store);
     }
 
     addAction(verb, callback) {
@@ -277,10 +261,6 @@ class MUDObject extends MUDEventEmitter {
             return prop;
     }
 
-    eventDestroy() {
-
-    }
-
     get adjectives() {
         return this.getProperty('adjectives', []);
     }
@@ -336,10 +316,6 @@ class MUDObject extends MUDEventEmitter {
             let $storage = driver.storage.get(this);
             return $storage.getProtected(key, defaultValue);
         }
-    }
-
-    getSharedProperty(key, defaultValue) {
-        throw new Error('depricated');
     }
 
     getSizeOf() {
@@ -534,14 +510,21 @@ class MUDObject extends MUDEventEmitter {
     setPrivate(key, value) {
         let fileName = assertPrivateCall(this.filename);
         if (fileName) {
-            let $storage = driver.storage.get(this);
-            $storage.setPrivate(fileName, key, value);
+            let s = driver.storage.get(this);
+            if (typeof key === 'object')
+                Object.keys(key).forEach(name => s.setPrivate(fileName, name, key[name]));
+            else
+                s.setPrivate(fileName, key, value);
             return this;
         }
     }
 
     setProperty(key, value) {
-        driver.storage.get(this).setProperty(key, value);
+        let s = driver.storage.get(this);
+        if (typeof key === 'object') 
+            Object.keys(key).forEach(name => s.setProperty(name, key[name]));
+        else
+            s.setProperty(key, value);
         return this;
     }
 
@@ -551,10 +534,6 @@ class MUDObject extends MUDEventEmitter {
             $storage.setProtected(key, value);
             return this;
         }
-    }
-
-    setSharedProperty(key, value) {
-        throw new Error('depricated');
     }
 
     getSymbol(key, defaultValue) {

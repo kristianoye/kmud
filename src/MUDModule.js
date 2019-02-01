@@ -73,8 +73,19 @@ class MUDModule {
         driver.preCompile(this);
     }
 
+    insertInstance(item, typeArg) {
+        let instanceId = item.instanceId,
+            typeName = typeArg ? typeArg.name : item.constructor.name,
+            instances = this.instanceMap[typeName] || [];
+        instances[instanceId] = item;
+        this.instanceMap[typeName] = instances;
+    }
+
     addExport(val) {
-        let newTypes = {}, singles = {}, sc = 0, prev = this.exports;
+        let newTypes = {}, // defined types in the module
+            singles = {},  // which types are singletons?
+            sc = 0,
+            prev = this.exports;
 
         //  Step 1: Do we have exports already? In which case we need to create an export mapping
         if (prev) {
@@ -89,6 +100,7 @@ class MUDModule {
                         newExports[c.name] = o;
                         newTypes[c.name] = c;
                         singles[c.name] = ++sc;
+                        this.insertInstance(prev, c);
                     }
                 }
             }
@@ -100,6 +112,7 @@ class MUDModule {
                             newExports[c.name] = ex;
                             newTypes[c.name] = c;
                             singles[c.name] = ++sc;
+                            this.insertInstance(ex, c);
                         }
                         else {
                             newExports = Object.assign(newExports, ex);
@@ -132,6 +145,7 @@ class MUDModule {
                     if (c) {
                         newTypes[c.name] = c;
                         newExports[c.name] = val;
+                        this.insertInstance(val, c);
                     }
                 }
             }
@@ -148,14 +162,9 @@ class MUDModule {
             if (typeof val === 'object') {
                 if (!this.efuns.isPOO(val)) {
                     let c = val.constructor;
-
-                    this.classRef = c || false;
-                    this.singleton = c && true;
-
-                    if (c && c.constructor.name !== 'Function') {
-                        newTypes[c.name] = c;
-                        singles[c.name] = ++sc;
-                    }
+                    newTypes[c.name] = c;
+                    singles[c.name] = ++sc;
+                    this.insertInstance(val, c);
                 }
             }
             else if (this.efuns.isClass(val)) {
@@ -247,11 +256,17 @@ class MUDModule {
         }
     }
 
-    createInstances() {
+    createInstances(isReload) {
         Object.keys(this.types).forEach(typeName => {
             let type = this.types[typeName];
             if (type.prototype instanceof MUDObject) {
-                let instance = new type();
+                let instances = this.instanceMap[typeName] || [];
+                if (isReload || !instances[0]) {
+                    let ctx = driver.getExecution();
+                    ctx.newContext = this.getNewContext(type, 0);
+                    instances[0] = new type();
+                    this.instanceMap[typeName] = instances;
+                }
             }
         });
     }
@@ -280,6 +295,9 @@ class MUDModule {
      * @returns {MUDObject} The specified instance.
      */
     getInstance(req) {
+        if (typeof req === 'number') {
+            req = { type: this.name, instance: req, file: this.fullPath };
+        }
         if (req.file !== this.fullPath)
             throw new Error(`Bad argument 1 to getInstance(); Path mismatch ${req.file} vs ${this.fullPath}`);
         let instances = this.instanceMap[req.type] || [];
@@ -291,6 +309,22 @@ class MUDModule {
     }
 
     /**
+     * Create information required to create a new MUDObject instance.
+     * @param {string|function} type The type to fetch a constructor context for.
+     * @param {number} idArg Specify the instance ID.
+     * @returns {{ filename: string, instanceId: number }} Information needed by MUDObject constructor.
+     */
+    getNewContext(type, idArg) {
+        let typeName = typeof type === 'function' ? type.name
+            : typeof type === 'string' ? type : false;
+
+        let instanceId = typeof idArg === 'number' ? idArg : (this.instanceMap[typeName] || []).length,
+            filename = this.filename + (this.name !== typeName ? '$' + typeName : '');
+        if (instanceId > 0) filename += '#' + instanceId;
+        return { filename, instanceId };
+    }
+
+    /**
      * Get a type defined within the module.
      * @param {string} name The name of the type to retrieve.
      * @returns {function} Returns the constructor for the specified type.
@@ -299,22 +333,18 @@ class MUDModule {
         return name && this.types[name] || this.types[this.name] || false;
     }
 
-    getWrapper(n, isReload) {
-        if (typeof n === 'object') {
-            n = this.instances.indexOf(n);
+    getWrapper(arg) {
+        if (typeof arg === 'object') {
+
         }
-        let wrapper = this.wrappers[n];
-        if (!wrapper) {
-            wrapper = this.wrappers[n] = () => {
-                let result = this.instances[n];
-                if (!result) {
-                    this.createInstance(n, true);
-                    result = this.instances[n];
-                }
-                return result;
-            };
-            wrapper._isWrapper = true;
-        }
+        let wrapper = this.wrappers[n] = () => {
+            let result = this.instances[n];
+            if (!result) {
+                this.createInstance(n, true);
+                result = this.instances[n];
+            }
+            return result;
+        };
         return wrapper;
     }
 

@@ -166,7 +166,12 @@ class FileSystemRequest {
     }
 
     clone(init) {
-        let c = new FileSystemRequest(this.fileSystem, this.flags, this.op, this.expr, this.relativePath, { exists: false });
+        let c = new FileSystemRequest(this.fileSystem,
+            this.flags,
+            this.op,
+            this.expr,
+            this.relativePath,
+            { exists: false });
         init(c);
         return c;
     }
