@@ -76,26 +76,32 @@ class MUDModule {
     }
 
     addExport(val) {
+        let newTypes = {}, singles = {}, sc = 0, prev = this.exports;
+
         //  Step 1: Do we have exports already? In which case we need to create an export mapping
-        if (this.exports) {
-            let newExports = {}, newTypes = {}, singles = {}, sc = 0, old = this.exports;
-            if (typeof old === 'object') {
-                let o = this.exports, c = o.constructor;
-                if (c) {
-                    newExports[c.name] = o;
-                    newTypes[c.name] = c;
-                    singles[c.name] = true;
+        if (prev) {
+            let newExports = {};
+            if (typeof prev === 'object') {
+                if (this.efuns.isPOO(prev)) {
+                    newExports = Object.assign(newExports, prev);
                 }
-                else
-                    newExports = Object.assign(newExports, o);
+                else {
+                    let o = prev, c = o.constructor;
+                    if (c) {
+                        newExports[c.name] = o;
+                        newTypes[c.name] = c;
+                        singles[c.name] = ++sc;
+                    }
+                }
             }
-            else if (Array.isArray(this.exports)) {
-                this.exports.forEach(ex => {
+            else if (Array.isArray(prev)) {
+                prev.forEach(ex => {
                     if (typeof ex === 'object') {
                         let c = ex.constructor;
                         if (c) {
                             newExports[c.name] = ex;
                             newTypes[c.name] = c;
+                            singles[c.name] = ++sc;
                         }
                         else {
                             newExports = Object.assign(newExports, ex);
@@ -108,43 +114,62 @@ class MUDModule {
                         throw new Error(`Illegal exports; Cannot merge exports of type ${typeof ex}`);
                 });
             }
-            else if (typeof this.exports === 'function') {
-                let f = this.exports;
+            else if (prev === 'function') {
+                newExports[prev.name] = prev;
+                newTypes[prev.name] = prev;
+                sc++;
             }
-            else throw new Error(`Unable to merge additional exports with type ${typeof this.exports}`);
+            else
+                throw new Error(`Unable to merge additional exports with type ${typeof this.exports}`);
 
             if (typeof val === 'object') {
-                let c = val.constructor;
-                this.classRef = this.classRef || c || false;
-                this.singleton = this.singleton || c && true;
+                if (this.efuns.isPOO(val)) {
+                    newExports = Object.assign(newExports, val);
+                }
+                else {
+                    let c = val.constructor;
+                    this.classRef = this.classRef || c || false;
+                    this.singleton = this.singleton || c && true;
 
-                if (c) {
-                    this.types[c.name] = c;
-                    newExports[c.name] = val;
+                    if (c) {
+                        newTypes[c.name] = c;
+                        newExports[c.name] = val;
+                    }
                 }
             }
             else if (efuns.isClass(val)) {
                 this.classRef = this.classRef || val;
-                this.types[val.name] = val;
+                newTypes[val.name] = val;
+                singles[val.name] = ++sc;
             }
 
             this.exports = newExports;
-            this.types = newTypes;
         }
         //  Step 2: Create new exports entry
         else {
             this.exports = val;
             if (typeof val === 'object') {
-                let c = val.constructor;
-                this.classRef = c || false;
-                this.singleton = c && true;
-                if (c) this.types[c.name] = c;
+                if (!this.efuns.isPOO(val)) {
+                    let c = val.constructor;
+
+                    this.classRef = c || false;
+                    this.singleton = c && true;
+
+                    if (c && c.constructor.name !== 'Function') {
+                        newTypes[c.name] = c;
+                        singles[c.name] = ++sc;
+                    }
+                }
             }
-            else if (efuns.isClass(val)) {
+            else if (this.efuns.isClass(val)) {
                 this.classRef = val;
-                this.types[val.name] = val;
+
+                newTypes[val.name] = val;
+                singles[val.name] = ++sc;
             }
         }
+        this.types = newTypes;
+        this.singletons = sc > 0 && singles;
     }
 
     /**
@@ -225,6 +250,10 @@ class MUDModule {
         }
     }
 
+    createInstances() {
+
+    }
+
     createObject(id, creationContext) {
         try {
             return this.isMixin ?
@@ -245,11 +274,11 @@ class MUDModule {
 
     /**
      * Get a type defined within the module.
-     * @param {string} name
-     * @returns {object}
+     * @param {string} name The name of the type to retrieve.
+     * @returns {function} Returns the constructor for the specified type.
      */
     getType(name) {
-        return this.loader && this.loader.getType(name);
+        return name && this.types[name] || this.types[this.name] || false;
     }
 
     getWrapper(n, isReload) {
@@ -272,23 +301,9 @@ class MUDModule {
     }
 
     /**
-     * Import a module into the global scope.
-     * @param {Object.<string,any>} target The namespace to import to.
-     */
-    importScope(target) {
-        let exports = {}, count = 0;
-        if (this.context !== null) {
-            Object.keys(this.context.exports).forEach(name => {
-                exports[name] = target[name] = this.context.exports[name];
-                count++;
-            });
-        }
-        return count === 1 ? this.context.primaryExport : exports;
-    }
-
-    /**
-     * 
-     * @param {MUDModule} module
+     * Determines if the module is related to this module.
+     * @param {MUDModule} module The module to check.
+     * @returns {boolean} True if the module is related.
      */
     isRelated(module) {
         if (module === this)
@@ -341,7 +356,9 @@ class MUDModule {
     }
 
     sealTypes() {
-
+        this.types && Object.keys(this.types)
+            .forEach(tn => Object.freeze(this.types[tn]));
+        return this;
     }
 }
 

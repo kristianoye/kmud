@@ -449,15 +449,19 @@ class EFUNProxy {
      */
     addMixin(target, exp) {
         let filename = this.resolvePath(exp, this.directory),
+            [moduleName, typeName] = filename.split('$', 2),
             module = driver.compiler.compileObject({
-                file: filename,
+                file: moduleName,
                 isMixin: true,
                 reload: false,
                 relativePath: this.directory
-            });
+            }),
+            mixinType = module && module.getType(typeName || module.name);
         if (!module)
             throw new Error(`Failed to load required module '${filename}'`);
-        module.instances[0].$extendType(target);
+        if (!mixinType)
+            throw new Error(`Failed to load required mixin '${typeName || module.name}'`);
+        MUDMixin.$extendType(target, mixinType);
     }
 
     /**
@@ -701,6 +705,16 @@ class EFUNProxy {
      */
     isLiving(target) {
         return unwrap(target, (ob) => ob.isLiving(), false);
+    }
+
+    /**
+     * Determine if an object is a Plain Old Object (POO)
+     * @param {any} target The item to inspect
+     * @returns {boolean} True if the item is a plain old object.
+     */
+    isPOO(target) {
+        return typeof target === 'object' && target.constructor.name === 'Object' &&
+            target.constructor.constructor && target.constructor.constructor.name === 'Function';
     }
 
     /**

@@ -572,26 +572,28 @@ class MUDObject extends MUDEventEmitter {
 const $blockedMethods = ['constructor', '$extendType', '$copyMethods'];
 
 class MUDMixin {
-    $copyMethods(type, listOrMethod) {
-        let filter = listOrMethod || function (s) { return !s.startsWith('$'); },
-            proto = this.constructor.prototype;
-        if (Array.isArray(listOrMethod)) {
-            filter = function (s) { return listOrMethod.indexOf(s) > -1; };
-        }
-        let methodList = Object.getOwnPropertyNames(proto)
-            .filter(s => typeof proto[s] === 'function' && filter(s) && $blockedMethods.indexOf(s) === -1);
-
-        methodList
-            .forEach(mn => {
-                if (typeof type.prototype[mn] === 'undefined')
-                    type.prototype[mn] = proto[mn];
-            });
-    }
-
-    $extendType(type) {
-        this.$copyMethods(type, false);
-    }
 }
+
+MUDMixin.$copyMethods = function (type, proto, listOrMethod) {
+    let filter = listOrMethod || function (s) { return s !== 'constructor'; };
+    if (Array.isArray(listOrMethod)) {
+        filter = function (s) { return listOrMethod.indexOf(s) > -1; };
+    }
+    let methodList = Object.getOwnPropertyNames(proto)
+        .filter(s => typeof proto[s] === 'function' && filter(s) && $blockedMethods.indexOf(s) === -1);
+
+    methodList
+        .forEach(mn => {
+            if (typeof type.prototype[mn] === 'undefined')
+                type.prototype[mn] = proto[mn];
+        });
+};
+
+MUDMixin.$extendType = function (type, mixin) {
+    if (!mixin)
+        throw new Error('Invalid mixin type');
+    MUDMixin.$copyMethods(type, mixin.prototype);
+};
 
 module.exports = MUDObject;
 global.MUDObject = MUDObject;

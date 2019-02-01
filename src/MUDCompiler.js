@@ -232,46 +232,18 @@ class MUDCompiler {
                     if (this.sealTypesAfterCompile && !options.noSeal) {
                         module.sealTypes();
                     }
-                    let result = module.classRef, isReload = module.loaded;
+                    let isReload = module.loaded;
 
-                    if (result) {
-                        if (this.sealTypesAfterCompile && !options.noSeal) {
-                            Object.seal(module.classRef);
-                        }
-                        if (module.efuns.isClass(result)) {
-                            try {
-                                let instance = false;
-
-                                if (!options.noCreate) {
-                                    instance = module.createInstance(0, isReload, options.args);
-
-                                    if (!this.driver.validObject(instance)) {
-                                        if (options.isMixin) {
-                                            if (instance() instanceof MUDMixin === false)
-                                                throw new Error(`Could not load ${context.filename} [Illegal Mixin]`);
-                                        }
-                                        else
-                                            throw new Error(`Could not load ${context.filename} [Illegal Object]`);
-                                    }
-                                }
-                                if (isReload && typeof result.onRecompile === 'function') {
-                                    // TODO: Make this an event
-                                    result.onRecompile(instance);
-                                }
-                            }
-                            catch (e) {
-                                throw this.driver.cleanError(e);
-                            }
-                        }
-
+                    if (!options.noCreate) {
+                        module.createInstances();
+                    }
+                    if (isReload && typeof result.onRecompile === 'function') {
+                        // TODO: Make this an event
+                        result.onRecompile(instance);
                     }
 
                     module.loaded = true;
-
-                    if (!isReload)
-                        this.driver.cache.store(module);
-                    else
-                        module.recompiled();
+                    isReload && module.recompiled() || this.driver.cache.store(module);
 
                     return module;
                 }

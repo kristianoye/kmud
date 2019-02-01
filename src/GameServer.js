@@ -331,6 +331,10 @@ class GameServer extends MUDEventEmitter {
         let module = this.cache.get(fileName) || false;
         if (module && module.efuns)
             return module.efuns;
+        if (fileName === this.simulEfunPath) {
+            let efunType = require('./EFUNProxy');
+            return module.efuns = new efunType(fileName);
+        }
         let efuns = this.simulEfunType && new this.simulEfunType(fileName);
         if (efuns) {
             Object.freeze(efuns);
@@ -347,12 +351,13 @@ class GameServer extends MUDEventEmitter {
         let EFUNProxy = require('./EFUNProxy');
 
         //  For bootstrapping
-        if (!this.efuns) {
-            let sp = this.simulEfunPath;
-            this.efuns = new EFUNProxy(sp.slice(0, sp.lastIndexOf('/')), sp);
-            this.simulEfunType = require('./EFUNProxy');
-        }
-        else {
+        //if (!this.efuns) {
+        //    let sp = this.simulEfunPath;
+        //    this.efuns = new EFUNProxy(sp.slice(0, sp.lastIndexOf('/')), sp);
+        //    this.simulEfunType = require('./EFUNProxy');
+        //}
+        //else
+        {
             try {
                 if (this.simulEfunPath) {
                     let module = this.compiler.compileObject({
@@ -361,17 +366,18 @@ class GameServer extends MUDEventEmitter {
                         altParent: require('./EFUNProxy'),
                         noSeal: true
                     });
-                    this.simulEfunType = module.classRef;
+                    this.simulEfunType = module.getType();
                 }
-
+            }
+            catch (err) {
+                // Oh snap... fallback plan...
+                this.simulEfunType = require('./EFUNProxy');
+            }
+            finally {
                 Object.seal(this.simulEfunType);
                 this.efuns = new this.simulEfunType('/', '/');
                 this.efuns.SaveExtension = this.config.mudlib.defaultSaveExtension;
                 Object.freeze(this.efuns);
-            }
-            catch (err) {
-                // Oh snap... what now?
-                throw err;
             }
         }
         return this.efuns;
