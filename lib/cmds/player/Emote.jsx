@@ -7,7 +7,7 @@ const
     Base = require('Base'),
     Command = require(Base.Command);
 
-class EmoteCommand extends Command {
+class Emote extends Command {
     cmd(args, cmdline) {
         thisPlayer.writeLine(`You emote: ${thisPlayer.displayName} ${cmdline.input}`);
         thisPlayer.tellEnvironment(`${thisPlayer.displayName} ${cmdline.input}`);
@@ -21,4 +21,4 @@ class EmoteCommand extends Command {
     }
 }
 
-module.exports = new EmoteCommand();
+module.exports = new Emote();

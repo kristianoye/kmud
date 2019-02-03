@@ -101,9 +101,9 @@ class VerbRule {
      * Construct a brand new verb.
      * @param {string} verb The verb that initiates the action.
      * @param {string} rule The rule associated with the verb.
-     * @param {Verb} instance The verb instance that will contain the rule.
+     * @param {MUDObject} handler The verb instance that will contain the rule.
      * @param {VerbContainer} container The container creating the rule.
-     * @param {string=} scope The scope of the rule (if any)
+     * @param {string} scope The scope of the rule (if any)
      */
     constructor(verb, rule, handler, container, scope) {
         let tokenInfo = container.getTokenInfo(rule);
@@ -157,7 +157,7 @@ class VerbRule {
     /**
      * Check to see if the user can perform the action.
      * @param {any[]} matchData Matched tokens
-     * @returns {boolean|string}
+     * @returns {boolean|string} True if the action can move forward.
      */
     can(matchData) {
         if (this.fallbackCan) {
@@ -170,8 +170,8 @@ class VerbRule {
 
     /**
      * Try and do the thing...
-     * @param {Array<string|MUDObject>} matchData
-     * @returns {boolean|string}
+     * @param {Array<string|MUDObject>} matchData Tokens matched during parsing.
+     * @returns {boolean|string} True if the action was successful.
      */
     do(matchData) {
         if (this.fallbackDo) {
@@ -184,7 +184,8 @@ class VerbRule {
 
     /**
      * Determine if this rule is within the specified scope.
-     * @param {string[]} scopes 
+     * @param {string[]} scopes A list of user scopes.
+     * @returns {boolean} True if the rule is within scope.
      */
     inScope(scopes) {
         return !scopes || !this.scope || scopes.indexOf(this.scope) > 0;
@@ -192,9 +193,8 @@ class VerbRule {
 
     /**
      * Validate the rule.
-     * @param {VerbContainer} container
      */
-    validate(container) {
+    validate() {
         unwrap(this.handler, handler => {
             if (typeof handler[this.canMethod] !== 'function') {
                 let fallbackCan = VerbSystemFeature.normalizeRule('can', 'verb', 'rule', false);
@@ -226,6 +226,7 @@ class Verb {
      * @param {MUDObject} tp The player executing the verb.
      * @param {string} verb The verb being executed.
      * @param {string[]} args The words entered by the user.
+     * @returns {string|boolean} Returns true if the verb succeeded.
      */
     tryVerb(tp, verb, args) {
         let rules = this.rules,
@@ -278,12 +279,13 @@ class Verb {
 
     /**
      * Return a list of rules that apply to the current user.
-     * @param {string[]=} scopes The scopes to filter on.
+     * @param {string[]} scopes The scopes to filter on.
      * @returns {VerbRule[]} All rules that fall within the scope.
      */
     getRulesInScope(scopes) {
-        if (!scopes) return this.rules;
-        return this.rules.filter((rule) => rule.inScope(scopes));
+        return Array.isArray(scopes) ?
+            this.rules.filter(rule => rule.inScope(scopes)) :
+            this.rules;
     }
 }
 
@@ -295,14 +297,15 @@ class VerbContainer {
 
     /**
      * Add a rule to the system.
-     * @param {string} name The verb name.
+     * @param {string} verbName The verb name.
      * @param {string} rule The associated rule.
      * @param {object} handler The handler / verb object.
-     * @param {string=} scope The scope of the rule.
+     * @param {string} scope The scope of the rule.
+     * @returns {boolean} Returns true on success.
      */
     addRule(verbName, rule, handler, scope) {
         if (!handler) //  Could not determine handler! Ack!
-            return false;
+            throw new Error(`No valid handler associated with verb '${verbName}'`);
         let verb = this.getVerb(verbName, true);
         return verb.addRule(rule, handler, this);
     }
@@ -310,7 +313,7 @@ class VerbContainer {
     /**
      * Add a synonym for a verb.
      * @param {any} synonym The synonym.
-     * @param {any} verb The verb it executes.
+     * @param {any} verbName The verb it executes.
      * @returns {boolean} True on success.
      */
     addSynonym(synonym, verbName) {
@@ -328,8 +331,8 @@ class VerbContainer {
 
     /**
      * Get the verb object for a particular synonym.
-     * @param {string} synonym
-     * @returns {Verb|false}
+     * @param {string} synonym The verb that was actually used.
+     * @returns {Verb|false} The true verb associated with the synonym or false if not found.
      */
     getSynonym(synonym) {
         let verb = this.synonyms[synonym];
@@ -394,10 +397,10 @@ class VerbContainer {
     }
 
     /**
-     * 
-     * @param {string} verb
-     * @param {boolean=} createIfMissing
-     * @returns {Verb} 
+     * Get a verb object or optionally create one if not found.
+     * @param {string} verb The verb to search for.
+     * @param {boolean} createIfMissing Create an entry if the verb is not found.
+     * @returns {Verb} Returns a reference to the verb entry.
      */
     getVerb(verb, createIfMissing) {
         let result = this.verbs[verb] || this.getSynonym(verb);
@@ -409,11 +412,11 @@ class VerbContainer {
 
     /**
      * Determines whether a word is a special token.
-     * @param {string} s The string to inspect.
-     * @returns {boolean}
+     * @param {string} word The string to inspect.
+     * @returns {boolean} Returns true if the word is a verb-related token.
      */
-    isToken(s) {
-        switch (s) {
+    isToken(word) {
+        switch (word) {
             case 'LIV':
             case 'LIVING':
             case 'LIVINGS':
@@ -465,10 +468,11 @@ class VerbContainer {
 
     /**
      * Try evaluating a single verb rule to see if it matches.
-     * @param {MUDObject} tp The MUD user performing the action.
+     * @param {MUDObject} thisPlayer The MUD user performing the action.
      * @param {VerbRule} rule The verb rule being evaluated.
      * @param {string[]} inputs The users text to match against.
      * @param {string[]} errors A collection of ordered error messages.
+     * @returns {string|boolean|any[]} Try match a rule to the user's input.
      */
     tryParseRule(thisPlayer, rule, inputs, errors) {
         let self = this,
@@ -800,6 +804,7 @@ class VerbContainer {
      * @param {string} input The user input.
      * @param {MUDObject} player The player performing the action.
      * @param {string[]} scopes The scopes to evaluate (if enabled).
+     * @returns {string|boolean} Returns true on success
      */
     tryParseSentence(input, player, scopes) {
         let words = input.trim().split(/\s+/),
@@ -810,10 +815,11 @@ class VerbContainer {
 
     /**
      * Try parsing a specific verb.
-     * @param {string} verbName
-     * @param {string|string[]} input
-     * @param {MUDObject} thisPlayer
-     * @param {string[]} scopes
+     * @param {string} verbName The verb invoked by the user.
+     * @param {string|string[]} input The user's input.
+     * @param {MUDObject} thisPlayer The current player.
+     * @param {string[]} scopes A list of scopes the user has access to.
+     * @returns {boolean|string} True on success
      */
     tryParseVerb(verbName, input, thisPlayer, scopes) {
         let verb = this.getVerb(verbName, false),

@@ -15,65 +15,6 @@ const
 var
     UseLazyResets = false;
 
-/**
- * Determine which module is storing private instance data.
- * @param {string} filename
- * @returns {string} The file name storing the private data.
- */
-function assertPrivateCall(filename) {
-    let module =driver.cache.resolve(filename),
-        frames = callsite().map(cs => {
-            return {
-                fileName: cs.getFileName() || '(unknown)',
-                methodName: cs.getMethodName() || cs.getFunctionName()
-            };
-        });
-
-    for (let i = 1, max = frames.length; i < max; i++) {
-        if (frames[i].fileName === __filename)
-            continue;
-        let file = frames[i].fileName, method = frames[i].methodName,
-            thisModule = driver.cache.resolve(file);
-
-        if (module.isRelated(thisModule)) {
-            if (method === 'setPrivate' || method === 'getPrivate') continue;
-            return file;
-        }
-        throw new Error(`Method '${method}' [File: ${file}] cannot access private data in ${filename}`);
-    }
-    return false;
-}
-
-/**
- * Check the stack to limit access to protected/private data.
- * @param {string} filename
- * @returns {boolean} Returns true if the call is valid or throws an error.
- */
-function assertProtectedCall(filename) {
-    let module = driver.cache.resolve(filename),
-        frames = callsite().map(cs => {
-            return {
-                fileName: cs.getFileName() || '(unknown)',
-                methodName: cs.getMethodName() || cs.getFunctionName()
-            };
-        });
-
-    for (let i = 1, max = frames.length; i < max; i++) {
-        if (frames[i].fileName === __filename)
-            continue;
-        let file = frames[i].fileName, method = frames[i].methodName,
-            thisModule = driver.cache.resolve(file);
-
-        if (module === thisModule || module.isRelated(thisModule)) {
-            //  Allows children to override
-            if (method === 'setProtected' || method === 'getProtected') continue;
-            return true;
-        }
-        throw new Error(`Method '${method}' [File: ${file}] cannot access protected data in ${filename}`);
-    }
-    return false;
-}
-
 function getEfunProxy(t) {
     let fn = t.basename,
         module = driver.cache.get(fn),
@@ -105,38 +46,45 @@ function parseIdentifierList(args, mn) {
  * Base type for all MUD objects.
  */
 class MUDObject extends MUDEventEmitter {
-    /**
-     * Initialize the object instance with the context.
-     * @param {MUDCreationContext} ctx The creation context passed to the constructor.
-     */
-    constructor(ctx) {
+    constructor() {
         super();
-
-        let ecc = driver.getExecution();
-        if (ecc && ecc.newContext) {
-            ctx = ecc.newContext;
-            delete ecc.newContext;
-            Object.defineProperties(this, {
-                createTime: {
-                    value: new Date().getTime(),
-                    writable: false
-                },
-                filename: {
-                    value: ctx.filename,
-                    writable: false
-                },
-                instanceId: {
-                    value: ctx.instanceId,
-                    writable: false,
-                    enumerable: true
-                }
-            });
+        let ctx = false,
+            ecc = driver.getExecution(this, 'constructor', this.__proto__.fileName, this.constructor);
+        try {
+            if (ecc && ecc.newContext) {
+                ctx = ecc.newContext;
+                delete ecc.newContext;
+                Object.defineProperties(this, {
+                    createTime: {
+                        value: new Date().getTime(),
+                        writable: false
+                    },
+                    filename: {
+                        value: ctx.filename,
+                        writable: false
+                    },
+                    instanceId: {
+                        value: ctx.instanceId,
+                        writable: false,
+                        enumerable: true
+                    }
+                });
+            }
+            else {
+                throw new Error(`Bad constructor setup for type ${this.constructor.name}`);
+            }
+            let store = ctx.$storage = global.driver.storage.create(this, ctx),
+                mec = driver.getExecution(driver, 'create', this.filename, this.constructor);
+            try {
+                this.create(store);
+            }
+            finally {
+                mec && mec.pop();
+            }
         }
-        else {
-            throw new Error(`Bad constructor setup for type ${this.constructor.name}`);
+        finally {
+            ecc.pop();
         }
-        let store = ctx.$storage = global.driver.storage.create(this, ctx);
-        this.create(store);
     }
 
     addAction(verb, callback) {
@@ -208,7 +156,7 @@ class MUDObject extends MUDEventEmitter {
         let thisObject = global.wrapper(this),
             $storage = driver.storage.get(this);
 
-        if (typeof this.eventHeartbeat !== 'function')
+        if (typeof this.heartbeat !== 'function')
             throw new Error('Cannot call enableHeartbeat() on that object!');
 
         try {
@@ -223,7 +171,7 @@ class MUDObject extends MUDEventEmitter {
                 }
                 callback = (ticks, total) => {
                     let env = driver.storage.get($storage.environment);
-                    this.eventHeartbeat(ticks, total);
+                    this.heartbeat(ticks, total);
                     if (env && env.stats) {
                         env.stats.heartbeats++;
                     }
@@ -294,28 +242,26 @@ class MUDObject extends MUDEventEmitter {
     }
 
     getPrivate(key, defaultValue) {
-        let fileName = assertPrivateCall(this.filename);
-        if (fileName) {
-            let $storage = driver.storage.get(this);
-            return $storage.getPrivate(fileName, key, defaultValue);
-        }
+        driver.getExecution().assertPrivate(this, 'method', 'getPrivate');
+        let $storage = driver.storage.get(this);
+        return $storage.getPrivate(this.filename, key, defaultValue);
     }
 
     getProperty(key, defaultValue) {
-        return driver.storage.get(this).getProperty(key, defaultValue);
+        return driver.storage.get(this)
+            .getProperty(key, defaultValue);
     }
 
     /**
      * Set a protected value in the storage layer.
-     * @param {string} prop The name of the property to fetch.
+     * @param {string} key The name of the property to fetch.
      * @param {any} defaultValue The default value if the property does not exist.
      * @returns {any} The property value or default if not set.
      */
     getProtected(key, defaultValue) {
-        if (assertProtectedCall(this.filename)) {
-            let $storage = driver.storage.get(this);
-            return $storage.getProtected(key, defaultValue);
-        }
+        driver.getExecution().assertProtected(this, 'method', 'getProtected');
+        let $storage = driver.storage.get(this);
+        return $storage.getProtected(key, defaultValue);
     }
 
     getSizeOf() {
@@ -323,9 +269,8 @@ class MUDObject extends MUDEventEmitter {
     }
 
     incrementProperty(key, value, initialValue, callback) {
-        return driver.storage.get(this).incrementProperty(key, value, initialValue);
-        if (typeof callback === 'function') callback.call(this, val, props[key]);
-        return this;
+        return driver.storage.get(this)
+            .incrementProperty(key, value, initialValue);
     }
 
     init() {
@@ -428,20 +373,10 @@ class MUDObject extends MUDEventEmitter {
         return result.slice(0);
     }
 
-    /**
-     *
-     * @param {MUDInputEvent} input The input event.
-     * @param {function(MUDInputEvent):void} callback The input returned with possible changes.
-     */
     preprocessInput(input, callback) {
         return callback(input);
     }
 
-    /**
-     *
-     * @param {string} msgClass
-     * @param {string} text
-     */
     receive_message(msgClass, text) {
         let client = driver.storage.get(this).getProtected('$client');
         if (client) {
@@ -508,15 +443,13 @@ class MUDObject extends MUDEventEmitter {
      * @returns {MUDObject} A reference to the object itself.
      */
     setPrivate(key, value) {
-        let fileName = assertPrivateCall(this.filename);
-        if (fileName) {
-            let s = driver.storage.get(this);
-            if (typeof key === 'object')
-                Object.keys(key).forEach(name => s.setPrivate(fileName, name, key[name]));
-            else
-                s.setPrivate(fileName, key, value);
-            return this;
-        }
+        driver.getExecution().assertPrivate(this, 'method', 'getPrivate');
+        let s = driver.storage.get(this), fileName = this.filename;
+        if (typeof key === 'object')
+            Object.keys(key).forEach(name => s.setPrivate(fileName, name, key[name]));
+        else
+            s.setPrivate(fileName, key, value);
+        return this;
     }
 
     setProperty(key, value) {
@@ -529,11 +462,10 @@ class MUDObject extends MUDEventEmitter {
     }
 
     setProtected(key, value) {
-        if (assertProtectedCall(this.filename)) {
-            let $storage = driver.storage.get(this);
-            $storage.setProtected(key, value);
-            return this;
-        }
+        driver.getExecution().assertProtected(this, 'method', 'getPrivate');
+        let $storage = driver.storage.get(this);
+        $storage.setProtected(key, value);
+        return this;
     }
 
     getSymbol(key, defaultValue) {

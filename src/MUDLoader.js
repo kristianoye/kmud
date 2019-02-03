@@ -6,12 +6,15 @@
 const
     MUDObject = require('./MUDObject'),
     MUDHtml = require('./MUDHtml'),
-    TimeoutError = require('./ErrorTypes').TimeoutError,
+    ExecutionContext = require('./ExecutionContext'),
+    { TimeoutError } = require('./ErrorTypes'),
+    DriverApplies = ['connect', 'create', 'destroy', 'heartbeat', 'processInput'],
     MXC = require('./MXC'),
     vm = require('vm'),
     loopsPerAssert = 10000;
 
-var _includeCache = [], _asyncContexts = {};
+var _includeCache = [],
+    _asyncContexts = {};
 
 Promise.prototype.always = function (onResolveOrReject) {
     return this.then(onResolveOrReject, reason => {
@@ -65,11 +68,8 @@ class MUDLoader {
                 //  Assert Loop Alarm (ala)
                 value: function () {
                     if (--_loopCounter === 0) {
-                        let ctx = driver.getContext(),
-                            now = new Date().getTime();
-                        _loopCounter = loopsPerAssert;
-                        if (ctx.alarm && ctx.alarm < now)
-                            throw createTimeoutError();
+                        let ecc = driver.executionContext;
+                        ecc && ecc.alarm();
                     }
                 },
                 enumerable: false,
@@ -78,24 +78,21 @@ class MUDLoader {
             __bfc: {
                 //  Begin Function Call
                 value: function (ob, method, fileName, classRef) {
-                    let ctx = driver.getContext(),
-                        mec = driver.getExecution(ob || false, method || '(undefined)', fileName, classRef),
-                        now = new Date().getTime();
-                    if (ctx) {
-                        if (ctx.alarm && ctx.alarm < now)
-                            throw createTimeoutError();
-                        if (ob) {
-                            ctx.addFrame(ob, method).increment();
-                            return [ ctx.contextId, mec ];
-                        }
+                    let mec = driver.getExecution();
+
+                    if (!mec)
+                        throw new Error('What, no execution context?!');
+
+                    if (method && DriverApplies.indexOf(method) > -1) {
+                        if (!mec.isDriverCall)
+                            throw new Error(`Illegal call to driver apply '${method}'`);
                     }
-                    else if (ob) {
-                        ctx = driver.getContext(true, init => init.note = method)
-                            .addFrame(ob, method);
-                        ctx.restore();
-                        return [ctx.contextId, mec];
-                    }
-                    return [false,mec];
+
+                    return mec && mec
+                        .alarm()
+                        .push(ob instanceof MUDObject && ob,
+                            method || '(undefined)',
+                            fileName, classRef);
                 },
                 enumerable: false,
                 writable: false
@@ -105,26 +102,15 @@ class MUDLoader {
                 value: function (aid) {
                     let ctx = _asyncContexts[aid] || false;
                     if (ctx) {
-                        ctx.popStack();
+                        ctx.pop();
                         delete _contexts[aid];
                     }
                 }
             },
             __efc: {
                 // End Function Call
-                value: function (/** @type {number} */ contextId, /** @type {ExecutionContext} */ mec) {
-                    try {
-                        if (contextId > 0) {
-                            let mxc = MXC.getById(contextId);
-                            if (mxc) {
-                                mxc.popStack();
-                            }
-                        }
-                        mec && mec.pop();
-                    }
-                    catch (e) {
-                        console.log(e);
-                    }
+                value: function (/** @type {ExecutionContext} */ mec) {
+                    mec && mec.pop();
                 },
                 enumerable: false,
                 writable: false
@@ -153,9 +139,6 @@ class MUDLoader {
                         }
                         result = con();
                     }
-                    catch (err) {
-                        throw err;
-                    }
                     finally {
                         ecc && ecc.pop();
                     }
@@ -166,24 +149,14 @@ class MUDLoader {
             },
             __iac: {
                 ///   Increment Async Context
-                value: function (ob, aid) {
-                    let ctx = driver.getContext(),
-                        now = new Date().getTime();
-                    if (ctx) {
-                        if (ctx.alarm && ctx.alarm < now)
-                            throw createTimeoutError();
-                        if (ob) {
-                            ctx.addFrame(ob, 'async').increment();
-                            return ctx.contextId;
-                        }
+                value: function (ob, handleId, methodName, file) {
+                    let ecc = driver.getExecution();
+                    if (ecc) {
+                        let ncc = ecc.fork(true)
+                            .push(ob, methodName, file);
+                        ncc && ncc.alarm().suspend();
+                        _asyncContexts[handleId] = ncc;
                     }
-                    else if (ob) {
-                        ctx = driver.getContext(true, init => init.note = method)
-                            .addFrame(ob, 'async');
-                        ctx.restore();
-                        return ctx.contextId;
-                    }
-                    _asyncContexts[aid] = ctx;
                 },
                 enumerable: false,
                 writable: false
@@ -304,7 +277,7 @@ class MUDLoader {
             onSuccess = typeof success === 'function' && success || function (s) {
                 return s;
             };
-        if (typeof target === 'function' && target._isWrapper === true) {
+        if (typeof target === 'function' && target.isWrapper === true) {
             result = target();
             if (!(result instanceof MUDObject)) result = defaultValue;
         }
@@ -315,7 +288,7 @@ class MUDLoader {
     }
 
     wrapper(target) {
-        if (typeof target === 'function' && target._isWrapper === true)
+        if (typeof target === 'function' && target.isWrapper === true)
             return target;
         else if (typeof target === 'object' && typeof target.wrapper === 'function')
             return target.wrapper;

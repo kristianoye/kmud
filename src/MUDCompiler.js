@@ -175,118 +175,115 @@ class MUDCompiler {
         if (typeof moreOptions === 'object') {
             options = Object.assign(options, moreOptions);
         }
-        
-        let mxc = driver.getContext(false, init => init.note = `Loading ${options.file}`)
-            .addFrame({ filename: options.file }, 'compileObject').restore();
+        let context = new PipeContext.PipelineContext(options.file),
+            module = this.driver.cache.get(context.basename),
+            t0 = new Date().getTime(), virtualData = false, cerr = false;
+
+        if (options.source)
+            context.setContent(options);
+
+        if (module && !options.reload && module.loaded === true)
+            return module;
+
+        if (this.driver.masterObject) {
+            virtualData = this.driver.masterObject.compileVirtualObject(options.file);
+            context.virtualContext(virtualData);
+        }
+        if (!context.validExtension()) {
+            for (var i = 0; i < this.validExtensions.length; i++) {
+                if (context.validExtension(this.validExtensions[i])) break;
+            }
+            if (!context.exists) {
+                if (!this.driver.masterObject)
+                    throw new Error('Could not load in-game master object!');
+                throw new Error(`Could not load ${context.filename} [File not found]`);
+            }
+        }
         try {
-            let context = new PipeContext.PipelineContext(options.file),
-                module = this.driver.cache.get(context.basename),
-                t0 = new Date().getTime(), virtualData = false, cerr = false;
+            var isVirtual = virtualData !== false,
+                pipeline = this.getPipeline(context);
 
-            if (options.source)
-                context.setContent(options);
+            if (pipeline === false)
+                throw new Error(`Could not load ${context.filename} [unknown extension]`);
+            else if (!pipeline.enabled)
+                throw new Error(`Could not load ${context.filename} [${pipeline.name} - not enabled]`);
 
-            if (module && !options.reload && module.loaded === true)
+            pipeline.execute(context);
+
+            if (context.state === PipeContext.CTX_FINISHED) {
+                if (!context.content)
+                    throw new Error(`Could not load ${context.filename} [empty file?]`);
+
+                module = this.driver.cache.getOrCreate(
+                    context.filename,
+                    context.resolvedName,
+                    context.directory,
+                    virtualData !== false,
+                    options.isMixin === true);
+
+                module.loader = this.getLoader(pipeline, options);
+                if (options.altParent) {
+                    module.loader[options.altParent.name] = options.altParent;
+                }
+
+                VM.run(context, module);
+
+                if (this.sealTypesAfterCompile && !options.noSeal) {
+                    module.sealTypes();
+                }
+                let isReload = module.loaded;
+
+                if (!options.noCreate) {
+                    module.createInstances();
+                }
+                if (isReload && typeof result.onRecompile === 'function') {
+                    // TODO: Make this an event
+                    result.onRecompile(instance);
+                }
+
+                module.loaded = true;
+                isReload && module.recompiled() || this.driver.cache.store(module);
+
                 return module;
-
-            if (this.driver.masterObject) {
-                virtualData = this.driver.masterObject.compileVirtualObject(options.file);
-                context.virtualContext(virtualData);
             }
-            if (!context.validExtension()) {
-                for (var i = 0; i < this.validExtensions.length; i++) {
-                    if (context.validExtension(this.validExtensions[i])) break;
-                }
-                if (!context.exists) {
-                    if (!this.driver.masterObject)
-                        throw new Error('Could not load in-game master object!');
-                    throw new Error(`Could not load ${context.filename} [File not found]`);
-                }
-            }
-            try {
-                var isVirtual = virtualData !== false,
-                    pipeline = this.getPipeline(context);
+            else {
+                switch (context.state) {
+                    case PipeContext.CTX_ERRORED:
+                        throw new Error(`Could not load ${context.filename} [${context.errors[0].message}]`);
 
-                if (pipeline === false)
-                    throw new Error(`Could not load ${context.filename} [unknown extension]`);
-                else if (!pipeline.enabled)
-                    throw new Error(`Could not load ${context.filename} [${pipeline.name} - not enabled]`);
+                    case PipeContext.CTX_RUNNING:
+                    case PipeContext.CTX_STOPPED:
+                        throw new Error(`Could not load ${context.filename} [Incomplete Pipeline]`);
 
-                pipeline.execute(context);
-
-                if (context.state === PipeContext.CTX_FINISHED) {
-                    if (!context.content)
-                        throw new Error(`Could not load ${context.filename} [empty file?]`);
-
-                    module = this.driver.cache.getOrCreate(
-                        context.filename,
-                        context.resolvedName,
-                        context.directory,
-                        virtualData !== false,
-                        options.isMixin === true);
-
-                    module.loader = this.getLoader(pipeline, options);
-                    if (options.altParent) {
-                        module.loader[options.altParent.name] = options.altParent;
-                    }
-
-                    VM.run(context, module);
-
-                    if (this.sealTypesAfterCompile && !options.noSeal) {
-                        module.sealTypes();
-                    }
-                    let isReload = module.loaded;
-
-                    if (!options.noCreate) {
-                        module.createInstances();
-                    }
-                    if (isReload && typeof result.onRecompile === 'function') {
-                        // TODO: Make this an event
-                        result.onRecompile(instance);
-                    }
-
-                    module.loaded = true;
-                    isReload && module.recompiled() || this.driver.cache.store(module);
-
-                    return module;
-                }
-                else {
-                    switch (context.state) {
-                        case PipeContext.CTX_ERRORED:
-                            throw new Error(`Could not load ${context.filename} [${context.errors[0].message}]`);
-
-                        case PipeContext.CTX_RUNNING:
-                        case PipeContext.CTX_STOPPED:
-                            throw new Error(`Could not load ${context.filename} [Incomplete Pipeline]`);
-
-                        case PipeContext.CTX_INIT:
-                            throw new Error(`Could not load ${context.filename} [Pipeline Failure]`);
-                    }
+                    case PipeContext.CTX_INIT:
+                        throw new Error(`Could not load ${context.filename} [Pipeline Failure]`);
                 }
             }
-            catch (err) {
-                let t1 = new Date().getTime();
-                if (module && module.stats) {
-                    module.stats.errors++;
-                }
-                if (module && !module.loaded) {
-                    MUDCache.delete(context.filename);
-                }
-                this.driver.cleanError(cerr = err);
-                this.driver.logError(context.filename, err);
-                logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ERROR: ${cerr.message}]`);
-                logger.log(cerr.stack || cerr.trace);
-                throw err;
+        }
+        catch (err) {
+            let t1 = new Date().getTime();
+            if (module && module.stats) {
+                module.stats.errors++;
             }
-            finally {
-                let t1 = new Date().getTime();
-                if (!cerr) logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
+            if (module && !module.loaded) {
+                MUDCache.delete(context.filename);
             }
-            return false;
+            this.driver.cleanError(cerr = err);
+            this.driver.logError(context.filename, err);
+            logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ERROR: ${cerr.message}]}`);
+            logger.log(cerr.stack || cerr.trace);
+            throw err;
         }
         finally {
-            mxc.release();
+            let t1 = new Date().getTime(), ecc = driver.getExecution();
+            if (!cerr) {
+                if (ecc)
+                    logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ${ecc.stack.length}]`);
+                else
+                    logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
+            }
         }
+        return false;
     }
 }
 

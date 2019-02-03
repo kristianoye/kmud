@@ -15,7 +15,11 @@ const
 var parser = acorn.Parser.extend(jsx());
 
 const
-    IllegalIdentifiers = ['__act', '__ala', '__afa', '__bfc', '__ctx', '__efc', '__iac', '__dac', '__pcc', '__mec' ];
+    //  These cannot be used as identifiers (reserved words)
+    IllegalIdentifiers = ['__act', '__ada', '__ala', '__afa', '__bfc', '__ctx', '__efc', '__iac', '__dac', '__pcc', '__mec'],
+
+    //  These methods cannot be defined by objects in the game
+    ProtectedApplies = ['setPrivate', 'getPrivate', 'setProtected', 'getProtected'];
 
 var nextAsyncHandleId = 1;
 
@@ -32,6 +36,7 @@ class JSXTranspilerOp {
             acorn.Parser.extend(jsx()).parse(p.source) :
             acorn.Parser.parse(p.source);
         this.context = p.context;
+        this.filename = p.filename;
         this.inClass = false;
         this.jsxDepth = 0;
         this.jsxIndent = '';
@@ -193,10 +198,22 @@ function parseElement(op, e, depth, ident) {
 
             case 'AwaitExpression':
                 {
-                    let hid = nextAsyncHandleId++;
-                    ret += `(__iac(this, ${hid}), `;
+                    /**
+                     * This block needs some love to be really bulletproof:
+                     *   (1) Need different or rolling async handles for
+                     *       long-running utimes,
+                     *       
+                     *   (2) Need foolproof wrapper to ensure context cannot
+                     *       outlive the async call,
+                     *       
+                     *   (3) Need to safeguard against users calling async
+                     *       methods without using await.
+                     */
+                    let handleId = nextAsyncHandleId++; 
+                    ret += `(__iac(this, ${handleId}, '${op.thisMethod}', __FILE__), `;
                     ret += parseElement(op, e.argument, depth + 1);
-                    ret += `.always(() => __dac(${hid})))`;
+                    ret += `.always(() => __dac(${handleId})))`;
+                    
                 }
                 break;
 
@@ -293,8 +310,8 @@ function parseElement(op, e, depth, ident) {
                 e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
                 if (op.inClass) {
                     addRuntimeAssert(e,
-                        `let [ __ctx, __mec ] = __bfc(false, '${(e.id ? e.id.name : '(anonymous)')}', __FILE__, ${op.inClass}); try { `,
-                        ' } finally { __efc(__ctx, __mec); }');
+                        `let __mec = __bfc(this, '${(e.id ? e.id.name : '(anonymous)')}', __FILE__, ${op.inClass}); try { `,
+                        ' } finally { __efc(__mec); }');
                 }
                 else
                     addRuntimeAssert(e, `__bfc(false, '${(e.id ? e.id.name : '(anonymous)')}', __FILE__, false); `);
@@ -306,8 +323,8 @@ function parseElement(op, e, depth, ident) {
                 e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
                 if (op.inClass) {
                     addRuntimeAssert(e,
-                        `let [ __ctx, __mec ] = __bfc(this, '${ident}', __FILE__, ${op.inClass}); try { `,
-                        ' } finally { __efc(__ctx, __mec); }',
+                        `let __mec = __bfc(this, '${ident}', __FILE__, ${op.inClass}); try { `,
+                        ' } finally { __efc(__mec); }',
                         ident === 'constructor');
                 }
                 else
@@ -352,7 +369,7 @@ function parseElement(op, e, depth, ident) {
                     var jsxInX = op.source.slice(0, e.start).lastIndexOf('\n') + 1;
                     op.jsxIndent = ' '.repeat(e.start - jsxInX) 
                 }
-                ret += jsxWhitespace(op, true) + 'MUD.createElement(\n';
+                ret += jsxWhitespace(op, true) + 'createElement(\n';
                 op.jsxDepth++;
                 op.pos = e.start;
                 ret += parseElement(op, e.openingElement, depth + 1);
@@ -426,6 +443,9 @@ function parseElement(op, e, depth, ident) {
 
             case 'MethodDefinition':
                 let methodName = op.thisMethod = parseElement(op, e.key, depth + 1);
+                if (ProtectedApplies.indexOf(methodName) > -1) {
+                    throw new Error(`Type '${op.inClass}' attempts to redefine protected apply '${methodName}' in ${op.filename}`);
+                }
                 ret += methodName;
                 ret += parseElement(op, e.value, depth + 1, e.key.name);
                 op.thisMethod = false;
@@ -433,7 +453,7 @@ function parseElement(op, e, depth, ident) {
 
             case 'NewExpression':
                 let callee = op.source.slice(e.callee.start, e.callee.end);
-                ret += `__pcc(${callee}, __FILE__, '${op.thisMethod || '(function)'}', this, () => { return `;
+                ret += `__pcc(${callee}, __FILE__, '${op.thisMethod || '(MAIN)'}', this, () => { return `;
                 e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
                 if (op.pos !== e.end) {
                     if (op.pos > e.end) throw new Error('Oops?');
@@ -572,6 +592,7 @@ class JSXTranspilerForAcornJsx5 extends PipelineComponent {
     run(context) {
         let op = new JSXTranspilerOp({
             allowJsx: this.allowJsx,
+            filename: context.basename,
             context,
             source: context.content
         });

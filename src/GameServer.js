@@ -288,39 +288,35 @@ class GameServer extends MUDEventEmitter {
      * Preload some common objects to decrease in-game load times while running.
      */
     createPreloads() {
-        let mxc = this.getContext(true, init => {
-            init.alarm = Number.MAX_SAFE_INTEGER; // new Date().getTime() +  (60 * 2 * 1000);
-            init.addFrame(this.masterObject, 'createPreloads');
-        }, 'createPreloads');
+        let ecc = this.getExecution(this.masterObject, 'epilog', this.masterFilename, this.masterObject.prototype);
+        ecc.alarmTime = Number.MAX_SAFE_INTEGER;
 
         try {
-            mxc.restore();
             if (this.applyGetPreloads !== false) {
                 this.preloads = this.applyGetPreloads.apply(this.masterObject);
             }
             if (this.preloads.length > 0) {
                 logger.logIf(LOGGER_PRODUCTION, 'Creating preloads.');
-                this.preloads.forEach((file, i) => {
-                    let ctx = mxc.clone(init => {
-                        init.note = `Preloading ${file}`;
-                    });
+                this.preloads.forEach(file => {
+                    let t0 = new Date().getTime(), foo = false;
                     try {
-                        ctx.restore();
-                        var t0 = new Date().getTime();
-                        var foo = Array.isArray(file) ?
+                        foo = Array.isArray(file) ?
                             this.compiler.compileObject({ file: file[0], args: file.slice(1) }) :
                             this.compiler.compileObject({ file });
-                        var t1 = new Date().getTime();
-                        logger.logIf(LOGGER_DEBUG, `\tPreload: ${file}: ${(file, foo ? '[OK]' : '[Failure]')} [${(t1 - t0)} ms]`);
+                    }
+                    catch (err) {
+                        /* do nothing atm */
                     }
                     finally {
-                        ctx.release();
+                        let t1 = new Date().getTime();
+                        logger.logIf(LOGGER_DEBUG,
+                            `\tPreload: ${file}: ${(file, foo ? '[OK]' : '[Failure]')} [${(t1 - t0)} ms; ${ecc.stack.length}]`);
                     }
                 });
             }
         }
         finally {
-            mxc.release();
+            ecc.pop();
         }
     }
 
@@ -416,7 +412,7 @@ class GameServer extends MUDEventEmitter {
                     onSuccess = typeof success === 'function' && success || function (s) {
                         return s;
                     };
-                if (typeof target === 'function' && target._isWrapper === true) {
+                if (typeof target === 'function' && target.isWrapper === true) {
                     result = target();
                     if (!(result instanceof MUDObject)) result = defaultValue;
                 }
@@ -426,12 +422,11 @@ class GameServer extends MUDEventEmitter {
                 return result && onSuccess(result);
             };
 
-            global.wrapper = function (_o) {
-                if (typeof _o === 'function' && _o._isWrapper === true) return _w;
-                else if (typeof _o === 'object' && typeof _o.wrapper === 'function') return _o.wrapper;
-                else if (_o instanceof MUDObject) {
-                    throw new Error('wrapper() failed');
-                }
+            global.wrapper = function (o) {
+                if (typeof o === 'function' && o.isWrapper === true)
+                    return o;
+                else if (typeof o === 'object' && typeof o.wrapper === 'function')
+                    return o.wrapper;
                 return false;
             };
 
@@ -493,7 +488,6 @@ class GameServer extends MUDEventEmitter {
      */
     errorHandler(err, caught) {
         if (this.applyErrorHandler) {
-            let mxc = this.getContext();
             this.cleanError(err);
             let error = {
                 error: err.message,
@@ -503,6 +497,7 @@ class GameServer extends MUDEventEmitter {
                 stack: err.stack,
                 trace: []
             }, firstFrame = true;
+
             error.trace = err.stack.split('\n').map((line, index) => {
                 let parts = line.split(/\s+/g).filter(s => s.length);
                 if (parts[0] === 'at') {
@@ -539,12 +534,6 @@ class GameServer extends MUDEventEmitter {
                     return frame;
                 }
             }).filter(f => typeof f === 'object');
-            if (mxc) {
-                mxc.snooze(2000);
-                if (mxc.input) {
-                    mxc.input.complete();
-                }
-            }
             this.applyErrorHandler.call(this.masterObject, error, caught);
         }
     }
@@ -581,6 +570,7 @@ class GameServer extends MUDEventEmitter {
             let heartbeatStart = new Date(),
                 maxExecTime = this.config.driver.maxCommandExecutionTime,
                 failed = [];
+
             async.forEachOfLimit(this.heartbeatObjects, this.heartbeatLimit || 10, (obj, index, itr) => {
                 let prev = this.currentContext,
                     $storage = this.heartbeatStorage[index],
@@ -595,7 +585,7 @@ class GameServer extends MUDEventEmitter {
                     });
                 try {
                     mxc.restore();
-                    obj.eventHeartbeat(this.heartbeatInterval, this.heartbeatCounter);
+                    obj.heartbeat(this.heartbeatInterval, this.heartbeatCounter);
                 }
                 catch (err) {
                     failed.push(obj);
@@ -656,7 +646,19 @@ class GameServer extends MUDEventEmitter {
         return this.currentContext;
     }
 
+    /**
+     * Fetch the current execution context.
+     * 
+     * @param {any} ob The current object
+     * @param {any} method The current method
+     * @param {any} fileName The current filename
+     * @param {any} classRef The class reference of the current object (redudant)
+     * @returns {ExecutionContext} The context.
+     */
     getExecution(ob, method, fileName, classRef) {
+        if (arguments.length === 0)
+            return this.executionContext || false;
+
         if (!this.executionContext) {
             this.executionContext = new ExecutionContext();
         }

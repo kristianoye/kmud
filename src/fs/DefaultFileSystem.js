@@ -347,7 +347,7 @@ class DefaultFileSystem extends FileSystem {
                 sourceFile: absFile,
                 args: args
             });
-            let result = module.getInstance(expr);
+            let result = module.getInstance(Object.assign({}, expr, { file: absFile }));
             return callback ? callback(result) : result;
         });
     }

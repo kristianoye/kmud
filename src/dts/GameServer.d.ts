@@ -25,6 +25,31 @@ declare class MUDObjectStack {
     func: string;
 }
 
+declare class ExecutionContext {
+    /** Create a related child context.  This context must complete before its parent is finished */
+    fork(): ExecutionContext;
+
+    /** Create a related child context.  This context must complete before its parent is finished 
+     * @param {boolean} isAsync Whether or not this is an async method call.
+     */
+    fork(isAsync: boolean): ExecutionContext;
+
+    /** Indicates the context was created for an async call. */
+    readonly async: boolean;
+
+    //  Indicate the current execution frame is complete.
+    pop(): ExecutionContext;
+
+    //  Push a new frame on to the stack
+    push(ob: MUDObject, method: string, filename: string): ExecutionContext;
+
+    readonly thisObject: MUDObject;
+
+    readonly thisPlayer: MUDObject;
+
+    readonly truePlayer: MUDObject;
+}
+
 declare class GameServer {
     /**
      * Adds a "living" object to the game.
@@ -70,23 +95,16 @@ declare class GameServer {
     /** The MUD filesystem */
     fileManager: FileManager;
 
-    /**
-     * Returns the current execution context.
-     */
-    getContext(): MXC;
+    /** Get the execution context */
+    getExecution(): ExecutionContext | false;
 
     /**
-     * Indicates whether to create a new context or not.
-     * @param createNew
+     * Get the execution context, add a new frame, and return the context.
+     * @param ob The object being added to the stack.
+     * @param method The method being called.
+     * @param file The file in which the method exists.
      */
-    getContext(createNew: boolean): MXC;
-
-    /**
-     * Create a new context and initialize it.
-     * @param createNew
-     * @param initializer
-     */
-    getContext(createNew: boolean, initializer: (context: MXC) => void): MXC;
+    getExecution(ob: MUDObject, method: string, file: string): ExecutionContext;
 
     /**
      * Fetch the current object stack.

@@ -6,7 +6,6 @@
 var
     GameServer = require('./GameServer'),
     MUDCreationContext = require('./MUDCreationContext'),
-    MUDLoader = require('./MUDLoader'),
     async = require('async');
 
 var
@@ -22,18 +21,20 @@ class MUDModule {
     /**
      * 
      * @param {string} filename The name of the file?
-     * @param {string} fullPath The full filesystem path
+     * @param {string} absFsPath The full filesystem path
      * @param {string} mudpath The full mud path
      * @param {boolean} isVirtual Is this a virtual request?
      * @param {boolean} isMixin Is this a mixin module?
      */
-    constructor(filename, fullPath, mudpath, isVirtual, isMixin) {
+    constructor(filename, absFsPath, mudpath, isVirtual, isMixin) {
         /**
          * Contains reference to all the child modules that inherit this module.
          * @type {MUDModule[]} */
         this.children = [];
 
         this.context = null;
+
+        this.defaultInstance = false;
 
         /** @type {Object.<string,function>} */
         this.types = false;
@@ -54,7 +55,7 @@ class MUDModule {
 
         this.name = filename.slice(filename.lastIndexOf('/') + 1);
 
-        this.fullPath = fullPath;
+        this.fullPath = absFsPath;
 
         this.isVirtual = isVirtual;
 
@@ -166,10 +167,22 @@ class MUDModule {
                     singles[c.name] = ++sc;
                     this.insertInstance(val, c);
                 }
+                else {
+                    Object.keys(this.exports).forEach(key => {
+                        let exp = this.exports[key];
+                        if (this.efuns.isClass(exp)) {
+                            newTypes[exp.name] = exp;
+                        }
+                        else if (exp instanceof MUDObject) {
+                            let c = exp.constructor;
+                            newTypes[c.name] = c;
+                            singles[c.name] = ++sc;
+                            this.insertInstance(exp, c);
+                        }
+                    });
+                }
             }
             else if (this.efuns.isClass(val)) {
-                this.classRef = val;
-
                 newTypes[val.name] = val;
                 singles[val.name] = ++sc;
             }
@@ -257,16 +270,18 @@ class MUDModule {
     }
 
     createInstances(isReload) {
-        Object.keys(this.types).forEach(typeName => {
+        Object.keys(this.types).forEach((typeName, i) => {
             let type = this.types[typeName];
             if (type.prototype instanceof MUDObject) {
                 let instances = this.instanceMap[typeName] || [];
                 if (isReload || !instances[0]) {
-                    let ctx = driver.getExecution();
+                    let ctx = driver.executionContext;
+                    if (!ctx) throw new Error('No execution context is currently running');
                     ctx.newContext = this.getNewContext(type, 0);
                     instances[0] = new type();
                     this.instanceMap[typeName] = instances;
                 }
+                this.defaultInstance = i === 0 && instances[0];
             }
         });
     }
@@ -298,14 +313,35 @@ class MUDModule {
         if (typeof req === 'number') {
             req = { type: this.name, instance: req, file: this.fullPath };
         }
-        if (req.file !== this.fullPath)
-            throw new Error(`Bad argument 1 to getInstance(); Path mismatch ${req.file} vs ${this.fullPath}`);
+        if (req.file !== this.fullPath && req.file !== this.filename)
+            return false;
+        else if (!this.types[req.type]) {
+            return req.instance === 0 && this.defaultInstance;
+        }
         let instances = this.instanceMap[req.type] || [];
-        if (!this.types[req.type])
-            throw new Error(`Module ${this.fullPath} does not appear to define type ${req.type}`);
-        else if (req.instance < 0 || req.instance > instances.length)
-            throw new Error(`Module ${this.fullPath} does not have that many ${req.type} instance(s)`);
+        if (req.instance < 0 || req.instance > instances.length)
+            return false;
         return instances[req.instance];
+    }
+
+    getInstanceWrapper(req) {
+        let instance = this.getInstance(req);
+
+        if (instance) {
+            let wrapper = () => {
+                return this.getInstance(req);
+            };
+            Object.defineProperties(wrapper, {
+                isWrapper: {
+                    value: true,
+                    writable: false,
+                    enumerable: false
+                }
+            });
+            Object.freeze(wrapper);
+            return wrapper;
+        }
+        return false;
     }
 
     /**

@@ -586,7 +586,7 @@ class EFUNProxy {
             return driver.fileManager.readDirectory(this, this.resolvePath(expr), flags, callback);
         }
         else if (callback === true)
-            return await driver.fileManager.readDirectory(this, this.resolvePath(expr), flags, true);
+            return driver.fileManager.readDirectory(this, this.resolvePath(expr), flags, true);
         else
             return driver.fileManager.readDirectory(this, this.resolvePath(expr), flags);
     }
@@ -734,17 +734,16 @@ class EFUNProxy {
      * @returns {MUDObject} The object (or false if object failed to load)
      */
     loadObject(expr, args, callback) {
-        let req = this.parsePath(expr),
-            { file, type, instance } = req,
+        let req = this.parsePath(expr), { file } = req,
             module = driver.cache.get(file);
 
         if (module) {
-            let result = module.instances[0];
-            if (result) return result;
+            let req = this.parsePath(expr);
+            return module.getInstanceWrapper(req);
         }
-        let result = driver.fileManager
-            .loadObjectSync(this, req, args, callback);
-        return result;
+        driver.fileManager.loadObjectSync(this, req, args, callback);
+        module = driver.cache.get(file);
+        return module && module.getInstanceWrapper(req);
     }
 
     /**
@@ -1630,16 +1629,19 @@ class EFUNProxy {
      * @returns {MUDObject|false} The last object to interact with the MUD or false if none.
      */
     thisObject() {
-        let ctx = driver.getContext();
-        return ctx && ctx.thisObject;
+        let mec = driver.getExecution();
+        return mec && mec.thisObject;
     }
 
     thisPlayer(flag) {
-        return flag ? driver.currentContext.truePlayer : driver.currentContext.thisPlayer;
+        let mec = driver.getExecution();
+        return flag === true ? mec.truePlayer : mec.thisPlayer;
     }
 
     /**
-     * Simulates a */
+     * Simulates a standard time call that returns number of seconds since epoch
+     * @returns {number} The number of seconds since January 1, 1970
+     */
     time() {
         let t = new Date().getTime() / 1000;
         return Math.floor(t);

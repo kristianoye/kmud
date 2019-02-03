@@ -1,6 +1,11 @@
-﻿
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
 const
-    Verb = require('../../../base/Verb');
+    Base = require('Base'),
+    Verb = require(Base.Verb);
 
 class ForceCommand extends Verb {
     create() {
@@ -29,4 +34,4 @@ class ForceCommand extends Verb {
     }
 }
 
-module.exports = ForceCommand;
+module.exports = new ForceCommand();

@@ -8,43 +8,115 @@
  * current object, etc).
  */
 
-/** @typedef {{ object: MUDObject, method: string }} ObjectStackItem */
+/** @typedef {{ object: MUDObject, method: string, file: string }} ObjectStackItem */
 
 class ExecutionContext {
-    constructor() {
+    constructor(parent) {
         /** @type {ObjectStackItem[]} */
         this.stack = [];
 
-        this.currentObject = false;
+        this.activeChildren = 0;
+        this.alarmTime = Number.MAX_SAFE_INTEGER;
+        this.async = false;
+        this.children = [];
+        this.completed = false;
+        /** @type {ExecutionContext} */
+        this.parent = parent || false;
+        this.forkedAt = 0;
+        this.onComplete = false;
+        this.thisObject = false;
         this.thisPlayer = false;
         this.truePlayer = false;
     }
 
-    dispose() {
-        this.suspend();
+    alarm() {
+        let now = new Date().getTime();
+        if (this.alarmTime && now > this.alarmTime) {
+            throw new Error(`Maxiumum execution time exceeded`);
+        }
+        return this;
+    }
+
+    /**
+     * Complete execution
+     * @param {ExecutionContext} child The child context that is completing.
+     * @returns {ExecutionContext} Reference to this context.
+     */
+    complete(child) {
+        if (child) {
+            this.activeChildren--;
+        }
+        if (this.activeChildren === 0) {
+            this.completed = true;
+
+            if (this.parent) {
+                this.parent.complete(this);
+            }
+
+            if (typeof this.onComplete === 'function')
+                this.onComplete(this);
+        }
+        return this;
+    }
+
+    fork(isAsync) {
+        let newContext = new ExecutionContext(this);
+
+        newContext.async = isAsync === true;
+        newContext.stack = this.stack.slice(0);
+        newContext.thisObject = this.thisObject;
+        newContext.thisPlayer = this.thisPlayer;
+        newContext.truePlayer = this.truePlayer;
+        newContext.index = this.children.push(newContext);
+        newContext.forkedAt = newContext.stack.length;
+
+        this.activeChildren++;
+
+        return newContext;
+    }
+
+    get isDriverCall() {
+        return this.thisObject === driver;
+    }
+
+    assertPrivate(callee, type, ident) {
+        if (this.thisObject === callee)
+            return true;
+        throw new Error(`Illegal attempt to access private ${type} '${ident}'`);
+    }
+
+    assertProtected(callee, type, ident) {
+        if (this.thisObject === callee)
+            return true;
     }
 
     pop() {
         this.stack.pop();
-        this.currentObject = false;
+        this.thisObject = false;
         let m = this.stack.length;
 
-        if (m === 0)
-            return this.dispose();
-        else
-            for (let i = m - 1; i > -1; i--) {
-                if (this.stack[i].object) {
-                    this.currentObject = this.stack[i].object;
-                    break;
-                }
+        for (let i = m - 1; i > -1; i--) {
+            if (typeof this.stack[i].object === 'object') {
+                this.thisObject = this.stack[i].object;
+                break;
             }
+        }
+        if (m === this.forkedAt)
+            return this.complete();
 
         return this;
     }
 
     push(instance, methodName, fileName, classRef) {
-        this.stack.push({ object: instance, method: methodName, file: fileName, typeRef: classRef });
-        if (instance) this.currentObject = instance;
+        this.stack.push({
+            object: instance,
+            method: methodName,
+            file: fileName,
+            typeRef: classRef
+        });
+
+        if (typeof instance === 'object')
+            this.thisObject = instance;
         return this;
     }
 
