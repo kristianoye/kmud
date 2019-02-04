@@ -231,46 +231,48 @@ class GameServer extends MUDEventEmitter {
     }
 
     createMasterObject() {
-        let config = this.config.mudlib;
+        this.driverCall('createMasterObject', () => {
+            let config = this.config.mudlib, gameMaster = this.compiler.compileObject(config.master.path);
+            if (!gameMaster) {
+                throw new Error('In-game master could not be loaded; Abort!');
+            }
 
-        let gameMaster = this.compiler.compileObject(config.master.path);
-        if (!gameMaster) {
-            throw new Error('In-game master could not be loaded; Abort!');
-        }
+            /** @type {MasterObject} */
+            this.masterObject = gameMaster.getInstance(0);
 
-        /** @type {MasterObject} */
-        this.masterObject = gameMaster.getInstance(0);
+            if (!this.masterObject) {
+                throw new Error(`Failed to load master object (${config.master.path})`);
+            }
 
-        if (!this.masterObject) {
-            throw new Error(`Failed to load master object (${config.master.path})`);
-        }
+            let locateApply = (name, required) => {
+                let func = this.masterObject[config.applyNames[name] || name];
+                if (typeof func !== 'function' && required === true)
+                    throw new Error(`Invalid master object; Could not locate required ${name} apply: ${(config.applyNames[name] || name)}`);
+                return func || false;
+            };
 
-        let locateApply = (name, required) => {
-            let func = this.masterObject[config.applyNames[name] || name];
-            if (typeof func !== 'function' && required === true)
-                throw new Error(`Invalid master object; Could not locate required ${name} apply: ${(config.applyNames[name] || name)}`);
-            return func || false;
-        };
+            /* validate in-game master */
+            this.applyErrorHandler = locateApply.call(this, 'errorHandler', false);
+            this.applyGetPreloads = locateApply.call(this, 'getPreloads', false);
+            this.applyLogError = locateApply.call(this, 'logError', false);
+            this.applyValidDestruct = locateApply.call(this, 'validDestruct', false)
+                || locateApply.call(this, 'validWrite', true);
+            this.applyValidExec = locateApply.call(this, 'validExec', false);
+            this.applyValidObject = locateApply.call(this, 'validObject', false);
+            this.applyValidRead = locateApply.call(this, 'validRead', true);
+            this.applyValidRequire = locateApply.call(this, 'validRequire', true);
+            this.applyValidSocket = locateApply.call(this, 'validSocket', false);
+            this.applyValidShutdown = locateApply.call(this, 'validShutdown', true);
+            this.applyValidWrite = locateApply.call(this, 'validWrite', true);
 
-        /* validate in-game master */
-        this.applyErrorHandler = locateApply.call(this, 'errorHandler', false);
-        this.applyGetPreloads = locateApply.call(this, 'getPreloads', false);
-        this.applyLogError = locateApply.call(this, 'logError', false);
-        this.applyValidExec = locateApply.call(this, 'validExec', false);
-        this.applyValidObject = locateApply.call(this, 'validObject', false);
-        this.applyValidRead = locateApply.call(this, 'validRead', true);
-        this.applyValidRequire = locateApply.call(this, 'validRequire', true);
-        this.applyValidSocket = locateApply.call(this, 'validSocket', false);
-        this.applyValidShutdown = locateApply.call(this, 'validShutdown', true);
-        this.applyValidWrite = locateApply.call(this, 'validWrite', true);
+            this.rootUid = typeof this.masterObject.get_root_uid === 'function' ?
+                this.masterObject.get_root_uid() || 'ROOT' : 'ROOT';
 
-        this.rootUid = typeof this.masterObject.get_root_uid === 'function' ?
-            this.masterObject.get_root_uid() || 'ROOT' : 'ROOT';
+            this.backboneUid = typeof this.masterObject.get_backbone_uid === 'function' ?
+                this.masterObject.get_backbone_uid() || 'BACKBONE' : 'BACKBONE';
 
-        this.backboneUid = typeof this.masterObject.get_backbone_uid === 'function' ?
-            this.masterObject.get_backbone_uid() || 'BACKBONE' : 'BACKBONE';
-
-        return this;
+            return this;
+        });
     }
 
     /**
@@ -343,14 +345,7 @@ class GameServer extends MUDEventEmitter {
     createSimulEfuns() {
         let EFUNProxy = require('./EFUNProxy');
 
-        //  For bootstrapping
-        //if (!this.efuns) {
-        //    let sp = this.simulEfunPath;
-        //    this.efuns = new EFUNProxy(sp.slice(0, sp.lastIndexOf('/')), sp);
-        //    this.simulEfunType = require('./EFUNProxy');
-        //}
-        //else
-        {
+        return this.driverCall('createSimulEfuns', () => {
             try {
                 if (this.simulEfunPath) {
                     let module = this.compiler.compileObject({
@@ -360,6 +355,9 @@ class GameServer extends MUDEventEmitter {
                         noSeal: true
                     });
                     this.simulEfunType = module.getType();
+                }
+                else {
+                    this.simulEfunType = EFUNProxy;
                 }
             }
             catch (err) {
@@ -372,8 +370,8 @@ class GameServer extends MUDEventEmitter {
                 this.efuns.SaveExtension = this.config.mudlib.defaultSaveExtension;
                 Object.freeze(this.efuns);
             }
-        }
-        return this.efuns;
+            return this.efuns;
+        });
     }
 
     /**
@@ -434,8 +432,15 @@ class GameServer extends MUDEventEmitter {
         }
     }
 
-    driverCall(method, callback) {
-        let ecc = this.getExecution(this, method, '(driver)', false, 0);
+    /**
+     * Create a context frame that includes the driver.
+     * @param {string} method The method being called.
+     * @param {function(ExecutionContext):any} callback The callback that executes when the context is ready.
+     * @param {string} fileName The optional filename
+     * @returns {any} The result of the callback
+     */
+    driverCall(method, callback, fileName) {
+        let ecc = this.getExecution(this, method, fileName || '(driver)', false, 0);
         try {
             return callback(ecc);
         }
@@ -662,16 +667,17 @@ class GameServer extends MUDEventEmitter {
      * @param {any} fileName The current filename
      * @param {boolean} isAsync Was the call async?
      * @param {number} lineNumber The line number the call originated on.
+     * @param {string} callString The expression giving a rough depiction of the call hierarchy.
      * @returns {ExecutionContext} The context.
      */
-    getExecution(ob, method, fileName, isAsync, lineNumber) {
+    getExecution(ob, method, fileName, isAsync, lineNumber, callString) {
         if (arguments.length === 0)
             return this.executionContext || false;
 
         if (!this.executionContext) {
             this.executionContext = new ExecutionContext();
         }
-        return this.executionContext.push(ob, method, fileName, isAsync, lineNumber);
+        return this.executionContext.push(ob, method, fileName, isAsync, lineNumber, callString || method);
     }
 
     /**
@@ -907,20 +913,12 @@ class GameServer extends MUDEventEmitter {
         for (let i = 0; i < this.endpoints.length; i++) {
             this.endpoints[i]
                 .bind()
-                .on('kmud.connection', client => {
+                .on('kmud.connection', /** @param {MUDClient} client */ client => {
                     this.driverCall('onConnection', () => {
-                        let ctx = client.createContext(client.createCommandEvent(false));
-                        let newLogin = this.masterObject.connect(client.port);
+                        let newLogin = this.masterObject.connect(client.port, client.clientType);
                         if (newLogin) {
-                            driver.storage.get(newLogin).setProtected('$client', client,
-                                ($storage, _client) => {
-                                    let evt = {
-                                        newBody: newLogin,
-                                        newStorage: driver.storage.get(newLogin),
-                                        client: _client
-                                    };
-                                    client.handleExec(evt);
-                                });
+                            client.setBody(newLogin);
+
                             if (driver.connections.indexOf(client) === -1)
                                 driver.connections.push(client);
                         }
@@ -1047,22 +1045,18 @@ class GameServer extends MUDEventEmitter {
         };
     }
 
-    /**
-     * Set the active player
-     * @param {MUDObject} body
-     * @param {MUDObject} truePlayer
-     * @param {string} verb
-     */
-    setThisPlayer(body, truePlayer, verb) {
+    setThisPlayer(body, truePlayer, verb, methodName) {
         return unwrap(body, player => {
-            if (typeof truePlayer === 'string') {
-                verb = truePlayer;
-                truePlayer = false;
+            let ecc = driver.getExecution(body, methodName, body.filename, false);
+            try {
+                ecc.thisPlayer = player;
+                if (truePlayer === true)
+                    ecc.truePlayer = player;
+                ecc.currentVerb = verb || '';
             }
-
-            this.thisPlayer = player;
-            if (truePlayer === true) this.truePlayer = player;
-            this.currentVerb = verb || '';
+            finally {
+                ecc.pop(methodName);
+            }
         });
     }
 

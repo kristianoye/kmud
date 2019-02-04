@@ -7,10 +7,7 @@
  */
 
 const
-    ClientInstance = require('./ClientInstance'),
-    _client = Symbol('_client'),
-    MXC = require('../MXC'),
-    maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime;
+    ClientInstance = require('./ClientInstance');
 
 class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, client) {
@@ -34,10 +31,6 @@ class RanvierTelnetInstance extends ClientInstance {
         this.client.end();
     }
 
-    /**
-     * Write a prompt on the client.
-     * @param {MUDInputEvent} evt 
-     */
     displayPrompt(evt) {
         if (this.inputStack.length === 0 && evt.prompt) {
             this.write(evt.prompt.text);
@@ -51,7 +44,7 @@ class RanvierTelnetInstance extends ClientInstance {
         if (typeof opts === 'string') {
             opts = { text: opts, type: 'text' };
         }
-        var data = Object.assign({
+        let data = Object.assign({
             type: 'text',
             text: 'Command: '
         }, opts), frame = { data: data, callback: callback };
@@ -72,10 +65,6 @@ class RanvierTelnetInstance extends ClientInstance {
             this.write(input.data.text);
         }
         return this;
-    }
-
-    setBody(body, cb) {
-        return super.setBody(body, cb);
     }
 
     transmit(buffer) {

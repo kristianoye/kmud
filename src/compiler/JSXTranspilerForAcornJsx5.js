@@ -23,6 +23,17 @@ const
 
 var nextAsyncHandleId = 1;
 
+/**
+ * Fetch the next async handle ID to use 
+ * @returns {number} The next async handle to use
+ */
+function getAsyncHandleId() {
+    // We could use UUID and never have to worry?
+    if (nextAsyncHandleId === Number.MAX_SAFE_INTEGER)
+        nextAsyncHandleId = 1;
+    return nextAsyncHandleId++;
+}
+
 /** @typedef {{ allowJsx: boolean, context: PipeContext, source: string }} OpParams */
 class JSXTranspilerOp {
     /**
@@ -50,16 +61,16 @@ class JSXTranspilerOp {
 
     addMethod(method) {
         this.methodStack.push(method = method || '(MAIN)');
-        return method;
+        return this.currentMethod = method;
+    }
+
+    get callString() {
+        return this.methodStack.length && this.methodStack.join(' -> ') || '(MAIN)';
     }
 
     popMethod() {
         this.methodStack.pop();
         return this;
-    }
-
-    get thisMethod() {
-        return this.methodStack.length && this.methodStack.join('.') || '(MAIN)';
     }
 }
 
@@ -185,6 +196,7 @@ function jsxWhitespace(op) {
 function parseElement(op, e, depth, ident) {
     let ret = '';
     if (e) {
+        ident = ident || '';
         if (e.start > op.pos) {
             ret += op.source.slice(op.pos, e.start);
             op.pos = e.start;
@@ -206,17 +218,17 @@ function parseElement(op, e, depth, ident) {
                     op.pos = e.body.start;
 
                     op.addMethod(isAsync ? '(async)' : '(anonymous)');
-                    let methodName = op.thisMethod;
+                    let callString = op.callString;
 
                     if (e.body.type === 'BlockStatement') {
-                        ret += `{ let __mec = __bfc(this, '${methodName}', __FILE__, ${isAsync}, __LINE__); try `;
+                        ret += `{ let __mec = __bfc(this, '${ident}', '${callString}', __FILE__, ${isAsync}, DEBUG.LineNumberInTrace && __LINE__); try `;
                         ret += parseElement(op, e.body);
-                        ret += ` finally { __efc(__mec, '${methodName}'); }}`;
+                        ret += ` finally { __efc(__mec, '${callString}'); }}`;
                     }
                     else {
-                        ret += `{ let __mec = __bfc(this, '${methodName}', __FILE__, ${isAsync}, __LINE__); try { return `;
+                        ret += `{ let __mec = __bfc(this, '${ident}', '${callString}', __FILE__, ${isAsync}, DEBUG.LineNumberInTrace && __LINE__); try { return `;
                         ret += parseElement(op, e.body);
-                        ret += `; } finally { __efc(__mec, '${methodName}'); }}`;
+                        ret += `; } finally { __efc(__mec, '${callString}'); }}`;
                     }
                     op.popMethod();
                 }
@@ -229,7 +241,7 @@ function parseElement(op, e, depth, ident) {
 
             case 'AwaitExpression':
                 {
-                    let methodName = op.thisMethod;
+                    let methodName = op.callString;
                     /**
                      * This block needs some love to be really bulletproof:
                      *   (1) Need different or rolling async handles for
@@ -241,7 +253,7 @@ function parseElement(op, e, depth, ident) {
                      *   (3) Need to safeguard against users calling async
                      *       methods without using await.
                      */
-                    let handleId = nextAsyncHandleId++; 
+                    let handleId = getAsyncHandleId(); 
                     ret += `(__iac(this, ${handleId}, '${methodName}', __FILE__), `;
                     ret += parseElement(op, e.argument, depth + 1);
                     ret += `.always(() => __dac(${handleId})))`;
@@ -342,16 +354,16 @@ function parseElement(op, e, depth, ident) {
                     ret += parseElement(op, e.id, depth + 1);
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
                     op.addMethod(e.id && e.id.name ? e.id.name : '(anonymous)');
-                    let methodName = op.thisMethod;
+                    let callString = op.callString;
                     if (op.inClass) {
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, '${methodName}', __FILE__, false, __LINE__); try { `,
-                            ` } finally { __efc(__mec, '${methodName}'); }`);
+                            `let __mec = __bfc(this, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
+                            ` } finally { __efc(__mec, '${callString}'); }`);
                     }
                     else
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, '${methodName}', __FILE__, false, __LINE__); try { `,
-                            ` } finally { __efc(__mec, '${methodName}'); }`);
+                            `let __mec = __bfc(this, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
+                            ` } finally { __efc(__mec, '${callString}'); }`);
                     ret += parseElement(op, e.body, depth + 1, e.id);
                     op.popMethod();
                 }
@@ -361,17 +373,17 @@ function parseElement(op, e, depth, ident) {
                 {
                     ret += parseElement(op, e.id, depth + 1);
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
-                    let methodName = op.thisMethod;
+                    let callString = op.callString;
                     if (op.inClass) {
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, '${methodName}', __FILE__, false, __LINE__); try { `,
-                            ` } finally { __efc(__mec, '${methodName}'); }`,
+                            `let __mec = __bfc(this, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
+                            ` } finally { __efc(__mec, '${callString}'); }`,
                             ident === 'constructor');
                     }
                     else
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, '${methodName}', __FILE__, false, __LINE__); try { `,
-                            ` } finally { __efc(__mec, '${methodName}'); }`);
+                            `let __mec = __bfc(this, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
+                            ` } finally { __efc(__mec, '${callString}'); }`);
                     ret += parseElement(op, e.body, depth + 1);
                     op.popMethod();
                 }
@@ -496,14 +508,14 @@ function parseElement(op, e, depth, ident) {
                     throw new Error(`Type '${op.inClass}' attempts to redefine protected apply '${methodName}' in ${op.filename}`);
                 }
                 ret += methodName;
-                ret += parseElement(op, e.value, depth + 1, e.key.name);
+                ret += parseElement(op, e.value, depth + 1, methodName);
                 op.popMethod();
                 break;
 
             case 'NewExpression':
                 {
                     let callee = op.source.slice(e.callee.start, e.callee.end),
-                        methodName = op.thisMethod;
+                        methodName = op.callString;
                     ret += `__pcc(${callee}, __FILE__, '${methodName}', this, () => { return `;
                     e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
                     if (op.pos !== e.end) {

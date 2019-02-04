@@ -58,7 +58,7 @@ declare class ExecutionContext {
      * @param ob The object that has a method executing.
      * @param method The name of the method that is being executed.
      */
-    push(ob: MUDObject, method: string): ExecutionContext;
+    push(ob: MUDObject, method: string, isAsync: boolean, lineNumber: number, callString: string): ExecutionContext;
 
     /** Restores a context back to running state */
     restore(): ExecutionContext;

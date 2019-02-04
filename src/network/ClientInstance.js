@@ -72,6 +72,8 @@ class ClientInstance extends EventEmitter {
         return this;
     }
 
+    get clientType() { return 'text'; }
+
     /**
      * Called when execution of the current command is complete.  This will
      * release the current context and re-draw the user prompt.
@@ -124,31 +126,27 @@ class ClientInstance extends EventEmitter {
 
     /**
      * Initialize
+     * @param {ExecutionContext} ecc The current context
+     * @param {MUDObject} body The user's current body
      * @param {MUDInputEvent} cmdEvent The command to be executed.
+     * @returns {MUDInputEvent} The new command event
      */
-    createContext(cmdEvent) {
-        if (this.context !== false && !this.context.released)
-            throw new Error(`Client may not have multiple active contexts!`);
+    initContext(ecc, body, cmdEvent) {
+        ecc.alarmTime = maxCommandExecutionTime ? new Date().getTime()
+            + maxCommandExecutionTime : Number.MAX_SAFE_INTEGER;
+        ecc.thisClient = this;
+        ecc.input = cmdEvent;
+        ecc.$storage = this.$storage;
+        ecc.setThisPlayer(body, body, '');
+        ecc.startTime = new Date().getTime();
 
-        this.context = driver.getContext(true, mxc => {
-            mxc.alarm = maxCommandExecutionTime ? new Date().getTime() + maxCommandExecutionTime : Number.MAX_SAFE_INTEGER;
-            mxc.client = this;
-            mxc.input = cmdEvent;
-            mxc.note = 'executeCommand';
-            mxc.$storage = this.$storage;
-            if (this.body) {
-                mxc.thisPlayer = mxc.truePlayer = this.body();
-                mxc.addFrame(this.body(), 'executeCommand');
-            }
-            else {
-                mxc.thisPlayer = mxc.truePlayer = false;
-                mxc.addFrame(driver.masterObject, 'connect');
-            }
-            mxc.onDestroy = (ctx) => {
-                mxc.input.complete();
-            };
+        ecc.on('complete', completed => {
+            let te = new Date().getTime() - completed.startTime;
+            console.log(`Command complete [ellapsed: ${te} ms]`);
         });
+        return cmdEvent;
     }
+
     /**
      * The default prompt painted on the client when a command completes.
      * @returns {string}
@@ -219,44 +217,42 @@ class ClientInstance extends EventEmitter {
      * @param {string} text The command to execute.
      */
     executeCommand(text) {
-        let body = this.body(),
-            cmdEvent = this.createCommandEvent(text || '');
-        this.lastCommand = new Date();
-        driver.setThisPlayer(body, true, cmdEvent.verb);
-        this.createContext(cmdEvent);
-
-        try {
-            this.context.restore();
-            text = text.replace(/[\r\n]+/g, '');
-            if (this.inputStack.length > 0) {
-                var frame = this.inputStack.pop(), result;
+        driver.driverCall('executeCommand', ecc => {
+            unwrap(this.body, body => {
+                let cmdEvent = this.initContext(ecc, body, this.createCommandEvent(text || ''));
                 try {
-                    if (!this.client.echoing) {
-                        this.write('\r\n');
-                        this.client.toggleEcho(true);
+                    if (this.inputStack.length > 0) {
+                        let inputFrame = this.inputStack.pop(), result;
+                        try {
+                            text = text.replace(/[\r\n]+/g, '');
+                            if (!this.client.echoing) {
+                                this.write('\r\n');
+                                this.client.toggleEcho(true);
+                            }
+                            result = inputFrame.callback.call(body, text, cmdEvent);
+                            if (result === true) {
+                                this.inputStack.unshift(inputFrame);
+                            }
+                        }
+                        catch (_err) {
+                            this.writeLine('Error: ' + _err);
+                            this.writeLine(_err.stack);
+                            result = true;
+                        }
+                        finally {
+                            this.releaseContext();
+                        }
                     }
-                    result = frame.callback.call(body, text, cmdEvent);
-                    if (result === true) {
-                        this.inputStack.unshift(frame);
+                    else if (body) {
+                        this.$storage && this.$storage.emit('kmud.command', cmdEvent);
                     }
                 }
-                catch (_err) {
-                    this.writeLine('Error: ' + _err);
-                    this.writeLine(_err.stack);
-                    result = true;
+                catch (ex) {
+                    driver.errorHandler(ex, false);
+                    cmdEvent.complete();
                 }
-                finally {
-                    this.releaseContext();
-                }
-            }
-            else if (body) {
-                this.$storage && this.$storage.emit('kmud.command', cmdEvent);
-            }
-        }
-        catch (ex) {
-            driver.errorHandler(ex, false);
-            cmdEvent.complete();
-        }
+            });
+        });
     }
 
     get idleTime() {
@@ -304,6 +300,29 @@ class ClientInstance extends EventEmitter {
 
     renderPrompt() {
         throw new Error('Not implemented');
+    }
+
+    setBody(body) {
+        driver.driverCall('setBody', ecc => {
+            //  Disconnect from old body
+            unwrap(this.body, oldBody => {
+                ecc.setThisPlayer(oldBody, oldBody, '');
+                oldBody.disconnect && oldBody.disconnect();
+                let $storage = driver.storage.get(oldBody);
+                $storage.setSymbol('$client', false);
+            });
+
+            // Connect to the new body
+            unwrap(body, newBody => {
+                let $storage = this.$storage = driver.storage.get(newBody);
+
+                $storage.setSymbol('$client', this);
+                this.body = body;
+
+                ecc.setThisPlayer(newBody, newBody, '');
+                newBody.connect && newBody.connect(this.port, this.clientType);
+            });
+        });
     }
 }
 

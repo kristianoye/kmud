@@ -8,13 +8,21 @@ const
     MUDHtml = require('./MUDHtml'),
     ExecutionContext = require('./ExecutionContext'),
     { TimeoutError } = require('./ErrorTypes'),
-    DriverApplies = ['connect', 'create', 'destroy', 'heartbeat', 'processInput', 'reset'],
+    DriverApplies = [
+        'connect',      // Called when a user connects with their body
+        'create',       // Called and acts like a secondary constructor
+        'destroy',      // Called when an object is destructed
+        'disconnect',   // Called when a player disconnects from their body
+        'heartbeat',    // Called periodically in "living" objects
+        'init',         // Called when objects interact with one another
+        'processInput', // Called to process user input
+        'reset'         // Called periodically to reset the object state
+    ],
     MXC = require('./MXC'),
     vm = require('vm'),
     loopsPerAssert = 10000;
 
-var _includeCache = [],
-    _asyncContexts = {};
+var _asyncContexts = {};
 
 Promise.prototype.always = function (onResolveOrReject) {
     return this.then(onResolveOrReject, reason => {
@@ -77,7 +85,7 @@ class MUDLoader {
             },
             __bfc: {
                 //  Begin Function Call
-                value: function (ob, method, fileName, isAsync, lineNumber) {
+                value: function (ob, method, callString, fileName, isAsync, lineNumber) {
                     let mec = driver.getExecution(), newContext = false;
 
                     if (method.length === 0) {
@@ -87,19 +95,19 @@ class MUDLoader {
                     if (!mec) {
                         if (!ob)
                             throw new Error('What, no execution context?!');
-                        mec = driver.getExecution(ob, method, fileName, isAsync, lineNumber);
+                        mec = driver.getExecution(ob, method, fileName, isAsync, lineNumber, callString);
                         newContext = true;
                     }
 
                     if (method && DriverApplies.indexOf(method) > -1) {
-                        if (!mec.isDriverCall)
+                        if (!mec.isValidApplyCall(method, ob))
                             throw new Error(`Illegal call to driver apply '${method}'`);
                     }
 
                     if (newContext)
                         return mec;
                     return mec.alarm()
-                        .push(ob instanceof MUDObject && ob, method || '(undefined)',  fileName, isAsync, lineNumber);
+                        .push(ob instanceof MUDObject && ob, method || '(undefined)',  fileName, isAsync, lineNumber, callString);
                 },
                 enumerable: false,
                 writable: false
@@ -117,12 +125,15 @@ class MUDLoader {
             __efc: {
                 // End Function Call
                 value: function (/** @type {ExecutionContext} */ mec, methodOrFunc) {
-                    if (typeof mec.pop !== 'function') {
-                        console.log('I thought we were over this');
-                    }
                     mec && mec.pop(methodOrFunc);
                 },
                 enumerable: false,
+                writable: false
+            },
+            DEBUG: {
+                value: Object.freeze({
+                    LineNumberInTrace: false
+                }),
                 writable: false
             },
             __LINE__: {
@@ -245,7 +256,7 @@ class MUDLoader {
     }
 
     createEfuns() {
-        let ctx = driver.getContext(), fn = ctx.currentFileName;
+        let ctx = driver.getExecution(), fn = ctx.currentFileName;
         return driver.createEfunInstance(fn);
     }
 
@@ -275,8 +286,8 @@ class MUDLoader {
             default: false,
             text: 'Prompt: ',
             type: 'text'
-        }, optsIn), mxc = driver.getContext();
-        mxc.client && mxc.client.addPrompt(opts, callback);
+        }, optsIn), ecc = driver.getExecution();
+        ecc.thisClient && ecc.thisClient.addPrompt(opts, callback);
     }
 
     thisPlayer(flag) {
@@ -310,9 +321,9 @@ class MUDLoader {
     }
 
     write(str) {
-        let mxc = driver.getContext();
-        if (mxc && mxc.client) {
-            mxc.client.writeLine(str);
+        let ecc = driver.getExecution();
+        if (ecc && ecc.thisClient) {
+            ecc.thisClient.writeLine(str);
         }
     }
 }

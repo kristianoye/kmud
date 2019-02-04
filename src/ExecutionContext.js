@@ -7,14 +7,18 @@
  * important "thread" context variables (current player, true player,
  * current object, etc).
  */
+const
+    MUDEventEmitter = require('./MUDEventEmitter');
 
 /** @typedef {{ object: MUDObject, method: string, file: string }} ObjectStackItem */
 
 var
     contextId = 1;
 
-class ExecutionContext {
+class ExecutionContext extends MUDEventEmitter {
     constructor(parent) {
+        super();
+
         /** @type {ObjectStackItem[]} */
         this.stack = [];
 
@@ -24,6 +28,8 @@ class ExecutionContext {
         this.children = [];
         this.completed = false;
         this.contextId = contextId++;
+        this.currentVerb = false;
+
         /** @type {ExecutionContext} */
         this.parent = parent || false;
         this.forkedAt = 0;
@@ -59,9 +65,15 @@ class ExecutionContext {
 
             if (typeof this.onComplete === 'function')
                 this.onComplete(this);
+            this.emit('complete', this);
         }
         console.log(`Context ID ${this.contextId} complete`);
         return this.suspend();
+    }
+
+    get currentFileName() {
+        let frame = this.stack[0];
+        return frame.file;
     }
 
     fork(isAsync) {
@@ -95,8 +107,8 @@ class ExecutionContext {
         return index > -1 && index < this.length && this.stack[index];
     }
 
-    get isDriverCall() {
-        return this.thisObject === driver;
+    isValidApplyCall(method, callee) {
+        return this.thisObject === driver || this.thisObject === callee;
     }
 
     get length() {
@@ -106,9 +118,9 @@ class ExecutionContext {
     pop(method) {
         let lastFrame = this.stack.shift();
 
-        if (!lastFrame || lastFrame.method !== method) {
+        if (!lastFrame || lastFrame.callString !== method) {
             if (lastFrame) {
-                console.log(`ExecutionContext out of sync; Expected ${method} but found ${lastFrame.method}`);
+                console.log(`ExecutionContext out of sync; Expected ${method} but found ${lastFrame.callString}`);
             }
             else
                 console.log(`ExecutionContext out of sync... no frames left!`);
@@ -129,8 +141,15 @@ class ExecutionContext {
         return this;
     }
 
-    push(object, method, file, isAsync, lineNumber) {
-        this.stack.unshift({ object, method, file, isAsync: isAsync === true, lineNumber });
+    push(object, method, file, isAsync, lineNumber, callString) {
+        this.stack.unshift({
+            object,
+            method,
+            file,
+            isAsync: isAsync === true,
+            lineNumber,
+            callString
+        });
 
         if (typeof object === 'object')
             this.thisObject = object;
@@ -144,6 +163,15 @@ class ExecutionContext {
     restore() {
         driver.executionContext = this;
         return this;
+    }
+
+    setThisPlayer(player, truePlayer, verb) {
+        this.thisPlayer = player;
+        this.truePlayer = truePlayer || this.truePlayer;
+        this.currentVerb = verb || '';
+
+        let $storage = driver.storage.get(player);
+        this.thisClient = $storage && $storage.getSymbol('$client');
     }
 
     suspend() {

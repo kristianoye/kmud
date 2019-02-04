@@ -225,7 +225,7 @@ declare class EFUNProxy {
     * @param {string} path The path to the module to load.
     * @returns {MUDObject} The object or false if the object was invalid.
     */
-    loadObject(path: string): MUDObject | false;
+    loadObject(path: string): MUDWrapper;
 
     /**
     * Returns an in-memory object or loads and returns that object if it was not previously loaded.

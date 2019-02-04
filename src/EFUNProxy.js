@@ -68,10 +68,8 @@ class EFUNProxy {
      * @param {function(string):void} callback The callback that fires when the user has entered text.
      */
     addPrompt(opts, callback) {
-        let mxc = driver.getContext();
-        if (mxc && mxc.client) {
-            mxc.client.addPrompt(opts, callback);
-        }
+        let ecc = driver.getExecution();
+        ecc && ecc.thisClient && ecc.thisClient.addPrompt(opts, callback);
     }
 
     /**

@@ -67,6 +67,8 @@ class HTTPClientInstance extends ClientInstance {
         });
     }
 
+    get clientType() { return 'html'; }
+
     /**
      * Indicates this client is capable of rendering HTML
      * @returns {boolean} Flag indicating the client understands HTML
