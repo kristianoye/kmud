@@ -104,7 +104,7 @@ declare class GameServer {
      * @param method The method being called.
      * @param file The file in which the method exists.
      */
-    getExecution(ob: MUDObject, method: string, file: string): ExecutionContext;
+    getExecution(ob: MUDObject, method: string, file: string, isAsync: boolean, line: number): ExecutionContext;
 
     /**
      * Fetch the current object stack.

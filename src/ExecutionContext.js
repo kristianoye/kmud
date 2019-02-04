@@ -10,6 +10,9 @@
 
 /** @typedef {{ object: MUDObject, method: string, file: string }} ObjectStackItem */
 
+var
+    contextId = 1;
+
 class ExecutionContext {
     constructor(parent) {
         /** @type {ObjectStackItem[]} */
@@ -20,6 +23,7 @@ class ExecutionContext {
         this.async = false;
         this.children = [];
         this.completed = false;
+        this.contextId = contextId++;
         /** @type {ExecutionContext} */
         this.parent = parent || false;
         this.forkedAt = 0;
@@ -56,7 +60,8 @@ class ExecutionContext {
             if (typeof this.onComplete === 'function')
                 this.onComplete(this);
         }
-        return this;
+        console.log(`Context ID ${this.contextId} complete`);
+        return this.suspend();
     }
 
     fork(isAsync) {
@@ -90,8 +95,17 @@ class ExecutionContext {
             return true;
     }
 
-    pop() {
-        this.stack.pop();
+    pop(method) {
+        let lastFrame = this.stack.pop();
+
+        if (!lastFrame || lastFrame.method !== method) {
+            if (lastFrame) {
+                console.log(`ExecutionContext out of sync; Expected ${method} but found ${lastFrame.method}`);
+            }
+            else
+                console.log(`ExecutionContext out of sync... no frames left!`);
+        }
+
         this.thisObject = false;
         let m = this.stack.length;
 
@@ -107,25 +121,22 @@ class ExecutionContext {
         return this;
     }
 
-    push(instance, methodName, fileName, classRef) {
-        this.stack.push({
-            object: instance,
-            method: methodName,
-            file: fileName,
-            typeRef: classRef
-        });
+    push(object, method, file, isAsync, lineNumber) {
+        this.stack.push({ object, method, file, isAsync: isAsync === true, lineNumber });
 
-        if (typeof instance === 'object')
-            this.thisObject = instance;
+        if (typeof object === 'object')
+            this.thisObject = object;
         return this;
     }
 
     restore() {
         driver.executionContext = this;
+        return this;
     }
 
     suspend() {
         driver.executionContext = false;
+        return this;
     }
 }
 

@@ -77,22 +77,29 @@ class MUDLoader {
             },
             __bfc: {
                 //  Begin Function Call
-                value: function (ob, method, fileName, classRef) {
-                    let mec = driver.getExecution();
+                value: function (ob, method, fileName, isAsync, lineNumber) {
+                    let mec = driver.getExecution(), newContext = false;
 
-                    if (!mec)
-                        throw new Error('What, no execution context?!');
+                    if (method.length === 0) {
+                        method = '(MAIN)';
+                    }
+
+                    if (!mec) {
+                        if (!ob)
+                            throw new Error('What, no execution context?!');
+                        mec = driver.getExecution(ob, method, fileName, isAsync, lineNumber);
+                        newContext = true;
+                    }
 
                     if (method && DriverApplies.indexOf(method) > -1) {
                         if (!mec.isDriverCall)
                             throw new Error(`Illegal call to driver apply '${method}'`);
                     }
 
-                    return mec && mec
-                        .alarm()
-                        .push(ob instanceof MUDObject && ob,
-                            method || '(undefined)',
-                            fileName, classRef);
+                    if (newContext)
+                        return mec;
+                    return mec.alarm()
+                        .push(ob instanceof MUDObject && ob, method || '(undefined)',  fileName, isAsync, lineNumber);
                 },
                 enumerable: false,
                 writable: false
@@ -109,8 +116,11 @@ class MUDLoader {
             },
             __efc: {
                 // End Function Call
-                value: function (/** @type {ExecutionContext} */ mec) {
-                    mec && mec.pop();
+                value: function (/** @type {ExecutionContext} */ mec, methodOrFunc) {
+                    if (typeof mec.pop !== 'function') {
+                        console.log('I thought we were over this');
+                    }
+                    mec && mec.pop(methodOrFunc);
                 },
                 enumerable: false,
                 writable: false
@@ -119,7 +129,8 @@ class MUDLoader {
                 get: function () {
                     let foo = new Error('').stack.split('\n'), re = /((\d+):(\d+))/;
                     for (let i = 0, m = null, c = 0; i < foo.length; i++) {
-                        if ((m = re.exec(foo[i])) && c++ === 1) return parseInt(m[1]);
+                        if ((m = re.exec(foo[i])) && c++ === 1)
+                            return parseInt(m[1]);
                     }
                 }
             },
@@ -140,7 +151,7 @@ class MUDLoader {
                         result = con();
                     }
                     finally {
-                        ecc && ecc.pop();
+                        ecc && ecc.pop(method);
                     }
                     return result;
                 },

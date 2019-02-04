@@ -288,7 +288,8 @@ class GameServer extends MUDEventEmitter {
      * Preload some common objects to decrease in-game load times while running.
      */
     createPreloads() {
-        let ecc = this.getExecution(this.masterObject, 'epilog', this.masterFilename, this.masterObject.prototype);
+        let ecc = this.getExecution(this.masterObject,
+            'createPreloads', this.masterFilename);
         ecc.alarmTime = Number.MAX_SAFE_INTEGER;
 
         try {
@@ -316,7 +317,7 @@ class GameServer extends MUDEventEmitter {
             }
         }
         finally {
-            ecc.pop();
+            ecc.pop('createPreloads');
         }
     }
 
@@ -652,17 +653,18 @@ class GameServer extends MUDEventEmitter {
      * @param {any} ob The current object
      * @param {any} method The current method
      * @param {any} fileName The current filename
-     * @param {any} classRef The class reference of the current object (redudant)
+     * @param {boolean} isAsync Was the call async?
+     * @param {number} lineNumber The line number the call originated on.
      * @returns {ExecutionContext} The context.
      */
-    getExecution(ob, method, fileName, classRef) {
+    getExecution(ob, method, fileName, isAsync, lineNumber) {
         if (arguments.length === 0)
             return this.executionContext || false;
 
         if (!this.executionContext) {
             this.executionContext = new ExecutionContext();
         }
-        return this.executionContext.push(ob, method, fileName, classRef);
+        return this.executionContext.push(ob, method, fileName, isAsync, lineNumber);
     }
 
     /**
@@ -942,8 +944,17 @@ class GameServer extends MUDEventEmitter {
     }
 
     runMain() {
+        let ecc = this.getExecution(this.masterObject, 'onReady', this.masterObject.filename);
         this.gameState = GAMESTATE_RUNNING;
-        this.masterObject.emit('ready', this.masterObject);
+        try {
+            this.masterObject.emit('ready', this.masterObject);
+        }
+        catch (err) {
+            /* do nothing */
+        }
+        finally {
+            ecc.pop('onReady');
+        }
         if (this.config.mudlib.heartbeatInterval > 0) {
             this.heartbeatTimer = setTimeout(() => {
                 this.executeHeartbeat();

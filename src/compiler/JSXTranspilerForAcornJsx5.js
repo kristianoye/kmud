@@ -41,10 +41,25 @@ class JSXTranspilerOp {
         this.jsxDepth = 0;
         this.jsxIndent = '';
         this.max = p.source.length;
+        this.methodStack = [];
         this.output = '';
         this.pos = 0;
         this.scopes = [];
         this.source = p.source;
+    }
+
+    addMethod(method) {
+        this.methodStack.push(method = method || '(MAIN)');
+        return method;
+    }
+
+    popMethod() {
+        this.methodStack.pop();
+        return this;
+    }
+
+    get thisMethod() {
+        return this.methodStack.length && this.methodStack.join('.') || '(MAIN)';
     }
 }
 
@@ -152,10 +167,9 @@ function addRuntimeAssert(e, preText, postText, isCon) {
 /**
  * Indent some code
  * @param {JSXTranspilerOp} op The operation
- * @param {boolean} isElement Is the indented item an element
  * @returns {string} The indented code
  */
-function jsxWhitespace(op, isElement) {
+function jsxWhitespace(op) {
     if (op.jsxDepth === 0) return '';
     return op.jsxIndent + Array(op.jsxDepth + 1).join('   ');
 }
@@ -169,9 +183,7 @@ function jsxWhitespace(op, isElement) {
  * @returns {string} The element as source code.
  */
 function parseElement(op, e, depth, ident) {
-    let ret = '',
-        context = op.context,
-        allowJsx = op.allowJsx;
+    let ret = '';
     if (e) {
         if (e.start > op.pos) {
             ret += op.source.slice(op.pos, e.start);
@@ -187,9 +199,28 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'ArrowFunctionExpression':
-                e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
-                ret += parseElement(op, e.body);
-                break;
+                {
+                    let isAsync = op.source.slice(e.start, e.start + 5) === 'async';
+                    e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
+                    ret += op.source.slice(op.pos, e.body.start);
+                    op.pos = e.body.start;
+
+                    op.addMethod(isAsync ? '(async)' : '(anonymous)');
+                    let methodName = op.thisMethod;
+
+                    if (e.body.type === 'BlockStatement') {
+                        ret += `{ let __mec = __bfc(this, '${methodName}', __FILE__, ${isAsync}, __LINE__); try `;
+                        ret += parseElement(op, e.body);
+                        ret += ` finally { __efc(__mec, '${methodName}'); }}`;
+                    }
+                    else {
+                        ret += `{ let __mec = __bfc(this, '${methodName}', __FILE__, ${isAsync}, __LINE__); try { return `;
+                        ret += parseElement(op, e.body);
+                        ret += `; } finally { __efc(__mec, '${methodName}'); }}`;
+                    }
+                    op.popMethod();
+                }
+                break; 
 
             case 'AssignmentExpression':
                 ret += parseElement(op, e.left, depth + 1);
@@ -198,6 +229,7 @@ function parseElement(op, e, depth, ident) {
 
             case 'AwaitExpression':
                 {
+                    let methodName = op.thisMethod;
                     /**
                      * This block needs some love to be really bulletproof:
                      *   (1) Need different or rolling async handles for
@@ -210,7 +242,7 @@ function parseElement(op, e, depth, ident) {
                      *       methods without using await.
                      */
                     let handleId = nextAsyncHandleId++; 
-                    ret += `(__iac(this, ${handleId}, '${op.thisMethod}', __FILE__), `;
+                    ret += `(__iac(this, ${handleId}, '${methodName}', __FILE__), `;
                     ret += parseElement(op, e.argument, depth + 1);
                     ret += `.always(() => __dac(${handleId})))`;
                     
@@ -256,7 +288,7 @@ function parseElement(op, e, depth, ident) {
                     ret += ` extends ${op.injectedSuperClass}`;
                 ret += parseElement(op, e.body, depth + 1);
                 // op.appendText += `\n\n${e.id.name}.prototype.fileName = '${context.basename}';\n`;
-                ret += ` ${e.id.name}.prototype.fileName = '${context.basename}'; `;
+                ret += ` ${e.id.name}.prototype.fileName = '${op.context.basename}'; `;
                 break;
 
             case 'ConditionalExpression':
@@ -306,30 +338,43 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'FunctionDeclaration':
-                ret += parseElement(op, e.id, depth + 1);
-                e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
-                if (op.inClass) {
-                    addRuntimeAssert(e,
-                        `let __mec = __bfc(this, '${(e.id ? e.id.name : '(anonymous)')}', __FILE__, ${op.inClass}); try { `,
-                        ' } finally { __efc(__mec); }');
+                {
+                    ret += parseElement(op, e.id, depth + 1);
+                    e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
+                    op.addMethod(e.id && e.id.name ? e.id.name : '(anonymous)');
+                    let methodName = op.thisMethod;
+                    if (op.inClass) {
+                        addRuntimeAssert(e,
+                            `let __mec = __bfc(this, '${methodName}', __FILE__, false, __LINE__); try { `,
+                            ` } finally { __efc(__mec, '${methodName}'); }`);
+                    }
+                    else
+                        addRuntimeAssert(e,
+                            `let __mec = __bfc(this, '${methodName}', __FILE__, false, __LINE__); try { `,
+                            ` } finally { __efc(__mec, '${methodName}'); }`);
+                    ret += parseElement(op, e.body, depth + 1, e.id);
+                    op.popMethod();
                 }
-                else
-                    addRuntimeAssert(e, `__bfc(false, '${(e.id ? e.id.name : '(anonymous)')}', __FILE__, false); `);
-                ret += parseElement(op, e.body, depth + 1, e.id);
                 break;
 
             case 'FunctionExpression':
-                ret += parseElement(op, e.id, depth + 1);
-                e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
-                if (op.inClass) {
-                    addRuntimeAssert(e,
-                        `let __mec = __bfc(this, '${ident}', __FILE__, ${op.inClass}); try { `,
-                        ' } finally { __efc(__mec); }',
-                        ident === 'constructor');
+                {
+                    ret += parseElement(op, e.id, depth + 1);
+                    e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
+                    let methodName = op.thisMethod;
+                    if (op.inClass) {
+                        addRuntimeAssert(e,
+                            `let __mec = __bfc(this, '${methodName}', __FILE__, false, __LINE__); try { `,
+                            ` } finally { __efc(__mec, '${methodName}'); }`,
+                            ident === 'constructor');
+                    }
+                    else
+                        addRuntimeAssert(e,
+                            `let __mec = __bfc(this, '${methodName}', __FILE__, false, __LINE__); try { `,
+                            ` } finally { __efc(__mec, '${methodName}'); }`);
+                    ret += parseElement(op, e.body, depth + 1);
+                    op.popMethod();
                 }
-                else
-                    addRuntimeAssert(e, `__bfc(false, -1, __FILE__, false); `);
-                ret += parseElement(op, e.body, depth + 1);
                 break;
 
             case 'Identifier':
@@ -346,7 +391,7 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'JSXAttribute':
-                if (!allowJsx)
+                if (!op.allowJsx)
                     throw new Error(`JSX is not enabled for ${this.extension} files`);
                 op.pos = e.end;
                 ret += parseElement(op, e.name, depth + 1);
@@ -356,7 +401,7 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'JSXClosingElement':
-                if (!allowJsx)
+                if (!op.allowJsx)
                     throw new Error(`JSX is not enabled for ${this.extension} files`);
                 ret += ')';
                 op.pos = e.end;
@@ -387,7 +432,7 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'JSXIdentifier':
-                if (!allowJsx)
+                if (!op.allowJsx)
                     throw new Error(`JSX is not enabled for ${this.extension} files`);
                 if (e.name.match(/^[a-z]+/)) {
                     ret += `"${e.name}"`;
@@ -399,7 +444,7 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'JSXExpressionContainer':
-                if (!allowJsx)
+                if (!op.allowJsx)
                     throw new Error(`JSX is not enabled for ${this.extension} files`);
                 op.pos = e.expression.start;
                 ret += parseElement(op, e.expression, depth + 1);
@@ -407,7 +452,7 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'JSXOpeningElement':
-                if (!allowJsx)
+                if (!op.allowJsx)
                     throw new Error(`JSX is not enabled for ${this.extension} files`);
                 op.pos = e.end;
                 ret += jsxWhitespace(op) + parseElement(op, e.name, depth + 1);
@@ -420,7 +465,7 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'JSXText':
-                if (!allowJsx)
+                if (!op.allowJsx)
                     throw new Error(`JSX is not enabled for ${this.extension} files`);
                 ret += e.value.trim().length === 0 ? ret : `"${e.raw.replace(/([\r\n]+)/g, "\\$1")}"`;
                 op.pos = e.end;
@@ -437,30 +482,37 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'MemberExpression':
-                ret += parseElement(op, e.object, depth + 1);
-                ret += parseElement(op, e.property, depth + 1);
+                {
+                    let propName = op.addMethod(op.source.slice(e.property.start, e.property.end));
+                    ret += parseElement(op, e.object, depth + 1);
+                    ret += parseElement(op, e.property, depth + 1);
+                    op.popMethod();
+                }
                 break;
 
             case 'MethodDefinition':
-                let methodName = op.thisMethod = parseElement(op, e.key, depth + 1);
+                let methodName = op.addMethod(parseElement(op, e.key, depth + 1));
                 if (ProtectedApplies.indexOf(methodName) > -1) {
                     throw new Error(`Type '${op.inClass}' attempts to redefine protected apply '${methodName}' in ${op.filename}`);
                 }
                 ret += methodName;
                 ret += parseElement(op, e.value, depth + 1, e.key.name);
-                op.thisMethod = false;
+                op.popMethod();
                 break;
 
             case 'NewExpression':
-                let callee = op.source.slice(e.callee.start, e.callee.end);
-                ret += `__pcc(${callee}, __FILE__, '${op.thisMethod || '(MAIN)'}', this, () => { return `;
-                e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
-                if (op.pos !== e.end) {
-                    if (op.pos > e.end) throw new Error('Oops?');
-                    ret += op.source.slice(op.pos, e.end);
-                    op.pos = e.end;
+                {
+                    let callee = op.source.slice(e.callee.start, e.callee.end),
+                        methodName = op.thisMethod;
+                    ret += `__pcc(${callee}, __FILE__, '${methodName}', this, () => { return `;
+                    e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
+                    if (op.pos !== e.end) {
+                        if (op.pos > e.end) throw new Error('Oops?');
+                        ret += op.source.slice(op.pos, e.end);
+                        op.pos = e.end;
+                    }
+                    ret += ' })';
                 }
-                ret += ' })';
                 break;
 
             case 'ObjectExpression':
@@ -565,6 +617,11 @@ function parseElement(op, e, depth, ident) {
                 ret += parseElement(op, e.body, depth + 1);
                 break;
 
+            case 'WithStatement':
+                ret += parseElement(op, e.object, depth + 1);
+                ret += parseElement(op, e.body, depth + 1);
+                break;
+
             default:
                 throw new Error(`Unknown type: ${e.type}`);
         }
@@ -600,6 +657,8 @@ class JSXTranspilerForAcornJsx5 extends PipelineComponent {
             if (this.enabled) {
                 op.ast.body.forEach((n, i) => op.output += parseElement(op, n, 0));
                 if (op.pos < op.max) op.output += op.source.slice(op.pos, op.max);
+                if (context.basename.startsWith('/sys/lib/Login'))
+                    console.log('stop');
                 return context.update(PipeContext.CTX_RUNNING, op.output + op.appendText);
             }
         }

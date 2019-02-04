@@ -324,7 +324,7 @@ class DefaultFileSystem extends FileSystem {
         }
         return this.translatePath(req.fullPath, absolutePath => {
             let files = this.readDirectorySync(req.clone(c => {
-                c.fileName += '*';
+                c.fileName += '.*';
                 c.flags = MUDFS.GetDirFlags.FullPath;
             }));
 
