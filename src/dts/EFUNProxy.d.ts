@@ -516,4 +516,6 @@ declare class PathExpr {
     readonly instance: number;
 }
 
+declare function MUDWrapper(): MUDObject;
+
 let efuns = new EFUNProxy;

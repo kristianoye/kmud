@@ -118,22 +118,29 @@ class DefaultFileSystem extends FileSystem {
     /**
      * Clone an object syncronously.
      * @param {FileSystemRequest} req The request to clone an object.
-     * @param {any} args Constructor args to pass to the new object.
+     * @param {...any} args Constructor args to pass to the new object.
      * @returns {MUDObject} The newly cloned object.
      */
-    cloneObjectSync(req, args) {
+    cloneObjectSync(req, ...args) {
         if (!this.assert(FileSystem.FS_SYNC))
             return false;
-        let filename = req.fullPath,
-            module = driver.cache.get(filename);
+        let { file, type, instance } = driver.efuns.parsePath(req.fullPath),
+            module = driver.cache.get(file);
 
-        if (!module || !module.loaded) {
-            module = driver.compiler.compileObject({ file: filename });
+        if (instance > 0)
+            throw new Error(`cloneObject() cannot request a specific instance ID`);
+
+        let ecc = driver.getExecution();
+        try {
+            if (!module || !module.loaded) {
+                module = driver.compiler.compileObject({ file: file });
+            }
+            if (module) {
+                return module.createInstance(file, type, args);
+            }
         }
-        if (module) {
-            if (module.singleton)
-                throw new SecurityError(filename + ' is a singleton and cannot be cloned');
-            return module.createInstance(-1, false, args);
+        finally {
+            delete ecc.newContext;
         }
         return false;
     }

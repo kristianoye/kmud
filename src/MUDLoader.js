@@ -8,7 +8,7 @@ const
     MUDHtml = require('./MUDHtml'),
     ExecutionContext = require('./ExecutionContext'),
     { TimeoutError } = require('./ErrorTypes'),
-    DriverApplies = ['connect', 'create', 'destroy', 'heartbeat', 'processInput'],
+    DriverApplies = ['connect', 'create', 'destroy', 'heartbeat', 'processInput', 'reset'],
     MXC = require('./MXC'),
     vm = require('vm'),
     loopsPerAssert = 10000;

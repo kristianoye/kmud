@@ -1,16 +1,8 @@
 {
   "private": {},
   "props": {},
-  "protected": {
-    "routerList": {
-      "*kmud": {
-        "id": "*kmud",
-        "address": "192.168.1.175",
-        "port": 8787
-      }
-    }
-  },
+  "protected": {},
   "$environment": false,
   "$inventory": [],
-  "$filename": "/daemon/I3Daemon"
+  "$filename": "/sys/daemon/GameMaster"
 }

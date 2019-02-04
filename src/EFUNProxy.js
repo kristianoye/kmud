@@ -219,7 +219,8 @@ class EFUNProxy {
             callback = args;
             args = undefined;
         }
-        return driver.fileManager.cloneObject(this, this.resolvePath(file), args, callback);
+        let fullPath = this.resolvePath(file);
+        return driver.fileManager.cloneObject(this, fullPath, args, callback);
     }
 
     /**

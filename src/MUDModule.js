@@ -184,89 +184,38 @@ class MUDModule {
             }
             else if (this.efuns.isClass(val)) {
                 newTypes[val.name] = val;
-                singles[val.name] = ++sc;
+                this.defaultInstance = val;
             }
         }
         this.types = newTypes;
         this.singletons = sc > 0 && singles;
     }
 
-    /**
-     * Creates an instance of an object.
-     * @param {number} instanceId The instance ID being generated.
-     * @param {boolean} isReload Indicates whether object is being reloaded
-     * @param {object} args Arguments to pass to the object constructor
-     * @param {MUDObject} instance An instance is already created.  It needs context.
-     * @returns {MUDObject|false} Returns a new instance wrapper or false on failure.
-     */
-    createInstance(instanceId, isReload, args, instance) {
-        let prevContext = creationContext,
-            nextId = this.instances.length,
-            oldInstance = instanceId > -1 ? this.instances[instanceId] || false : false,
-            thisInstanceId = instanceId === -1 ? nextId : instanceId,
-            needContext = typeof instance === 'object';
-
-        try {
-            let instanceWrapper = this.getWrapper(thisInstanceId, isReload);
-            creationContext = new MUDCreationContext(
-                thisInstanceId,
-                this.filename,
-                isReload,
-                instanceWrapper,
-                args,
-                this.directory);
-
-            if (!instance)
-                instance = false;
-
-            if (instanceId === -1) {
-                if (this.singleton)
-                    throw 'That object cannot be cloned!';
-                if (!instance)
-                    instance = this.createObject(thisInstanceId, creationContext);
-                this.instances.push(instance);
-                instanceId = nextId;
+    createInstance(file, typeName, args) {
+        if (file !== this.filename)
+            return false;
+        else if (!typeName || !this.types[typeName]) {
+            if (typeof this.defaultInstance === 'function') {
+                typeName = this.defaultInstance.name;
             }
-            else {
-                if (instanceId > nextId)
-                    throw 'Instance does not exist!  This should not happen!';
-
-                if (oldInstance) {
-                    oldInstance.destroy(isReload);
-                }
-                if (!instance)
-                    instance = this.createObject(thisInstanceId, creationContext);
-                this.instances[instanceId] = instance;
-            }
-            if (this.isMixin) {
-                return instanceWrapper;
-            }
-            let store = needContext && driver.storage.get(instance);
-
-            !needContext && instance.create(store);
-
-            if (this.stats && !this.isMixin) {
-                store.stats = this.stats;
-                this.stats.objects++;
-                this.stats.arrays += store.getSizeOf();
-            }
-
-            Object.defineProperty(instance, 'wrapper', {
-                value: instanceWrapper,
-                writable: false,
-                enumerable: false
-            });
-
-            driver.registerReset(instanceWrapper, false, store);
-
-            return needContext ? creationContext : instanceWrapper;
+            else return false;
         }
-        catch (_e) {
-            throw _e;
-        }
-        finally {
-            creationContext = prevContext;
-        }
+        if (this.singletons[typeName])
+            throw new Error(`Type ${typeName} is a singleton and cannot be cloned.`);
+        let ecc = driver.getExecution(), type = this.types[typeName],
+            instanceList = this.instanceMap[typeName] || [],
+            createContext = this.getNewContext(typeName, true, args);
+
+        ecc.newContext = createContext;
+        instanceList[createContext.instanceId] = new type(...args);
+        this.instanceMap[typeName] = instanceList;
+
+        return this.getInstanceWrapper({
+            file,
+            type: typeName,
+            instance: createContext.instanceId
+        });
+
     }
 
     createInstances(isReload) {
@@ -324,6 +273,11 @@ class MUDModule {
         return instances[req.instance];
     }
 
+    /**
+     * Request a specific instance of a type.
+     * @param {PathExpr} req The instance request.
+     * @returns {MUDWrapper} The specified instance.
+     */
     getInstanceWrapper(req) {
         let instance = this.getInstance(req);
 
@@ -350,14 +304,14 @@ class MUDModule {
      * @param {number} idArg Specify the instance ID.
      * @returns {{ filename: string, instanceId: number }} Information needed by MUDObject constructor.
      */
-    getNewContext(type, idArg) {
+    getNewContext(type, idArg, args) {
         let typeName = typeof type === 'function' ? type.name
             : typeof type === 'string' ? type : false;
 
         let instanceId = typeof idArg === 'number' ? idArg : (this.instanceMap[typeName] || []).length,
             filename = this.filename + (this.name !== typeName ? '$' + typeName : '');
         if (instanceId > 0) filename += '#' + instanceId;
-        return { filename, instanceId };
+        return { filename, instanceId, args };
     }
 
     /**
@@ -367,21 +321,6 @@ class MUDModule {
      */
     getType(name) {
         return name && this.types[name] || this.types[this.name] || false;
-    }
-
-    getWrapper(arg) {
-        if (typeof arg === 'object') {
-
-        }
-        let wrapper = this.wrappers[n] = () => {
-            let result = this.instances[n];
-            if (!result) {
-                this.createInstance(n, true);
-                result = this.instances[n];
-            }
-            return result;
-        };
-        return wrapper;
     }
 
     /**

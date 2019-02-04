@@ -25,6 +25,18 @@ declare class MUDObjectStack {
     func: string;
 }
 
+declare class ExecutionFrame {
+    readonly file: string;
+
+    readonly isAsync: boolean;
+
+    readonly lineNumber: number;
+
+    readonly method: string;
+
+    readonly object: MUDObject | false;
+}
+
 declare class ExecutionContext {
     /** Create a related child context.  This context must complete before its parent is finished */
     fork(): ExecutionContext;
@@ -36,6 +48,8 @@ declare class ExecutionContext {
 
     /** Indicates the context was created for an async call. */
     readonly async: boolean;
+
+    getFrame(index: number): ExecutionFrame;
 
     //  Indicate the current execution frame is complete.
     pop(): ExecutionContext;

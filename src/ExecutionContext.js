@@ -80,10 +80,6 @@ class ExecutionContext {
         return newContext;
     }
 
-    get isDriverCall() {
-        return this.thisObject === driver;
-    }
-
     assertPrivate(callee, type, ident) {
         if (this.thisObject === callee)
             return true;
@@ -95,8 +91,20 @@ class ExecutionContext {
             return true;
     }
 
+    getFrame(index) {
+        return index > -1 && index < this.length && this.stack[index];
+    }
+
+    get isDriverCall() {
+        return this.thisObject === driver;
+    }
+
+    get length() {
+        return this.stack.length;
+    }
+
     pop(method) {
-        let lastFrame = this.stack.pop();
+        let lastFrame = this.stack.shift();
 
         if (!lastFrame || lastFrame.method !== method) {
             if (lastFrame) {
@@ -122,11 +130,15 @@ class ExecutionContext {
     }
 
     push(object, method, file, isAsync, lineNumber) {
-        this.stack.push({ object, method, file, isAsync: isAsync === true, lineNumber });
+        this.stack.unshift({ object, method, file, isAsync: isAsync === true, lineNumber });
 
         if (typeof object === 'object')
             this.thisObject = object;
         return this;
+    }
+
+    previousObjects() {
+
     }
 
     restore() {

@@ -288,11 +288,8 @@ class GameServer extends MUDEventEmitter {
      * Preload some common objects to decrease in-game load times while running.
      */
     createPreloads() {
-        let ecc = this.getExecution(this.masterObject,
-            'createPreloads', this.masterFilename);
-        ecc.alarmTime = Number.MAX_SAFE_INTEGER;
-
-        try {
+        this.driverCall('createPreloads', ecc => {
+            ecc.alarmTime = Number.MAX_SAFE_INTEGER;
             if (this.applyGetPreloads !== false) {
                 this.preloads = this.applyGetPreloads.apply(this.masterObject);
             }
@@ -315,10 +312,7 @@ class GameServer extends MUDEventEmitter {
                     }
                 });
             }
-        }
-        finally {
-            ecc.pop('createPreloads');
-        }
+        });
     }
 
     /**
@@ -437,6 +431,19 @@ class GameServer extends MUDEventEmitter {
             console.log(err.message);
             console.log(err.stack);
             throw err;
+        }
+    }
+
+    driverCall(method, callback) {
+        let ecc = this.getExecution(this, method, '(driver)', false, 0);
+        try {
+            return callback(ecc);
+        }
+        catch (err) {
+            console.log(`Error in ${method}`, err);
+        }
+        finally {
+            ecc.pop(method);
         }
     }
 
@@ -900,26 +907,28 @@ class GameServer extends MUDEventEmitter {
         for (let i = 0; i < this.endpoints.length; i++) {
             this.endpoints[i]
                 .bind()
-                .on('kmud.connection', (client) => {
-                    let ctx = client.createContext(client.createCommandEvent(false));
-                    let newLogin = this.masterObject.connect(client.port);
-                    if (newLogin) {
-                        driver.storage.get(newLogin).setProtected('$client', client,
-                            ($storage, _client) => {
-                                let evt = {
-                                    newBody: newLogin,
-                                    newStorage: driver.storage.get(newLogin),
-                                    client: _client
-                                };
-                                client.handleExec(evt);
-                            });
-                        if (driver.connections.indexOf(client) === -1)
-                            driver.connections.push(client);
-                    }
-                    else {
-                        client.writeLine('Sorry, something is very wrong right now; Please try again later.');
-                        client.close('No Login Object Available');
-                    }
+                .on('kmud.connection', client => {
+                    this.driverCall('onConnection', () => {
+                        let ctx = client.createContext(client.createCommandEvent(false));
+                        let newLogin = this.masterObject.connect(client.port);
+                        if (newLogin) {
+                            driver.storage.get(newLogin).setProtected('$client', client,
+                                ($storage, _client) => {
+                                    let evt = {
+                                        newBody: newLogin,
+                                        newStorage: driver.storage.get(newLogin),
+                                        client: _client
+                                    };
+                                    client.handleExec(evt);
+                                });
+                            if (driver.connections.indexOf(client) === -1)
+                                driver.connections.push(client);
+                        }
+                        else {
+                            client.writeLine('Sorry, something is very wrong right now; Please try again later.');
+                            client.close('No Login Object Available');
+                        }
+                    });
                 })
                 .on('kmud.connection.new', function (client, protocol) {
                     logger.log(`New ${protocol} connection from ${client.remoteAddress}`);
@@ -1108,18 +1117,18 @@ class GameServer extends MUDEventEmitter {
     /**
      *
      * @param {EFUNProxy} efuns Contains the filename of the originating call
-     * @param {MXCFrame} frame Contains a single frame to validate
+     * @param {ExecutionFrame} frame Contains a single frame to validate
      * @param {string} path The file that is to be read.
      */
     validRead(efuns, frame, path) {
         if (this.gameState < GAMESTATE_RUNNING)
             return true;
-        else if (efuns.filename === '/')
+        else if (frame.object === driver)
             return true;
-        else if (efuns.filename === this.masterFilename)
+        else if (frame.object === driver.masterObject)
             return true;
         else
-            return this.applyValidRead.call(this.masterObject, path, frame.object || frame.file, frame.func);
+            return this.applyValidRead.call(this.masterObject, path, frame.object || frame.file, frame.method);
     }
 
     validRequire(efuns, moduleName) {
