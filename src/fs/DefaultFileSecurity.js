@@ -47,18 +47,6 @@ class DefaultFileSecurity extends FileSecurity {
     }
 
     /**
-     * Attempt to read a directory.
-     * @param {EFUNProxy} efuns The object requesting the operation.
-     * @param {FileSystemRequest} req The filesystem request.
-     * @param {function} [callback] A callback for non-Promise style async.
-     */
-    readDirectorySync(efuns, req) {
-        return this.validReadDirectory(efuns, req) ?
-            this.fileSystem.readDirectorySync(req) :
-            this.denied('readDirectorySync', req.fullPath);
-    }
-
-    /**
      * 
      * @param {EFUNProxy} efuns
      * @param {FileSystemRequest} req
@@ -151,49 +139,33 @@ class DefaultFileSecurity extends FileSecurity {
 
     /**
      * Determine if the caller has permission to read a particular file.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
+     * @param {EFUNProxy} efuns The object attempting to perform the read.
+     * @param {string} filename The file to read from
+     * @returns {boolean} True if the operation can proceed.
      */
-    validReadFile(efuns, req) {
-        for (let ecc = driver.getExecution(), max = ecc.length, i = 0, c = {}; i < max; i++) {
-            let ptr = ecc.getFrame(i);
-            if (ptr.file in c) continue;
-            if (!driver.validRead(efuns, ptr, req.fullPath)) {
-                if (this.throwSecurityExceptions)
-                    throw new SecurityError(`Permission Denied: Read: ${req.fullPath}`);
-                return false;
-            }
-            c[ptr.file] = true;
-        }
-        return true;
+    validReadFile(efuns, filename) {
+        return driver.getExecution().guarded(f => driver.validRead(efuns, f, filename));
     }
 
     /**
      * Default security treats filestat as a normal read operation.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
+     * @param {EFUNProxy} efuns The object requesting the stat.
+     * @param {string} filename The name of the file to stat
+     * @returns {boolean} True if the operation can proceed.
      */
-    validStatFile(efuns, req) {
-        return this.validReadFile(efuns, req);
+    validStatFile(efuns, filename) {
+        return this.validReadFile(efuns, filename);
     }
 
     /**
      * Determine if the caller has permission to write to the filesystem.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
+     * @param {EFUNProxy} efuns The object making the write request.
+     * @param {string} expr The path to write to
+     * @returns {boolean} Returns true if the operation is permitted.
      */
-    validWriteFile(efuns, req) {
-        for (let ecc = driver.getExecution(), max = ecc.length, i = 0, c = {}; i < max; i++) {
-            let ptr = ecc.getFrame(i);
-            if (ptr.file in c) continue;
-            if (!driver.validWrite(efuns, ptr, req.fullPath)) {
-                if (this.throwSecurityExceptions)
-                    throw new SecurityError(`Permission Denied: Read: ${req.fullPath}`);
-                return false;
-            }
-            c[ptr.file] = true;
-        }
-        return true;
+    validWriteFile(efuns, expr) {
+        return driver.getExecution()
+            .guarded(f => driver.validWrite(efuns, f, expr));
     }
 }
 

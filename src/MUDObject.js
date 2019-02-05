@@ -129,7 +129,10 @@ class MUDObject extends MUDEventEmitter {
      */
     destroy(isReload) {
         this.__destroyed = true;
-        if (this.environment) this.emit('kmud.item.removed', this.environment);
+
+        if (this.environment)
+            this.emit('kmud.item.removed', this.environment);
+
         if (this.isPlayer()) {
             driver.removePlayer(this);
         }
@@ -318,7 +321,7 @@ class MUDObject extends MUDEventEmitter {
     moveObject(destination, callback) {
         var environment = this.environment,
             efuns = getEfunProxy(this),
-            target = wrapper(destination) || efuns.loadObject(destination);
+            target = wrapper(destination) || efuns.loadObjectSync(destination);
 
         if (target && typeof target() !== 'object') {
             logger.log('Unable to move object: Bad destination!');
@@ -377,8 +380,9 @@ class MUDObject extends MUDEventEmitter {
         return callback(input);
     }
 
-    receive_message(msgClass, text) {
-        let client = driver.storage.get(this).getProtected('$client');
+    receiveMessage(msgClass, text) {
+        let client = driver.storage.get(this)
+            .getSymbol('$client');
         if (client) {
             if (msgClass.startsWith('N'))
                 client.write(text);

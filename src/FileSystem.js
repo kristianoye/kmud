@@ -26,10 +26,13 @@ const
 class FileSystemStat {
     /**
      * Construct a new stat
-     * @param {FileSystemStat} data
+     * @param {FileSystemStat} data Config data
+     * @param {object} options Options from the config
+     * @param {string} mountPoint The directory the filesystem is mounted to
      */
-    constructor(data) {
+    constructor(data, options, mountPoint) {
         this.merge(data || {});
+        this.mountPoint = mountPoint;
     }
 
     assertValid() {
@@ -238,19 +241,6 @@ class FileSystem extends MUDEventEmitter {
         return typeof callback !== 'undefined' ?
             this.cloneObjectAsync(req, args, callback) :
             this.cloneObjectSync(req, args);
-    }
-
-    /**
-     * Create a directory in the filesystem.
-     * @param {FileSystemRequest} req The directory expression to create.
-     * @param {MkDirOptions} opts Optional flags for createDirectory()
-     * @param {function(boolean, Error):void} callback A callback for async mode
-     */
-    createDirectory(req, opts, callback) {
-        this.assertDirectories();
-        return typeof callback === 'function' ?
-            this.assertAsync() && this.createDirectoryAsync(req, opts, callback) :
-            this.assertSync() && this.createDirectorySync(req, opts);
     }
 
     /**

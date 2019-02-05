@@ -107,6 +107,28 @@ class ExecutionContext extends MUDEventEmitter {
         return index > -1 && index < this.length && this.stack[index];
     }
 
+    /**
+     * Check access to a guarded function.
+     * @param {function(ObjectStackItem):boolean} callback Calls the callback for each frame.
+     * @returns {boolean} Returns true if the operation is permitted or false if it should fail.
+     */
+    guarded(callback) {
+        for (let i = 0, max = this.length, c = {}; i < max; i++) {
+            let frame = this.getFrame(i);
+            if (!frame.object && !frame.file)
+                continue; // Does this ever happen?
+            else if (frame.object === driver)
+                continue; // The driver always succeeds
+            else if (c[frame.file])
+                continue;
+            else if ((c[frame.file] = callback(frame)) === false)
+                return false;
+            if (this.unguarded === true)
+                break;
+        }
+        return true;
+    }
+
     isValidApplyCall(method, callee) {
         return this.thisObject === driver || this.thisObject === callee;
     }
@@ -129,7 +151,7 @@ class ExecutionContext extends MUDEventEmitter {
         this.thisObject = false;
         let m = this.stack.length;
 
-        for (let i = m - 1; i > -1; i--) {
+        for (let i = 0, max = this.stack.length; i < max ; i++) {
             if (typeof this.stack[i].object === 'object') {
                 this.thisObject = this.stack[i].object;
                 break;
@@ -148,7 +170,7 @@ class ExecutionContext extends MUDEventEmitter {
             file,
             isAsync: isAsync === true,
             lineNumber,
-            callString
+            callString: callString || method
         });
 
         if (typeof object === 'object')
@@ -156,8 +178,8 @@ class ExecutionContext extends MUDEventEmitter {
         return this;
     }
 
-    previousObjects() {
-
+    get previousObjects() {
+        return this.stack.filter(f => f.object instanceof MUDObject).slice(1);
     }
 
     restore() {

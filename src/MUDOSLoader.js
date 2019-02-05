@@ -34,14 +34,14 @@ class MUDOSLoader extends MUDLoader {
                         _method = _args.shift();
 
                     if (Array.isArray(_target)) {
-                        return _target.map(o => typeof o === 'string' ? unwrap(_efuns.loadObject(o)) : unwrap(o))
+                        return _target.map(o => typeof o === 'string' ? unwrap(_efuns.loadObjectSync(o)) : unwrap(o))
                             .filter(o => o !== false)
                             .map(o => {
                                 return o[_method].apply(o, _args);
                             });
                     }
                     else {
-                        target = typeof _target === 'string' ? _efuns.loadObject(_target) : unwrap(_target);
+                        target = typeof _target === 'string' ? _efuns.loadObjectSync(_target) : unwrap(_target);
                         if (target === false)
                             throw new Error(`Bad argument 1 to call_other(); Expected array or MUD object got ${typeof target}`);
                         return target[_method].apply(target, _args);
@@ -71,7 +71,7 @@ class MUDOSLoader extends MUDLoader {
                     end = typeof end === 'number' ? end : false;
 
                     if (typeof src === 'string') {
-                        src = new Buffer(_efuns.readFile(src), 'utf8');
+                        src = new Buffer(_efuns.readFileSync(src), 'utf8');
                     }
                     if (src instanceof Buffer) {
                         if (start !== false) {

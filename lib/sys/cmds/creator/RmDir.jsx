@@ -12,7 +12,7 @@ const
 
 class RmDir extends Command {
     create(ctx) {
-        this.FileIndex = efuns.loadObject(Daemon.FileIndex);
+        this.FileIndex = efuns.loadObjectSync(Daemon.FileIndex);
     }
 
     cmd(args, cmdline) {

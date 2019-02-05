@@ -16,9 +16,12 @@ class DefaultFileSystem extends FileSystem {
      * 
      * @param {FileManager} fm The filemanager instance
      * @param {Object.<string,any>} options Dictionary containing options.
+     * @param {string} mountPoint The point where the filesystem mounts.
      */
-    constructor(fm, options) {
-        super(fm, options);
+    constructor(fm, options, mountPoint) {
+        super(fm, options, mountPoint);
+
+        this.mountPoint = mountPoint;
 
         /** @type {number} */
         this.asyncReaderLimit = options.asyncReaderLimit > 0 ? options.asyncReaderLimit : 10;
@@ -58,11 +61,11 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Convert the virtual path to a real path.
-     * @param {FileSystemRequest|string} req The file expression to convert.
+     * @param {string} req The file expression to convert.
      * @returns {string} The absolute filesystem path.
      */
     getRealPath(req) {
-        return path.resolve(this.root, typeof req === 'string' ? req : req.relativePath);
+        return path.resolve(this.root, req);
     }
 
     /**
@@ -117,14 +120,15 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Clone an object syncronously.
-     * @param {FileSystemRequest} req The request to clone an object.
-     * @param {...any} args Constructor args to pass to the new object.
+     * @param {string} req The request to clone an object.
+     * @param {any[]} args Constructor args to pass to the new object.
      * @returns {MUDObject} The newly cloned object.
      */
     cloneObjectSync(req, ...args) {
         if (!this.assert(FileSystem.FS_SYNC))
             return false;
-        let { file, type, instance } = driver.efuns.parsePath(req.fullPath),
+        let fullPath = path.posix.join(this.mountPoint, '/',  req),
+            { file, type, instance } = driver.efuns.parsePath(fullPath),
             module = driver.cache.get(file);
 
         if (instance > 0)
@@ -177,33 +181,31 @@ class DefaultFileSystem extends FileSystem {
     /**
      * Create a directory syncronously.
      * @param {FileSystemRequest} req The directory expression to create.
-     * @param {MkDirOptions} opts Additional options for createDirectory.
+     * @param {number} flags Additional options for createDirectory.
      * @returns {string} The full path to the newly created directory.
      */
-    createDirectorySync(req) {
-        return this.translatePath(req.relativePath, fullPath => {
-            let parts = path.relative(this.root, fullPath).split(path.sep),
-                ensure = (req.flags & MUDFS.MkdirFlags.EnsurePath) === MUDFS.MkdirFlags.EnsurePath;
+    createDirectorySync(req, flags) {
+        let fullPath = this.translatePath(req);
+        let parts = path.relative(this.root, fullPath).split(path.sep),
+            ensure = (flags & MUDFS.MkdirFlags.EnsurePath) === MUDFS.MkdirFlags.EnsurePath;
 
-            for (let i = 0, max = parts.length; i < max; i++) {
-                let dir = this.root + path.sep + parts.slice(0, i).join(path.sep),
-                    stat = this.statSync(dir);
+        for (let i = 0, max = parts.length; i < max; i++) {
+            let dir = path.join(this.root, path.sep, ...parts.slice(0, i)),
+                stat = this.statSync(dir);
 
-                if (stat.exists) {
-                    if (!ensure) return false;
-                }
-                else if ((i + 1) === max) {
-                    fs.mkdirSync(dir);
-                    return true;
-                }
-                else if (!ensure)
-                    return false;
-                else
-                    fs.mkdirSync(dir);
+            if (stat.exists) {
+                if (!ensure) return false;
             }
-            return true;
-
-        });
+            else if (i + 1 === max) {
+                fs.mkdirSync(dir);
+                return true;
+            }
+            else if (!ensure)
+                return false;
+            else
+                fs.mkdirSync(dir);
+        }
+        return true;
     }
 
     /**
@@ -314,49 +316,49 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
-     * Loads an object from storage.
-     * @param {FileSystemRequest} req The path to load the object from.
-     * @param {PathExpr} expr The path split into parts.
+     * Loads an object instance from storage.
+     * @param {string} expr The path split into parts.
      * @param {any} args Optional constructor args.
-     * @param {function(MUDObject):any} callback An optional callback
-     * @returns {MUDObject} Returns the MUD object if successful.
+     * @param {number} flags Optional flags to change the behavior of the method.
+     * @returns {MUDWrapper} Returns the MUD object wrapper if successful.
      */
-    loadObjectSync(req, expr, args, callback) {
-        let module = driver.cache.get(expr.file),
-            forceReload = !module || req.flags & 1 === 1;
+    loadObjectSync(expr, args, flags) {
+        let fullPath = path.posix.join(this.mountPoint, '/', expr),
+            parts = driver.efuns.parsePath(fullPath),
+            module = driver.cache.get(parts.file),
+            forceReload = !module || flags & 1 === 1;
 
-        if (!forceReload) {
-            let result = module.getInstance(expr);
-            return callback ? callback(result) : result;
-        }
-        return this.translatePath(req.fullPath, absolutePath => {
-            let files = this.readDirectorySync(req.clone(c => {
-                c.fileName += '.*';
-                c.flags = MUDFS.GetDirFlags.FullPath;
-            }));
+        if (forceReload) {
+            let absPath = this.translatePath(parts.file.slice(this.mountPoint.length)),
+                lastSlash = absPath.lastIndexOf(path.sep),
+                absDir = absPath.slice(0, lastSlash + 1),
+                absFilename = absPath.slice(lastSlash + 1);
+            let files = this.readDirectorySync(absDir, absFilename + '.*', MUDFS.GetDirFlags.FullPath);
 
             if (files.length === 0)
-                throw new Error(`File not found: ${expr.file}`);
-            else if (files.length > 1)
-                throw new Error(`File ambiguity: ${files.join(', ')}`);
+                throw new Error(`Module not found: ${parts.file}`);
+            else if (files.length > 1) {
+                let fileNames = files
+                    .map(fn => fn.slice(fn.lastIndexOf(path.sep)))
+                    .join(', ');
+                throw new Error(`File ambiguity: ${parts.file} could match ${fileNames}`);
+            }
 
-            let absFile = this.translatePath(files[0]);
-            let source = this.stripBOM(fs.readFileSync(absFile,
-                { encoding: this.encoding || 'utf8' }));
+            let source = this.stripBOM(fs.readFileSync(files[0], { encoding: this.encoding || 'utf8' })),
+                ext = files[0].slice(files[0].lastIndexOf('.'));
 
             if (!source)
                 throw new Error(`File (${files[0]}) appears to be empty!`);
 
             module = driver.compiler.compileObject({
-                file: files[0],
+                file: parts.file + ext,
                 reload: forceReload,
                 source: source,
-                sourceFile: absFile,
+                sourceFile: files[0],
                 args: args
             });
-            let result = module.getInstance(Object.assign({}, expr, { file: absFile }));
-            return callback ? callback(result) : result;
-        });
+        }
+        return module.getInstanceWrapper(parts);
     }
 
     /**
@@ -412,42 +414,52 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Reads a directory listing from the disk.
-     * @param {FileSystemRequest} req The path expression being read.
+     * @param {string} relativePath The local path to read.
+     * @param {string} fileName THe filename part of the path expression.
+     * @param {number} flags Flags the control the read operation
+     * @returns {any[]} Returns information about the directory/contents
      */
-    readDirectorySync(req) {
-        return this.translatePath(req.pathRel, fullPath => {
-            let pattern = req.fileName ? new RegExp('^' + req.fileName.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
-            if (req.flags & MUDFS.GetDirFlags.ImplicitDirs && !fullPath.endsWith('/')) fullPath += path.sep;
-            let files = fs.readdirSync(fullPath, { encoding: this.encoding }),
+    readDirectorySync(relativePath, fileName, flags) {
+        try {
+            let fullPath = this.translatePath(relativePath), isAbs = relativePath.startsWith(this.root);
+            let showFullPath = (flags & MUDFS.GetDirFlags.FullPath) === MUDFS.GetDirFlags.FullPath,
+                details = (flags & MUDFS.GetDirFlags.Details) === MUDFS.GetDirFlags.Details,
+                pattern = fileName &&
+                    new RegExp('^' + fileName
+                        .replace(/\./g, '\\.')
+                        .replace(/\?/g, '.')
+                        .replace(/\*/g, '.+') + '$');
+
+            if (flags & MUDFS.GetDirFlags.ImplicitDirs && !fullPath.endsWith(path.sep))
+                fullPath += path.sep;
+
+            let files = fs.readdirSync(fullPath, { encoding: this.encoding })
+                .filter(fn => !pattern || pattern.test(fn))
+                .map(fn => showFullPath ? (isAbs ? '' : this.mountPoint) + relativePath + fn : fn),
                 result = [];
 
-            if (req.flags === MUDFS.GetDirFlags.FullPath) {
-                return (pattern ? files.filter(fn => pattern.test(fn)) : files)
-                    .map(fn => req.pathFull + (req.pathFull.endsWith('/') ? '' : '/') + fn);
-            }
-
-            if (req.flags === 0)
-                return pattern ? files.filter(fn => pattern.test(fn)) : files;
+            if (!details)
+                return files;
 
             files.forEach(fn => {
-                let fd = this.createStat({ exists: true, name: fn, parent: req.fullPath });
-
-                //  Does it match the pattern?
-                if (pattern && !pattern.test(fn))
-                    return false;
+                let fd = this.createStat({
+                    exists: true,
+                    name: fn,
+                    parent: fullPath
+                });
 
                 //  Is the file hidden?
-                if ((req.flags & MUDFS.GetDirFlags.Hidden) === 0 && fn.startsWith('.'))
+                if ((flags & MUDFS.GetDirFlags.Hidden) === 0 && fn.startsWith('.'))
                     return false;
 
                 // Do we need to stat?
-                if ((req.flags & MUDFS.GetDirFlags.Defaults) > 0) {
+                if ((relativePath.flags & MUDFS.GetDirFlags.Defaults) > 0) {
                     let stat = fs.statSync(fullPath + '/' + fn);
 
-                    if ((fd.isDirectory = stat.isDirectory()) && (req.flags & MUDFS.GetDirFlags.Dirs) === 0)
+                    if ((fd.isDirectory = stat.isDirectory()) && (relativePath.flags & MUDFS.GetDirFlags.Dirs) === 0)
                         return false;
 
-                    if ((fd.isFile = stat.isFile()) && (req.flags & MUDFS.GetDirFlags.Files) === 0)
+                    if ((fd.isFile = stat.isFile()) && (relativePath.flags & MUDFS.GetDirFlags.Files) === 0)
                         return false;
 
                     fd.merge(stat);
@@ -455,7 +467,10 @@ class DefaultFileSystem extends FileSystem {
                 result.push(fd);
             });
             return result;
-        });
+        }
+        catch (err) {
+            throw err;
+        }
     }
 
     /**
@@ -478,9 +493,9 @@ class DefaultFileSystem extends FileSystem {
      * @returns {string} The contents of the file.
      */
     readFileSync(req) {
-        return this.translatePath(req.relativePath, fullPath => {
-            return this.stripBOM(fs.readFileSync(fullPath, { encoding: this.encoding || 'utf8' }));
-        });
+       let fullPath = this.translatePath(req),
+            result = this.stripBOM(fs.readFileSync(fullPath, { encoding: this.encoding || 'utf8' }));
+        return result;
     }
 
     /**
@@ -503,85 +518,49 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Read JSON/structured data from a file asyncronously.
-     * @param {FileSystemRequest} req The path to read from.
-     * @param {function(any,Error):void} callback The callback to fire when the data is loaded.
+     * @param {string} req The path to read from.
      * @returns {any} Structured data.
      */
     readJsonFileSync(req) {
-        return this.translatePath(req.relativePath, filePath => {
-            try {
-                let content = this.readFile(req);
-                return JSON.parse(content);
-            }
-            catch (err) {
-            }
-            return false;
-        });
+        let fullPath = this.translatePath(req);
+        try {
+            return JSON.parse(this.readFileSync(fullPath));
+        }
+        catch (err) {
+            /* eat the error */
+        }
+        return false;
     }
 
-    /**
-     * Returns a filestat object.
-     * @param {FileSystemRequest|string} req The path to stat.
-     * @param {function(FileSystemStat,Error):void} callback The callback that receives the results.
-     */
-    statAsync(req, callback) {
-        return this.translatePath(typeof req === 'string' ? req : req.relativePath, fullPath => {
-            return fs.exists(fullPath, MXC.awaiter(doesExist => {
-                if (doesExist) {
-                    return fs.stat(fullPath, MXC.awaiter((err, stats) => {
-                        return callback({
-                            exists: true,
-                            isDirectory: stats.isDirectory(),
-                            isFile: stats.isFile(),
-                            fileSize: stats.size,
-                            parent: null
-                        }, err);
-                    }, `fs.stat:${req}`));
-                }
-                else {
-                    return callback({
-                        exists: false,
-                        isDirectory: false,
-                        isFile: false,
-                        parent: null,
-                        fileSize: req.endsWith('/') ? -2 : -1
-                    }, new Error(`Path does not exist: ${req}`));
-                }
-            }, `statAsync:${req}`));
+    statAsync(localPath) {
+        let fullPath = this.translatePath(localPath);
+
+        return new Promise((resolve, reject) => {
+            try {
+                fs.stat(fullPath,
+                    stats => resolve(Object.freeze(this.createStat(stats))));
+            }
+            catch (err) { reject(err); }
         });
     }
 
     /**
      * Stat a file syncronously.
-     * @param {FileSystemRequest|string} req The path info to stat.
+     * @param {string} localPath The path info to stat.
      * @returns {FileSystemStat} A filestat object (if possible)
      */
-    statSync(req) {
-        return this.translatePath(typeof req === 'string' ? req : req.relativePath, fullPath => {
-            let result = false;
-            if (fs.existsSync(fullPath)) {
-                result = this.createStat(fs.statSync(fullPath));
-            }
-            else if (typeof req === 'string') {
-                result = FileSystemStat.create({
-                    exists: false,
-                    isDirectory: false,
-                    isFile: false,
-                    parent: null,
-                    size: req.endsWith('/') ? -2 : -1
-                });
-            }
-            else {
-                result = FileSystemStat.create({
-                    exists: false,
-                    isDirectory: false,
-                    isFile: false,
-                    size: req.fullPath.endsWith('/') ? -2 : -1
-                });
-            }
-            Object.freeze(result);
-            return result;
-        });
+    statSync(localPath) {
+        let fullPath = this.translatePath(localPath);
+        if (fs.existsSync(fullPath)) 
+            return Object.freeze(this.createStat(fs.statSync(fullPath)));
+        else
+            return Object.freeze(FileSystemStat.create({
+                exists: false,
+                isDirectory: false,
+                isFile: false,
+                parent: null,
+                size: localPath.endsWith('/') ? -2 : -1
+            }));
     }
 
     /**
@@ -638,23 +617,24 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Creates or overwites an existing file.
-     * @param {FileSystemRequest} req The virtual MUD path.
+     * @param {string} expr The virtual MUD path.
+     * @param {string|Buffer} content The content to write to file
+     * @param {number} flag A flag indicating mode, etc
      * @returns {boolean} Returns true on success.
      */
-    writeFileSync(req, content) {
-        return this.translatePath(req.relativePath, fullPath => {
-            try {
-                fs.writeFileSync(fullPath, content, {
-                    encoding: this.encoding || 'utf8',
-                    flag: 'w'
-                });
-                return true;
-            }
-            catch (err) {
-                return err;
-            }
-            return false;
-        });
+    writeFileSync(expr, content, flag) {
+        let fullPath = this.translatePath(expr);
+        try {
+            fs.writeFileSync(fullPath, content, {
+                encoding: this.encoding || 'utf8',
+                flag: flag ? 'a' : 'w'
+            });
+            return true;
+        }
+        catch (err) {
+            /* eat the error */
+        }
+        return false;
     }
 }
 

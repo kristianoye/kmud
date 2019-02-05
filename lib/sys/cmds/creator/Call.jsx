@@ -15,7 +15,7 @@ class CallCommand extends Command {
                 target = endOfTarget > 0 ? input.slice(0, endOfTarget) : false,
                 call = endOfTarget > 0 ? input.slice(endOfTarget + 1) : false,
                 resolved = this.resolveTarget(target),
-                source = `(function() { var o = efuns.loadObject("${resolved}"); return unwrap(o, ob => ob.${call}  ); })()`;
+                source = `(function() { var o = efuns.loadObjectSync("${resolved}"); return unwrap(o, ob => ob.${call}  ); })()`;
             thisPlayer.writeLine(source);
 
             var

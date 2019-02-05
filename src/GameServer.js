@@ -260,6 +260,7 @@ class GameServer extends MUDEventEmitter {
             this.applyValidExec = locateApply.call(this, 'validExec', false);
             this.applyValidObject = locateApply.call(this, 'validObject', false);
             this.applyValidRead = locateApply.call(this, 'validRead', true);
+            this.applyValidReadConfig = locateApply.call(this, 'validReadConfig', false);
             this.applyValidRequire = locateApply.call(this, 'validRequire', true);
             this.applyValidSocket = locateApply.call(this, 'validSocket', false);
             this.applyValidShutdown = locateApply.call(this, 'validShutdown', true);
@@ -298,19 +299,19 @@ class GameServer extends MUDEventEmitter {
             if (this.preloads.length > 0) {
                 logger.logIf(LOGGER_PRODUCTION, 'Creating preloads.');
                 this.preloads.forEach(file => {
-                    let t0 = new Date().getTime(), foo = false;
+                    let t0 = new Date().getTime(), foo = false, err = false;
                     try {
                         foo = Array.isArray(file) ?
                             this.compiler.compileObject({ file: file[0], args: file.slice(1) }) :
                             this.compiler.compileObject({ file });
                     }
-                    catch (err) {
-                        /* do nothing atm */
+                    catch (e) {
+                        err = e;
                     }
                     finally {
                         let t1 = new Date().getTime();
                         logger.logIf(LOGGER_DEBUG,
-                            `\tPreload: ${file}: ${(file, foo ? '[OK]' : '[Failure]')} [${(t1 - t0)} ms; ${ecc.stack.length}]`);
+                            `\tPreload: ${file}: ${(file, foo && !err ? '[OK]' : '[Failure]')} [${(t1 - t0)} ms; ${ecc.stack.length}]`);
                     }
                 });
             }
@@ -445,7 +446,7 @@ class GameServer extends MUDEventEmitter {
             return callback(ecc);
         }
         catch (err) {
-            console.log(`Error in ${method}`, err);
+            console.log(`Error in method '${method}': ${err.message}`);
         }
         finally {
             ecc.pop(method);
@@ -1060,17 +1061,6 @@ class GameServer extends MUDEventEmitter {
         });
     }
 
-    setVirtualPrefix(path) {
-        this.virtualPrefix = path;
-        return this;
-    }
-
-    unguarded(callback, thisObject, args) {
-        this.efuns.unguarded(() => {
-            return callback.apply(thisObject || this, args || []);
-        });
-    }
-
     validExec(oldBody, newBody) {
         if (this.gameState < GAMESTATE_RUNNING)
             return false;
@@ -1096,16 +1086,38 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
+     * Check to see if a destruct call should be allowed to succeed.
+     * @param {EFUNProxy} efuns The efun instance that initiatied the destruct.
+     * @param {MUDObject} target The object that is being destructed.
+     * @returns {boolean} True if the destruct is allowed, false if it should be blocked.
+     */
+    validDestruct(efuns, target) {
+        if (!this.applyValidDestruct)
+            return target !== driver.masterObject;
+        this.getExecution()
+            .guarded(f => this.applyValidDestruct.call(
+                this.masterObject,
+                target,
+                f.object || f.file,
+                f.method));
+    }
+
+    /**
      * Checks to see if the current permissions stack can read the config.
-     * @param {any} caller
-     * @param {any} key
+     * @param {string} key The key to try and read from
      * @returns {boolean} Returns true if the read operation should be permitted.
      */
-    validReadConfig(caller, key) {
+    validReadConfig(key) {
         if (this.gameState < GAMESTATE_RUNNING)
             return true;
-        else if (!this.applyValidReadConfig) return true;
-        else return this.masterObject.validReadConfig(caller, key);
+        else if (!this.applyValidReadConfig)
+            return false; //  By default, config is not visible in game
+        else this.getExecution()
+            .guarded(f => this.applyValidReadConfig.call(
+                this.masterObject,
+                f.object || f.file,
+                key,
+                f.method));
     }
 
     /**
@@ -1113,6 +1125,7 @@ class GameServer extends MUDEventEmitter {
      * @param {EFUNProxy} efuns Contains the filename of the originating call
      * @param {ExecutionFrame} frame Contains a single frame to validate
      * @param {string} path The file that is to be read.
+     * @returns {boolean} True if the read operation can proceed.
      */
     validRead(efuns, frame, path) {
         if (this.gameState < GAMESTATE_RUNNING)
@@ -1145,10 +1158,10 @@ class GameServer extends MUDEventEmitter {
     /**
      * Check to see if a write operation should be permitted.
      * @param {EFUNProxy} efuns Contains the filename of the originating call
-     * @param {MXCFrame} frame Contains a single frame to validate
-     * @param {string} path The file that is to be written to.
+     * @param {ExecutionFrame} frame Contains a single frame to validate
+     * @param {string} expr The file that is to be written to.
      */
-    validWrite(efuns, frame, path) {
+    validWrite(efuns, frame, expr) {
         if (this.gameState < GAMESTATE_INITIALIZING)
             return true;
         else if (efuns.filename === '/')
@@ -1156,7 +1169,7 @@ class GameServer extends MUDEventEmitter {
         else if (efuns.filename === this.masterFilename)
             return true;
         else
-            return this.applyValidWrite.call(this.masterObject, path, frame.object || frame.file, frame.func);
+            return this.applyValidWrite.call(this.masterObject, expr, frame.object || frame.file, frame.method);
     }
 }
 

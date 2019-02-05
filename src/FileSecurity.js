@@ -37,18 +37,6 @@ class FileSecurity extends MUDEventEmitter {
         fileSystem.addSecurityManager(this);
     }
 
-    // #region FileSystem Implementation
-
-    /**
-     * Attempt to create a directory.
-     * @param {EFUNProxy} efuns The efuns instance creating the directory.
-     * @param {string} expr The path being created.
-     * @param {function=} callback
-     */
-    createDirectory(efuns, expr, callback) {
-        throw new NotImplementedError('createDirectory');
-    }
-
     /**
      * Generate a security error or just indicate failure quietly.
      * @param {string} verb The verb being denied (e.g. read, write, append, etc).
@@ -57,93 +45,21 @@ class FileSecurity extends MUDEventEmitter {
      * @returns {false} This always returns false
      */
     denied(verb, req, callback) {
-        let err = new SecurityError(`Permission denied: Could not ${verb} '${(req.fullPath || req)}'`)
+        let err = undefined;
+        if (typeof verb === 'object') {
+            req = verb;
+            err = new SecurityError(`Permission denied: Could not ${req.op} '${req.fullPath}'`)
+        }
+        else
+            err = new SecurityError(`Permission denied: Could not ${verb} '${(req.fullPath || req)}'`)
+
         if (this.throwSecurityExceptions)
             throw err;
-        driver.currentContext.lastError = err;
+
         return typeof callback === 'function' ?
             callback(false, err) :
             false;
     }
-
-    /**
-     * Check to see if a directory exists.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
-     * @param {function(boolean,Error):void} callback
-     */
-    isDirectory(efuns, req, callback) {
-        return this.validReadDirectory(efuns, req.pathFull) ?
-            this.fileSystem.isDirectory(req.pathRel, callback) :
-            this.denied('isDirectory', req.fullPath);
-    }
-
-    /**
-     * Checks to see if the given expression is a file.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
-     * @param {function(boolean,Error):void} callback
-     */
-    isFile(efuns, req, callback) {
-        throw new NotImplementedError('isFile');
-    }
-
-    /**
-     * Loads an object from disk.
-     * @param {EFUNProxy} efuns
-     * @param {string} expr
-     * @param {object=} args
-     * @param {function=} callback
-     */
-    loadObject(efuns, expr, args, callback) {
-        throw new NotImplementedError('loadObject');
-    }
-
-    /**
-     * Attempt to read a directory.
-     * @param {EFUNProxy} efuns The object requesting the operation.
-     * @param {FileSystemRequest} req The filesystem request.
-     * @param {function} [callback] A callback for non-Promise style async.
-     */
-    async readDirectoryAsync(efuns, req, callback) {
-        throw new NotImplementedError('readDirectoryAsync');
-    }
-
-    /**
-     * Attempt to read a directory.
-     * @param {EFUNProxy} efuns The object requesting the operation.
-     * @param {FileSystemRequest} req The filesystem request.
-     */
-    async readDirectorySync(efuns, req) {
-        throw new NotImplementedError('NotImplementedError');
-    }
-
-    /**
-     * Attempt to read a file.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
-     * @param {function=} callback
-     */
-    readFile(efuns, req, callback) {
-        throw new NotImplementedError('readFile');
-    }
-
-    readJsonFile(efuns, expr, callback) {
-        throw new NotImplementedError('readJsonFile');
-    }
-
-    /**
-     * Writes a file to disk.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
-     * @param {Buffer|string} content
-     * @param {function=} callback
-     */
-    writeFile(req, expr, content, callback) {
-        throw new NotImplementedError('writeFile');
-    }
-
-    // #endregion
 
     // #region Security valid* Applies
 

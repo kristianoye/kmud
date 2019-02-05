@@ -4,6 +4,12 @@
  * Date: October 1, 2017
  */
 /// <reference path="GameServer.d.ts"/>
+declare class PathParts {
+    readonly file: string;
+    readonly type: string;
+    readonly instance: number;
+}
+
 /**
  * Provides an API that may be used by every object in the game.
  */
@@ -300,6 +306,12 @@ declare class EFUNProxy {
      * @returns {string} The normalized name.
      */
     normalizeName(name: string): string;
+
+    /**
+     * Splits a path into its components (module file, type name, and instance ID)
+     * @param expr The object filename
+     */
+    parsePath(expr: string): PathExpr;
 
     /**
      * Determines whether the specified parameter is a player object.

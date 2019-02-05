@@ -365,7 +365,16 @@ declare class FileManager {
      * @param flags Request for additional file information.
      * @param callback A callback to execute when the stat operation is complete.
      */
-    stat(efuns: EFUNProxy, filePath: string, flags: number, callback: (stat: FileSystemStat, err: Error) => void): void;
+    statAsync(efuns: EFUNProxy, filePath: string, flags: number): any;
+
+    /**
+     * Returns data about the specified filepath.
+     * @param efuns The proxy requesting the file stat.
+     * @param filePath The file expression to evaluate.
+     * @param flags Request for additional file information.
+     * @param callback A callback to execute when the stat operation is complete.
+     */
+    statSync(efuns: EFUNProxy, filePath: string, flags: number): any;
 
     /**
      * Translates an absolute filesystem path to a MUD virtual path.

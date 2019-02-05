@@ -843,6 +843,7 @@
   <ItemGroup>
     <Folder Include="lib\" />
     <Folder Include="lib\base\" />
+    <Folder Include="lib\base\include\" />
     <Folder Include="lib\base\Partials\" />
     <Folder Include="lib\base\Verbs\" />
     <Folder Include="lib\cmds\creator\" />

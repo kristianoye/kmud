@@ -143,6 +143,7 @@ class ClientInstance extends EventEmitter {
         ecc.on('complete', completed => {
             let te = new Date().getTime() - completed.startTime;
             console.log(`Command complete [ellapsed: ${te} ms]`);
+            this.renderPrompt();
         });
         return cmdEvent;
     }

@@ -19,10 +19,9 @@ class MoreCommand extends Command {
             if (!efuns.isFile(fullpath))
                 return fullpath + ' is not a file.';
 
-            efuns.readFile(fullpath, (content) => {
-                thisPlayer.writeLine(content);
-                cmdline.complete();
-            });
+            let content = efuns.readFileSync(fullpath);
+            thisPlayer.writeLine(content);
+            cmdline.complete();
         }
         catch (x) {
             thisPlayer.writeLine('Error: ' + x);
@@ -38,9 +37,9 @@ class MoreCommand extends Command {
             var player = thisPlayer,
                 fullpath = efuns.resolvePath(args[0], player.workingDirectory);
 
-            efuns.readFile(fullpath, (content, err) => {
-                thisPlayer.writeLine('<pre>' + content + '</pre>');
-            });
+            let content = efuns.readFile(fullpath);
+            thisPlayer.writeLine('<pre>' + content + '</pre>');
+            return true;
         }
         catch (x) {
             thisPlayer.writeLine('Error: ' + x);

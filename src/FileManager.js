@@ -81,15 +81,14 @@ var
 class FileSystemRequest {
     /**
      * Creates a filesystem request.
-     * @param {FileSystem} fileSystem
-     * @param {number} flags
-     * @param {string} op
-     * @param {string} expr
-     * @param {string} relPath
-     * @param {FileSystemStat} fss
+     * @param {{ fs: FileSystem, flags: number, op: string, expr: string, relPath: string, isAsync: boolean, efuns: EFUNProxy }} data The data to construct the request with
      */
-    constructor(fileSystem, flags, op, expr, relPath, fss) {
-        this.expr = expr;
+    constructor(data) {
+        this.async = data.isAsync;
+
+        this.expr = data.expr;
+
+        this.efuns = data.efuns;
 
         /** @type {string} */
         this.fileName = '';
@@ -101,10 +100,10 @@ class FileSystemRequest {
         this.relativePath = '';
 
         /** @type {FileSystem} */
-        this.fileSystem = fileSystem;
+        this.fileSystem = data.fs;
 
         /** @type {number} */
-        this.flags = typeof flags === 'number' ? flags : 0;
+        this.flags = typeof data.flags === 'number' ? data.flags : 0;
 
         /** @type {FileSystemStat} */
         this.parent = null;
@@ -119,65 +118,63 @@ class FileSystemRequest {
         this.resolved = false;
 
         /** @type {string} */
-        this.op = op || 'unknown';
+        this.op = data.op || 'unknown';
 
         /** @type {FileSecurity} */
-        this.securityManager = fileSystem.securityManager;
+        this.securityManager = data.fs.securityManager;
 
-        if (fss.exists) {
-            this.resolved = true;
-            if (!fss.isDirectory) {
-                let dir = expr.slice(0, expr.lastIndexOf('/')),
-                    rel = relPath.slice(0, relPath.lastIndexOf('/'));
+        let expr = data.expr, relPath = data.relPath;
+        //  Best guess for now
+        if (!expr.endsWith('/')) {
+            let dir = expr.slice(0, expr.lastIndexOf('/')),
+                rel = relPath.slice(0, relPath.lastIndexOf('/'));
 
-                this.fileName = expr.slice(dir.length + 1);
-                this.fullPath = expr;
-                this.relativePath = relPath;
-                this.pathFull = dir;
-                this.pathRel = rel;
-            }
-            else {
-                this.fileName = '';
-                this.fullPath = expr;
-                this.relativePath = relPath;
-                this.pathFull = expr + (expr.endsWith('/') ? '' : '/');
-                this.pathRel = relPath + (relPath.endsWith('/') ? '' : '/');
-            }
+            this.fileName = expr.slice(dir.length + 1);
+            this.fullPath = expr;
+            this.relativePath = relPath;
+            this.pathFull = dir + (dir.endsWith('/') ? '' : '/');
+            this.pathRel = rel + (rel.endsWith('/') ? '' : '/');
         }
         else {
-            if (!expr.endsWith('/')) {
-                let dir = expr.slice(0, expr.lastIndexOf('/')),
-                    rel = relPath.slice(0, relPath.lastIndexOf('/'));
-
-                this.fileName = expr.slice(dir.length + 1);
-                this.fullPath = expr;
-                this.relativePath = relPath;
-                this.pathFull = dir + (dir.endsWith('/') ? '' : '/');
-                this.pathRel = rel + (rel.endsWith('/') ? '' : '/');
-            }
-            else {
-                this.fileName = '';
-                this.fullPath = expr;
-                this.relativePath = relPath;
-                this.pathFull = expr;
-                this.pathRel = relPath;
-            }
+            this.fileName = '';
+            this.fullPath = expr;
+            this.relativePath = relPath;
+            this.pathFull = expr;
+            this.pathRel = relPath;
         }
     }
 
     clone(init) {
-        let c = new FileSystemRequest(this.fileSystem,
-            this.flags,
-            this.op,
-            this.expr,
-            this.relativePath,
-            { exists: false });
+        let c = new FileSystemRequest({
+            fs: this.fileSystem,
+            flags: this.flags,
+            op: this.op,
+            expr: this.expr,
+            relPath: this.relativePath,
+            efuns: this.efuns
+        });
         init(c);
         return c;
     }
 
+    deny() {
+        let procName = this.op.slice(0, 1).toLowerCase() +
+            this.op.slice(1) + (this.async ? 'Async' : 'Sync');
+        return this.securityManager.denied(procName, this.fullPath);
+    }
+
     toString() {
         return `${this.op}:${this.fullPath}`;
+    }
+
+    valid(method) {
+        if (method && !method.startsWith('valid'))
+            method = 'valid' + method;
+        let checkMethod = method || `valid${this.op}`;
+        if (typeof this.securityManager[checkMethod] !== 'function')
+            throw new Error(`Security method ${checkMethod} not found!`);
+        let result = this.securityManager[checkMethod](this.efuns, this.fullPath);
+        return result;
     }
 }
 
@@ -221,9 +218,7 @@ class FileManager extends MUDEventEmitter {
      * @param {any} callback
      */
     appendFile(expr, content, callback) {
-        return this.createFileRequest('appendFile', expr, typeof callback === 'function', 0, req => {
-
-        });
+        let req = this.createFileRequest('appendFile', expr, typeof callback === 'function', 0);
     }
 
     /**
@@ -234,36 +229,32 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
-     * Clone an object
+     * Clone an object into existance.
      * @param {EFUNProxy} efuns The object requesting the clone
      * @param {string} expr The module to clone
      * @param {any} args Constructor args for clone
-     * @param {function(MUDObject, Error):void} callback A callback if clone asyncronously
+     * @returns {MUDWrapper} The wrapped instance.
      */
-    cloneObject(efuns, expr, args, callback) {
-        let req = this.createFileRequest('cloneObject', expr, typeof callback !== 'undefined', 0);
-        if (req.securityManager.validLoadObject(efuns, req)) {
-            try {
-                return req.fileSystem.cloneObject(req, args, callback);
-            }
-            catch (err) {
-                if (typeof callback === 'function')
-                    return callback(false, err);
-                else
-                    throw err; 
-            }
-        }
-        else req.securityManager.denied('cloneObject', expr, callback);
+    cloneObjectSync(efuns, expr, args) {
+        let req = this.createFileRequest('cloneObject', expr, false, 0, null, efuns);
+        if (!req.valid('LoadObject'))
+            return req.deny();
+        else
+            return req.fileSystem.cloneObjectSync(req.relativePath, args || []);
     }
 
     /**
-     * Returns the filesystem for the specified path.
-     * @param {string} expr The path being requested.
-     * @param {boolean} isAsync Indicates the operation being performed is async or not.
-     * @param {function(FileSystemRequest):any} callback An optional callback.
-     * @returns {FileSystemRequest} The filesystem supporting the specified path.
+     * Create a request that describes the current operation.
+     * 
+     * @param {string} op The name of the file operation
+     * @param {string} expr THe filename expression being operated on
+     * @param {boolean} isAsync A flag indicating whether this is an async operation
+     * @param {number} flags Any numeric flags associated with the operation
+     * @param {function(): any} callback A defunct callback
+     * @param {EFUNProxy} efuns The efun proxy that made the request.
+     * @returns {FileSystemRequest} The request to be fulfilled.
      */
-    createFileRequest(op, expr, isAsync, flags, callback) {
+    createFileRequest(op, expr, isAsync, flags, callback, efuns) {
         let parts = expr.split('/'),
             fileSystem = this.fileSystems['/'] || false,
             relParts = [], relPath = expr.slice(1),
@@ -278,23 +269,25 @@ class FileManager extends MUDEventEmitter {
             }
             relParts.unshift(parts.pop());
         }
+        if (!efuns) {
+            1;
+        }
+
         if (!fileSystem)
             throw new Error('Fatal: Could not locate filesystem');
 
-        if (isAsync) {
-            if (typeof callback !== 'function')
-                throw new Error('Async request must provide callback for createFileRequest()');
+        if (callback)
+            throw new Error('createFileRequest with callback is no longer supported');
 
-            return fileSystem.stat(relPath, MXC.awaiter((fss, err) => {
-                let resultAsync = new FileSystemRequest(fileSystem, flags, op, expr, relPath, fss);
-                return callback(resultAsync);
-            }, `createFileRequest:${op}:${expr}`));
-        }
-        else {
-            let fss = fileSystem.stat(relPath);
-            let resultSync = new FileSystemRequest(fileSystem, flags, '', expr, relPath, fss);
-            return typeof callback === 'function' ? callback(resultSync) : resultSync;
-        }
+        return new FileSystemRequest({
+            fs: fileSystem,
+            flags: flags,
+            op: op || '',
+            expr,
+            relPath,
+            isAsync: isAsync === true,
+            efuns
+        });
     }
 
     /**
@@ -304,43 +297,24 @@ class FileManager extends MUDEventEmitter {
     createFileSystem(fsconfig) {
         let fileSystemType = require(path.join(__dirname, fsconfig.type)),
             securityManagerType = require(path.join(__dirname, fsconfig.securityManager)),
-            fileSystem = this.fileSystems[fsconfig.mountPoint] = new fileSystemType(this, fsconfig.options),
+            fileSystem = this.fileSystems[fsconfig.mountPoint] = new fileSystemType(this, fsconfig.options, fsconfig.mountPoint),
             securityManager = new securityManagerType(this, fileSystem, fsconfig.securityManagerOptions);
         return fileSystem;
-    }
-
-    /**
-     *
-     * @param {EFUNProxy} efuns
-     * @param {string} expr
-     * @param {string} content
-     * @param {function(boolean,Error):void} callback
-     */
-    appendFile(efuns, expr, content, callback) {
-        if (typeof options === 'function') {
-            callback = options;
-            options = false;
-        }
-        return this.createFileRequest('appendFile', expr, typeof callback !== 'undefined', 0, req => {
-            return req.securityManager.validAppendFile(efuns, req) ?
-                req.fileSystem.appendFile(req, content, callback) :
-                req.securityManager.denied('appendFile', req.fullPath);
-        });
     }
 
     /**
      * Create a directory in the MUD filesystem.
      * @param {EFUNProxy} efuns The object creating the directory.
      * @param {string} expr The path to create.
-     * @param {MkdirFlags} options Optional flags to pass to the mkdir method.
-     * @param {function(boolean,Error):void} callback A callback to fire if async
+     * @param {number} options Optional flags to pass to the mkdir method.
+     * @returns {boolean} True on success.
      */
-    createDirectory(efuns, expr, options, callback) {
-        return this.createFileRequest('createDirectory', expr, typeof callback === 'function', options.flags, req => {
-            return req.securityManager.validCreateDirectory(efuns, req) ?
-                req.fileSystem.createDirectory(req, options, callback) :
-                req.securityManager.denied('createDirectory', req.fullPath);
-        });
+    createDirectorySync(efuns, expr, options) {
+        let req = this.createFileRequest('CreateDirectory', expr, false, options.flags, null, efuns);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.createDirectorySync(req.relativePath, req.flags);
     }
 
     /**
@@ -416,12 +390,12 @@ class FileManager extends MUDEventEmitter {
      * @param {function(MUDObject): any} callback Uhhh sync callback
      * @returns {MUDObject} The loaded object... hopefully
      */
-    loadObjectSync(efuns, expr, args, callback) {
-        let req = this.createFileRequest('loadObjectSync', expr.file, false, 0);
-
-        return req.securityManager.validLoadObject(efuns, req) ?
-            req.fileSystem.loadObjectSync(req, expr, args, callback) :
-            req.securityManager.denied('loadObjectSync', req.fullPath);
+    loadObjectSync(efuns, expr, args) {
+        let req = this.createFileRequest('LoadObject', expr, false, 0, null, efuns);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.loadObjectSync(req.relativePath, args || [], req.flags);
     }
 
     /**
@@ -435,13 +409,6 @@ class FileManager extends MUDEventEmitter {
     movePath(efuns, source, destination, options, callback) {
         let reqLeft = this.createFileRequest('moveFile', source, typeof callback !== 'undefined', options.flags);
         let reqRight = this.createFileRequest('moveRight', destination, typeof callback !== 'undefined', options.flags);
-
-        if (typeof callback !== 'undefined') {
-
-        }
-        else {
-
-        }
     }
 
     readDirectoryAsync(efuns, expr, flags, callback) {
@@ -450,20 +417,25 @@ class FileManager extends MUDEventEmitter {
     }
 
     readDirectorySync(efuns, expr, flags) {
-        let req = this.createFileRequest('readDirectorySync', expr, false, flags);
-        return req.securityManager.readDirectorySync(efuns, req);
+        let req = this.createFileRequest('ReadDirectory', expr, false, flags, null, efuns);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.readDirectorySync(req.pathRel, req.fileName, req.flags);
     }
 
     /**
      * Reads a file from the filesystem.
      * @param {EFUNProxy} efuns The efuns instance making the call.
      * @param {string} expr The file to try and read.
-     * @param {function=} callback An optional callback for async mode.
+     * @returns {string} The content from the file.
      */
-    readFile(efuns, expr, callback) {
-        return this.createFileRequest('readFile', expr, typeof callback === 'function', 0, req => {
-            return req.securityManager.readFile(efuns, req, callback);
-        });
+    readFileSync(efuns, expr) {
+        let req = this.createFileRequest('ReadFile', expr, false, 0, null, efuns);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.readFileSync(req.relativePath);
     }
 
     /**
@@ -473,34 +445,25 @@ class FileManager extends MUDEventEmitter {
      * @param {function=} callback An optional callback for async mode.
      */
     readJsonFile(efuns, expr, callback) {
-        return this.createFileRequest('readJsonFile', expr, typeof callback === 'function', 0, req => {
-            return req.securityManager.validReadFile(efuns, req) ?
-                req.fileSystem.readJsonFile(req, callback) :
-                req.securityManager.denied('read', req.fullPath);
-        });
-    }
-
-    reloadObject(efuns, expr, args, callback) {
-        return this.createFileRequest('reloadObject', expr, typeof callback === 'function', 1, req => {
-            return req.securityManager.validLoadObject(efuns, req) ?
-                req.fileSystem.loadObject(req, args, callback) :
-                req.securityManager.denied('load', req.fullPath);
-        })
+        let req = this.createFileRequest('readJsonFile', expr, false, 0, null, efuns);
+        if (!req.valid('validReadFile'))
+            return req.deny();
+        else
+            return req.fileSystem.readJsonFileSync(req.fullPath);
     }
 
     /**
      * Stat a filesystem expression
-     * @param {EFUNProxy} efuns
-     * @param {string} expr
-     * @param {number} flags
-     * @param {function(FileSystemStat,Error):void} callback
+     * @param {EFUNProxy} efuns The calling efuns method
+     * @param {string} expr The expression to stat
+     * @param {number} flags Flags to control the behavior
      */
-    stat(efuns, expr, flags, callback) {
-        return this.createFileRequest('stat', expr, typeof callback === 'function', flags, req => {
-            return req.securityManager.validReadFile(efuns, req.fullPath) ?
-                req.fileSystem.stat(req, flags, callback) :
-                req.securityManager.denied('stat', req.fullPath);
-        });
+    statSync(efuns, expr, flags) {
+        let req = this.createFileRequest('stat', expr, false, flags, null, efuns);
+        if (!req.securityManager.validReadFile(efuns, req.fullPath))
+            return req.deny();
+        else
+            return req.fileSystem.statSync(req.relativePath);
     }
 
     /**
@@ -520,28 +483,42 @@ class FileManager extends MUDEventEmitter {
 
     /**
      * Translates a virtual path into an absolute path (if filesystem supported)
-     * @param {string} dir The virtual directory to translate.
+     * @param {EFUNProxy} efuns The efuns instance that called this
+     * @param {string} expr The virtual directory to translate.
      * @returns {string} The absolute path.
      */
-    toRealPath(expr) {
-        return this.createFileRequest('toRealPath', expr, typeof callback === 'function', 0, req => {
-            return req.fileSystem.getRealPath(req);
-        });
+    toRealPath(efuns, expr) {
+        let req = this.createFileRequest('toRealPath', expr, typeof callback === 'function', 0, null,  efuns);
+        return req.fileSystem.getRealPath(req.relativePath);
     }
 
     /**
-     *
-     * @param {EFUNProxy} efuns
-     * @param {string} expr
-     * @param {string|Buffer} content
-     * @param {function(boolean,Error)} callback
+     * Write to a file asyncronously.
+     * @param {EFUNProxy} efuns The object performing the write operation.
+     * @param {string} expr The file to write to.
+     * @param {string|Buffer} content The content to write to file.
+     * @param {number} flags Flags controlling the operation.
+     * @returns {Promise<boolean>} The promise for the operation.
      */
-    writeFile(efuns, expr, content, callback) {
-        return this.createFileRequest('writeFile', expr, typeof callback === 'function', 0, req => {
-            return req.securityManager.validWriteFile(efuns, req) ?
-                req.fileSystem.writeFile(req, content, callback) :
-                req.securityManager.denied('write', req.fullPath, callback);
+    async writeFileAsync(efuns, expr, content, flags) {
+        let req = this.createFileRequest('WriteFile', expr, true, flags, efuns);
+        return new Promise((resolve, reject) => {
+            try {
+                if (!req.valid()) reject(req.deny());
+                resolve(req.fileSystem.writeFileAsync(req.relativePath, content, req.flags));
+            }
+            catch (err) {
+                reject(err);
+            }
         });
+    }
+
+    writeFileSync(efuns, expr, content, flags) {
+        let req = this.createFileRequest('WriteFile', expr, false, flags, null, efuns);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.writeFileSync(req.relativePath, content, req.flags);
     }
 }
 

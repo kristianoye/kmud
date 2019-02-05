@@ -49,7 +49,7 @@ class EditFileCommand extends Command {
                 fullPath: fullPath,
                 fileName: fileName,
                 newFile: newFile,
-                source: !newFile ? efuns.readFile(fullPath) : ''
+                source: !newFile ? efuns.readFileSync(fullPath) : ''
             }
         });
         return true;

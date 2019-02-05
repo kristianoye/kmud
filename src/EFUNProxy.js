@@ -22,6 +22,7 @@ const
     PLURAL_CHOP = 2;
 
 var
+    IncludeCache = {},
     MUDStorage = require('./MUDStorage'),
     SaveExtension = '.json',
     { MUDHtmlComponent } = require('./MUDHtml'),
@@ -208,17 +209,13 @@ class EFUNProxy {
     /**
      * Clone an existing in-game object.
      * @param {string} file The object to clone
-     * @param {any} args Constructor args
-     * @param {function(MUDObject,Error):void} callback Optional callback for async mode.
-     * @returns {MUDObject|false} The object if successfully cloned.
+     * @param {...any} args Constructor args
+     * @returns {MUDWrapper} The object if successfully cloned.
      */
-    cloneObject(file, args, callback) {
-        if (typeof args === 'function') {
-            callback = args;
-            args = undefined;
-        }
-        let fullPath = this.resolvePath(file);
-        return driver.fileManager.cloneObject(this, fullPath, args, callback);
+    cloneObject(file, ...args) {
+        return driver
+            .fileManager
+            .cloneObjectSync(this, this.resolvePath(file), args);
     }
 
     /**
@@ -395,7 +392,13 @@ class EFUNProxy {
      * @param {MUDObject} ob The object to destruct.
      */
     destruct(ob) {
-        let unw = unwrap(ob);
+        unwrap(ob, target => {
+            if (driver.validDestruct(this, target)) {
+                driver.driverCall('destruct', () => {
+                    target.destroy();
+                });
+            }
+        });
     }
 
     /**
@@ -693,8 +696,18 @@ class EFUNProxy {
      * @param {function(boolean,Error):void} callback An optional callback for async operation.
      * @returns {boolean} True if the parameter is a normal file.
      */
-    isFile(expr, flags, callback) {
-        return driver.fileManager.isFile(this, expr, callback);
+    isFile(expr, flags) {
+        return this.isFileSync(expr, flags);
+    }
+
+    async isFileAsync(expr, flags) {
+        let stat = await driver.fileManager.statAsync(this, expr, flags || 0);
+        return stat.isFile;
+    }
+
+    isFileSync(expr, flags) {
+        let stat = driver.fileManager.statSync(this, expr, flags || 0);
+        return stat.isFile;
     }
 
     /**
@@ -732,25 +745,27 @@ class EFUNProxy {
      * @param {function(MUDObject):void} [callback] The optional callback if loading asyncronously.
      * @returns {MUDObject} The object (or false if object failed to load)
      */
-    loadObject(expr, args, callback) {
-        let req = this.parsePath(expr), { file } = req,
-            module = driver.cache.get(file);
+    loadObjectSync(expr, args, callback) {
+        return driver.fileManager.loadObjectSync(this, this.resolvePath(expr), args, callback);
+        //let req = this.parsePath(expr), { file } = req,
+        //    module = driver.cache.get(file);
 
-        if (module) {
-            let req = this.parsePath(expr);
-            return module.getInstanceWrapper(req);
-        }
-        driver.fileManager.loadObjectSync(this, req, args, callback);
-        module = driver.cache.get(file);
-        return module && module.getInstanceWrapper(req);
+        //if (module) {
+        //    let req = this.parsePath(expr);
+        //    return module.getInstanceWrapper(req);
+        //}
+        //driver.fileManager.loadObjectSync(this, req, args, callback);
+        //module = driver.cache.get(file);
+        //return module && module.getInstanceWrapper(req);
     }
 
     /**
-     * 
+     * Move a directory I guess.  Seems like a bad idea, now.
      * @param {string} source The file to move.
      * @param {string} destination The destination for the new file.
      * @param {MUDFS.MoveOptions} options Options related to the move operation.
      * @param {function(boolean,Error):void} callback Optional callback indicates async mode.
+     * @returns {boolean} True on success.
      */
     movePath(source, destination, options, callback) {
         return driver.fileManager.movePath(this,
@@ -761,13 +776,14 @@ class EFUNProxy {
 
     /**
      * Writes content to a log file.
-     * @param {string} file
-     * @param {string} message
-     * @param {any} callback
+     * @param {string} file The file to write to.
+     * @param {string} message The message to write to
+     * @param {any} callback An optional callback
+     * @returns {boolean} True on success.
      */
-    log(file, message, callback) {
-        let logPath = this.resolvePath(file, driver.config.mudlib.logDirectory);
-        return driver.fileManager.appendFile(this, logPath, message + '\n', callback);
+    log(file, message) {
+        let logPath = path.posix.join(driver.config.mudlib.logDirectory, file);
+        return driver.fileManager.writeFileSync(this, logPath, message + '\n', 1);
     }
 
     merge(...o) {
@@ -784,9 +800,16 @@ class EFUNProxy {
      */
     message(messageType, expr, audience, excluded) {
         if (expr) {
-            if (!excluded) excluded = [];
-            if (!Array.isArray(excluded)) excluded = [excluded];
-            if (!Array.isArray(audience)) audience = [audience];
+            if (!excluded)
+                excluded = [];
+
+            if (!Array.isArray(excluded))
+                excluded = [excluded];
+
+            if (!Array.isArray(audience)) {
+                audience = [audience || this.thisPlayer()];
+            }
+
             if (typeof expr !== 'string') {
                 if (expr instanceof MUDHtmlComponent)
                     expr = expr.render();
@@ -795,24 +818,26 @@ class EFUNProxy {
                 else if (typeof expr !== 'function')
                     throw new Error(`Bad argument 2 to message; Expected string, number, or MUDHtmlComponent but received ${typeof expr}`);
             }
+            let filtered = excluded
+                .map(m => unwrap(m))
+                .filter(m => m instanceof MUDObject);
+
+            let recipients = audience
+                .map(m => unwrap(m))
+                .filter(m => m instanceof MUDObject && filtered.indexOf(m) === -1);
+
             if (typeof expr === 'function') {
-                audience.forEach(a => {
-                    if (Array.isArray(a))
-                        a.forEach((player) => this.message(messageType, expr, player, excluded));
-                    else unwrap(a, (player) => {
-                        if (excluded.indexOf(player) === -1)
-                            player.receive_message(messageType, expr(player));
+                driver.driverCall('message', () => {
+                    recipients.forEach(player => {
+                        let playerMessage = expr(player) || false;
+                        playerMessage && player.receiveMessage(messageType, playerMessage);
                     });
                 });
             }
             else {
-                audience.forEach(a => {
-                    if (Array.isArray(a)) {
-                        a.forEach((player) => this.message(messageType, expr, player, excluded));
-                    }
-                    else unwrap(a, (player) => {
-                        if (excluded.indexOf(player) === -1)
-                            player.receive_message(messageType, expr);
+                driver.driverCall('message', () => {
+                    recipients.forEach(player => {
+                        player.receiveMessage(messageType, expr);
                     });
                 });
             }
@@ -822,19 +847,11 @@ class EFUNProxy {
     /**
      * Create a directory in the MUD filesystem.
      * @param {string} expr The file expression to turn into a directory.
-     * @param {MkDirOptions=} opts Optional flags to pass to createDirectory.
-     * @param {function=} callback An optional callback for async mode.
+     * @param {MkDirOptions} opts Optional flags to pass to createDirectory.
      * @returns {boolean} True if the directory was created (or already exists)
      */
-    mkdir(expr, opts, callback) {
-        if (typeof opts === 'function') {
-            callback = opts;
-            opts = 0;
-        }
-        else if (typeof opts === 'number') {
-            opts = { flags: opts };
-        }
-        return driver.fileManager.createDirectory(this, expr, opts || {}, callback);
+    mkdir(expr, opts) {
+        return driver.fileManager.createDirectorySync(this, expr, opts || 0);
     }
 
     mudInfo() {
@@ -909,7 +926,7 @@ class EFUNProxy {
         if (typeof fileExpr !== 'string' || fileExpr.length < 2)
             throw new Error('Bad argument 1 to parsePath');
 
-        let [path, instance] = this.resolvePath(fileExpr).split('#'),
+        let [path, instance] = (fileExpr.startsWith('/') ? fileExpr : this.resolvePath(fileExpr)).split('#'),
             [file, type] = path.split('$');
 
         if ((instance = parseInt(instance)) < 0 || isNaN(instance))
@@ -919,7 +936,7 @@ class EFUNProxy {
         }
         if (!type)
             throw new Error(`Bad file expression: ${fileExpr}`);
-        return { file, type, instance };
+        return Object.freeze({ file, type, instance });
     }
 
     /**
@@ -1379,11 +1396,10 @@ class EFUNProxy {
     /**
      * Attempt to read a plain file.
      * @param {string} filename The name of the file to read.
-     * @param {function=} callback An optional callback for an async read.
-     * @returns {string|void} Reads the file contents if read synchronously.
+     * @returns {string} Reads the file contents if read synchronously.
      */
-    readFile(filename, callback) {
-        return driver.fileManager.readFile(this, this.resolvePath(filename), callback);
+    readFileSync(filename) {
+        return driver.fileManager.readFileSync(this, this.resolvePath(filename));
     }
 
     /**
@@ -1444,17 +1460,25 @@ class EFUNProxy {
      * @param {string} file The include file to locate.
      * @returns {string|false} Returns the path name of the file or false if not found.
      */
-    resolveInclude(file) {
-        let result = driver.includePath.map(p => {
-            try {
-                let files = this.readDirectorySync(path.posix.join(p, file) + '*');
-                return files[0] ? path.posix.join(p, files[0]) : false;
+    resolveInclude(file, ignoreCache) {
+        let result = !ignoreCache && IncludeCache[file];
+
+        if (!result) {
+            for (let i = 0, max = driver.includePath.length; i < max; i++) {
+                try {
+                    let p = driver.includePath[i],
+                        files = this.readDirectorySync(path.posix.join(p, file) + '.*', MUDFS.GetDirFlags.FullPath);
+                    if (files.length === 1) {
+                        return IncludeCache[file] = files[0];
+                    }
+                }
+                catch (e) {
+                    /* do nothing */
+                }
             }
-            catch (err) {
-                // Empty by design
-            }
-            return false;
-        }).filter(p => p)[0] || false;
+            if (!result)
+                throw new Error(`Could not find file <${file}> in search path ${driver.includePath.join(':')}`);
+        }
         return result;
     }
 
@@ -1469,6 +1493,8 @@ class EFUNProxy {
     resolvePath(expr, expr2, callback) {
         callback = callback || typeof expr2 === 'function' && expr2;
         expr2 = typeof expr2 === 'string' && expr2 || this.directory;
+        if (typeof expr !== 'string')
+            throw new Error('Bad argument 1 to resolvePath');
         if (expr[0] === '/')
             return typeof callback === 'function' && callback(expr) || expr;
         if (expr[0] === '~') {
@@ -1648,21 +1674,22 @@ class EFUNProxy {
 
 
     /**
-     * Perform an operation using only the current object's permissions.
+     * Starts a new context that does not include any previous frames.
      * @param {function} callback The code to execute in unguarded mode.
      * @returns {any} The result of the unguarded call.
      */
     unguarded(callback) {
-        let result = false,
-            mxc = driver.currentContext;
+        let ecc = driver.getExecution();
+
+        ecc.push(ecc.thisObject, 'unguarded', this.fileName);
+        ecc.stack[0].unguarded = true;
+
         try {
-            mxc.addFrame(this, 'unguarded').increment();
-            result = callback();
+            return callback();
         }
         finally {
-            mxc.popStack();
+            ecc.pop('unguarded');
         }
-        return typeof result === 'undefined' ? this : result;
     }
 
     userp(target) {
@@ -1732,7 +1759,7 @@ class EFUNProxy {
      * @returns {void}
      */
     writeFile(filename, content, callback) {
-        return driver.fileManager.writeFile(this,
+        return driver.fileManager.writeFileSync(this,
             this.resolvePath(filename),
             content,
             callback);

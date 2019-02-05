@@ -9,14 +9,15 @@ const
     ExecutionContext = require('./ExecutionContext'),
     { TimeoutError } = require('./ErrorTypes'),
     DriverApplies = [
-        'connect',      // Called when a user connects with their body
-        'create',       // Called and acts like a secondary constructor
-        'destroy',      // Called when an object is destructed
-        'disconnect',   // Called when a player disconnects from their body
-        'heartbeat',    // Called periodically in "living" objects
-        'init',         // Called when objects interact with one another
-        'processInput', // Called to process user input
-        'reset'         // Called periodically to reset the object state
+        'connect',        // Called when a user connects with their body
+        'create',         // Called and acts like a secondary constructor
+        'destroy',        // Called when an object is destructed
+        'disconnect',     // Called when a player disconnects from their body
+        'heartbeat',      // Called periodically in "living" objects
+        'init',           // Called when objects interact with one another
+        'processInput',   // Called to process user input
+        'receiveMessage', // Called when an object receives a message
+        'reset'           // Called periodically to reset the object state
     ],
     MXC = require('./MXC'),
     vm = require('vm'),

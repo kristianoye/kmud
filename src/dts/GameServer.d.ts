@@ -51,6 +51,12 @@ declare class ExecutionContext {
 
     getFrame(index: number): ExecutionFrame;
 
+    /**
+     * Perform security checks based on the current stack.
+     * @param check
+     */
+    guarded(check: (frame: ExecutionFrame) => boolean): boolean;
+
     //  Indicate the current execution frame is complete.
     pop(): ExecutionContext;
 
@@ -92,7 +98,7 @@ declare class GameServer {
     cleanError(err: Error): Error;
 
     /** In-game compiler */
-    compiler: MUDCompiler;
+    compiler: MUDCompiler;That
 
     /** Current runtime configuration */
     config: MUDConfig;
@@ -103,6 +109,8 @@ declare class GameServer {
     /** The current verb */
     currentVerb: string;
 
+    driverCall(method: string, callback: (ecc: ExecutionContext) => any): any;
+
     /** Special instance of efuns for driver */
     efuns: EFUNProxy;
 
@@ -110,7 +118,7 @@ declare class GameServer {
     fileManager: FileManager;
 
     /** Get the execution context */
-    getExecution(): ExecutionContext | false;
+    getExecution(): ExecutionContext;
 
     /**
      * Get the execution context, add a new frame, and return the context.

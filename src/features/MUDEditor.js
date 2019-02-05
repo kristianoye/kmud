@@ -364,7 +364,7 @@ class EditorInstance {
     loadFile(filename, pos) {
         try {
             if (this.efuns.isFile(filename)) {
-                this.appendBuffer(this.efuns.readFile(filename).split('\n'));
+                this.appendBuffer(this.efuns.readFileSync(filename).split('\n'));
                 this.currentLine = 1;
             }
         }

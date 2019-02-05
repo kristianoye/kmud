@@ -13,7 +13,7 @@ const
 
 class MkDirCommand extends Command {
     create(ctx) {
-        this.FileIndex = efuns.loadObject('/sys/daemon/FileIndex');
+        this.FileIndex = efuns.loadObjectSync('/sys/daemon/FileIndex');
     }
 
     /**
