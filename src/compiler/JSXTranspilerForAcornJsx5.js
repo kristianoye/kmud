@@ -41,11 +41,14 @@ class JSXTranspilerOp {
      * @param {OpParams} p The constructor parameters
      */
     constructor(p) {
+        this.allowLiteralCallouts = p.allowLiteralCallouts;
         this.allowJsx = p.allowJsx;
+
         this.appendText = '';
         this.ast = p.allowJsx ?
             acorn.Parser.extend(jsx()).parse(p.source) :
             acorn.Parser.parse(p.source);
+
         this.context = p.context;
         this.filename = p.filename;
         this.inClass = false;
@@ -276,8 +279,41 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'CallExpression':
-                ret += parseElement(op, e.callee, depth + 1);
-                e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
+                {
+                    let writeCallee = true,
+                        isCallout = false;
+                    if (op.allowLiteralCallouts) {
+                        if (e.callee && e.callee.type === 'MemberExpression') {
+                            if (e.callee.object.type === 'Literal') {
+                                let object = parseElement(op, e.callee.object, depth + 1);
+                                let propName = parseElement(op, e.callee.property, depth + 1);
+                                let isString = false;
+                                try {
+                                    isString = typeof eval(object) === 'string';
+                                }
+                                catch (e) { /* do nothing */ }
+
+                                if (isString && typeof String.prototype[propName] !== 'function') {
+                                    let args = '';
+                                    ret += `unwrap(efuns.loadObjectSync(${object}), o => o${propName}`;
+                                    e.arguments.forEach(_ => args += parseElement(op, _, depth + 1));
+                                    args += op.source.slice(op.pos, e.end);
+                                    ret += `${args}, () => ${object}${propName}${args})`; // Close out the wrap
+                                    isCallout = true;
+                                    op.pos = e.end;
+                                } else {
+                                    ret += object;
+                                    ret += propName;
+                                }
+                                writeCallee = false;
+                            }
+                        }
+                    }
+                    if (writeCallee) 
+                        ret += parseElement(op, e.callee, depth + 1);
+                    if (!isCallout)
+                        e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
+                }
                 break;
 
             case 'CatchClause':
@@ -495,7 +531,6 @@ function parseElement(op, e, depth, ident) {
 
             case 'MemberExpression':
                 {
-                    let propName = op.addMethod(op.source.slice(e.property.start, e.property.end));
                     ret += parseElement(op, e.object, depth + 1);
                     ret += parseElement(op, e.property, depth + 1);
                     op.popMethod();
@@ -650,6 +685,7 @@ class JSXTranspilerForAcornJsx5 extends PipelineComponent {
     constructor(config) {
         super(config);
         this.allowJsx = typeof config.allowJsx === 'boolean' ? config.allowJsx : true;
+        this.allowLiteralCallouts = typeof config.allowLiteralCallouts === 'boolean' ? config.allowLiteralCallouts : true;
         this.extension = config.extension || '.js';
     }
 
@@ -661,6 +697,7 @@ class JSXTranspilerForAcornJsx5 extends PipelineComponent {
     run(context) {
         let op = new JSXTranspilerOp({
             allowJsx: this.allowJsx,
+            allowLiteralCallouts: this.allowLiteralCallouts,
             filename: context.basename,
             context,
             source: context.content

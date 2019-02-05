@@ -302,7 +302,8 @@ class MUDLoader {
             };
         if (typeof target === 'function' && target.isWrapper === true) {
             result = target();
-            if (!(result instanceof MUDObject)) result = defaultValue;
+            if (!(result instanceof MUDObject))
+                result = typeof defaultValue === 'function' ? defaultValue() : defaultValue;
         }
         else if (typeof target === 'object' && target instanceof MUDObject) {
             result = target;

@@ -333,10 +333,18 @@ class DefaultFileSystem extends FileSystem {
                 lastSlash = absPath.lastIndexOf(path.sep),
                 absDir = absPath.slice(0, lastSlash + 1),
                 absFilename = absPath.slice(lastSlash + 1);
-            let files = this.readDirectorySync(absDir, absFilename + '.*', MUDFS.GetDirFlags.FullPath);
+            let files = [];
 
-            if (files.length === 0)
+            try {
+                files = this.readDirectorySync(absDir, absFilename + '.*', MUDFS.GetDirFlags.FullPath);
+            }
+            catch (err) {
+                files = [];
+            }
+
+            if (files.length === 0) { // Nothing was found, perhaps this is virtual?
                 throw new Error(`Module not found: ${parts.file}`);
+            }
             else if (files.length > 1) {
                 let fileNames = files
                     .map(fn => fn.slice(fn.lastIndexOf(path.sep)))

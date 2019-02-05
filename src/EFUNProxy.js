@@ -536,13 +536,11 @@ class EFUNProxy {
      * @returns {MUDObject|false} Returns the object reference or null.
      */
     findObject(filename) {
-        var parts = filename.split('#', 2),
-            basename = parts[0],
-            instanceId = parts.length === 1 ? 0 : parseInt(parts[1]),
-            module = driver.cache.get(basename);
+        var parts = this.parsePath(this.resolvePath(filename)),
+            module = driver.cache.get(parts.file);
 
         if (module) {
-            return module.wrappers[instanceId] || false;
+            return module.getInstanceWrapper(parts);
         }
         return false;
     }
@@ -733,20 +731,19 @@ class EFUNProxy {
      * Join path
      * @param {...string} expr
      */
-    resolvePath(...expr) {
+    join(...expr) {
         expr.unshift(this.directory);
-        return path.posix.resolve(...expr);
+        return path.posix.join(...expr);
     }
 
     /**
      * Attempts to find the specified object.  If not found then the object is compiled and returned.
      * @param {string} expr The filename of the object to try and load.
-     * @param {any} args If the object is not found then these arguments are passed to the constructor.
-     * @param {function(MUDObject):void} [callback] The optional callback if loading asyncronously.
+     * @param {...any} args If the object is not found then these arguments are passed to the constructor.
      * @returns {MUDObject} The object (or false if object failed to load)
      */
-    loadObjectSync(expr, args, callback) {
-        return driver.fileManager.loadObjectSync(this, this.resolvePath(expr), args, callback);
+    loadObjectSync(expr, ...args) {
+        return driver.fileManager.loadObjectSync(this, this.resolvePath(expr), args);
         //let req = this.parsePath(expr), { file } = req,
         //    module = driver.cache.get(file);
 
@@ -1487,16 +1484,14 @@ class EFUNProxy {
      * TODO: Rewrite this ugly method to be more like path.resolve()
      * @param {string} expr The expression to resolve.
      * @param {string} expr2 The relative directory to resolve from.
-     * @param {function(string): any} callback The callback to execute when complete... why?
      * @returns {string} The resolved directory
      */
-    resolvePath(expr, expr2, callback) {
-        callback = callback || typeof expr2 === 'function' && expr2;
+    resolvePath(expr, expr2) {
         expr2 = typeof expr2 === 'string' && expr2 || this.directory;
         if (typeof expr !== 'string')
             throw new Error('Bad argument 1 to resolvePath');
         if (expr[0] === '/')
-            return typeof callback === 'function' && callback(expr) || expr;
+            return expr;
         if (expr[0] === '~') {
             var re = /^~([\\\/])*([^\\\/]+)/, m = re.exec(expr) || [];
             if (m.length === 2) {
@@ -1511,8 +1506,7 @@ class EFUNProxy {
                 expr = '/realms/' + expr.slice(1);
             }
         }
-        let result = path.posix.join(expr2, expr);
-        return typeof callback === 'function' ? callback(result) : result;
+        return path.posix.join(expr2, expr);
     }
 
     /**
