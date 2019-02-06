@@ -43,7 +43,7 @@ function plugin(options, Parser) {
             else if (tryContextual("protected")) {
                 method.accessKind = "protected";
             }
-            else if (tryContextual("package")) {
+            else if (options.allowPackageModifier && tryContextual("package")) {
                 method.accessKind = "package";
             }
             else if (tryContextual("public")) {
@@ -73,7 +73,6 @@ function plugin(options, Parser) {
                 if (method.kind !== "method") this.raise(key.start, "Constructor can't have get/set modifier");
                 if (isGenerator) this.raise(key.start, "Constructor can't be a generator");
                 if (isAsync) this.raise(key.start, "Constructor can't be an async method");
-                if (method.accessKind !== 'public') this.raise(key.start, "Constructor must be public");
                 method.kind = "constructor";
                 allowsDirectSuper = constructorAllowsSuper;
             } else if (method.static && key.type === "Identifier") {
@@ -94,31 +93,6 @@ function plugin(options, Parser) {
             method.value = this.parseMethod(isGenerator, isAsync, allowsDirectSuper);
             return this.finishNode(method, "MethodDefinition");
         }
-        //readToken(code) {
-        //    let context = this.curContext();
-        //    if (options.allowAccessModifiers) {
-        //        if (code === 112) {
-        //            let word = this.input.slice(this.pos, this.pos + 9);
-        //            if (word === 'protected') {
-        //                /* public thingy */
-        //            }
-        //            else if (word.slice(0, -3) === 'public') {
-        //                /* public thingy */
-        //            }
-        //            else if (word.slice(0, -2) === 'private') {
-        //                /* private thingy */
-        //                this.pos += 7;
-        //                return this.finishToken(tok.kmudPrivate);
-        //            }
-        //            else if (options.allowPackageModifier && word.slice(0, -2) === 'package') {
-        //                /* package thingy */
-        //                this.pos += 7;
-        //                return this.finishToken(tok.kmudPackage);
-        //            }
-        //        }
-        //    }
-        //    return super.readToken(code);
-        //}
     };
 }
 
@@ -129,6 +103,7 @@ module.exports = function (optionsIn) {
             allowAccessModifiers: true,
             allowStaticProperties: true,
             allowPackageModifier: true,
+            defaultAccessModifier: "public",
             requireAccessModifiers: false
         }, Parser);
     };
