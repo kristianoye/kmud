@@ -743,6 +743,7 @@ class EFUNProxy {
      * @returns {MUDObject} The object (or false if object failed to load)
      */
     loadObjectSync(expr, ...args) {
+        if (typeof expr !== 'string') return false;
         return driver.fileManager.loadObjectSync(this, this.resolvePath(expr), args);
         //let req = this.parsePath(expr), { file } = req,
         //    module = driver.cache.get(file);

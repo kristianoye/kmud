@@ -86,7 +86,7 @@ class MUDLoader {
             },
             __bfc: {
                 //  Begin Function Call
-                value: function (ob, method, callString, fileName, isAsync, lineNumber) {
+                value: function (ob, access, method, callString, fileName, isAsync, lineNumber) {
                     let mec = driver.getExecution(), newContext = false;
 
                     if (method.length === 0) {
@@ -99,6 +99,8 @@ class MUDLoader {
                         mec = driver.getExecution(ob, method, fileName, isAsync, lineNumber, callString);
                         newContext = true;
                     }
+
+                    access && mec.assertAccess(ob, access, method, fileName);
 
                     if (method && DriverApplies.indexOf(method) > -1) {
                         if (!mec.isValidApplyCall(method, ob))
@@ -302,12 +304,15 @@ class MUDLoader {
             };
         if (typeof target === 'function' && target.isWrapper === true) {
             result = target();
-            if (!(result instanceof MUDObject))
-                result = typeof defaultValue === 'function' ? defaultValue() : defaultValue;
+            if (result instanceof MUDObject === false)
+                result = defaultValue;
         }
         else if (typeof target === 'object' && target instanceof MUDObject) {
             result = target;
         }
+        else if (typeof defaultValue === 'function')
+            return defaultValue();
+
         return result && onSuccess(result);
     }
 

@@ -225,7 +225,8 @@ class MUDModule {
                 let instances = this.instanceMap[typeName] || [];
                 if (isReload || !instances[0]) {
                     let ctx = driver.executionContext;
-                    if (!ctx) throw new Error('No execution context is currently running');
+                    if (!ctx)
+                        throw new Error('No execution context is currently running');
                     ctx.newContext = this.getNewContext(type, 0);
                     instances[0] = new type();
                     this.instanceMap[typeName] = instances;

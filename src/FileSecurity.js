@@ -48,10 +48,10 @@ class FileSecurity extends MUDEventEmitter {
         let err = undefined;
         if (typeof verb === 'object') {
             req = verb;
-            err = new SecurityError(`Permission denied: Could not ${req.op} '${req.fullPath}'`)
+            err = new SecurityError(`Permission denied: Could not ${req.op} '${req.fullPath}'`);
         }
         else
-            err = new SecurityError(`Permission denied: Could not ${verb} '${(req.fullPath || req)}'`)
+            err = new SecurityError(`Permission denied: Could not ${verb} '${(req.fullPath || req)}'`);
 
         if (this.throwSecurityExceptions)
             throw err;

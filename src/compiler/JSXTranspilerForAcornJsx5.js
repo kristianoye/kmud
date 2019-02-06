@@ -10,9 +10,8 @@ const
     PipeContext = require('./PipelineContext'),
     PipelineContext = PipeContext.PipelineContext,
     acorn = require('acorn'),
+    modifiers = require('./SecurityModifiers'),
     jsx = require('acorn-jsx');
-
-var parser = acorn.Parser.extend(jsx());
 
 const
     //  These cannot be used as identifiers (reserved words)
@@ -41,13 +40,25 @@ class JSXTranspilerOp {
      * @param {OpParams} p The constructor parameters
      */
     constructor(p) {
+        let acornOptions = {
+            onComment: function (block, text, start, end) {
+                /* TODO: do autodoc stuff */
+                let len = end - start;
+            }
+        };
+
         this.allowLiteralCallouts = p.allowLiteralCallouts;
         this.allowJsx = p.allowJsx;
 
         this.appendText = '';
         this.ast = p.allowJsx ?
-            acorn.Parser.extend(jsx()).parse(p.source) :
-            acorn.Parser.parse(p.source);
+            acorn.Parser
+                .extend(jsx())
+                .extend(modifiers({ allowAccessModifiers: true }))
+                .parse(p.source, acornOptions) :
+            acorn.Parser
+                .extend(modifiers({ allowAccessModifiers: true }))
+                .parse(p.source, acornOptions);
 
         this.context = p.context;
         this.filename = p.filename;
@@ -60,6 +71,7 @@ class JSXTranspilerOp {
         this.pos = 0;
         this.scopes = [];
         this.source = p.source;
+        this.sourceLength = p.source.length;
     }
 
     addMethod(method) {
@@ -69,6 +81,11 @@ class JSXTranspilerOp {
 
     get callString() {
         return this.methodStack.length && this.methodStack.join(' -> ') || '(MAIN)';
+    }
+
+    eatWhitespace() {
+        while (this.pos < this.sourceLength && this.source.charAt(this.pos).trim() === '')
+            this.pos++;
     }
 
     popMethod() {
@@ -196,7 +213,7 @@ function jsxWhitespace(op) {
  * @param {number} ident The level of indentation
  * @returns {string} The element as source code.
  */
-function parseElement(op, e, depth, ident) {
+function parseElement(op, e, depth, ident, access) {
     let ret = '';
     if (e) {
         ident = ident || '';
@@ -224,12 +241,12 @@ function parseElement(op, e, depth, ident) {
                     let callString = op.callString;
 
                     if (e.body.type === 'BlockStatement') {
-                        ret += `{ let __mec = __bfc(this, '${ident}', '${callString}', __FILE__, ${isAsync}, DEBUG.LineNumberInTrace && __LINE__); try `;
+                        ret += `{ let __mec = __bfc(this, false, '${ident}', '${callString}', __FILE__, ${isAsync}, DEBUG.LineNumberInTrace && __LINE__); try `;
                         ret += parseElement(op, e.body);
                         ret += ` finally { __efc(__mec, '${callString}'); }}`;
                     }
                     else {
-                        ret += `{ let __mec = __bfc(this, '${ident}', '${callString}', __FILE__, ${isAsync}, DEBUG.LineNumberInTrace && __LINE__); try { return `;
+                        ret += `{ let __mec = __bfc(this, false, '${ident}', '${callString}', __FILE__, ${isAsync}, DEBUG.LineNumberInTrace && __LINE__); try { return `;
                         ret += parseElement(op, e.body);
                         ret += `; } finally { __efc(__mec, '${callString}'); }}`;
                     }
@@ -284,7 +301,8 @@ function parseElement(op, e, depth, ident) {
                         isCallout = false;
                     if (op.allowLiteralCallouts) {
                         if (e.callee && e.callee.type === 'MemberExpression') {
-                            if (e.callee.object.type === 'Literal') {
+                            let objectType = e.callee.object.type;
+                            if (objectType === 'Literal' || objectType === 'MemberExpression') {
                                 let object = parseElement(op, e.callee.object, depth + 1);
                                 let propName = parseElement(op, e.callee.property, depth + 1);
                                 let isString = false;
@@ -293,12 +311,12 @@ function parseElement(op, e, depth, ident) {
                                 }
                                 catch (e) { /* do nothing */ }
 
-                                if (isString && typeof String.prototype[propName] !== 'function') {
+                                if (typeof String.prototype[propName] !== 'function') {
                                     let args = '';
-                                    ret += `unwrap(efuns.loadObjectSync(${object}), o => o${propName}`;
+                                    ret += `typeof ${object} === 'string' && typeof String.prototype${propName} !== 'function' && unwrap(efuns.loadObjectSync(${object}), o => o${propName}`;
                                     e.arguments.forEach(_ => args += parseElement(op, _, depth + 1));
                                     args += op.source.slice(op.pos, e.end);
-                                    ret += `${args}, () => ${object}${propName}${args})`; // Close out the wrap
+                                    ret += `${args}) || (() => ${object}${propName}${args})()`; // Close out the wrap
                                     isCallout = true;
                                     op.pos = e.end;
                                 } else {
@@ -393,12 +411,12 @@ function parseElement(op, e, depth, ident) {
                     let callString = op.callString;
                     if (op.inClass) {
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
+                            `let __mec = __bfc(this, ${access}, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
                             ` } finally { __efc(__mec, '${callString}'); }`);
                     }
                     else
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
+                            `let __mec = __bfc(this, ${access}, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
                             ` } finally { __efc(__mec, '${callString}'); }`);
                     ret += parseElement(op, e.body, depth + 1, e.id);
                     op.popMethod();
@@ -412,13 +430,13 @@ function parseElement(op, e, depth, ident) {
                     let callString = op.callString;
                     if (op.inClass) {
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
+                            `let __mec = __bfc(this, ${access}, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
                             ` } finally { __efc(__mec, '${callString}'); }`,
                             ident === 'constructor');
                     }
                     else
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
+                            `let __mec = __bfc(this, ${access}, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
                             ` } finally { __efc(__mec, '${callString}'); }`);
                     ret += parseElement(op, e.body, depth + 1);
                     op.popMethod();
@@ -460,17 +478,17 @@ function parseElement(op, e, depth, ident) {
                     throw new Error(`JSX is not enabled for ${op.context.extension} files`);
                 if (op.jsxDepth === 0) {
                     var jsxInX = op.source.slice(0, e.start).lastIndexOf('\n') + 1;
-                    op.jsxIndent = ' '.repeat(e.start - jsxInX) 
+                    op.jsxIndent = ' '.repeat(e.start - jsxInX);
                 }
-                ret += jsxWhitespace(op, true) + 'createElement(\n';
-                op.jsxDepth++;
+                ret += jsxWhitespace(op, true) + 'createElement(';
                 op.pos = e.start;
                 ret += parseElement(op, e.openingElement, depth + 1);
                 if (e.children.length > 0) {
-                    e.children.forEach(_ => {
-                        var t = parseElement(op, _, depth + 1);
+                    e.children.forEach((_, i) => {
+                        if(i === 1) op.jsxDepth++;
+                        let t = parseElement(op, _, depth + 1);
                         if (t.length) {
-                            ret += ',\n' + (_.type === 'JSXElement' ? '' : jsxWhitespace(op)) + t;
+                            ret += ', ' + (_.type === 'JSXElement' ? '' : jsxWhitespace(op)) + t;
                         }
                     });
                 }
@@ -503,8 +521,8 @@ function parseElement(op, e, depth, ident) {
                 if (!op.allowJsx)
                     throw new Error(`JSX is not enabled for ${this.extension} files`);
                 op.pos = e.end;
-                ret += jsxWhitespace(op) + parseElement(op, e.name, depth + 1);
-                ret += ',\n' + jsxWhitespace(op) + '{';
+                ret += parseElement(op, e.name, depth + 1);
+                ret += ', {';
                 e.attributes.forEach((_, i) => {
                     ret += (i > 0 ? ', ' : '') + parseElement(op, _, depth + 1);
                 });
@@ -538,12 +556,21 @@ function parseElement(op, e, depth, ident) {
                 break;
 
             case 'MethodDefinition':
+                if (e.access) {
+                    op.pos = e.access.end;
+                    op.eatWhitespace();
+                }
                 let methodName = op.addMethod(parseElement(op, e.key, depth + 1));
                 if (ProtectedApplies.indexOf(methodName) > -1) {
                     throw new Error(`Type '${op.inClass}' attempts to redefine protected apply '${methodName}' in ${op.filename}`);
                 }
                 ret += methodName;
-                ret += parseElement(op, e.value, depth + 1, methodName);
+                if (e.accessKind && e.accessKind !== "public") {
+                    ret += parseElement(op, e.value, depth + 1, methodName, `'${e.accessKind}'`);
+                }
+                else {
+                    ret += parseElement(op, e.value, depth + 1, methodName, false);
+                }
                 op.popMethod();
                 break;
 

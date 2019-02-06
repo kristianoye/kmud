@@ -1,8 +1,4 @@
 
-[2018-2-4 00:36:31]
-Could not load /world/sarta/mob/Harry [Unexpected token (30:39)]
-Error: Could not load /world/sarta/mob/Harry [Unexpected token (30:39)]
-    at Square.reset (/world/sarta/square.js:24:31)
-    at Reset.cmd (/cmds/creator/Reset.js:12:40)
-    at Creator.processInput (/base/Interactive.js:248:121)
-    at Interactive.$storage.prependListener (/base/Interactive.js:287:33)
+[2019-2-5 17:37:53]
+Could not load /world/sarta/Square [Unexpected token (14:12)]
+Error: Could not load /world/sarta/Square [Unexpected token (14:12)]

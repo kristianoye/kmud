@@ -47,6 +47,34 @@ class ExecutionContext extends MUDEventEmitter {
         return this;
     }
 
+    assertAccess(thisObject, access, method, fileName) {
+        if (!this.thisObject) // static method?
+            throw new Access(`Cannot access ${access} method '${method}'`);
+
+        if (this.thisObject === thisObject)
+            return true;
+
+        if (this.thisObject === driver)
+            return true;
+
+        if (access === "private")
+            throw new Access(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
+        else if (access === "package") {
+            let parts = driver.efuns.parsePath(this.thisObject.filename);
+            if (parts.file !== fileName)
+                throw new Access(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
+        }
+        else if (access === "protected") {
+            if (thisObject instanceof MUDObject &&
+                this.thisObject instanceof MUDObject) {
+                let thisType = thisObject.constructor;
+                if (this.thisObject instanceof thisType === false) 
+                    throw new Access(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
+            }
+        }
+        return true;
+    }
+
     /**
      * Complete execution
      * @param {ExecutionContext} child The child context that is completing.

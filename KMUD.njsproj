@@ -369,6 +369,9 @@
     <Compile Include="src\compiler\PipelineContext.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\compiler\SecurityModifiers.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\compiler\VM2Wrapper.js">
       <SubType>Code</SubType>
     </Compile>
