@@ -40,26 +40,21 @@ class JSXTranspilerOp {
      * @param {OpParams} p The constructor parameters
      */
     constructor(p) {
-        let acornOptions = {
-            onComment: function (block, text, start, end) {
-                /* TODO: do autodoc stuff */
-                let len = end - start;
-            }
-        };
-
+        this.acornOptions = p.acornOptions || false;
         this.allowLiteralCallouts = p.allowLiteralCallouts;
         this.allowJsx = p.allowJsx;
 
         this.appendText = '';
-        this.ast = p.allowJsx ?
-            acorn.Parser
-                .extend(jsx())
-                .extend(modifiers({ allowAccessModifiers: true }))
-                .parse(p.source, acornOptions) :
-            acorn.Parser
-                .extend(modifiers({ allowAccessModifiers: true }))
-                .parse(p.source, acornOptions);
-
+        if (!this.acornOptions) {
+            this.ast = p.allowJsx ?
+                acorn.Parser
+                    .extend(jsx())
+                    .extend(modifiers({ allowAccessModifiers: true }))
+                    .parse(p.source, acornOptions) :
+                acorn.Parser
+                    .extend(modifiers({ allowAccessModifiers: true }))
+                    .parse(p.source, acornOptions);
+        }
         this.context = p.context;
         this.filename = p.filename;
         this.inClass = false;
@@ -71,7 +66,6 @@ class JSXTranspilerOp {
         this.pos = 0;
         this.scopes = [];
         this.source = p.source;
-        this.sourceLength = p.source.length;
     }
 
     addMethod(method) {
@@ -84,7 +78,7 @@ class JSXTranspilerOp {
     }
 
     eatWhitespace() {
-        while (this.pos < this.sourceLength && this.source.charAt(this.pos).trim() === '')
+        while (this.pos < this.max && this.source.charAt(this.pos).trim() === '')
             this.pos++;
     }
 
@@ -645,11 +639,12 @@ function parseElement(op, e, depth, ident, access) {
                 break;
 
             case 'TemplateLiteral':
-                ret += op.source.slice(e.start, e.end);
-                op.pos = e.end;
-                //ret += parseElement(op, e.quasis[0], depth + 1);
-                //e.expressions.forEach(_ => ret += parseElement(op, _, depth + 1));
-                //ret += parseElement(op, e.quasis[1], depth + 1);
+                {
+                    let items = []
+                        .concat(e.quasis.slice(0), e.expressions.slice(0))
+                        .sort((a, b) => a.start < b.start ? -1 : a.start === b.start ? 0 : 1);
+                    items.forEach(_ => ret += parseElement(op, _, depth + 1));
+                }
                 break;
 
             case 'ThisExpression':
@@ -711,9 +706,46 @@ function parseElement(op, e, depth, ident, access) {
 class JSXTranspilerForAcornJsx5 extends PipelineComponent {
     constructor(config) {
         super(config);
+
+        this.acornOptions = Object.assign({}, config.acornOptions);
+        this.acornOptions.onComment = (block, text, start, end) => {
+            /* TODO: do autodoc stuff */
+            let len = end - start;
+        };
+
         this.allowJsx = typeof config.allowJsx === 'boolean' ? config.allowJsx : true;
         this.allowLiteralCallouts = typeof config.allowLiteralCallouts === 'boolean' ? config.allowLiteralCallouts : true;
         this.extension = config.extension || '.js';
+        this.parser = acorn.Parser
+            .extend(jsx())
+            .extend(modifiers(config));
+
+    }
+
+    run(context) {
+        let op = new JSXTranspilerOp({
+            acornOptions: Object.assign({}, this.acornOptions, context.acornOptions),
+            allowJsx: this.allowJsx,
+            allowLiteralCallouts: this.allowLiteralCallouts,
+            filename: context.basename,
+            context,
+            source: context.content
+        });
+        try {
+            if (this.enabled) {
+                op.ast = this.parser.parse(op.source, op.acornOptions);
+                op.ast.body.forEach((n, i) => op.output += parseElement(op, n, 0));
+                if (op.pos < op.max) op.output += op.source.slice(op.pos, op.max);
+                if (context.basename.startsWith('/sys/lib/Login'))
+                    console.log('stop');
+                return context.update(PipeContext.CTX_RUNNING, op.output + op.appendText);
+            }
+        }
+        catch (x) {
+            console.log(x.message);
+            console.log(x.stack);
+            throw x;
+        }
     }
 
     /**
@@ -721,7 +753,7 @@ class JSXTranspilerForAcornJsx5 extends PipelineComponent {
      * @param {PipelineContext} context The context that is requesting the transpile.
      * @returns {PipelineContext} Returns the context
      */
-    run(context) {
+    runOld(context) {
         let op = new JSXTranspilerOp({
             allowJsx: this.allowJsx,
             allowLiteralCallouts: this.allowLiteralCallouts,
