@@ -410,37 +410,44 @@ class EFUNProxy {
      */
     exec(oldBody, newBody, callback) {
         if (driver.validExec(this, oldBody, newBody)) {
-            let oldContainer = oldBody ? driver.storage.get(oldBody) : false,
-                newContainer = driver.storage.get(newBody),
-                client = oldContainer.getProtected('$client'),
-                execEvent = {
-                    oldBody: oldBody,
-                    oldStorage: oldContainer,
-                    newBody: newBody,
-                    newStorage: newContainer,
-                    client: client
-                };
+            let result = unwrap([oldBody, newBody], (o, n) =>
+                driver.driverCall('exec', () => {
+                    let oldStorage = driver.storage.get(o),
+                        client = oldStorage.client;
 
-            if (oldContainer)
-                oldContainer.emit('kmud.exec', execEvent);
-            newContainer
-                .setClient(client)
-                .setProtected('$client', client)
-                .setProtected('$clientCaps', client.caps)
-                .emit('kmud.exec', execEvent);
-            client.handleExec(execEvent);
+                    //  The old storage has no client?!
+                    if (!client)
+                        return false;
 
-            if (!client) client = thisPlayer.client;
-            if (typeof client === 'object') {
-                if (driver.exec(oldBody, newBody, client)) {
-                    if (typeof callback === 'function')
-                        callback(oldBody, newBody);
-                    return true;
-                }
-            }
-            return false;
+                    let newStorage = driver.storage.get(n);
+
+                    //  New body is invalid due to storage
+                    if (!newStorage)
+                        return false;
+
+                    try {
+                        newStorage
+                            .setClient(client)
+                            .setProtected('$client', client)
+                            .setProtected('$clientCaps', client.caps)
+                            .client.setBody(newBody);
+
+                        oldStorage.setClient(false);
+                        return callback ? callback(o, n) : true;
+                    }
+                    catch (e) {
+                        /* ack */
+                        newStorage.setClient(false);
+                    }
+                    return false;
+                }));
+
+            if (!result) // TODO: Add config-based error string message here ... or driver apply
+                this.write('You twitch, but nothing happens.');
+
+            return result;
         }
-        throw new Error('Permission denied: ' + expr);
+        throw new Error('exec() permission denied');
     }
 
     /**
@@ -705,7 +712,7 @@ class EFUNProxy {
 
     isFileSync(expr, flags) {
         let stat = driver.fileManager.statSync(this, expr, flags || 0);
-        return stat.isFile;
+        return stat && stat.isFile;
     }
 
     /**
@@ -732,7 +739,8 @@ class EFUNProxy {
      * @param {...string} expr
      */
     join(...expr) {
-        expr.unshift(this.directory);
+        if (expr[0] && expr[0].charAt(0) !== '/')
+            expr.unshift(this.directory);
         return path.posix.join(...expr);
     }
 
@@ -745,16 +753,6 @@ class EFUNProxy {
     loadObjectSync(expr, ...args) {
         if (typeof expr !== 'string') return false;
         return driver.fileManager.loadObjectSync(this, this.resolvePath(expr), args);
-        //let req = this.parsePath(expr), { file } = req,
-        //    module = driver.cache.get(file);
-
-        //if (module) {
-        //    let req = this.parsePath(expr);
-        //    return module.getInstanceWrapper(req);
-        //}
-        //driver.fileManager.loadObjectSync(this, req, args, callback);
-        //module = driver.cache.get(file);
-        //return module && module.getInstanceWrapper(req);
     }
 
     /**
@@ -1606,11 +1604,11 @@ class EFUNProxy {
     /**
      * Determines whether the path expression represents a normal file.
      * @param {string} filepath The file expression to check.
-     * @param {number=} flags Optional flags to request additional details.
-     * @param {function(FileSystemStat,Error):void} callback An optional callback for async operation.
+     * @param {number} flags Optional flags to request additional details.
+     * @returns {FileSystemStat} Information about the file.
      */
-    stat(filepath, flags, callback) {
-        return driver.fileManager.statFile(this, filepath, flags, callback);
+    stat(filepath, flags = 0) {
+        return driver.fileManager.statSync(this, this.join(this.directory, filepath), flags);
     }
 
     /**

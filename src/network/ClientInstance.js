@@ -317,7 +317,9 @@ class ClientInstance extends EventEmitter {
             unwrap(body, newBody => {
                 let $storage = this.$storage = driver.storage.get(newBody);
 
-                $storage.setSymbol('$client', this);
+                $storage
+                    .setClient(this)
+                    .setSymbol('$client', this);
                 this.body = body;
 
                 ecc.setThisPlayer(newBody, newBody, '');

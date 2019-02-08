@@ -24,6 +24,7 @@ mudglobal.MUDFS = {
         // StatFlags
         Size: 1 << 9,
         Perms: 1 << 10,
+        Content: 1 << 11,
 
         Files: 1 << 13,
         Dirs: 1 << 14,
@@ -67,7 +68,7 @@ mudglobal.MUDFS = {
         None: 0,
         Size: 1 << 9,
         Perms: 1 << 10,
-        Details: 1 << 9 | 1 << 10
+        Content: 1 << 9 | 1 << 10
     }
 };
 
@@ -463,7 +464,7 @@ class FileManager extends MUDEventEmitter {
         if (!req.securityManager.validReadFile(efuns, req.fullPath))
             return req.deny();
         else
-            return req.fileSystem.statSync(req.relativePath);
+            return req.fileSystem.statSync(req.relativePath, req.flags);
     }
 
     /**

@@ -193,7 +193,7 @@ class DefaultFileSystem extends FileSystem {
             let dir = path.join(this.root, path.sep, ...parts.slice(0, i)),
                 stat = this.statSync(dir);
 
-            if (stat.exists) {
+            if (stat && stat.exists) {
                 if (!ensure) return false;
             }
             else if (i + 1 === max) {
@@ -210,17 +210,44 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Create a strongly-typed filesystem stat object.
-     * @param {FileSystemStat} stat
+     * @param {function(): FileSystemStat|object} statFunc
      * @returns {FileSystemStat}
      */
-    createStat(stat) {
-        if (typeof stat.isDirectory === 'function')
-            stat.isDirectory = stat.isDirectory();
-        if (typeof stat.isFile === 'function')
-            stat.isFile = stat.isFile();
-        if (!stat.exists && (stat.atime > 0 || stat.isDirectory || stat.isFile))
-            stat.exists = true;
-        return new FileSystemStat(stat);
+    createStat(statFunc) {
+        try {
+            if (typeof statFunc === 'function') {
+                let stat = statFunc();
+
+                if (typeof stat.isDirectory === 'function')
+                    stat.isDirectory = stat.isDirectory();
+                if (typeof stat.isFile === 'function')
+                    stat.isFile = stat.isFile();
+                if (!stat.exists && (stat.atime > 0 || stat.isDirectory || stat.isFile))
+                    stat.exists = true;
+                return Object.freeze(new FileSystemStat(stat, undefined, this.mountPoint));
+            }
+            else if (typeof statFunc === 'object') {
+                if (typeof stat.isDirectory === 'function')
+                    stat.isDirectory = stat.isDirectory();
+                if (typeof stat.isFile === 'function')
+                    stat.isFile = stat.isFile();
+                if (!stat.exists && (stat.atime > 0 || stat.isDirectory || stat.isFile))
+                    stat.exists = true;
+                return Object.freeze(new FileSystemStat(stat, undefined, this.mountPoint));
+            }
+            else
+                throw new Error(`Bad argument 1 to createStat; Expected function or object, got ${typeof statFunc}`);
+        }
+        catch (err) {
+            Object.freeze(FileSystemStat.create({
+                error: err,
+                exists: false,
+                isDirectory: false,
+                isFile: false,
+                parent: null,
+                size: -3
+            }));
+        }
     }
 
     /**
@@ -329,42 +356,13 @@ class DefaultFileSystem extends FileSystem {
             forceReload = !module || flags & 1 === 1;
 
         if (forceReload) {
-            let absPath = this.translatePath(parts.file.slice(this.mountPoint.length)),
-                lastSlash = absPath.lastIndexOf(path.sep),
-                absDir = absPath.slice(0, lastSlash + 1),
-                absFilename = absPath.slice(lastSlash + 1);
-            let files = [];
-
-            try {
-                files = this.readDirectorySync(absDir, absFilename + '.*', MUDFS.GetDirFlags.FullPath);
-            }
-            catch (err) {
-                files = [];
-            }
-
-            if (files.length === 0) { // Nothing was found, perhaps this is virtual?
-                throw new Error(`Module not found: ${parts.file}`);
-            }
-            else if (files.length > 1) {
-                let fileNames = files
-                    .map(fn => fn.slice(fn.lastIndexOf(path.sep)))
-                    .join(', ');
-                throw new Error(`File ambiguity: ${parts.file} could match ${fileNames}`);
-            }
-
-            let source = this.stripBOM(fs.readFileSync(files[0], { encoding: this.encoding || 'utf8' })),
-                ext = files[0].slice(files[0].lastIndexOf('.'));
-
-            if (!source)
-                throw new Error(`File (${files[0]}) appears to be empty!`);
-
             module = driver.compiler.compileObject({
-                file: parts.file + ext,
-                reload: forceReload,
-                source: source,
-                sourceFile: files[0],
-                args: args
+                args,
+                file: parts.file,
+                reload: !!module
             });
+            if (!module)
+                throw new Error(`Failed to load module ${fullPath}`);
         }
         return module.getInstanceWrapper(parts);
     }
@@ -555,20 +553,19 @@ class DefaultFileSystem extends FileSystem {
     /**
      * Stat a file syncronously.
      * @param {string} localPath The path info to stat.
+     * @param {number} flags Optional flags for additional control.
      * @returns {FileSystemStat} A filestat object (if possible)
      */
-    statSync(localPath) {
+    statSync(localPath, flags = 0) {
         let fullPath = this.translatePath(localPath);
-        if (fs.existsSync(fullPath)) 
-            return Object.freeze(this.createStat(fs.statSync(fullPath)));
-        else
-            return Object.freeze(FileSystemStat.create({
-                exists: false,
-                isDirectory: false,
-                isFile: false,
-                parent: null,
-                size: localPath.endsWith('/') ? -2 : -1
-            }));
+        return this.createStat(() => {
+            let stat = fs.statSync(fullPath);
+
+            if ((flags & MUDFS.StatFlags.Content) > 0) {
+                stat.content = this.readFileSync(fullPath);
+            }
+            return stat;
+        });
     }
 
     /**

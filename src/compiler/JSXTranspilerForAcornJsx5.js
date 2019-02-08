@@ -15,7 +15,18 @@ const
 
 const
     //  These cannot be used as identifiers (reserved words)
-    IllegalIdentifiers = ['__act', '__ada', '__ala', '__afa', '__bfc', '__ctx', '__efc', '__iac', '__dac', '__pcc', '__mec'],
+    IllegalIdentifiers = [
+        '__act',
+        '__ada',
+        '__ala',
+        '__afa',
+        '__bfc',    // Begin Function Call
+        '__efc',    // End Function Call
+        '__iac',
+        '__dac',
+        '__pcc',    // Perform Constructor Call
+        '__mec'     // MUD Execution Context 
+    ],
 
     //  These methods cannot be defined by objects in the game
     ProtectedApplies = ['setPrivate', 'getPrivate', 'setProtected', 'getProtected'];
@@ -57,24 +68,19 @@ class JSXTranspilerOp {
         }
         this.context = p.context;
         this.filename = p.filename;
-        this.inClass = false;
         this.jsxDepth = 0;
         this.jsxIndent = '';
         this.max = p.source.length;
-        this.methodStack = [];
         this.output = '';
         this.pos = 0;
         this.scopes = [];
         this.source = p.source;
-    }
 
-    addMethod(method) {
-        this.methodStack.push(method = method || '(MAIN)');
-        return this.currentMethod = method;
-    }
-
-    get callString() {
-        return this.methodStack.length && this.methodStack.join(' -> ') || '(MAIN)';
+        this.thisAccess = "public";
+        this.thisClass = false;
+        this.thisMethod = false;
+        this.thisParameter = false;
+        this.isStatic = false;
     }
 
     eatWhitespace() {
@@ -82,9 +88,16 @@ class JSXTranspilerOp {
             this.pos++;
     }
 
-    popMethod() {
-        this.methodStack.pop();
-        return this;
+    get method() {
+        return this.thisMethod || '(MAIN)';
+    }
+
+    setMethod(s, access = "public", isStatic = false) {
+        this.thisAccess = access || "public";
+        this.thisMethod = s || false;
+        this.thisParameter = this.thisClass ? `this || ${this.thisClass}` : 'this';
+        this.isStatic = isStatic === true;
+        return this.thisMethod;
     }
 }
 
@@ -204,13 +217,11 @@ function jsxWhitespace(op) {
  * @param {JSXTranspilerOp} op The current operation
  * @param {NodeType} e The current node
  * @param {number} depth The stack depth
- * @param {number} ident The level of indentation
  * @returns {string} The element as source code.
  */
-function parseElement(op, e, depth, ident, access) {
+function parseElement(op, e, depth) {
     let ret = '';
     if (e) {
-        ident = ident || '';
         if (e.start > op.pos) {
             ret += op.source.slice(op.pos, e.start);
             op.pos = e.start;
@@ -228,23 +239,7 @@ function parseElement(op, e, depth, ident, access) {
                 {
                     let isAsync = op.source.slice(e.start, e.start + 5) === 'async';
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
-                    ret += op.source.slice(op.pos, e.body.start);
-                    op.pos = e.body.start;
-
-                    op.addMethod(isAsync ? '(async)' : '(anonymous)');
-                    let callString = op.callString;
-
-                    if (e.body.type === 'BlockStatement') {
-                        ret += `{ let __mec = __bfc(this, false, '${ident}', '${callString}', __FILE__, ${isAsync}, DEBUG.LineNumberInTrace && __LINE__); try `;
-                        ret += parseElement(op, e.body);
-                        ret += ` finally { __efc(__mec, '${callString}'); }}`;
-                    }
-                    else {
-                        ret += `{ let __mec = __bfc(this, false, '${ident}', '${callString}', __FILE__, ${isAsync}, DEBUG.LineNumberInTrace && __LINE__); try { return `;
-                        ret += parseElement(op, e.body);
-                        ret += `; } finally { __efc(__mec, '${callString}'); }}`;
-                    }
-                    op.popMethod();
+                    ret += parseElement(op, e.body);
                 }
                 break; 
 
@@ -255,7 +250,6 @@ function parseElement(op, e, depth, ident, access) {
 
             case 'AwaitExpression':
                 {
-                    let methodName = op.callString;
                     /**
                      * This block needs some love to be really bulletproof:
                      *   (1) Need different or rolling async handles for
@@ -268,7 +262,7 @@ function parseElement(op, e, depth, ident, access) {
                      *       methods without using await.
                      */
                     let handleId = getAsyncHandleId(); 
-                    ret += `(__iac(this, ${handleId}, '${methodName}', __FILE__), `;
+                    ret += `(__iac(this, ${handleId}, '${op.method}', __FILE__), `;
                     ret += parseElement(op, e.argument, depth + 1);
                     ret += `.always(() => __dac(${handleId})))`;
                     
@@ -336,11 +330,11 @@ function parseElement(op, e, depth, ident, access) {
 
             case 'ClassBody':
                 e.body.forEach(_ => ret += parseElement(op, _, depth + 1));
-                op.inClass = false;
+                op.thisClass = false;
                 break;
 
             case 'ClassDeclaration':
-                op.inClass = e.id.name;
+                op.thisClass = e.id.name;
                 ret += parseElement(op, e.id, depth + 1);
                 if (e.superClass)
                     ret += parseElement(op, e.superClass, depth + 1);
@@ -401,19 +395,16 @@ function parseElement(op, e, depth, ident, access) {
                 {
                     ret += parseElement(op, e.id, depth + 1);
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
-                    op.addMethod(e.id && e.id.name ? e.id.name : '(anonymous)');
-                    let callString = op.callString;
-                    if (op.inClass) {
+                    if (op.thisClass) {
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, ${access}, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
-                            ` } finally { __efc(__mec, '${callString}'); }`);
+                            `let __mec = __bfc(${op.thisParameter}, 'public', '${e.id.name}', __FILE__, false); try { `,
+                            ` } finally { __efc(__mec, '${e.id.name}'); }`);
                     }
                     else
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, ${access}, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
-                            ` } finally { __efc(__mec, '${callString}'); }`);
+                            `let __mec = __bfc(this, 'public', '${e.id.name}', __FILE__, false); try { `,
+                            ` } finally { __efc(__mec, '${e.id.name}'); }`);
                     ret += parseElement(op, e.body, depth + 1, e.id);
-                    op.popMethod();
                 }
                 break;
 
@@ -421,19 +412,13 @@ function parseElement(op, e, depth, ident, access) {
                 {
                     ret += parseElement(op, e.id, depth + 1);
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
-                    let callString = op.callString;
-                    if (op.inClass) {
+                    if (op.thisClass && op.thisMethod) {
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, ${access}, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
-                            ` } finally { __efc(__mec, '${callString}'); }`,
-                            ident === 'constructor');
+                            `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false); try { `,
+                            ` } finally { __efc(__mec, '${op.method}'); }`,
+                            op.method === 'constructor');
                     }
-                    else
-                        addRuntimeAssert(e,
-                            `let __mec = __bfc(this, ${access}, '${ident}', '${callString}', __FILE__, false, DEBUG.LineNumberInTrace && __LINE__); try { `,
-                            ` } finally { __efc(__mec, '${callString}'); }`);
                     ret += parseElement(op, e.body, depth + 1);
-                    op.popMethod();
                 }
                 break;
 
@@ -545,7 +530,6 @@ function parseElement(op, e, depth, ident, access) {
                 {
                     ret += parseElement(op, e.object, depth + 1);
                     ret += parseElement(op, e.property, depth + 1);
-                    op.popMethod();
                 }
                 break;
 
@@ -554,32 +538,27 @@ function parseElement(op, e, depth, ident, access) {
                     op.pos = e.access.end;
                     op.eatWhitespace();
                 }
-                let methodName = op.addMethod(parseElement(op, e.key, depth + 1));
+                let methodName = op.setMethod(parseElement(op, e.key, depth + 1), e.accessKind, e.static);
                 if (ProtectedApplies.indexOf(methodName) > -1) {
-                    throw new Error(`Type '${op.inClass}' attempts to redefine protected apply '${methodName}' in ${op.filename}`);
+                    throw new Error(`Type '${op.thisClass}' attempts to redefine protected apply '${methodName}' in ${op.filename}`);
                 }
                 ret += methodName;
-                if (e.accessKind && e.accessKind !== "public") {
-                    ret += parseElement(op, e.value, depth + 1, methodName, `'${e.accessKind}'`);
-                }
-                else {
-                    ret += parseElement(op, e.value, depth + 1, methodName, false);
-                }
-                op.popMethod();
+                ret += parseElement(op, e.value, depth + 1, methodName);
+                op.setMethod();
                 break;
 
             case 'NewExpression':
                 {
-                    let callee = op.source.slice(e.callee.start, e.callee.end),
-                        methodName = op.callString;
-                    ret += `__pcc(${callee}, __FILE__, '${methodName}', this, () => { return `;
+                    let callee = op.source.slice(e.callee.start, e.callee.end);
+                    op.pos = e.callee.end;
+                    ret += `__pcc(${op.thisParameter}, ${callee}, __FILE__, '${op.method}', ct => new ct`;
                     e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
                     if (op.pos !== e.end) {
                         if (op.pos > e.end) throw new Error('Oops?');
                         ret += op.source.slice(op.pos, e.end);
                         op.pos = e.end;
                     }
-                    ret += ' })';
+                    ret += ')';
                 }
                 break;
 
@@ -734,10 +713,10 @@ class JSXTranspilerForAcornJsx5 extends PipelineComponent {
         try {
             if (this.enabled) {
                 op.ast = this.parser.parse(op.source, op.acornOptions);
-                op.ast.body.forEach((n, i) => op.output += parseElement(op, n, 0));
+                op.ast.body.forEach(n => op.output += parseElement(op, n, 0));
                 if (op.pos < op.max) op.output += op.source.slice(op.pos, op.max);
-                if (context.basename.startsWith('/sys/lib/Login'))
-                    console.log('stop');
+                //if (context.basename.startsWith('/sys/lib/Login'))
+                //    console.log('stop');
                 return context.update(PipeContext.CTX_RUNNING, op.output + op.appendText);
             }
         }

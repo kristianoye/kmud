@@ -204,6 +204,15 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     /**
+     * Removes a symbol from the storage.
+     * @param {string} prop The property to remove
+     */
+    removeSymbol(prop) {
+        delete this.symbols[prop];
+        return this;
+    }
+
+    /**
      * Restore the storage object.  Is this used?
      * @param {any} data
      */

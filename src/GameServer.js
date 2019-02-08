@@ -55,7 +55,8 @@ class GameServer extends MUDEventEmitter {
         this.currentVerb = '';
         this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
         /** @type {EFUNProxy} */
-        this.efuns = null;
+        let efunType = require('./EFUNProxy');
+        this.efuns = new efunType('/');
         this.simulEfunPath = config.mudlib.simulEfuns;
 
         this.startTime = new Date().getTime();
@@ -230,6 +231,16 @@ class GameServer extends MUDEventEmitter {
         return e;
     }
 
+    compileVirtualObject(filename) {
+        if (!this.masterObject)
+            throw new Error('FATAL: No master object has been loaded!');
+        else if (!this.applyCompileVirtual)
+            //  Virtual compiling is not enabled
+            return false;
+        else
+            this.applyCompileVirtual.call(this.masterObject, filename);
+    }
+
     createMasterObject() {
         this.driverCall('createMasterObject', () => {
             let config = this.config.mudlib, gameMaster = this.compiler.compileObject(config.master.path);
@@ -252,6 +263,7 @@ class GameServer extends MUDEventEmitter {
             };
 
             /* validate in-game master */
+            this.applyCompileVirtual = locateApply.call(this, 'compileVirtualObject', false);
             this.applyErrorHandler = locateApply.call(this, 'errorHandler', false);
             this.applyGetPreloads = locateApply.call(this, 'getPreloads', false);
             this.applyLogError = locateApply.call(this, 'logError', false);
@@ -401,18 +413,34 @@ class GameServer extends MUDEventEmitter {
             this.cache = new MUDCache();
             this.compiler = new MUDCompiler(this, this.config.driver.compiler);
 
-            global.unwrap = function (target, success, hasDefault) {
+            global.unwrap = function(target, success, hasDefault) {
                 let result = false, defaultValue = hasDefault || false,
                     onSuccess = typeof success === 'function' && success || function (s) {
                         return s;
                     };
-                if (typeof target === 'function' && target.isWrapper === true) {
+                if (Array.isArray(target)) {
+                    let items = target.map(t => global.unwrap(t))
+                        .filter(o => o instanceof MUDObject);
+
+                    if (items.length !== target.length)
+                        return defaultValue || false;
+
+                    if (onSuccess)
+                        return onSuccess(...items);
+
+                    return items;
+                }
+                else if (typeof target === 'function' && target.isWrapper === true) {
                     result = target();
-                    if (!(result instanceof MUDObject)) result = defaultValue;
+                    if (result instanceof MUDObject === false)
+                        result = defaultValue;
                 }
                 else if (typeof target === 'object' && target instanceof MUDObject) {
                     result = target;
                 }
+                else if (typeof defaultValue === 'function')
+                    return defaultValue();
+
                 return result && onSuccess(result);
             };
 

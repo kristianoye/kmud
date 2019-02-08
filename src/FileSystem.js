@@ -31,7 +31,7 @@ class FileSystemStat {
      * @param {string} mountPoint The directory the filesystem is mounted to
      */
     constructor(data, options, mountPoint) {
-        this.merge(data || {});
+        Object.assign(this, data);
         this.mountPoint = mountPoint;
     }
 

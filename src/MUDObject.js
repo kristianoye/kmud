@@ -67,6 +67,11 @@ class MUDObject extends MUDEventEmitter {
                         value: ctx.instanceId,
                         writable: false,
                         enumerable: true
+                    },
+                    isVirtual: {
+                        value: ctx.isVirtual === true,
+                        writable: false,
+                        enumerable: false
                     }
                 });
             }

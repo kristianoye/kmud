@@ -51,9 +51,11 @@ declare namespace MUDFS {
 
         Perms = 1 << 10,
 
-        Details = (1 << 10) | (1 << 9)
+        Details = (1 << 10) | (1 << 9),
 
-        // Reserve: Bits 11-12
+        Content = (1 << 11)
+
+        // Reserve: Bit 12
     }
 
     /**

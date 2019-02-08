@@ -54,22 +54,22 @@ class ExecutionContext extends MUDEventEmitter {
         if (this.thisObject === thisObject)
             return true;
 
-        if (this.thisObject === driver)
+        if (this.thisObject === driver || this.thisObject === driver.masterObject)
             return true;
 
         if (access === "private")
-            throw new Access(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
+            throw new Error(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
         else if (access === "package") {
             let parts = driver.efuns.parsePath(this.thisObject.filename);
             if (parts.file !== fileName)
-                throw new Access(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
+                throw new Error(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
         }
         else if (access === "protected") {
             if (thisObject instanceof MUDObject &&
                 this.thisObject instanceof MUDObject) {
                 let thisType = thisObject.constructor;
                 if (this.thisObject instanceof thisType === false) 
-                    throw new Access(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
+                    throw new Error(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
             }
         }
         return true;

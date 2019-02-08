@@ -185,18 +185,34 @@ class MUDCompiler {
         if (module && !options.reload && module.loaded === true)
             return module;
 
-        if (this.driver.masterObject) {
-            virtualData = this.driver.masterObject.compileVirtualObject(options.file);
-            context.virtualContext(virtualData);
-        }
         if (!context.validExtension()) {
             for (var i = 0; i < this.validExtensions.length; i++) {
                 if (context.validExtension(this.validExtensions[i])) break;
             }
+
             if (!context.exists) {
                 if (!this.driver.masterObject)
                     throw new Error('Could not load in-game master object!');
-                throw new Error(`Could not load ${context.filename} [File not found]`);
+
+                //  Attempt to compile a virtual object.
+                let virtualResult = driver.driverCall('compileVirtual', () => {
+                    try {
+                        driver.newContext = {
+                            args: options.args || [],
+                            instanceId: 0,
+                            isVirtual: true,
+                            filename: context.filename
+                        };
+                        let result = driver.compileVirtualObject(driver.newContext.filename);
+                        if (!result)
+                            return false;
+                    }
+                    finally {
+                        delete driver.newContext;
+                    }
+                }, context.filename);
+                if (!virtualResult)
+                    throw new Error(`Could not load ${context.filename} [File not found]`);
             }
         }
         try {

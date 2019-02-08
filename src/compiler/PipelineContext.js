@@ -113,20 +113,30 @@ class PipelineContext {
         return (this.state = state), this;
     }
 
+    /**
+     * Checks to see if the specified file exists with the given extension.
+     * @param {any} ext
+     * @returns {boolean} 
+     */
     validExtension(ext) {
         if (!this.content) {
             if ((ext = ext || this.extension) === false)
                 return false;
-            let fileName = this.realName.endsWith(ext) ? this.realName : this.realName + ext;
-            if (fs.existsSync(fileName)) {
-                var stat = fs.statSync(this.resolvedName = fileName);
-                if (stat.isFile()) {
-                    var n = this.filename.lastIndexOf('/');
+            let tryFilename = this.filename.endsWith(ext) ? this.filename : this.filename + ext,
+                stat = driver.efuns.stat(tryFilename, MUDFS.StatFlags.Content);
+            if (stat && stat.exists) {
+                if (stat.isFile) {
+                    let n = this.filename.lastIndexOf('/');
+
                     this.extension = ext;
                     this.filename = this.basename;
                     this.lastModified = stat.mtime;
                     this.exists = true;
                     this.directory = this.filename.slice(0, n);
+                    this.resolvedName = this.realName += ext;
+                    this.isEval = false;
+                    this.content = stat.content;
+
                     return true;
                 }
             }

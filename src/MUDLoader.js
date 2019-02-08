@@ -86,7 +86,7 @@ class MUDLoader {
             },
             __bfc: {
                 //  Begin Function Call
-                value: function (ob, access, method, callString, fileName, isAsync, lineNumber) {
+                value: function (ob, access, method, fileName, isAsync, lineNumber) {
                     let mec = driver.getExecution(), newContext = false;
 
                     if (method.length === 0) {
@@ -96,7 +96,7 @@ class MUDLoader {
                     if (!mec) {
                         if (!ob)
                             throw new Error('What, no execution context?!');
-                        mec = driver.getExecution(ob, method, fileName, isAsync, lineNumber, callString);
+                        mec = driver.getExecution(ob, method, fileName, isAsync, lineNumber);
                         newContext = true;
                     }
 
@@ -110,7 +110,7 @@ class MUDLoader {
                     if (newContext)
                         return mec;
                     return mec.alarm()
-                        .push(ob instanceof MUDObject && ob, method || '(undefined)',  fileName, isAsync, lineNumber, callString);
+                        .push(ob instanceof MUDObject && ob, method || '(undefined)',  fileName, isAsync);
                 },
                 enumerable: false,
                 writable: false
@@ -149,23 +149,38 @@ class MUDLoader {
                 }
             },
             __pcc: {
-                //  Prepare constructor call
-                value: function (type, file, method, thisRef, con) {
-                    let result = undefined, ecc = false,
-                        fn = type.prototype && type.prototype.fileName;
+                //  Perform Constructor Call
+                value: function (thisObject, type, file, method, con) {
+                    let ecc = driver.getExecution(thisObject, 'constructor', file, false);
                     try {
-                        if (fn) {
-                            let thisArg = thisRef && thisRef instanceof MUDObject && thisRef;
-                                module = driver.cache.get(fn);
+                        let result = undefined,
+                            fn = type.prototype && type.prototype.fileName,
+                            parts = fn && driver.efuns.parsePath(fn),
+                            constructorType = typeof type === 'function' && type,
+                            module = false;
+
+                        if (!parts && !constructorType) {
+                            if (typeof type === 'string')
+                                parts = driver.efuns.parsePath(type);
+                            else
+                                throw new Error(`Unable to construct object from expression ${type}`);
+                        }
+                        if (parts) {
+                            module = driver.cache.get(parts.file);
                             if (module) {
-                                ecc = driver.getExecution(thisArg, method, file, false);
-                                ecc.newContext = module.getNewContext(type);
+                                ecc.newContext = Object.assign(module.getNewContext(parts.type), driver.newContext);
+                                if (!constructorType) constructorType = module.getType(parts.type);
                             }
                         }
-                        result = con();
+                        if (!constructorType) {
+                            throw new Error(`Unable to load module for expression ${type}`);
+                        }
+                        result = con(constructorType);
+                        return result;
                     }
                     finally {
-                        ecc && ecc.pop(method);
+                        delete ecc.newContext;
+                        ecc && ecc.pop('constructor');
                     }
                     return result;
                 },
@@ -302,7 +317,19 @@ class MUDLoader {
             onSuccess = typeof success === 'function' && success || function (s) {
                 return s;
             };
-        if (typeof target === 'function' && target.isWrapper === true) {
+        if (Array.isArray(target)) {
+            let items = target.map(t => this.unwrap(t))
+                .filter(o => o instanceof MUDObject);
+
+            if (items.length !== target.length)
+                return defaultValue || false;
+
+            if (onSuccess)
+                return onSuccess(...items);
+
+            return items;
+        }
+        else if (typeof target === 'function' && target.isWrapper === true) {
             result = target();
             if (result instanceof MUDObject === false)
                 result = defaultValue;
