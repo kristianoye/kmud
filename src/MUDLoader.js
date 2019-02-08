@@ -99,18 +99,25 @@ class MUDLoader {
                         mec = driver.getExecution(ob, method, fileName, isAsync, lineNumber);
                         newContext = true;
                     }
-
-                    access && mec.assertAccess(ob, access, method, fileName);
-
+                    else if (!access) {
+                        //  This is (or should be) an arrow function so the stack needs
+                        //  to be incremented prior to checking method access
+                        mec
+                            .alarm()
+                            .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync);
+                    }
+                    access && access !== "public" && mec.assertAccess(ob, access, method, fileName);
                     if (method && DriverApplies.indexOf(method) > -1) {
                         if (!mec.isValidApplyCall(method, ob))
                             throw new Error(`Illegal call to driver apply '${method}'`);
                     }
+                    //  Check access prior to pushing the new frame to the stack
+                    if (access && !newContext)
+                        return mec
+                            .alarm()
+                            .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync);
 
-                    if (newContext)
-                        return mec;
-                    return mec.alarm()
-                        .push(ob instanceof MUDObject && ob, method || '(undefined)',  fileName, isAsync);
+                    return mec;
                 },
                 enumerable: false,
                 writable: false

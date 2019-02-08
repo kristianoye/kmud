@@ -238,7 +238,7 @@ class GameServer extends MUDEventEmitter {
             //  Virtual compiling is not enabled
             return false;
         else
-            this.applyCompileVirtual.call(this.masterObject, filename);
+            return this.applyCompileVirtual.call(this.masterObject, filename);
     }
 
     createMasterObject() {
@@ -468,13 +468,16 @@ class GameServer extends MUDEventEmitter {
      * @param {string} fileName The optional filename
      * @returns {any} The result of the callback
      */
-    driverCall(method, callback, fileName) {
+    driverCall(method, callback, fileName, rethrow = false) {
         let ecc = this.getExecution(this, method, fileName || '(driver)', false, 0);
         try {
             return callback(ecc);
         }
         catch (err) {
             console.log(`Error in method '${method}': ${err.message}`);
+            if (rethrow) throw err;
+            else 
+                console.log(`Error in method '${method}': ${err.message}`);
         }
         finally {
             ecc.pop(method);

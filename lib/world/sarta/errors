@@ -1,4 +1,9 @@
 
-[2019-2-5 17:37:53]
-Could not load /world/sarta/Square [Unexpected token (14:12)]
-Error: Could not load /world/sarta/Square [Unexpected token (14:12)]
+[2019-2-8 06:29:16]
+Could not load /base/Room [Unexpected callee type FunctionExpression]
+E:\KLF\KMUD\src\MUDCompiler.js:293
+            throw err;
+            ^
+
+Error: Could not load /base/Room [Unexpected callee type FunctionExpression]
+    at require (/world/sarta/Square.jsx:1:201)

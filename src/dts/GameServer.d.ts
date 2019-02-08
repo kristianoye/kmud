@@ -109,7 +109,7 @@ declare class GameServer {
     /** The current verb */
     currentVerb: string;
 
-    driverCall(method: string, callback: (ecc: ExecutionContext) => any): any;
+    driverCall(method: string, callback: (ecc: ExecutionContext) => any, filename: string = '', rethrow: boolean = false): any;
 
     /** Special instance of efuns for driver */
     efuns: EFUNProxy;

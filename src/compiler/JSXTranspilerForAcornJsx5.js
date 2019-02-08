@@ -66,6 +66,7 @@ class JSXTranspilerOp {
                     .extend(modifiers({ allowAccessModifiers: true }))
                     .parse(p.source, acornOptions);
         }
+        this.callerId = [];
         this.context = p.context;
         this.filename = p.filename;
         this.jsxDepth = 0;
@@ -83,13 +84,59 @@ class JSXTranspilerOp {
         this.isStatic = false;
     }
 
+    /**
+     * 
+     * @param {string} id
+     */
+    addCallerId(id) {
+        id = id.trim();
+        if (id.charAt(0) === '.')
+            id = id.slice(1);
+        return this.callerId.push(id);
+    }
+
+    /**
+     * Free up memory and return content
+     * @returns {string} The transpiled source
+     */
+    finish() {
+        try {
+            this.callerId = false;
+            this.source = false;
+            this.max = -1;
+            return this.output + this.appendText;
+        }
+        finally {
+            this.output = false;
+            this.appendText = false;
+        }
+    }
+
     eatWhitespace() {
         while (this.pos < this.max && this.source.charAt(this.pos).trim() === '')
             this.pos++;
     }
 
+    getCallerId() {
+        return this.callerId.pop();
+    }
+
     get method() {
         return this.thisMethod || '(MAIN)';
+    }
+
+    /**
+     * Read from the buffer from current position to specified index.
+     * @param {number} index The index to read to
+     * @param {boolean} peekOnly If true then the position remains unchanged
+     * @returns {string} Returns the specified region of the buffer.
+     */
+    readUntil(index = 0, peekOnly = false) {
+        if (index <= this.pos)
+            return '';
+        let result = this.source.slice(this.pos, index);
+        if (peekOnly !== true) this.pos = index;
+        return result;
     }
 
     setMethod(s, access = "public", isStatic = false) {
@@ -237,9 +284,24 @@ function parseElement(op, e, depth) {
 
             case 'ArrowFunctionExpression':
                 {
-                    let isAsync = op.source.slice(e.start, e.start + 5) === 'async';
+                    let funcName = `${op.getCallerId() || '(anonymous)'}(() => {})`;
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
-                    ret += parseElement(op, e.body);
+                    ret += op.readUntil(e.body.start);
+                    if (e.body.type === 'BlockStatement') {
+                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}); try `;
+                        ret += parseElement(op, e.body);
+                        ret += ` finally { __efc(__mec, '${funcName}'); } }`;
+                    }
+                    else if (e.body.type === 'MemberExpression') {
+                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}); try { return `;
+                        ret += parseElement(op, e.body);
+                        ret += `; } finally { __efc(__mec, '${funcName}'); } }`;
+                    }
+                    else {
+                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}); try { return (`;
+                        ret += parseElement(op, e.body);
+                        ret += `); } finally { __efc(__mec, '${funcName}'); } }`;
+                    }
                 }
                 break; 
 
@@ -286,13 +348,40 @@ function parseElement(op, e, depth) {
             case 'CallExpression':
                 {
                     let writeCallee = true,
-                        isCallout = false;
+                        isCallout = false,
+                        object = false,
+                        propName = false,
+                        callee = false;
+
+                    if (e.callee.type === 'MemberExpression') {
+                        object = parseElement(op, e.callee.object, depth + 1);
+                        propName = parseElement(op, e.callee.property, depth + 1);
+                        callee = object + propName;
+                        op.addCallerId(propName.slice(1));
+                    }
+                    else if (e.callee.type === 'Identifier') {
+                        propName = callee = parseElement(op, e.callee, depth + 1);
+                        op.addCallerId(propName);
+                    }
+                    else if (e.callee.type === 'Super') {
+                        propName = callee = parseElement(op, e.callee, depth + 1);
+                        op.addCallerId(propName);
+                    }
+                    else if (e.callee.type === 'FunctionExpression') {
+                        propName = callee = parseElement(op, e.callee, depth + 1);
+                        op.addCallerId('function()');
+                    }
+                    else if (e.callee.type === 'ArrowFunctionExpression') {
+                        propName = callee = parseElement(op, e.callee, depth + 1);
+                        op.addCallerId('() => {}');
+                    }
+                   else {
+                        throw new Error(`Unexpected callee type ${e.callee.type}`);
+                    }
                     if (op.allowLiteralCallouts) {
                         if (e.callee && e.callee.type === 'MemberExpression') {
                             let objectType = e.callee.object.type;
                             if (objectType === 'Literal' || objectType === 'MemberExpression') {
-                                let object = parseElement(op, e.callee.object, depth + 1);
-                                let propName = parseElement(op, e.callee.property, depth + 1);
                                 let isString = false;
                                 try {
                                     isString = typeof eval(object) === 'string';
@@ -315,8 +404,8 @@ function parseElement(op, e, depth) {
                             }
                         }
                     }
-                    if (writeCallee) 
-                        ret += parseElement(op, e.callee, depth + 1);
+                    if (writeCallee)
+                        ret += callee;
                     if (!isCallout)
                         e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
                 }
@@ -433,6 +522,8 @@ function parseElement(op, e, depth) {
             case 'IfStatement':
                 ret += parseElement(op, e.test, depth + 1);
                 ret += parseElement(op, e.consequent, depth + 1);
+                // BUG: Wow alternates were not being processed at all.
+                if (e.alternate) ret += parseElement(op, e.alternate);
                 break;
 
             case 'JSXAttribute':
@@ -675,8 +766,9 @@ function parseElement(op, e, depth) {
         }
         if (op.pos !== e.end) {
             if (op.pos > e.end) throw new Error('Oops?');
-            ret += op.source.slice(op.pos, e.end);
-            op.pos = e.end;
+
+            // this should be done by each type so we are sure we aren't missing something
+            ret += op.readUntil(e.end);
         }
     }
     return ret;
@@ -714,39 +806,9 @@ class JSXTranspilerForAcornJsx5 extends PipelineComponent {
             if (this.enabled) {
                 op.ast = this.parser.parse(op.source, op.acornOptions);
                 op.ast.body.forEach(n => op.output += parseElement(op, n, 0));
-                if (op.pos < op.max) op.output += op.source.slice(op.pos, op.max);
-                //if (context.basename.startsWith('/sys/lib/Login'))
-                //    console.log('stop');
-                return context.update(PipeContext.CTX_RUNNING, op.output + op.appendText);
-            }
-        }
-        catch (x) {
-            console.log(x.message);
-            console.log(x.stack);
-            throw x;
-        }
-    }
-
-    /**
-     * Run the JSX transpiler.
-     * @param {PipelineContext} context The context that is requesting the transpile.
-     * @returns {PipelineContext} Returns the context
-     */
-    runOld(context) {
-        let op = new JSXTranspilerOp({
-            allowJsx: this.allowJsx,
-            allowLiteralCallouts: this.allowLiteralCallouts,
-            filename: context.basename,
-            context,
-            source: context.content
-        });
-        try {
-            if (this.enabled) {
-                op.ast.body.forEach((n, i) => op.output += parseElement(op, n, 0));
-                if (op.pos < op.max) op.output += op.source.slice(op.pos, op.max);
-                if (context.basename.startsWith('/sys/lib/Login'))
-                    console.log('stop');
-                return context.update(PipeContext.CTX_RUNNING, op.output + op.appendText);
+                op.output += op.readUntil(op.max);
+                op.output += op.appendText;
+                return context.update(PipeContext.CTX_RUNNING, op.finish());
             }
         }
         catch (x) {

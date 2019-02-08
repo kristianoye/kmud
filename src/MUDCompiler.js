@@ -242,7 +242,9 @@ class MUDCompiler {
                     module.loader[options.altParent.name] = options.altParent;
                 }
 
-                driver.driverCall('compileObject', () => VM.run(context, module), context.filename);
+                driver.driverCall('compileObject',
+                    () => VM.run(context, module),
+                    context.filename, true);
 
                 if (this.sealTypesAfterCompile && !options.noSeal) {
                     module.sealTypes();
