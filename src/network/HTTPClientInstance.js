@@ -98,7 +98,7 @@ class HTTPClientInstance extends ClientInstance {
             data: prompt,
             callback: callback
         };
-        if (prompt.nostack !== true) this.inputStack.push(frame);
+        if (prompt.nostack !== true) this.inputStack.shift(frame);
         return this.renderPrompt(frame);
     }
 

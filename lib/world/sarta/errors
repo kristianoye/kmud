@@ -1,10 +1,14 @@
 
-[2019-2-9 06:01:33]
-Cannot create property 'directory' on boolean 'false'
-TypeError: Cannot create property 'directory' on boolean 'false'
-    at Creator.movePlayer (/base/Interactive.js:443:105)
-    at efuns.exec (/sys/lib/Login.js:79:38)
-    at efuns.unguarded (/sys/lib/Login.js:77:31)
-    at PlayerDaemon.loadPlayer.player (/sys/lib/Login.js:76:27)
-    at PlayerDaemon.loadPlayer (/sys/daemon/PlayerDaemon.js:100:17)
-    at Login.pwd (/sys/lib/Login.js:70:32)
+[2019-2-9 08:05:26]
+this.setShort is not a function
+E:\KLF\KMUD\lib\world\sarta\Square.jsx:15
+        let __mec = __bfc(this || Square, 'private', 'create', __FILE__, false); try { this.setShort('The Central Square of Sarta');
+                                                                                            ^
+
+TypeError: this.setShort is not a function
+    at Square.create (/world/sarta/Square.jsx:15:93)
+    at new GameObject (/base/GameObject.js:9:9)
+    at new Container (/base/Container.js:10:1)
+    at new Room (/base/Room.js:12:9)
+    at new Square (/world/sarta/Square.jsx:13:1)
+    at module.exports.ct (/world/sarta/Square.jsx:32:74)

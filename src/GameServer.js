@@ -238,7 +238,7 @@ class GameServer extends MUDEventEmitter {
             //  Virtual compiling is not enabled
             return false;
         else
-            return this.applyCompileVirtual.call(this.masterObject, filename);
+            return this.applyCompileVirtual(filename);
     }
 
     createMasterObject() {
@@ -261,25 +261,24 @@ class GameServer extends MUDEventEmitter {
                     throw new Error(`Invalid master object; Could not locate required ${name} apply: ${(config.applyNames[name] || name)}`);
                 if (!func)
                     return false;
-                return func;
+                return func.bind(this.masterObject);
             };
 
             /* validate in-game master */
-            this.applyCompileVirtual = locateApply.call(this, 'compileVirtualObject', false);
-            this.applyConvertUnits = locateApply.call(this, 'convertUnits', false);
-            this.applyErrorHandler = locateApply.call(this, 'errorHandler', false);
-            this.applyGetPreloads = locateApply.call(this, 'getPreloads', false);
-            this.applyLogError = locateApply.call(this, 'logError', false);
-            this.applyValidDestruct = locateApply.call(this, 'validDestruct', false)
-                || locateApply.call(this, 'validWrite', true);
-            this.applyValidExec = locateApply.call(this, 'validExec', false);
-            this.applyValidObject = locateApply.call(this, 'validObject', false);
-            this.applyValidRead = locateApply.call(this, 'validRead', true);
-            this.applyValidReadConfig = locateApply.call(this, 'validReadConfig', false);
-            this.applyValidRequire = locateApply.call(this, 'validRequire', true);
-            this.applyValidSocket = locateApply.call(this, 'validSocket', false);
-            this.applyValidShutdown = locateApply.call(this, 'validShutdown', true);
-            this.applyValidWrite = locateApply.call(this, 'validWrite', true);
+            this.applyCompileVirtual = locateApply('compileVirtualObject', false);
+            this.applyConvertUnits = locateApply('convertUnits', false);
+            this.applyErrorHandler = locateApply('errorHandler', false);
+            this.applyGetPreloads = locateApply('getPreloads', false);
+            this.applyLogError = locateApply('logError', false);
+            this.applyValidDestruct = locateApply('validDestruct', false);
+            this.applyValidExec = locateApply('validExec', false);
+            this.applyValidObject = locateApply('validObject', false);
+            this.applyValidRead = locateApply('validRead', true);
+            this.applyValidReadConfig = locateApply('validReadConfig', false);
+            this.applyValidRequire = locateApply('validRequire', true);
+            this.applyValidSocket = locateApply('validSocket', false);
+            this.applyValidShutdown = locateApply('validShutdown', true);
+            this.applyValidWrite = locateApply('validWrite', true);
 
             this.rootUid = typeof this.masterObject.get_root_uid === 'function' ?
                 this.masterObject.get_root_uid() || 'ROOT' : 'ROOT';
@@ -309,7 +308,7 @@ class GameServer extends MUDEventEmitter {
         this.driverCall('createPreloads', ecc => {
             ecc.alarmTime = Number.MAX_SAFE_INTEGER;
             if (this.applyGetPreloads !== false) {
-                this.preloads = this.applyGetPreloads.apply(this.masterObject);
+                this.preloads = this.applyGetPreloads();
             }
             if (this.preloads.length > 0) {
                 logger.logIf(LOGGER_PRODUCTION, 'Creating preloads.');
@@ -473,11 +472,10 @@ class GameServer extends MUDEventEmitter {
      * @returns {number} The value in "standard" units
      */
     convertUnits(units, unitType) {
-        if (typeof units !== 'number')
-            return units;
-        if (!this.masterObject || !this.applyConvertUnits)
-            return units; // No standardization performed 
-        return this.applyConvertUnits.call(this.masterObject)
+        if (typeof units !== 'number') units = parseFloat(units);
+        if (isNaN(units)) return false;
+        if (!this.masterObject || !this.applyConvertUnits || typeof unitType !== 'string') units;
+        return this.applyConvertUnits(units, unitType);
     }
 
     /**
@@ -598,32 +596,8 @@ class GameServer extends MUDEventEmitter {
                     return frame;
                 }
             }).filter(f => typeof f === 'object');
-            this.applyErrorHandler.call(this.masterObject, error, caught);
+            this.applyErrorHandler(error, caught);
         }
-    }
-
-    /**
-     * Switch an interactives body
-     * @deprecated
-     * @param {MUDObject} oldBody Original body the interactive user is leaving.
-     * @param {MUDObject} newBody The new body the interactive user is switching to.
-     * @param {ClientInstance} client The client instance 
-     * @param {function(MUDObject,MUDObject):any} callback A callback that fires when the exec is completed.
-     * @returns {boolean} True if the operation was successful.
-     */
-    exec(oldBody, newBody, client, callback) {
-        var result = false;
-        try {
-            if (driver.connections.indexOf(client) > -1) {
-                result = client.setBody(newBody);
-                if (result && typeof callback === 'function')
-                    callback.call(oldBody, newBody);
-            }
-        }
-        catch (e) {
-            result = false;
-        }
-        return true;
     }
 
     /**
@@ -758,7 +732,7 @@ class GameServer extends MUDEventEmitter {
             logger.log('Compiler Error: ' + error.message);
             logger.log(error.stack);
         }
-        else this.applyLogError.apply(this.masterObject, arguments);
+        else this.applyLogError(path, error);
     }
 
     /**
@@ -1115,16 +1089,16 @@ class GameServer extends MUDEventEmitter {
         if (this.gameState < GAMESTATE_RUNNING)
             return false;
         else if (this.applyValidExec === false) return true;
-        else return this.applyValidExec.call(this.masterObject, frame, oldBody, newBody);
+        else return this.applyValidExec(frame, oldBody, newBody);
     }
 
     validObject(arg) {
         let result = unwrap(arg, ob => {
             if (this.gameState < GAMESTATE_INITIALIZING) return true;
             else if (this.applyValidObject === false) return true;
-            else return this.applyValidObject.apply(this.masterObject, arguments);
+            else return this.applyValidObject(ob);
         });
-        return result !== false;
+        return result === true;
     } 
 
     /**
@@ -1145,11 +1119,7 @@ class GameServer extends MUDEventEmitter {
         if (!this.applyValidDestruct)
             return target !== driver.masterObject;
         this.getExecution()
-            .guarded(f => this.applyValidDestruct.call(
-                this.masterObject,
-                target,
-                f.object || f.file,
-                f.method));
+            .guarded(f => this.applyValidDestruct(target, f.object || f.file, f.method));
     }
 
     /**
@@ -1163,11 +1133,7 @@ class GameServer extends MUDEventEmitter {
         else if (!this.applyValidReadConfig)
             return false; //  By default, config is not visible in game
         else this.getExecution()
-            .guarded(f => this.applyValidReadConfig.call(
-                this.masterObject,
-                f.object || f.file,
-                key,
-                f.method));
+            .guarded(f => this.applyValidReadConfig(f.object || f.file, key, f.method));
     }
 
     /**
@@ -1185,7 +1151,7 @@ class GameServer extends MUDEventEmitter {
         else if (frame.object === driver.masterObject)
             return true;
         else
-            return this.applyValidRead.call(this.masterObject, path, frame.object || frame.file, frame.method);
+            return this.applyValidRead(path, frame.object || frame.file, frame.method);
     }
 
     validRequire(efuns, moduleName) {
@@ -1219,7 +1185,7 @@ class GameServer extends MUDEventEmitter {
         else if (efuns.filename === this.masterFilename)
             return true;
         else
-            return this.applyValidWrite.call(this.masterObject, expr, frame.object || frame.file, frame.method);
+            return this.applyValidWrite(expr, frame.object || frame.file, frame.method);
     }
 }
 

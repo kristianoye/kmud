@@ -410,6 +410,10 @@ class EFUNProxy {
      */
     exec(oldBody, newBody, callback) {
         let ecc = driver.getExecution();
+
+        oldBody = global.wrapper(oldBody);
+        newBody = global.wrapper(newBody);
+
         return ecc.guarded(f => driver.validExec(this, oldBody, newBody), () => {
             let result = unwrap([oldBody, newBody], (o, n) =>
                 driver.driverCall('exec', () => {
@@ -427,7 +431,7 @@ class EFUNProxy {
                         return false;
 
                     try {
-                        client.setBody(n, o);
+                        client.setBody(newBody, oldBody);
                         let result = callback ? callback(o, n) || true : true;
                         return result;
                     }

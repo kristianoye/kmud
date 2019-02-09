@@ -42,27 +42,26 @@ class RanvierTelnetInstance extends ClientInstance {
 
     addPrompt(opts, callback) {
         if (typeof opts === 'string') {
-            opts = { text: opts, type: 'text' };
+            opts = { text: opts, type: 'text', callback };
         }
-        let data = Object.assign({
-            type: 'text',
-            text: 'Command: '
-        }, opts), frame = { data: data, callback: callback };
+        let frame = Object.assign({ type: 'text', text: '> ', callback }, opts);
 
-        if (frame.data.error) {
-            this.writeLine(frame.data.error);
+        if (frame.error) {
+            this.writeLine(frame.error);
         }
-        this.inputStack.push(frame);
+        this.inputStack.unshift(frame);
         return opts.drawPrompt === true ? this.renderPrompt(frame) : this;
     }
 
     renderPrompt(input) {
-        if (!input) {
-            input = this.inputStack[this.inputStack.length - 1] || false;
-        }
+        input = this.inputStack[0] || input;
         if (input) {
-            this.client.toggleEcho(input.data.type !== 'password');
-            this.write(input.data.text);
+            this.client.toggleEcho(input.type !== 'password');
+            this.write(input.text);
+        }
+        else {
+            this.client.toggleEcho(true);
+            this.write(this.body().defaultPrompt || '> ')
         }
         return this;
     }

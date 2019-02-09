@@ -214,18 +214,6 @@ class MUDObject extends MUDEventEmitter {
         return this.getProperty('adjectives', []);
     }
 
-    get id() {
-        return this.getProperty('id', 'unknown');
-    }
-
-    get idList() {
-        var result = this.getProperty('idList', []),
-            id = this.id;
-        if (result.indexOf(id) === -1)
-            result.unshift(id);
-        return result.slice(0);
-    }
-
     get inventory() {
         return driver.storage.get(this).inventory.map(o => unwrap(o));
     }
@@ -235,21 +223,33 @@ class MUDObject extends MUDEventEmitter {
     isPlayer() { return false; }
 
     get name() {
-        return this.id;
+        return this.getPrivate('name', 'OBJECT');
     }
 
-    getFirst(...propList) {
-        let store = driver.storage.get(this);
+    set name(value) {
+        if (typeof value !== 'string')
+            throw new Error(`Invalid value for "name"; Must be string not ${typeof value}`);
+        this.setPrivate('name', value);
+    }
+
+    getFirstProperty(...propList) {
+        let store = driver.storage.get(this),
+            evalFunctions = false,
+            value = undefined;
         if (!store) return undefined;
         for (let i = 0; i < propList.length; i++) {
-            let p = store.getProperty(propList[i]);
-            if (p) return p;
+            if (i === 0 && propList[i] === true) {
+                evalFunctions = true;
+            }
+            value = store.getProperty(propList[i]);
+            if (typeof value !== 'undefined') break;
+        }
+        if (typeof value !== 'undefined') {
+            if (typeof value === 'function' && evalFunctions)
+                return value();
+            return value;
         }
         return undefined;
-    }
-
-    getName() {
-        return this.id;
     }
 
     getPrivate(key, defaultValue) {
@@ -258,9 +258,10 @@ class MUDObject extends MUDEventEmitter {
         return $storage.getPrivate(this.filename, key, defaultValue);
     }
 
-    getProperty(key, defaultValue) {
-        return driver.storage.get(this)
-            .getProperty(key, defaultValue);
+    getProperty(key, defaultValue, evalFunctions = false) {
+        let value = driver.storage.get(this).getProperty(key, defaultValue, evalFunctions);
+        if (evalFunctions && typeof value === 'function') return value();
+        return value;
     }
 
     /**
@@ -302,28 +303,6 @@ class MUDObject extends MUDEventEmitter {
 
     get keyId() {
         return driver.storage.get(this).getProperty('id', 'unknown');
-    }
-
-    matchesId(words) {
-        if (typeof words === 'string') words = words.split(/\s+/g);
-        var idList = this.idList, adj = this.adjectives;
-        for (var i = 0, max = words.length; i < max; i++) {
-            if (adj.indexOf(words[i]) > -1) continue;
-            else if (idList.indexOf(words[i]) === -1) return false;
-        }
-        return true;
-    }
-
-    matchesPluralId(words) {
-        if (typeof words === 'string') words = words.split(/\s+/g);
-        var adj = this.adjectives,
-            plurals = this.pluralIds;
-
-        for (var i = 0, max = words.length; i < max; i++) {
-            if (adj.indexOf(words[i]) > -1) continue;
-            else if (plurals.indexOf(words[i]) === -1) return false;
-        }
-        return true;
     }
 
     moveObject(destination, callback) {
@@ -373,15 +352,6 @@ class MUDObject extends MUDEventEmitter {
             }
         }
         return false;
-    }
-
-    get pluralIds() {
-        var result = this.getProperty('pluralIdList', []);
-        if (result.length === 0) {
-            result = this.idList.map(id => driver.efuns.pluralize(id));
-            this.setProperty('pluralIdList', result);
-        }
-        return result.slice(0);
     }
 
     preprocessInput(input, callback) {

@@ -113,11 +113,19 @@ class MUDStorage extends MUDEventEmitter {
 
     /**
      * Returns a property from the collection.
-     * @param {string} prop
-     * @param {any=} defaultValue
+     * @param {string} propName The name of the property to return.
+     * @param {any} defaultValue The default value
      */
-    getProperty(prop, defaultValue) {
-        return this.properties[prop] || (this.properties[prop] = defaultValue);
+    getProperty(propName, defaultValue = undefined, evalFunctions = false) {
+        let result = this.properties[propName];
+
+        if (typeof result === 'undefined' && typeof defaultValue !== 'undefined') {
+            if (evalFunctions && typeof defaultValue === 'function') {
+                return this.properties[propName] = defaultValue();
+            }
+            return this.properties[propName] = defaultValue;
+        }
+        return result;
     }
 
     /**

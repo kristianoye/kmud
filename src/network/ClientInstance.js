@@ -143,7 +143,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
         ecc.on('complete', completed => {
             let te = new Date().getTime() - completed.startTime;
             console.log(`Command complete [ellapsed: ${te} ms]`);
-            this.renderPrompt();
+            this.renderPrompt(completed.input.prompt);
         });
         return cmdEvent;
     }
@@ -222,8 +222,8 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
             unwrap(this.body, body => {
                 let cmdEvent = this.initContext(ecc, body, this.createCommandEvent(text || ''));
                 try {
-                    if (this.inputStack.length > 0) {
-                        let inputFrame = this.inputStack.pop(), result;
+                    if (this.inputStack.length) {
+                        let inputFrame = this.inputStack.shift(), result;
                         try {
                             text = text.replace(/[\r\n]+/g, '');
                             if (!this.client.echoing) {
@@ -245,7 +245,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                         }
                     }
                     else if (body) {
-                        this.$storage && this.$storage.emit('kmud.command', cmdEvent);
+                        body.processInput(cmdEvent);
                     }
                 }
                 catch (ex) {
@@ -304,11 +304,11 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
     }
 
     setBody(body, oldBodyValue = false) {
-        driver.driverCall('setBody', ecc => {
-            //  Trying to leave a different body? Nope
-            if (oldBodyValue && oldBodyValue !== this.body)
-                return false;
+        //  Trying to leave a different body? Nope
+        if (oldBodyValue && oldBodyValue() !== this.body())
+            return false;
 
+        driver.driverCall('setBody', ecc => {
             //  Disconnect from old body
             unwrap(this.body, oldBody => {
                 ecc.setThisPlayer(oldBody, oldBody, '');
