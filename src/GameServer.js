@@ -259,11 +259,14 @@ class GameServer extends MUDEventEmitter {
                 let func = this.masterObject[config.applyNames[name] || name];
                 if (typeof func !== 'function' && required === true)
                     throw new Error(`Invalid master object; Could not locate required ${name} apply: ${(config.applyNames[name] || name)}`);
-                return func || false;
+                if (!func)
+                    return false;
+                return func;
             };
 
             /* validate in-game master */
             this.applyCompileVirtual = locateApply.call(this, 'compileVirtualObject', false);
+            this.applyConvertUnits = locateApply.call(this, 'convertUnits', false);
             this.applyErrorHandler = locateApply.call(this, 'errorHandler', false);
             this.applyGetPreloads = locateApply.call(this, 'getPreloads', false);
             this.applyLogError = locateApply.call(this, 'logError', false);
@@ -445,10 +448,12 @@ class GameServer extends MUDEventEmitter {
             };
 
             global.wrapper = function (o) {
-                if (typeof o === 'function' && o.isWrapper === true)
-                    return o;
-                else if (typeof o === 'object' && typeof o.wrapper === 'function')
-                    return o.wrapper;
+                if (typeof o === 'function' && o.isWrapper === true) return o;
+                else if (o instanceof MUDObject) {
+                    let parts = driver.efuns.parsePath(o.filename),
+                        module = driver.cache.get(parts.file);
+                    return module.getInstanceWrapper(parts);
+                }
                 return false;
             };
 
@@ -459,6 +464,20 @@ class GameServer extends MUDEventEmitter {
             console.log(err.stack);
             throw err;
         }
+    }
+
+    /**
+     * Convert a value to a standardized unit of measurement
+     * @param {number} units The number of units
+     * @param {string} unitType The unit type (pounds, kgs, kelvin, etc)
+     * @returns {number} The value in "standard" units
+     */
+    convertUnits(units, unitType) {
+        if (typeof units !== 'number')
+            return units;
+        if (!this.masterObject || !this.applyConvertUnits)
+            return units; // No standardization performed 
+        return this.applyConvertUnits.call(this.masterObject)
     }
 
     /**
@@ -1092,11 +1111,11 @@ class GameServer extends MUDEventEmitter {
         });
     }
 
-    validExec(oldBody, newBody) {
+    validExec(frame, oldBody, newBody) {
         if (this.gameState < GAMESTATE_RUNNING)
             return false;
         else if (this.applyValidExec === false) return true;
-        else return this.applyValidExec.apply(this.masterObject, arguments);
+        else return this.applyValidExec.call(this.masterObject, frame, oldBody, newBody);
     }
 
     validObject(arg) {

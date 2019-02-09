@@ -5,7 +5,7 @@ class MUDEventEmitter {
         this.events = {};
     }
 
-    addListener(eventName, listener, prepend, onlyOnce) {
+    addListener(eventName, listener, prepend = false, onlyOnce = false) {
         let eventListeners = this.events[eventName],
             listenerFunc = listener, self = this;
 

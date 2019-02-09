@@ -15,13 +15,6 @@ const
 var
     UseLazyResets = false;
 
-function getEfunProxy(t) {
-    let fn = t.basename,
-        module = driver.cache.get(fn),
-        efuns = module ? module.efuns : false;
-    return efuns;
-}
-
 function validIdentifier(s) {
     return typeof s === 'string' && s.length > 0 && s.indexOf(/\s+/) === -1;
 }
@@ -245,6 +238,16 @@ class MUDObject extends MUDEventEmitter {
         return this.id;
     }
 
+    getFirst(...propList) {
+        let store = driver.storage.get(this);
+        if (!store) return undefined;
+        for (let i = 0; i < propList.length; i++) {
+            let p = store.getProperty(propList[i]);
+            if (p) return p;
+        }
+        return undefined;
+    }
+
     getName() {
         return this.id;
     }
@@ -325,7 +328,7 @@ class MUDObject extends MUDEventEmitter {
 
     moveObject(destination, callback) {
         var environment = this.environment,
-            efuns = getEfunProxy(this),
+            efuns = driver.efuns,
             target = wrapper(destination) || efuns.loadObjectSync(destination);
 
         if (target && typeof target() !== 'object') {
@@ -401,18 +404,6 @@ class MUDObject extends MUDEventEmitter {
         return $storage.serialize();
     }
 
-    setAdjectives(adjectives) {
-        var args = [].slice.call(arguments),
-            list = parseIdentifierList(args, 'setAdjectives');
-        return this.setProperty('adjectives', list);
-    }
-
-    setIdList(identifiers) {
-        var args = [].slice.call(arguments),
-            list = parseIdentifierList(args, 'setIdList');
-        return this.setProperty('idList', list);
-    }
-
     setContainer(target, cb) {
         let $storage = driver.storage.get(this),
             env = $storage.environment,
@@ -428,17 +419,6 @@ class MUDObject extends MUDEventEmitter {
         if (typeof cb === 'function') {
             cb.call(self, newEnv, env);
         }
-        return this;
-    }
-
-    setKeyId(id) {
-        if (typeof id !== 'string')
-            throw new Error(`Bad argument 1 to setKeyId(); Expected string got ${typeof id}`);
-        if (id.length === 0)
-            throw new Error('Bad argument 1 to setKeyId(); Primary identifier cannot be zero length string.');
-        if (id.indexOf(/\s+/))
-            throw new Error('Bad argument 1 to setKeyId(); Primary identifier cannot contain whitespace.');
-        this.setProperty('id', id);
         return this;
     }
 

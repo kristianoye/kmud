@@ -37,6 +37,8 @@ class ExecutionContext extends MUDEventEmitter {
         this.thisObject = false;
         this.thisPlayer = false;
         this.truePlayer = false;
+
+        this.virtualParents = [];
     }
 
     alarm() {
@@ -138,9 +140,10 @@ class ExecutionContext extends MUDEventEmitter {
     /**
      * Check access to a guarded function.
      * @param {function(ObjectStackItem):boolean} callback Calls the callback for each frame.
+     * @param {function(...any): any} [action] An optional action to perform
      * @returns {boolean} Returns true if the operation is permitted or false if it should fail.
      */
-    guarded(callback) {
+    guarded(callback, action = false, rethrow = false) {
         for (let i = 0, max = this.length, c = {}; i < max; i++) {
             let frame = this.getFrame(i);
             if (!frame.object && !frame.file)
@@ -151,8 +154,17 @@ class ExecutionContext extends MUDEventEmitter {
                 continue;
             else if ((c[frame.file] = callback(frame)) === false)
                 return false;
-            if (this.unguarded === true)
+            if (frame.unguarded === true)
                 break;
+        }
+        if (action) {
+            try {
+                return action();
+            }
+            catch (err) {
+                if (rethrow) throw err;
+            }
+            return false;
         }
         return true;
     }

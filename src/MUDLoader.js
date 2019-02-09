@@ -178,6 +178,8 @@ class MUDLoader {
                                 ecc.newContext = Object.assign(module.getNewContext(parts.type), driver.newContext);
                                 if (!constructorType) constructorType = module.getType(parts.type);
                             }
+                            if (ecc.newContext.isVirtual)
+                                ecc.virtualParents.push(module);
                         }
                         if (!constructorType) {
                             throw new Error(`Unable to load module for expression ${type}`);
@@ -319,46 +321,16 @@ class MUDLoader {
         return flag ? driver.currentContext.truePlayer : driver.currentContext.thisPlayer;
     }
 
-    unwrap(target, success, hasDefault) {
-        let result = false, defaultValue = hasDefault || false,
-            onSuccess = typeof success === 'function' && success || function (s) {
-                return s;
-            };
-        if (Array.isArray(target)) {
-            let items = target.map(t => this.unwrap(t))
-                .filter(o => o instanceof MUDObject);
-
-            if (items.length !== target.length)
-                return defaultValue || false;
-
-            if (onSuccess)
-                return onSuccess(...items);
-
-            return items;
-        }
-        else if (typeof target === 'function' && target.isWrapper === true) {
-            result = target();
-            if (result instanceof MUDObject === false)
-                result = defaultValue;
-        }
-        else if (typeof target === 'object' && target instanceof MUDObject) {
-            result = target;
-        }
-        else if (typeof defaultValue === 'function')
-            return defaultValue();
-
-        return result && onSuccess(result);
+    unwrap(...args) {
+        return global.unwrap(...args);
     }
 
-    wrapper(target) {
-        if (typeof target === 'function' && target.isWrapper === true)
-            return target;
-        else if (typeof target === 'object' && typeof target.wrapper === 'function')
-            return target.wrapper;
-        else if (target instanceof MUDObject) {
-            throw new Error('wrapper() failed');
-        }
-        return false;
+    units(units, unitType) {
+        return driver.convertUnits(units, unitType);
+    }
+
+    wrapper(...args) { 
+        return global.wrapper(...args);
     }
 
     write(str) {

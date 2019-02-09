@@ -431,13 +431,25 @@ class MUDStorage extends MUDEventEmitter {
      * @param {any} client
      */
     setClient(client) {
-        this.client = client;
         if (client) {
             this.flags |= MUDStorage.OB_CONNECTED | MUDStorage.OB_INTERACTIVE;
+            this.setSymbol('$client', client);
+            this.setSymbol('$clientCaps', client.caps);
+            client.on('disconnected', this.onDisconnect = client => {
+                this.setClient(false);
+            });
         }
         else {
             this.flags &= ~MUDStorage.OB_CONNECTED;
+            this.setSymbol('$client', false);
+            this.setSymbol('$clientCaps', false);
+
+            if (this.client && this.onDisconnect) {
+                this.client.off('disconnected', this.onDisconnect);
+                this.onDisconnect = false;
+            }
         }
+        this.client = client;
         return this;
     }
 

@@ -44,13 +44,14 @@ class MUDCache {
      * @param {string} muddir The mud directory
      * @param {boolean} isVirtual Is the module a virtual type?
      * @param {boolean} [isMixin] Is the module expected to be a mixin type?
+     * @param {MUDModule} [parent] If this is a virtual object it needs a parent
      * @returns {MUDModule} The module
      */
-    getOrCreate(filename, fullPath, muddir, isVirtual, isMixin) {
+    getOrCreate(filename, fullPath, muddir, isVirtual, isMixin = false, parent = false) {
         filename = this.normalize(filename);
         let module = this[filename];
         if (!module) {
-            this[filename] = module = new MUDModule(filename, fullPath, muddir, isVirtual, isMixin);
+            this[filename] = module = new MUDModule(filename, fullPath, muddir, isVirtual, isMixin, parent);
         }
         return module;
     }

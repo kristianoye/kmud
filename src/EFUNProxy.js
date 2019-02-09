@@ -409,7 +409,8 @@ class EFUNProxy {
      * @returns {boolean} True if the 
      */
     exec(oldBody, newBody, callback) {
-        if (driver.validExec(this, oldBody, newBody)) {
+        let ecc = driver.getExecution();
+        return ecc.guarded(f => driver.validExec(this, oldBody, newBody), () => {
             let result = unwrap([oldBody, newBody], (o, n) =>
                 driver.driverCall('exec', () => {
                     let oldStorage = driver.storage.get(o),
@@ -426,28 +427,30 @@ class EFUNProxy {
                         return false;
 
                     try {
-                        newStorage
-                            .setClient(client)
-                            .setProtected('$client', client)
-                            .setProtected('$clientCaps', client.caps)
-                            .client.setBody(newBody);
-
-                        oldStorage.setClient(false);
-                        return callback ? callback(o, n) : true;
+                        client.setBody(n, o);
+                        let result = callback ? callback(o, n) || true : true;
+                        return result;
                     }
                     catch (e) {
-                        /* ack */
-                        newStorage.setClient(false);
+                        /* ack... try and roll back */
+                        console.log(`Error during exec(): ${e.message}; Rolling back.`);
+                        try {
+                            client.setBody(o);
+                        }
+                        catch (ee) {
+                            /* rollback failed, too... destroy them all */
+                            this.write('Sorry things did not work out.');
+                            client.disconnect();
+                        }
+                        throw e;
                     }
-                    return false;
                 }));
 
             if (!result) // TODO: Add config-based error string message here ... or driver apply
                 this.write('You twitch, but nothing happens.');
 
             return result;
-        }
-        throw new Error('exec() permission denied');
+        });
     }
 
     /**
@@ -751,7 +754,12 @@ class EFUNProxy {
      * @returns {MUDObject} The object (or false if object failed to load)
      */
     loadObjectSync(expr, ...args) {
-        if (typeof expr !== 'string') return false;
+        if (typeof expr !== 'string') {
+            if (typeof expr === 'function' && expr.isWrapper)
+                return expr;
+            else if (expr instanceof MUDObject)
+                return global.wrap(expr);
+        }
         return driver.fileManager.loadObjectSync(this, this.resolvePath(expr), args);
     }
 
@@ -1513,9 +1521,8 @@ class EFUNProxy {
      * @param {string} path The file to read properties from.
      */
     restoreObject(path) {
-        let result = false;
         try {
-            let ctx = driver.getContext(),
+            let ctx = driver.getExecution(),
                 thisOb = ctx.thisObject;
 
             if (thisOb) {
@@ -1526,7 +1533,7 @@ class EFUNProxy {
                     if (data) {
                         let $storage = driver.storage.get(thisOb);
                         $storage && $storage.restore(data);
-                        result = true;
+                        return true;
                     }
                 }
             }
@@ -1534,7 +1541,7 @@ class EFUNProxy {
         catch (err) {
             logger.log(err);
         }
-        return result;
+        return false;
     }
 
     /**

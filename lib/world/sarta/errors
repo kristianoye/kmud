@@ -1,9 +1,10 @@
 
-[2019-2-8 06:29:16]
-Could not load /base/Room [Unexpected callee type FunctionExpression]
-E:\KLF\KMUD\src\MUDCompiler.js:293
-            throw err;
-            ^
-
-Error: Could not load /base/Room [Unexpected callee type FunctionExpression]
-    at require (/world/sarta/Square.jsx:1:201)
+[2019-2-9 06:01:33]
+Cannot create property 'directory' on boolean 'false'
+TypeError: Cannot create property 'directory' on boolean 'false'
+    at Creator.movePlayer (/base/Interactive.js:443:105)
+    at efuns.exec (/sys/lib/Login.js:79:38)
+    at efuns.unguarded (/sys/lib/Login.js:77:31)
+    at PlayerDaemon.loadPlayer.player (/sys/lib/Login.js:76:27)
+    at PlayerDaemon.loadPlayer (/sys/daemon/PlayerDaemon.js:100:17)
+    at Login.pwd (/sys/lib/Login.js:70:32)

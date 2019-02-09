@@ -33,7 +33,7 @@ var
 /**
  * Abstracted client interface shared by all client connection types.
  */
-class ClientInstance extends EventEmitter {
+class ClientInstance extends MUDEventEmitter { // EventEmitter {
     /**
      * 
      * @param {ClientEndpoint} endpoint
@@ -303,27 +303,36 @@ class ClientInstance extends EventEmitter {
         throw new Error('Not implemented');
     }
 
-    setBody(body) {
+    setBody(body, oldBodyValue = false) {
         driver.driverCall('setBody', ecc => {
+            //  Trying to leave a different body? Nope
+            if (oldBodyValue && oldBodyValue !== this.body)
+                return false;
+
             //  Disconnect from old body
             unwrap(this.body, oldBody => {
                 ecc.setThisPlayer(oldBody, oldBody, '');
                 oldBody.disconnect && oldBody.disconnect();
-                let $storage = driver.storage.get(oldBody);
-                $storage.setSymbol('$client', false);
+
+                let storage = driver.storage.get(oldBody);
+                storage && storage.setClient(false);
             });
 
             // Connect to the new body
-            unwrap(body, newBody => {
-                let $storage = this.$storage = driver.storage.get(newBody);
+            return unwrap(body, newBody => {
+                let storage = this.$storage = driver.storage.get(newBody);
 
-                $storage
-                    .setClient(this)
-                    .setSymbol('$client', this);
+                storage.setClient(this);
                 this.body = body;
 
                 ecc.setThisPlayer(newBody, newBody, '');
                 newBody.connect && newBody.connect(this.port, this.clientType);
+
+                this.eventSend({
+                    eventType: 'kmud.connected',
+                    eventData: driver.efuns.mudName()
+                });
+                return true;
             });
         });
     }

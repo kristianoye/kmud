@@ -5,7 +5,7 @@
  */
 var
     GameServer = require('./GameServer'),
-    MUDCreationContext = require('./MUDCreationContext'),
+    MUDEventEmitter = require('./MUDEventEmitter'),
     async = require('async');
 
 var
@@ -17,16 +17,19 @@ var
 /**
  * Contains information about a previously loaded MUD module.
  */
-class MUDModule {
+class MUDModule extends MUDEventEmitter {
     /**
      * 
      * @param {string} filename The name of the file?
      * @param {string} absFsPath The full filesystem path
      * @param {string} mudpath The full mud path
      * @param {boolean} isVirtual Is this a virtual request?
-     * @param {boolean} isMixin Is this a mixin module?
+     * @param {boolean} [isMixin] Is this a mixin module?
+     * @param {MUDModule} [parent] If this is a virtual object it needs a parent
      */
-    constructor(filename, absFsPath, mudpath, isVirtual, isMixin) {
+    constructor(filename, absFsPath, mudpath, isVirtual, isMixin = false, parent = false) {
+        super();
+
         /**
          * Contains reference to all the child modules that inherit this module.
          * @type {MUDModule[]} */
@@ -72,6 +75,12 @@ class MUDModule {
         this.wrappers = [null];
 
         driver.preCompile(this);
+
+        if (parent) {
+            parent.on('recompile', () => {
+                /* the module should rebuild all instances */
+            });
+        }
     }
 
     insertInstance(item, typeArg) {
@@ -283,9 +292,15 @@ class MUDModule {
         let instance = this.getInstance(req);
 
         if (instance) {
-            let wrapper = () => {
-                return this.getInstance(req);
-            };
+            let wrapper = (() => {
+                let instance = false;
+                return () => {
+                    if (instance && !instance.isDestructed)
+                        return instance;
+
+                    return instance = this.getInstance(req);
+                };
+            })();
             Object.defineProperties(wrapper, {
                 isWrapper: {
                     value: true,

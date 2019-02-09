@@ -177,7 +177,7 @@ class MUDCompiler {
         }
         let context = new PipeContext.PipelineContext(options.file),
             module = this.driver.cache.get(context.basename),
-            t0 = new Date().getTime(), virtualData = false, cerr = false;
+            t0 = new Date().getTime(), virtualResult = false, cerr = false;
 
         if (options.source)
             context.setContent(options);
@@ -191,11 +191,12 @@ class MUDCompiler {
             }
 
             if (!context.exists) {
+                let parentInfo = false;
                 if (!this.driver.masterObject)
                     throw new Error('Could not load in-game master object!');
 
                 //  Attempt to compile a virtual object.
-                let virtualResult = driver.driverCall('compileVirtual', () => {
+                virtualResult = driver.driverCall('compileVirtual', ecc => {
                     try {
                         driver.newContext = {
                             args: options.args || [],
@@ -203,21 +204,33 @@ class MUDCompiler {
                             isVirtual: true,
                             filename: context.filename
                         };
-                        let result = driver.compileVirtualObject(driver.newContext.filename);
-                        if (!result)
-                            return false;
+                        return driver.compileVirtualObject(driver.newContext.filename);
                     }
                     finally {
+                        parentInfo = ecc.virtualParents.pop();
                         delete driver.newContext;
                     }
                 }, context.filename);
                 if (!virtualResult)
                     throw new Error(`Could not load ${context.filename} [File not found]`);
+
+                module = this.driver.cache.getOrCreate(
+                    context.filename,
+                    parentInfo.fullPath,
+                    context.filename.slice(0, context.filename.lastIndexOf('/')),
+                    true,
+                    false,
+                    parentInfo);
+                if (virtualResult instanceof MUDObject) {
+                    module.insertInstance(virtualResult, { name: module.name });
+                    module.defaultInstance = virtualResult;
+                }
+                module.loaded = true;
+                return module;
             }
         }
         try {
-            var isVirtual = virtualData !== false,
-                pipeline = this.getPipeline(context);
+            var pipeline = this.getPipeline(context);
 
             if (pipeline === false)
                 throw new Error(`Could not load ${context.filename} [unknown extension]`);
@@ -234,7 +247,7 @@ class MUDCompiler {
                     context.filename,
                     context.resolvedName,
                     context.directory,
-                    virtualData !== false,
+                    false,
                     options.isMixin === true);
 
                 module.loader = this.getLoader(pipeline, options);
