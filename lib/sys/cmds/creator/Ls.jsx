@@ -81,7 +81,7 @@ class ListCommand extends Command {
                 }
             }
             else {
-                dirList.push(efuns.resolvePath(args[i], thisPlayer.workingDirectory));
+                dirList.push(efuns.resolvePath(args[i], thisPlayer().workingDirectory));
             }
         }
         if (getDirFlags === 0)
@@ -96,7 +96,7 @@ class ListCommand extends Command {
         if (dirList.length === 0)
             dirList.push(player.workingDirectory || '/');
 
-        if (thisPlayer.hasBrowser && (displayFlags & LS_OPT_PLAINTEXT) !== LS_OPT_PLAINTEXT) {
+        if (thisPlayer().hasBrowser && (displayFlags & LS_OPT_PLAINTEXT) !== LS_OPT_PLAINTEXT) {
             return this.webListing(dirList[0], thisPlayer);
         }
         let results = Array(dirList.length),

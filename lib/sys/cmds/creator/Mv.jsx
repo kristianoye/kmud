@@ -56,7 +56,7 @@ class MoveCommand extends Command {
                                 return this.useError(`option '${args[i - 1]}' requires parameter [directory]`);
                             if ((op.flags & MUDFS.MoveFlags.SingleFile) > 0)
                                 return this.useError('cannot combine --target-directory (-t) and --no-target-directory (-T)');
-                            op.targetDirectory = efuns.resolvePath(args[i], thisPlayer.workingDirectory);
+                            op.targetDirectory = efuns.resolvePath(args[i], thisPlayer().workingDirectory);
                             break;
 
                         case 'T':
@@ -66,7 +66,7 @@ class MoveCommand extends Command {
                                 return this.useError('cannot combine --target-directory (-t) and --no-target-directory (-T)');
                             else if (op.targetDirectory)
                                 return this.useError(`extra operand: ${args[i]}`);
-                            op.targetDirectory = efuns.resolvePath(args[i], thisPlayer.workingDirectory);
+                            op.targetDirectory = efuns.resolvePath(args[i], thisPlayer().workingDirectory);
                             op.flags |= MUDFS.MoveFlags.SingleFile;
                             break;
 
@@ -76,7 +76,7 @@ class MoveCommand extends Command {
 
                         case '--':
                             if (++i < args.length)
-                                fileList.push(efuns.resolvePath(args[i], thisPlayer.workingDirectory));
+                                fileList.push(efuns.resolvePath(args[i], thisPlayer().workingDirectory));
                             else
                                 return this.useError('Missing parameter');
                             break;
@@ -90,7 +90,7 @@ class MoveCommand extends Command {
                 }
             }
             else {
-                fileList.push(efuns.resolvePath(opt, thisPlayer.workingDirectory));
+                fileList.push(efuns.resolvePath(opt, thisPlayer().workingDirectory));
             }
         }
         if (!op.targetDirectory)

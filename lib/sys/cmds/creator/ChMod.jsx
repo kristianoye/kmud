@@ -11,7 +11,7 @@ class ChmodCommand extends Command {
     cmd(args) {
         if (args.length === 0)
             return 'Usage: chmod [options] file(s)...';
-        let path = efuns.resolvePath(args[0], thisPlayer.workingDirectory);
+        let path = efuns.resolvePath(args[0], thisPlayer().workingDirectory);
         throw new Error('Not implemented');
     }
 }

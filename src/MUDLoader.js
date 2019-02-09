@@ -318,7 +318,11 @@ class MUDLoader {
     }
 
     thisPlayer(flag) {
-        return flag ? driver.currentContext.truePlayer : driver.currentContext.thisPlayer;
+        let ecc = driver.getExecution();
+
+        return ecc ?
+            flag ? ecc.truePlayer : ecc.thisPlayer :
+            false;
     }
 
     unwrap(...args) {

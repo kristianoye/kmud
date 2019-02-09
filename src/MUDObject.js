@@ -437,6 +437,36 @@ class MUDObject extends MUDEventEmitter {
         storage && storage.setSymbol(key, value);
         return this;
     }
+
+    get wrapper() {
+        let parts = driver.efuns.parsePath(this.filename),
+            module = driver.cache.get(parts.file);
+        return module && module.getInstanceWrapper(parts);
+    }
+
+    write(msg) {
+        let storage = driver.storage.get(this),
+            client = storage.client;
+
+        if (client) {
+            client.write(msg || '');
+        }
+        return this;
+    }
+
+    writeLine(msg) {
+        return this.write(msg + '\n');
+    }
+
+    writePrompt(data, cb) {
+        let storage = driver.storage.get(this),
+            client = storage.client;
+
+        if (client) {
+            client.addPrompt(data, cb);
+        }
+        return this;
+    }
 }
 
 const $blockedMethods = ['constructor', '$extendType', '$copyMethods'];

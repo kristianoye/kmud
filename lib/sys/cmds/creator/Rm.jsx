@@ -57,7 +57,7 @@ class RmCommand extends Command {
 
                         case '--':
                             if (++i < args.length)
-                                fileList.push(efuns.resolvePath(args[i], thisPlayer.workingDirectory));
+                                fileList.push(efuns.resolvePath(args[i], thisPlayer().workingDirectory));
                             else
                                 return this.useError('Missing parameter');
                             break;
@@ -68,7 +68,7 @@ class RmCommand extends Command {
                 }
             }
             else {
-                fileList.push(efuns.resolvePath(opt, thisPlayer.workingDirectory));
+                fileList.push(efuns.resolvePath(opt, thisPlayer().workingDirectory));
             }
         }
         if (fileList.length === 0)

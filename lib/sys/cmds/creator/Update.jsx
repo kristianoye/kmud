@@ -10,10 +10,10 @@ const
 class UpdateCommand extends Command {
     cmd(args, cmdline) {
         if (args.length === 0 || !args[0])
-            args[0] = thisPlayer.environment.filename;
+            args[0] = thisPlayer().environment.filename;
 
-        var path = efuns.resolvePath(args[0], thisPlayer.workingDirectory);
-        thisPlayer.writeLine(`Update ${path}: ${(efuns.reloadObject(path) ? '[OK]' : '[Failure]')}`);
+        var path = efuns.resolvePath(args[0], thisPlayer().workingDirectory);
+        thisPlayer().writeLine(`Update ${path}: ${(efuns.reloadObject(path) ? '[OK]' : '[Failure]')}`);
         return true;
     }
 }

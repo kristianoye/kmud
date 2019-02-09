@@ -63,7 +63,7 @@ class WhoCommand extends Command {
             </table>
         </div>;
 
-        thisPlayer.eventSend({
+        thisPlayer().eventSend({
             eventType: 'contextMenu',
             eventData: {
                 name: 'menu.who',
@@ -82,7 +82,7 @@ class WhoCommand extends Command {
                 }
             }
         });
-        thisPlayer.write(result.render());
+        thisPlayer().write(result.render());
         return true;
     }
 

@@ -9,7 +9,7 @@ const
 
 class EvalCommand extends Command {
     cmd(args, evt) {
-        let tempFile = efuns.resolvePath(`/realms/${thisPlayer.name}/CMD_TMP_FILE.js`),
+        let tempFile = efuns.resolvePath(`/realms/${thisPlayer().name}/CMD_TMP_FILE.js`),
             source = `
             class EvalTemp extends MUDObject {
                 evalCode() { ${evt.input} };

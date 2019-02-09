@@ -84,7 +84,6 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
     commandComplete(nextAction, evt) {
         this.releaseContext();
         if (!evt.finished) {
-            this.inputStack.length === 0 ? this.displayPrompt(evt) : this.renderPrompt();
             evt.finished = true;
         }
         return nextAction;
@@ -219,40 +218,43 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
      */
     executeCommand(text) {
         driver.driverCall('executeCommand', ecc => {
-            unwrap(this.body, body => {
-                let cmdEvent = this.initContext(ecc, body, this.createCommandEvent(text || ''));
-                try {
-                    if (this.inputStack.length) {
-                        let inputFrame = this.inputStack.shift(), result;
-                        try {
-                            text = text.replace(/[\r\n]+/g, '');
-                            if (!this.client.echoing) {
-                                this.write('\r\n');
-                                this.client.toggleEcho(true);
-                            }
-                            result = inputFrame.callback.call(body, text, cmdEvent);
-                            if (result === true) {
-                                this.inputStack.unshift(inputFrame);
-                            }
+            let body = unwrap(this.body);
+            if (!body) {
+                this.write('You have no body!  Sorry, no ghosts allowed!');
+                return this.disconnect(false, 'You have no body!  Releasing spirit!');
+            }
+            let cmdEvent = this.initContext(ecc, body, this.createCommandEvent(text || ''));
+            try {
+                if (this.inputStack.length) {
+                    let inputFrame = this.inputStack.shift(), result;
+                    try {
+                        text = text.replace(/[\r\n]+/g, '');
+                        if (!this.client.echoing) {
+                            this.write('\r\n');
+                            this.client.toggleEcho(true);
                         }
-                        catch (_err) {
-                            this.writeLine('Error: ' + _err);
-                            this.writeLine(_err.stack);
-                            result = true;
-                        }
-                        finally {
-                            this.releaseContext();
+                        result = inputFrame.callback.call(body, text, cmdEvent);
+                        if (result === true) {
+                            this.inputStack.unshift(inputFrame);
                         }
                     }
-                    else if (body) {
-                        body.processInput(cmdEvent);
+                    catch (_err) {
+                        this.writeLine('Error: ' + _err);
+                        this.writeLine(_err.stack);
+                        result = true;
+                    }
+                    finally {
+                        this.releaseContext();
                     }
                 }
-                catch (ex) {
-                    driver.errorHandler(ex, false);
-                    cmdEvent.complete();
+                else if (body) {
+                    body.processInput(cmdEvent);
                 }
-            });
+            }
+            catch (ex) {
+                driver.errorHandler(ex, false);
+                cmdEvent.complete();
+            }
         });
     }
 

@@ -9,7 +9,7 @@ const
 
 class EditFileCommand extends Command {
     cmd(args, evt) {
-        var fullPath = efuns.resolvePath(args[0], thisPlayer.workingDirectory),
+        var fullPath = efuns.resolvePath(args[0], thisPlayer().workingDirectory),
             fileName = fullPath.slice(fullPath.lastIndexOf('/') + 1),
             options = {},
             newFile = !efuns.isFile(fullPath);
@@ -29,21 +29,21 @@ class EditFileCommand extends Command {
             return 'You are already in edit mode!';
         }
         options.mode = efuns.isFile(fullPath) ? /* command mode */ 2 : /* insert mode */ 1;
-        thisPlayer.writeLine('Starting editor.');
+        thisPlayer().writeLine('Starting editor.');
         efuns.editorStart(fullPath, !efuns.wizardp(thisPlayer), options);
         evt.prompt.text = efuns.thisPlayer().getEditorPrompt();
         return true;
     }
 
     webcmd(args, data) {
-        var fullPath = efuns.resolvePath(args[0], thisPlayer.workingDirectory),
+        var fullPath = efuns.resolvePath(args[0], thisPlayer().workingDirectory),
             fileName = fullPath.slice(fullPath.lastIndexOf('/') + 1),
             newFile = !efuns.isFile(fullPath);
 
         if (efuns.isDirectory(fullPath))
             return 'You cannot edit a directory!';
 
-        thisPlayer.eventSend({
+        thisPlayer().eventSend({
             eventType: 'kmud.wizShell.editFile',
             eventData: {
                 fullPath: fullPath,

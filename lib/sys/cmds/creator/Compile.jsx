@@ -14,11 +14,11 @@ class CompileCommand extends Command {
 
         try {
             var result = this.compileObject({ file: path, reload: true });
-            thisPlayer.writeLine(JSON.stringify(result));
+            thisPlayer().writeLine(JSON.stringify(result));
         }
         catch (x) {
-            thisPlayer.writeLine('No bueno: ' + x);
-            thisPlayer.writeLine(x.stack);
+            thisPlayer().writeLine('No bueno: ' + x);
+            thisPlayer().writeLine(x.stack);
         }
     }
 }
