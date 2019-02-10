@@ -1,14 +1,11 @@
 
-[2019-2-9 08:05:26]
-this.setShort is not a function
-E:\KLF\KMUD\lib\world\sarta\Square.jsx:15
-        let __mec = __bfc(this || Square, 'private', 'create', __FILE__, false); try { this.setShort('The Central Square of Sarta');
-                                                                                            ^
+[2019-2-10 08:33:00]
+instances is not defined
+E:\KLF\KMUD\src\MUDCompiler.js:306
+            throw err;
+            ^
 
-TypeError: this.setShort is not a function
-    at Square.create (/world/sarta/Square.jsx:15:93)
-    at new GameObject (/base/GameObject.js:9:9)
-    at new Container (/base/Container.js:10:1)
-    at new Room (/base/Room.js:12:9)
-    at new Square (/world/sarta/Square.jsx:13:1)
-    at module.exports.ct (/world/sarta/Square.jsx:32:74)
+ReferenceError: instances is not defined
+    at require (/base/Container.js:1:190)
+    at require (/base/Room.js:1:185)
+    at require (/world/sarta/Square.jsx:1:201)

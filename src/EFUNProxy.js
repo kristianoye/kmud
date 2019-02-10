@@ -676,11 +676,10 @@ class EFUNProxy {
     /**
      * Determines whether the specified path expression is a directory.
      * @param {string} expr The path expression to check.
-     * @param {function(boolean,Error):void} callback Optional callback for async operation.
      * @returns {boolean} True if the path resolves to a directory.
      */
-    isDirectory(expr, callback) {
-        return driver.fileManager.isDirectory(this, this.resolvePath(expr), callback);
+    isDirectorySync(expr) {
+        return driver.fileManager.isDirectorySync(this, this.resolvePath(expr, this.directory));
     }
 
     /**

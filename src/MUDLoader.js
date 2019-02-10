@@ -107,15 +107,19 @@ class MUDLoader {
                             .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync);
                     }
                     access && access !== "public" && mec.assertAccess(ob, access, method, fileName);
-                    if (method && DriverApplies.indexOf(method) > -1) {
-                        if (!mec.isValidApplyCall(method, ob))
-                            throw new Error(`Illegal call to driver apply '${method}'`);
+                    if (false) {
+                        //  Optional security check to prevent non-driver calls to driver applies
+                        if (method && DriverApplies.indexOf(method) > -1) {
+                            if (!mec.isValidApplyCall(method, ob))
+                                throw new Error(`Illegal call to driver apply '${method}'`);
+                        }
                     }
                     //  Check access prior to pushing the new frame to the stack
                     if (access && !newContext)
                         return mec
                             .alarm()
-                            .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync);
+                            //  Previously only allowed objects inheriting from MUDObject to be allowed on stack
+                            .push(/* ob instanceof MUDObject && */ ob, method || '(undefined)', fileName, isAsync);
 
                     return mec;
                 },
@@ -160,10 +164,11 @@ class MUDLoader {
                 value: function (thisObject, type, file, method, con) {
                     let ecc = driver.getExecution(thisObject, 'constructor', file, false);
                     try {
-                        let result = undefined,
-                            fn = type.prototype && type.prototype.fileName,
+                        let result = undefined, 
+                            fn = type.prototype && type.prototype.baseName,
                             parts = fn && driver.efuns.parsePath(fn),
                             constructorType = typeof type === 'function' && type,
+                            instanceData = false,
                             module = false;
 
                         if (!parts && !constructorType) {
@@ -174,9 +179,14 @@ class MUDLoader {
                         }
                         if (parts) {
                             module = driver.cache.get(parts.file);
+
                             if (module) {
-                                ecc.newContext = Object.assign(module.getNewContext(parts.type), driver.newContext);
-                                if (!constructorType) constructorType = module.getType(parts.type);
+                                instanceData = ecc.newContext = Object.assign(
+                                    module.getNewContext(parts.type),
+                                    driver.newContext);
+
+                                if (!constructorType)
+                                    constructorType = module.getType(parts.type);
                             }
                             if (ecc.newContext.isVirtual)
                                 ecc.virtualParents.push(module);
@@ -184,7 +194,12 @@ class MUDLoader {
                         if (!constructorType) {
                             throw new Error(`Unable to load module for expression ${type}`);
                         }
-                        result = con(constructorType);
+                        if (instanceData) {
+                            result = module.create(constructorType, instanceData, con);
+                        }
+                        else
+                            result = con(constructorType);
+
                         return result;
                     }
                     finally {
@@ -209,6 +224,27 @@ class MUDLoader {
                 },
                 enumerable: false,
                 writable: false
+            },
+            __rmt: {
+                //  Reset Module Types
+                value: function (fileName) {
+                    let module = driver.cache.get(fileName);
+                    module.typeNames = [];
+                    module.types = {};
+                },
+                writable: false,
+                enumerable: false
+            },
+            __dmt: {
+                //  Define Module Type
+                value: function (fileName, type) {
+                    let module = driver.cache.get(fileName);
+                    module.types[type.name] = type;
+                    module.typeNames.push(type.name);
+                    if (typeof module.instanceMap[type.name] === 'undefined') {
+                        module.instanceMap[type.name] = [];
+                    }
+                }
             },
             Buffer: {
                 value: global.Buffer,
@@ -278,7 +314,23 @@ class MUDLoader {
             setTimeout: {
                 value: global.setTimeout,
                 writable: false
-            }
+            },
+            PACKAGE: {
+                value: 1,
+                writeable: false
+            },
+            PRIVATE: {
+                value: 1,
+                writable: false
+            },
+            PROTECTED: {
+                value: 2,
+                writeable: false
+            },
+            PUBLIC: {
+                value: 3,
+                writeable: false
+            },
         });
     }
 
@@ -315,6 +367,15 @@ class MUDLoader {
             type: 'text'
         }, optsIn), ecc = driver.getExecution();
         ecc.thisClient && ecc.thisClient.addPrompt(opts, callback);
+    }
+
+    get(usingType, key, val) {
+        console.log('get()');
+    }
+
+    set(usingType, key, val, access = 3) {
+        console.log('set()');
+
     }
 
     thisPlayer(flag) {

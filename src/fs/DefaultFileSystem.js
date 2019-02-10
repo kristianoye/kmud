@@ -302,16 +302,19 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Check to see if the expression is a directory.
-     * @param {FileSystemRequest} req The filesystem request.
+     * @param {string} relativePath The filesystem request.
      * @returns {boolean} True or false depending on whether the expression is a directory.
      */
-    isDirectorySync(req) {
-        return this.translatePath(req, fullPath => {
-            if (req.resolved && !req.fileName)
-                return true;
-            let stat = this.statSync(fullPath);
-            return stat.isDirectory;
-        });
+    isDirectorySync(relativePath) {
+        let absPath = this.translatePath(relativePath);
+
+        try {
+            let stat = fs.statSync(absPath);
+            return stat && stat.isDirectory();
+        }
+        catch (e) {
+        }
+        return false;
     }
 
     /**

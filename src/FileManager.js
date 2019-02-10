@@ -364,10 +364,12 @@ class FileManager extends MUDEventEmitter {
      * @param {function(boolean,Error):void} callback Callback receives a boolean value indicating True if the expression is a directory.
      * @returns {boolean} True if the expression is a directory.
      */
-    isDirectory(efuns, expr, callback) {
-        return this.createFileRequest('isDirectory', expr, typeof callback === 'function', 0, req => {
-            return req.securityManager.isDirectory(efuns, req, callback);
-        });
+    isDirectorySync(efuns, expr) {
+        let req = this.createFileRequest('isDirectory', expr, false, 0, null, efuns);
+        if (req.valid('validReadDirectory'))
+            return req.deny();
+        else
+            return req.fileSystem.isDirectorySync(req.relativePath);
     }
 
     /**

@@ -41,11 +41,11 @@ function parseIdentifierList(args, mn) {
 class MUDObject extends MUDEventEmitter {
     constructor() {
         super();
-        let ctx = false,
-            ecc = driver.getExecution(this, 'constructor', this.__proto__.fileName, this.constructor);
+
+        let ecc = driver.getExecution(this, 'constructor', this.__proto__.fileName, this.constructor);
         try {
             if (ecc && ecc.newContext) {
-                ctx = ecc.newContext;
+                let ctx = ecc.newContext;
                 delete ecc.newContext;
                 Object.defineProperties(this, {
                     createTime: {
@@ -67,17 +67,6 @@ class MUDObject extends MUDEventEmitter {
                         enumerable: false
                     }
                 });
-            }
-            else {
-                throw new Error(`Bad constructor setup for type ${this.constructor.name}`);
-            }
-            let store = ctx.$storage = global.driver.storage.create(this, ctx),
-                mec = driver.getExecution(driver, 'create', this.filename, this.constructor);
-            try {
-                this.create(store);
-            }
-            finally {
-                mec && mec.pop('create');
             }
         }
         finally {

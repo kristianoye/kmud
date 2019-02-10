@@ -13,7 +13,7 @@ class UpdateCommand extends Command {
             args[0] = thisPlayer().environment.filename;
 
         var path = efuns.resolvePath(args[0], thisPlayer().workingDirectory);
-        thisPlayer().writeLine(`Update ${path}: ${(efuns.reloadObject(path) ? '[OK]' : '[Failure]')}`);
+        write(`Update ${path}: ${(efuns.reloadObject(path) ? '[OK]' : '[Failure]')}`);
         return true;
     }
 }

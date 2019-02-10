@@ -19,7 +19,7 @@ class EditFileCommand extends Command {
             return this.webcmd(args, evt);
         }
 
-        if (efuns.isDirectory(fullPath))
+        if (efuns.isDirectorySync(fullPath))
             return 'You cannot edit a directory!';
 
         if (!efuns.driverFeature('editor')) {
@@ -40,7 +40,7 @@ class EditFileCommand extends Command {
             fileName = fullPath.slice(fullPath.lastIndexOf('/') + 1),
             newFile = !efuns.isFile(fullPath);
 
-        if (efuns.isDirectory(fullPath))
+        if (efuns.isDirectorySync(fullPath))
             return 'You cannot edit a directory!';
 
         thisPlayer().eventSend({

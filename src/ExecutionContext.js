@@ -97,7 +97,6 @@ class ExecutionContext extends MUDEventEmitter {
                 this.onComplete(this);
             this.emit('complete', this);
         }
-        console.log(`Context ID ${this.contextId} complete`);
         return this.suspend();
     }
 

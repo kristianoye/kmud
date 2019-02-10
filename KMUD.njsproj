@@ -253,6 +253,9 @@
     <Compile Include="lib\sys\lib\CommandShell.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\sys\lib\kmsh.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\sys\lib\Login.js">
       <SubType>Code</SubType>
     </Compile>

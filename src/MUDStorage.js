@@ -21,10 +21,8 @@ class MUDStorage extends MUDEventEmitter {
     /**
      * Construct a storage object.
      * @param {MUDObject} owner The owner of the storage object.
-     * @param {MUDCreationContext} ctx The creation context used to create the owner.
-     * @param {boolean} reload True if the object is only being reloaded.
      */
-    constructor(owner, ctx, reload) {
+    constructor(owner) {
         super();
 
         this.client = false;
@@ -32,7 +30,9 @@ class MUDStorage extends MUDEventEmitter {
         /** @type {MUDObject} The current environment */
         this.environment = null;
 
-        this.filename = owner ? owner.filename : '';
+        this.filename = typeof owner === 'object' ?
+            owner.filename :
+            typeof owner === 'string' && owner;
 
         this.flags = 0;
 
@@ -56,8 +56,6 @@ class MUDStorage extends MUDEventEmitter {
 
         /** @type {Object.<Symbol,any>} */
         this.symbols = {};
-
-        if (ctx) this.merge(ctx);
     }
 
     /**
@@ -173,26 +171,6 @@ class MUDStorage extends MUDEventEmitter {
             this.properties[prop] = parseInt(initialValue);
         this.properties[prop] += incrementBy;
         return this.owner;
-    }
-
-    /**
-     * Merge properties from a context.
-     * @param {MUDCreationContext} ctx The context to merge from
-     */
-    merge(ctx) {
-        ctx.private && Object.keys(ctx.private).forEach(key => {
-            this.private[key] = ctx.private[key];
-        });
-        ctx.props && Object.keys(ctx.props).forEach(key => {
-            this.properties[key] = ctx.props[key];
-        });
-        ctx.protected && Object.keys(ctx.protected).forEach(key => {
-            this.protected[key] = ctx.protected[key];
-        });
-        ctx.symbols && Object.getOwnPropertySymbols(ctx.symbols).forEach(key => {
-            this.symbols[key] = ctx.symbols[key];
-        });
-        return this;
     }
 
     /**
@@ -520,17 +498,13 @@ class MUDStorageContainer {
 
     /**
      * @param {MUDObject} ob
-     * @param {MUDCreationContext} ctx
      */
-    create(ob, ctx) {
-        return unwrap(ob, item => {
-            return this.storage[item.filename] = new MUDStorage(item, ctx);
-        });
+    create(ob) {
+        return this.storage[ob.filename] = new MUDStorage(ob);
     }
 
-    createForId(filename, id) {
-        let instanceId = `${filename}@${id}`;
-        return this.storage[instanceId] = new MUDStorage(null, null);
+    createForId(filename) {
+        return this.storage[filename] = new MUDStorage(filename);
     }
 
     /**
@@ -538,6 +512,11 @@ class MUDStorageContainer {
      * @param {MUDObject} ob
      */
     delete(ob) {
+        if (typeof ob === 'string') {
+            let store = this.storage[ob];
+            if (store) delete this.storage[ob];
+            return !!store;
+        }
         return unwrap(ob, item => {
             let instanceId = item._propKeyId;
             if (instanceId in this.storage) {
@@ -554,7 +533,7 @@ class MUDStorageContainer {
      * @returns {MUDStorage} The storage object for the item or false.
      */
     get(ob) {
-        return unwrap(ob, item => this.storage[item.filename] || false);
+        return this.storage[typeof ob === 'object' ? ob.filename : ob] || false;
     }
 
     /**

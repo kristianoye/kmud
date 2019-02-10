@@ -9,7 +9,6 @@ var
     async = require('async');
 
 var
-    creationContext = false,
     useAuthorStats = false,
     useDomainStats = false,
     useStats = false;
@@ -39,8 +38,11 @@ class MUDModule extends MUDEventEmitter {
 
         this.defaultInstance = false;
 
+        /** @type {string[]} */
+        this.typeNames = [];
+
         /** @type {Object.<string,function>} */
-        this.types = false;
+        this.types = {};
 
         this.exports = false;
 
@@ -72,8 +74,6 @@ class MUDModule extends MUDEventEmitter {
 
         this.singletons = false;
 
-        this.wrappers = [null];
-
         driver.preCompile(this);
 
         if (parent) {
@@ -92,8 +92,7 @@ class MUDModule extends MUDEventEmitter {
     }
 
     addExport(val) {
-        let newTypes = {}, // defined types in the module
-            singles = {},  // which types are singletons?
+        let singles = {},  // which types are singletons?
             sc = 0,
             prev = this.exports;
 
@@ -108,7 +107,6 @@ class MUDModule extends MUDEventEmitter {
                     let o = prev, c = o.constructor;
                     if (c) {
                         newExports[c.name] = o;
-                        newTypes[c.name] = c;
                         singles[c.name] = ++sc;
                         this.insertInstance(prev, c);
                     }
@@ -120,7 +118,6 @@ class MUDModule extends MUDEventEmitter {
                         let c = ex.constructor;
                         if (c) {
                             newExports[c.name] = ex;
-                            newTypes[c.name] = c;
                             singles[c.name] = ++sc;
                             this.insertInstance(ex, c);
                         }
@@ -137,7 +134,6 @@ class MUDModule extends MUDEventEmitter {
             }
             else if (prev === 'function') {
                 newExports[prev.name] = prev;
-                newTypes[prev.name] = prev;
                 sc++;
             }
             else
@@ -153,17 +149,11 @@ class MUDModule extends MUDEventEmitter {
                     this.singleton = this.singleton || c && true;
 
                     if (c) {
-                        newTypes[c.name] = c;
                         newExports[c.name] = val;
                         this.insertInstance(val, c);
                     }
                 }
             }
-            else if (efuns.isClass(val)) {
-                this.classRef = this.classRef || val;
-                newTypes[val.name] = val;
-            }
-
             this.exports = newExports;
         }
         //  Step 2: Create new exports entry
@@ -172,19 +162,14 @@ class MUDModule extends MUDEventEmitter {
             if (typeof val === 'object') {
                 if (!this.efuns.isPOO(val)) {
                     let c = val.constructor;
-                    newTypes[c.name] = c;
                     singles[c.name] = ++sc;
                     this.insertInstance(val, c);
                 }
                 else {
                     Object.keys(this.exports).forEach(key => {
                         let exp = this.exports[key];
-                        if (this.efuns.isClass(exp)) {
-                            newTypes[exp.name] = exp;
-                        }
-                        else if (exp instanceof MUDObject) {
+                        if (exp instanceof MUDObject) {
                             let c = exp.constructor;
-                            newTypes[c.name] = c;
                             singles[c.name] = ++sc;
                             this.insertInstance(exp, c);
                         }
@@ -192,33 +177,31 @@ class MUDModule extends MUDEventEmitter {
                 }
             }
             else if (this.efuns.isClass(val)) {
-                newTypes[val.name] = val;
                 this.defaultInstance = val;
             }
         }
-        this.types = newTypes;
         this.singletons = sc > 0 && singles;
     }
 
     createInstance(file, typeName, args) {
+        //  Sanity check
         if (file !== this.filename)
             return false;
+        //  No type name matching filename was found; Use first available if only one exists
         else if (!typeName || !this.types[typeName]) {
-            if (typeof this.defaultInstance === 'function') {
-                typeName = this.defaultInstance.name;
+            if (this.typeNames.length === 1) {
+                typeName = this.typeNames[0];
             }
             else return false;
         }
+        //  The module exported an instance of this type; This indicates the item cannot be cloned
         if (this.singletons[typeName])
             throw new Error(`Type ${typeName} is a singleton and cannot be cloned.`);
-        let ecc = driver.getExecution(), type = this.types[typeName],
-            instanceList = this.instanceMap[typeName] || [],
+
+        let type = this.types[typeName],
             createContext = this.getNewContext(typeName, true, args);
 
-        ecc.newContext = createContext;
-        instanceList[createContext.instanceId] = new type(...args);
-        this.instanceMap[typeName] = instanceList;
-
+        this.create(type, createContext, args);
         return this.getInstanceWrapper({
             file,
             type: typeName,
@@ -227,22 +210,43 @@ class MUDModule extends MUDEventEmitter {
 
     }
 
+    create(type, instanceData, args = []) {
+        try {
+            // Storage needs to be set before starting...
+            let store = driver.storage.createForId(instanceData.filename),
+                ecc = driver.getExecution();
+
+            ecc.newContext = instanceData;
+
+            let instance = typeof args === 'function' ? args(type) : new type(...args);
+            this.finalizeInstance(instance, !instance.filename && instanceData);
+            if (typeof instance.create === 'function') instance.create();
+            store.owner = instance;
+            return instance;
+        }
+        catch (err) {
+            /* rollback object creation */
+            driver.storage.delete(instanceData.filename);
+        }
+        finally {
+        }
+    }
+
     createInstances(isReload) {
-        Object.keys(this.types).forEach((typeName, i) => {
+        Object.keys(this.types).forEach(typeName => {
             let type = this.types[typeName];
             if (type.prototype instanceof MUDObject) {
-                let instances = this.instanceMap[typeName] || [];
-                if (isReload || !instances[0]) {
+                if (isReload || !this.instanceMap[typeName][0]) {
                     let ctx = driver.executionContext;
                     if (!ctx)
                         throw new Error('No execution context is currently running');
                     ctx.newContext = this.getNewContext(type, 0);
-                    instances[0] = new type();
-                    this.instanceMap[typeName] = instances;
+                    this.create(type, this.getNewContext(type, 0));
                 }
-                this.defaultInstance = i === 0 && instances[0];
             }
         });
+        if (this.typeNames.length === 1)
+            this.defaultInstance = this.instanceMap[this.typeNames[0]][0];
     }
 
     createObject(id, creationContext) {
@@ -260,7 +264,38 @@ class MUDModule extends MUDEventEmitter {
         let targetId = unwrap(t, ob => this.instances.indexOf(ob)) || t;
         var id = t.instanceId;
         this.wrappers[id] = null;
-        this.instances[id] = null;
+    }
+
+    finalizeInstance(instance, instanceData) {
+        let type = instance.constructor.name;
+
+        if (typeof this.types[type] === 'undefined')
+            throw new Error(`Module ${this.this.filename} does define type ${type}!`);
+
+        if (instanceData) {
+            Object.defineProperties(instance, {
+                createTime: {
+                    value: new Date().getTime(),
+                    writable: false
+                },
+                filename: {
+                    value: instanceData.filename,
+                    writable: false
+                },
+                instanceId: {
+                    value: instanceData.instanceId,
+                    writable: false,
+                    enumerable: true
+                },
+                isVirtual: {
+                    value: instanceData.isVirtual === true,
+                    writable: false,
+                    enumerable: false
+                }
+            });
+        }
+        this.instanceMap[type][instance.instanceId] = instance;
+        Object.freeze(instance);
     }
 
     /**
@@ -327,7 +362,7 @@ class MUDModule extends MUDEventEmitter {
         let instanceId = typeof idArg === 'number' ? idArg : (this.instanceMap[typeName] || []).length,
             filename = this.filename + (this.name !== typeName ? '$' + typeName : '');
         if (instanceId > 0) filename += '#' + instanceId;
-        return { filename, instanceId, args };
+        return { filename, instanceId, args: args || [] };
     }
 
     /**

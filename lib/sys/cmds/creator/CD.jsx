@@ -12,12 +12,12 @@ class CDCommand extends Command {
         var player = thisPlayer,
             path = efuns.resolvePath(args[0] || '~', player.workingDirectory);
 
-        if (efuns.isDirectory(path)) {
+        if (efuns.isDirectorySync(path)) {
             player.workingDirectory = path;
-            player.writeLine('Directory changed');
+            write('Directory changed');
         }
         else {
-            player.writeLine('No such file or directory: ' + path);
+            write('No such file or directory: ' + path);
         }
         return true;
     }

@@ -8,7 +8,10 @@
 const
     PipelineComponent = require('./PipelineComponent'),
     PipeContext = require('./PipelineContext'),
-    PipelineContext = PipeContext.PipelineContext,
+    SettersGetters = [
+        'get',
+        'set'
+    ],
     acorn = require('acorn'),
     modifiers = require('./SecurityModifiers'),
     jsx = require('acorn-jsx');
@@ -22,6 +25,8 @@ const
         '__afa',
         '__bfc',    // Begin Function Call
         '__efc',    // End Function Call
+        '__rmt',    // Reset Module Types
+        '__dmt',    // Define Module Type
         '__iac',
         '__dac',
         '__pcc',    // Perform Constructor Call
@@ -69,6 +74,7 @@ class JSXTranspilerOp {
         this.callerId = [];
         this.context = p.context;
         this.filename = p.filename;
+        this.filepart = p.filename.slice(p.filename.lastIndexOf('/') + 1);
         this.jsxDepth = 0;
         this.jsxIndent = '';
         this.max = p.source.length;
@@ -115,6 +121,18 @@ class JSXTranspilerOp {
     eatWhitespace() {
         while (this.pos < this.max && this.source.charAt(this.pos).trim() === '')
             this.pos++;
+    }
+
+    /**
+     * Creates a unique filename for a class
+     * @param {string} className The name of the class being defined
+     * @returns {string} Returns a string representing the module path + class
+     */
+    getBaseName(className) {
+        if (this.filepart === className)
+            return this.filename;
+        else
+            return `${this.filename}$${className}`;
     }
 
     getCallerId() {
@@ -361,7 +379,23 @@ function parseElement(op, e, depth) {
                     }
                     else if (e.callee.type === 'Identifier') {
                         propName = callee = parseElement(op, e.callee, depth + 1);
-                        op.addCallerId(propName);
+                        if (SettersGetters.indexOf(propName) > -1) {
+                            if (!op.thisClass)
+                                throw new Error(`The ${propName} operator can only be used inside a class.`);
+
+                            // set.call(this, ... args)
+                            ret += propName;
+                            ret += `.call(this, ${op.thisClass}, `
+                            if (e.arguments.length > 0) {
+                                let unusedText = op.readUntil(e.arguments[0].start);
+                            }
+                            e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
+                            ret += op.readUntil(e.end);
+                            isCallout = true;
+                            writeCallee = false;
+                        }
+                        else
+                            op.addCallerId(propName);
                     }
                     else if (e.callee.type === 'Super') {
                         propName = callee = parseElement(op, e.callee, depth + 1);
@@ -430,8 +464,7 @@ function parseElement(op, e, depth) {
                 else if (op.injectedSuperClass)
                     ret += ` extends ${op.injectedSuperClass}`;
                 ret += parseElement(op, e.body, depth + 1);
-                // op.appendText += `\n\n${e.id.name}.prototype.fileName = '${context.basename}';\n`;
-                ret += ` ${e.id.name}.prototype.fileName = '${op.context.basename}'; `;
+                ret += ` ${e.id.name}.prototype.baseName = '${op.getBaseName(e.id.name)}'; __dmt("${op.filename}", ${e.id.name}); `;
                 break;
 
             case 'ConditionalExpression':
@@ -482,6 +515,11 @@ function parseElement(op, e, depth) {
 
             case 'FunctionDeclaration':
                 {
+                    let functionName = e.id.name; 
+                    if (IllegalIdentifiers.indexOf(functionName) > -1)
+                        throw new Error(`Illegal function name: ${functionName}`);
+                    else if (SettersGetters.indexOf(functionName) > -1)
+                        throw new Error(`Illegal function name: ${functionName}`);
                     ret += parseElement(op, e.id, depth + 1);
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
                     if (op.thisClass) {
@@ -805,6 +843,7 @@ class JSXTranspilerForAcornJsx5 extends PipelineComponent {
         try {
             if (this.enabled) {
                 op.ast = this.parser.parse(op.source, op.acornOptions);
+                op.output += `__rmt("${op.filename}");`
                 op.ast.body.forEach(n => op.output += parseElement(op, n, 0));
                 op.output += op.readUntil(op.max);
                 op.output += op.appendText;
