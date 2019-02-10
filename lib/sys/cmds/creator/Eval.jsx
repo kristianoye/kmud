@@ -15,28 +15,21 @@ class EvalCommand extends Command {
                 evalCode() { ${evt.input} };
             }
 
-            module.exports = EvalTemp;
+            module.exports = new EvalTemp();
         `;
 
-        efuns.writeFile(tempFile, source, (success, error) => {
-            if (success) {
-                try {
-                    let evalCode = efuns.reloadObject(tempFile);
-                    let result = unwrap(evalCode, ob => ob.evalCode());
-                    write(efuns.identify(result));
-                }
-                catch (ex) {
-                    write(`Error: ${ex.message}`);
-                    write(ex.stack);
-                }
-                finally {
-                    evt.complete();
-                }
+        if (efuns.writeFile(tempFile, source)) {
+            try {
+                let evalCode = efuns.reloadObjectSync(tempFile);
+                let result = unwrap(evalCode, ob => ob.evalCode());
+                write(efuns.identify(result));
             }
-            else throw error;
-        });
-
-        return evt.complete;
+            catch (ex) {
+                write(`Eval: Error: ${ex.message}`);
+                write(ex.stack);
+            }
+        }
+        return true;
     }
 
     getHelp() {

@@ -70,6 +70,10 @@ class MUDEventEmitter {
         return this.addListener(eventName, listener, false, false);
     }
 
+    once(eventName, listener) {
+        return this.addListener(eventName, listener, false, true);
+    }
+
     prependListener(eventName, listener) {
         return this.addListener(eventName, listener, true, false);
     }

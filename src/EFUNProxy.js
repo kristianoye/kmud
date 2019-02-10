@@ -402,6 +402,15 @@ class EFUNProxy {
     }
 
     /**
+     * Gets the directory name from an object instance.
+     * @param {MUDWrapper} target The MUD object.
+     */
+    directoryName(target) {
+        let dir = unwrap(target, o => o.filename) || target;
+        return typeof dir === 'string' && dir.slice(0, dir.lastIndexOf('/'));
+    }
+
+    /**
      * Switch an interactive object's body instance.
      * @param {MUDObject} oldBody The body that is being left behind.
      * @param {MUDObject} newBody The body that the user is switching into.
@@ -448,7 +457,7 @@ class EFUNProxy {
                         }
                         throw e;
                     }
-                }));
+                }, this.fileName, true));
 
             if (!result) // TODO: Add config-based error string message here ... or driver apply
                 this.write('You twitch, but nothing happens.');
@@ -933,8 +942,13 @@ class EFUNProxy {
         if (typeof fileExpr !== 'string' || fileExpr.length < 2)
             throw new Error('Bad argument 1 to parsePath');
 
-        let [path, instance] = (fileExpr.startsWith('/') ? fileExpr : this.resolvePath(fileExpr)).split('#'),
-            [file, type] = path.split('$');
+        let ls = fileExpr.lastIndexOf('/'), ld = fileExpr.lastIndexOf('.');
+        if (ld > ls) {
+            fileExpr = fileExpr.slice(0, ld);
+        }
+
+        let [path, instance] = (fileExpr.startsWith('/') ? fileExpr : this.resolvePath(fileExpr)).split('#', 2),
+            [file, type] = path.split('$', 2);
 
         if ((instance = parseInt(instance)) < 0 || isNaN(instance))
             instance = 0;
@@ -1420,11 +1434,11 @@ class EFUNProxy {
 
     /**
      * Attempts to reload an object
-     * @param {string} path The object to reload.
+     * @param {string} expr The object to reload.
      * @returns {boolean} Returns true if the object recompiled successfully.
      */
-    reloadObject(path) {
-        return driver.fileManager.reloadObject(this, this.resolvePath(path));
+    reloadObjectSync(expr) {
+        return driver.fileManager.loadObjectSync(this, this.resolvePath(expr), undefined, 1);
     }
 
     /**
@@ -1449,7 +1463,7 @@ class EFUNProxy {
                     let isInclude = moduleName.indexOf('/') === -1,
                         filename = isInclude ?
                             this.resolveInclude(moduleName) :
-                            this.resolvePath(moduleName, this.directory),
+                            this.resolvePath(moduleName, this.directoryName(this.filename)),
                         module = driver.compiler.compileObject({
                             file: filename,
                             reload: false,

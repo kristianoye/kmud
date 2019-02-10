@@ -50,13 +50,8 @@ class VMWrapper extends VMAbstraction {
             'require = function(str) { return efuns.require(str);  };',
             context.content,
             ' })()'].join('');
-        let ctx = driver.getContext();
 
-        ctx.directory = module.directory;
-        ctx.filename = module.filename;
-
-        let result = vm.runInContext(content, module.context, options);
-        return result;
+        return vm.runInContext(content, module.context, options);
     }
 }
 

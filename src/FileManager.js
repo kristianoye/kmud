@@ -388,13 +388,13 @@ class FileManager extends MUDEventEmitter {
     /**
      * Load an object from disk.
      * @param {EFUNProxy} efuns The efuns instance making the call.
-     * @param {PathExpr} expr Information about what is being requested.
+     * @param {string} expr Information about what is being requested.
      * @param {any} args Data to pass to the constructor.
-     * @param {function(MUDObject): any} callback Uhhh sync callback
+     * @param {number} flags Flags to control the operation
      * @returns {MUDObject} The loaded object... hopefully
      */
-    loadObjectSync(efuns, expr, args) {
-        let req = this.createFileRequest('LoadObject', expr, false, 0, null, efuns);
+    loadObjectSync(efuns, expr, args, flags = 0) {
+        let req = this.createFileRequest('LoadObject', expr, false, flags, null, efuns);
         if (!req.valid())
             return req.deny();
         else

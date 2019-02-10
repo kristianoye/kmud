@@ -357,7 +357,7 @@ declare class FileManager {
      * @param expr The filename to reload.
      * @param callback An optional callback for async operation.
      */
-    reloadObject(efuns: EFUNProxy, expr: string, callback: (module: MUDModule, err: Error) => void): MUDObject;
+    reloadObjectSync(efuns: EFUNProxy, expr: string, callback: (module: MUDModule, err: Error) => void): MUDObject;
 
 
     /**

@@ -396,7 +396,7 @@ declare class EFUNProxy {
     * @param {string} path The path to the module file.
     * @returns {boolean} True if the object loaded successfully, false if it was not found or failed.
     */
-    reloadObject(path: string): boolean;
+    reloadObjectSync(path: string): boolean;
 
     /**
      * Resolves a path into a fully-qualified MUD path.

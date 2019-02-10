@@ -230,7 +230,7 @@ class MUDCompiler {
             }
         }
         try {
-            var pipeline = this.getPipeline(context);
+            let pipeline = this.getPipeline(context);
 
             if (pipeline === false)
                 throw new Error(`Could not load ${context.filename} [unknown extension]`);
@@ -265,15 +265,12 @@ class MUDCompiler {
                 let isReload = module.loaded;
 
                 if (!options.noCreate) {
-                    module.createInstances();
+                    module.createInstances(isReload === true);
                 }
-                if (isReload && typeof result.onRecompile === 'function') {
-                    // TODO: Make this an event
-                    result.onRecompile(instance);
-                }
-
-                module.loaded = true;
-                isReload && module.recompiled() || this.driver.cache.store(module);
+                if (isReload)
+                    module.recompiled();
+                else
+                    module.loaded = true, driver.cache.store(module);
 
                 return module;
             }

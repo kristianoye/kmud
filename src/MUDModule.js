@@ -220,7 +220,11 @@ class MUDModule extends MUDEventEmitter {
 
             let instance = typeof args === 'function' ? args(type) : new type(...args);
             this.finalizeInstance(instance, !instance.filename && instanceData);
-            if (typeof instance.create === 'function') instance.create();
+            if (typeof instance.create === 'function') {
+                driver.driverCall('create', () => {
+                    instance.create();
+                }, instance.filename, true);
+            }
             store.owner = instance;
             return instance;
         }
@@ -237,10 +241,10 @@ class MUDModule extends MUDEventEmitter {
             let type = this.types[typeName];
             if (type.prototype instanceof MUDObject) {
                 if (isReload || !this.instanceMap[typeName][0]) {
-                    let ctx = driver.executionContext;
-                    if (!ctx)
+                    let ecc = driver.getExecution();
+                    if (!ecc)
                         throw new Error('No execution context is currently running');
-                    ctx.newContext = this.getNewContext(type, 0);
+                    ecc.newContext = this.getNewContext(type, 0);
                     this.create(type, this.getNewContext(type, 0));
                 }
             }
@@ -295,7 +299,6 @@ class MUDModule extends MUDEventEmitter {
             });
         }
         this.instanceMap[type][instance.instanceId] = instance;
-        Object.freeze(instance);
     }
 
     /**
@@ -307,8 +310,6 @@ class MUDModule extends MUDEventEmitter {
         if (typeof req === 'number') {
             req = { type: this.name, instance: req, file: this.fullPath };
         }
-        if (req.file !== this.fullPath && req.file !== this.filename)
-            return false;
         else if (!this.types[req.type]) {
             return req.instance === 0 && this.defaultInstance;
         }
@@ -333,9 +334,19 @@ class MUDModule extends MUDEventEmitter {
                     if (instance && !instance.isDestructed)
                         return instance;
 
+                    this.once('recompiled', () => {
+                        let typeName = instance.constructor.name;
+                        instance = this.instanceMap[typeName][req.instance] =
+                            this.create(this.getType(typeName), {
+                                filename: req.file,
+                                instanceId: req.instance,
+                                isVirtual: instance && instance.isVirtual
+                            });
+                    });
                     return instance = this.getInstance(req);
                 };
             })();
+
             Object.defineProperties(wrapper, {
                 isWrapper: {
                     value: true,
@@ -400,33 +411,34 @@ class MUDModule extends MUDEventEmitter {
      * child instances are updated as well.
      */
     recompiled() {
-        async.forEach(this.instances, (item, callback) => {
-            var instanceId = item.instanceId;
-            if (instanceId > 0) {
-                logger.log('Updating instance...');
-                this.createInstance(instanceId, true, []);
-            }
-            callback();
-        }, err => {
-            if (err) {
-                logger.log('There was an error during re-compile: ' + err);
-            }
-            else {
-                logger.log('All instances updated, recompiling children...');
-                async.forEach(this.children, (childName, innerCallback) => {
-                    try {
-                        logger.log('Re-compiling ' + childName.filename);
-                        driver.compiler.compileObject({ file: childName.filename, reload: true });
-                    }
-                    catch (e) {
-                        driver.errorHandler(e, false);
-                    }
-                    innerCallback();
-                }, err => {
-                    logger.log('All children of ' + this.filename + ' have been updated');
-                });
-            }
-        });
+        this.emit('recompiled', this);
+        //async.forEach(this.instances, (item, callback) => {
+        //    var instanceId = item.instanceId;
+        //    if (instanceId > 0) {
+        //        logger.log('Updating instance...');
+        //        this.createInstance(instanceId, true, []);
+        //    }
+        //    callback();
+        //}, err => {
+        //    if (err) {
+        //        logger.log('There was an error during re-compile: ' + err);
+        //    }
+        //    else {
+        //        logger.log('All instances updated, recompiling children...');
+        //        async.forEach(this.children, (childName, innerCallback) => {
+        //            try {
+        //                logger.log('Re-compiling ' + childName.filename);
+        //                driver.compiler.compileObject({ file: childName.filename, reload: true });
+        //            }
+        //            catch (e) {
+        //                driver.errorHandler(e, false);
+        //            }
+        //            innerCallback();
+        //        }, err => {
+        //            logger.log('All children of ' + this.filename + ' have been updated');
+        //        });
+        //    }
+        //});
     }
 
     sealTypes() {
