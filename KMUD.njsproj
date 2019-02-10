@@ -250,13 +250,17 @@
     <Compile Include="lib\sys\include\Daemon.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\sys\lib\BaseShell.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\sys\lib\CommandShell.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\lib\kmsh.js">
+    <Compile Include="lib\sys\lib\CreatorShell.js" />
+    <Compile Include="lib\sys\lib\Login.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\lib\Login.js">
+    <Compile Include="lib\sys\lib\PlayerShell.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\lib\SimulEfuns.js">

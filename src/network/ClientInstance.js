@@ -259,15 +259,22 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                             this.writeLine(`Error in command preprocessor: ${err.message}`);
                         }
                     for (let i = 0; i < cmds.length; i++) {
-                        if (!body.executeCommand(cmdEvent)) {
-                            this.writeLine(cmdEvent.error);
+                        try {
+                            if (!body.executeCommand(cmds[i])) {
+                                this.writeLine(cmds[i].error);
+                            }
+                        }
+                        catch (err) {
+                            this.writeLine('Error: ' + err.message);
+                            cmdEvent.complete();
+                        }
+                        finally {
                         }
                     }
                 }
             }
             catch (ex) {
                 driver.errorHandler(ex, false);
-                cmdEvent.complete();
             }
         });
     }
