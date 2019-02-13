@@ -325,6 +325,7 @@ function parseElement(op, e, depth) {
                 break; 
 
             case 'AssignmentExpression':
+            case 'AssignmentPattern':
                 ret += parseElement(op, e.left, depth + 1);
                 ret += parseElement(op, e.right, depth + 1);
                 break;

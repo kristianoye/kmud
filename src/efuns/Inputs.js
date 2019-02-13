@@ -5,6 +5,17 @@
  * 
  * Helper methods for user input interactions
  */
+const
+    OP_AND = '&&',
+    OP_OR = '||',
+    OP_PIPE = '|',
+    OP_SEMI = ';';
+
+const
+    T_BG = 'BG',
+    T_IO = 'IO',
+    T_OPERATOR = 'OP',
+    T_WORD = 'WORD';
 
 class InputHelper {
     /**
@@ -23,15 +34,12 @@ class InputHelper {
      * @param {string} input The input to parse
      * @returns {string[]} Returns the input split into argument form
      */
-    static splitArgs(input, preserveWhitespace = false, getIO = false) {
+    static splitArgs(input, preserveWhitespace = false) {
         let text = input.trim(),
             isEscaped = false,
             isString = false,
-            ioTarget = false,
             current = '',
             args = [],
-            io = {},
-            ioMode = false,
             i = 0, s = 0,
             m = text.length,
             last = m - 1,
@@ -54,29 +62,6 @@ class InputHelper {
                     isEscaped = true;
                     break;
 
-                case '1':
-                case '2':
-                case '>':
-                case '&':
-                case ':':
-                    if (getIO) {
-                        ioMode += c;
-                        switch (n) {
-                            case '>':
-                            case '':
-                                ioMode += c;
-                                i++;
-                                n = text.charAt(i + 1);
-                                if (n === '>') {
-                                    ioMode += c;
-                                    i++;
-                                }
-                                break;
-
-                        }
-                    }
-                    break;
-
                 case '"':
                 case "'":
                     if (isString && isString === c) {
@@ -95,10 +80,7 @@ class InputHelper {
                     if (/\s/.test(c) && !isString) {
                         current += eatWhitespace();
                         if (current) {
-                            if (ioMode)
-                                io[ioMode] = current;
-                            else
-                                args.push(current);
+                            args.push(current);
                         }
                         current = '';
                         i--;
@@ -112,42 +94,301 @@ class InputHelper {
             throw new Error(`Bad argument 1 to splitArgs: Unterminated string staring at position ${s}`);
 
         if (current) {
-            if (ioMode)
-                io[ioMode] = current;
-            else
-                args.push(current);
+            args.push(current);
         }
-        else if (ioMode)
-            throw new Error(`Bad argument 1 to splitArgs: Unterminated file I/O specification`);
 
-        return getIO ? { args, io } : args;
+        return args;
     }
 
     /**
-     * Splits a line of text into component parts.
-     * @param {string} original The text to split
-     * @param {boolean} [getArgs] Also split the remaining text into an array
-     * @returns {{ verb: string, text: string, args: string[], original: string }} Returns command components
+     * @typedef {Object} SplitCommandOptions
+     * @property {Object.<string,string>} [aliases] The user's aliases
+     * @property {boolean} [allowBackground] Indicates the user can make a command async by appending (&)
+     * @property {boolean} allowChaining Indicates operators like logical and (&&), local or (||), and semicolons (;) are parsed
+     * @property {boolean} allowFileExpressions Indicates that file expressions should be expanded, otherwise it is treated as literal text.
+     * @property {boolean} allowFileIO Indicates file I/O operations should be parsed out, otherwise it is literal text.
+     * @property {boolean} allowFunctionVariables Controls whether variables can be functions.
+     * @property {boolean} allowPiping Indicates command piping will be split out, otherwise it is literal text.
+     * @property {boolean} expandAliases Controls whether aliases are expanded or not.
+     * @property {boolean} expandVariables Control whether variable expansion occurs or not.
+     * @property {boolean} expandHistory Control whether history expansion occurs or not.
+     * @property {Object.<number,string>} [history] The user's history
+     * @property {Object.<string,function(...string):string>} [variables] The user's environment variables
+     * @property {function(MUDInputEvent,SplitCommandOptions):boolean} [onFirstVerb] A callback to execute once the first verb is determined. This can be used to modify the split settings.
+     * @property {MUDObject} [user] The user running the command.
      */
-    static splitCommand(original, getArgs = false, getIO = false) {
-        let [verb, text] = InputHelper.getVerb(original),
-            { args, io } = getArgs || getIO ?
-                InputHelper.splitArgs(original, false, true) : {};
 
-        if (getArgs || getIO) {
-            return {
-                verb,
-                text,
-                original,
-                args
+    /**
+     * Splits a command into verb and other component parts per the options selected.
+     * @param {string} text The original input from the user
+     * @param {SplitCommandOptions} options Options when parsing
+     * @returns {MUDInputEvent[]} One or more command statements
+     */
+    static splitCommand(source, options = {}) {
+        let settings = Object.assign({
+            allowBackground: false,
+            allowChaining: false,
+            allowFileExpressions: false,
+            allowFileIO: false,
+            allowPiping: false,
+            expandHistory: true,
+            expandVariables: true,
+            history: {},
+            variables: {}
+        }, options);
+
+        let i = 0,
+            m = source.length,
+            op,
+            cmd,
+            cmds = [],
+            prev,
+            eatWhitespace = () => {
+                let ws = '';
+                while (i < m && /\s+/.test(source.charAt(i)))
+                    ws += source.charAt(i++);
+                return ws && --i, ws;
+            },
+
+            nextToken = () => {
+                let isEscaped = false,
+                    isString = false,
+                    result = { value: '', type: T_WORD, pos: i, arg: '' },
+                    sendToken = token => {
+                        if (token) {
+                            if (!result.value) {
+                                i = token.pos + token.value.length;
+                                return token;
+                            }
+                            result.end = (i = token.pos) - 1;
+                            return result;
+                        }
+                        return result;
+                    };
+                if (i === m)
+                    return false;
+                for (; i < m; i++) {
+                    let c = source.charAt(i);
+                    if (isEscaped) result.value += c;
+                    else switch (c) {
+                        /* Quoted blocks */
+                        case '"':
+                        case "'":
+                            if (isString === c)
+                                isString = false;
+                            else if (isString)
+                                result.value += c;
+                            break;
+
+                        case '&':
+                            if (source.charAt(i + 1) === '&') {
+                                if (settings.allowChaining)
+                                    return sendToken({ type: T_OPERATOR, value: OP_AND, pos: i++ });
+                            }
+                            else if (source.charAt(i + 1) !== '>') {
+                                if (settings.allowBackground)
+                                    return sendToken({ type: T_BG, value: 'true', pos: i });
+                                result.value += c;
+                                break;
+                            }
+                        /* intentionally fall through to I/O */
+
+                        /* I/O redirect stuff */
+                        case '>':
+                        case '1':
+                        case '2':
+                        case ':':
+                            if (settings.allowFileIO) {
+                                let n = source.charAt(i + 1),
+                                    nn = source.charAt(i + 2),
+                                    mode = c + (n === '>' ? n : '') + (nn === '>' ? nn : '');
+
+                                if (mode === '&') {
+                                    if (settings.allowBackground)
+                                        return sendToken({ type: T_BG, value: 'true', pos: i });
+                                    else {
+                                        result.value += c;
+                                        break;
+                                    }
+                                }
+                                else {
+                                    /*
+                                        case '>':
+                                        case '>>':
+                                        case ':>':
+                                        case '&>':
+                                        case '&>>':
+                                        case '1>':
+                                        case '1>>':
+                                        case '2>':
+                                        case '2>>':
+                                     */
+                                    i += mode.length - 1;
+                                    let arg = nextToken();
+                                    if (!arg)
+                                        throw new Error(`-kmsh: Missing expected token WORD after ${mode} I/O operator at position ${i}`);
+                                    if (arg.type !== T_WORD)
+                                        throw new Error(`-kmsh: Unexpected token ${result.arg.type} after ${mode} at position ${i}`);
+                                    result.value = mode;
+                                    result.arg = arg;
+                                    result.type = T_IO;
+                                    return sendToken();
+                                }
+                            }
+                            else {
+                                result.value += c;
+                                break;
+                            }
+
+                        case '|':
+                            if (source.charAt(i + 1) === '|' && settings.allowChaining) {
+                                return sendToken({ type: T_OPERATOR, value: OP_OR, pos: i });
+                            }
+                            else if (settings.allowPiping) {
+                                /* eat extra pipes and whitespace */
+                                while (/[\|\s]/.test(source.charAt(i + 1))) i++;
+                                return sendToken({ type: T_OPERATOR, value: OP_PIPE, pos: i });
+                            }
+                            else
+                                result.value += c;
+                            break;
+
+                        case ';':
+                            if (settings.allowChaining) {
+                                return sendToken({ type: T_OPERATOR, value: OP_SEMI, pos: i });
+                            }
+                            result.value += c;
+                            break;
+
+                        case '$':
+                            result.hasVariables = true;
+                            result.value += c;
+                            break;
+
+                        case '!':
+                            result.hasHistory = true;
+                            result.value += c;
+                            break;
+
+                        case '*':
+                        case '?':
+                            result.hasWildcards = true;
+                            result.value += c;
+                            break;
+
+                        default:
+                            let ws = eatWhitespace();
+                            if (ws) {
+                                 // Only trailing whitespace is appended.  Leading whitespace is ignored.
+                                if (result.value)
+                                    return result.arg = ws, sendToken();
+                            }
+                            else
+                                result.value += c;
+                            break;
+                    }
+                }
+                if (i === m)
+                    return sendToken();
+                throw new Error(`Unexpected end of input at position ${i} / ${m}`);
+            },
+            nextCommandOrOperator = () => {
+                let result = false, token;
+                while (token = nextToken()) {
+                    switch (token.type) {
+                        case T_BG:
+                            if (!result)
+                                throw new Error(`-kmsh: Unexpected token (&) at position ${token.pos}; Expected command.`);
+                            result.background = true;
+                            break;
+
+                        case T_IO:
+                            if (!result)
+                                throw new Error(`-kmsh: Unexpected token (${token.value}) at position ${token.pos}; Expected command.`);
+                            result.io.push({ mode: token.value, arg: token.arg });
+                            break;
+
+                        case T_OPERATOR:
+                            if (result) {
+                                i = token.pos; // Rewind
+                                return result;
+                            }
+                            return token;
+
+                        case T_WORD:
+                            if (!result) {
+                                result = {
+                                    verb: token.value,
+                                    background: false,
+                                    args: [],
+                                    original: token.value + token.arg,
+                                    hasHistory: token.hasHistory === true,
+                                    hasVariables: token.hasVariables === true,
+                                    hasWildcards: token.hasWildcards === true,
+                                    io: [],
+                                    and: false,
+                                    or: false,
+                                    start: token.pos,
+                                    text: ''
+                                };
+                                if (cmds.length === 0 && settings.onFirstVerb)
+                                    settings.onFirstVerb(result, settings);
+                            }
+                            else if (token.value) {
+                                result.args.push(token.value);
+                                result.text += token.value + token.arg;
+                                result.original += token.value + token.arg;
+                                result.hasHistory |= token.hasHistory;
+                                result.hasVariables |= token.hasVariables;
+                                result.hasWildcards |= token.hasWildcards;
+                                if ((result.end = token.end) > 0)
+                                    return result;
+                            }
+                            break;
+
+                        default:
+                            throw new Error(`Unexpected token type: ${op.type || '(UNKNOWN)'} at position ${i}`);
+                    }
+                }
+                return result;
             };
+
+        while (cmd = nextCommandOrOperator()) {
+            if (cmd.verb) {
+                cmds.push(prev = cmd);
+            }
+            else if (cmd.type == T_OPERATOR) {
+                let op = cmd;
+                cmd = nextCommandOrOperator();
+                switch (op.value) {
+                    case OP_AND:
+                        if (!prev.tail)
+                            prev.tail = prev.then = cmd;
+                        else
+                            prev.tail.then = cmd, prev.tail = cmd;
+                        break;
+
+                    case OP_OR:
+                        prev.or = cmd, prev = cmd;
+                        break;
+
+                    case OP_PIPE:
+                        prev.next = cmd, prev = cmd;
+                        break;
+
+                    case OP_SEMI:
+                        prev = false;
+                        cmds.push(cmd);
+                        break;
+
+                    default:
+                        throw new Error(`-kmsh: Unhandled operator ${op.value} `)
+                }
+            }
+            else if (cmd.type)
+                throw new Error(`Unexpected token ${cmd.type} at position ${cmd.pos}`);
         }
-        return {
-            verb,
-            text,
-            original,
-            args: false
-        };
+        return cmds;
     }
 }
 
