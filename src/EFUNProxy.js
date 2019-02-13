@@ -5,7 +5,6 @@
  */
 const
     crypto = require('crypto'),
-    fs = require('fs'),
     path = require('path'),
     os = require('os'),
     sprintf = require('sprintf').sprintf;
@@ -20,6 +19,11 @@ const
     PLURAL_SUFFIX = 1,
     PLURAL_SAME = 2,
     PLURAL_CHOP = 2;
+
+const
+    ArrayHelper = require('./efuns/Arrays'),
+    EnglishHelper = require('./efuns/English'),
+    InputHelper = require('./efuns/Inputs');
 
 var
     IncludeCache = {},
@@ -94,6 +98,8 @@ class EFUNProxy {
             return driver.inGroup(target, 'admin', 'arch');
         });
     }
+
+    get arrays() { return ArrayHelper; }
 
     arrayToSentence(list, useOr, consolidate, useNumbers) {
         useOr = typeof useOr === 'boolean' ? useOr : false;
@@ -255,18 +261,6 @@ class EFUNProxy {
         return rows.join('\n');
     }
 
-    /**
-     * Consolidates a number of short descriptions into an array to be used in a sentence.
-     * @param {string[]|MUDObject[]} arr An array of strings and/or MUD Objects.
-     * @returns {string[]} A considated array (e.g. ["two swords", "three buckets"])
-     */
-    consolidateArray (arr) {
-        let shorts = {};
-        arr.map(s => typeof s === 'string' && s || unwrap(uw => uw.shortDescription) || false)
-            .filter(s => s !== false)
-            .forEach(s => shorts[s] = (shorts[s] || 0) + 1);
-        return Object.keys(shorts).map(s => this.consolidate(shorts[s], s).ucfirst());
-    }
 
     /**
      * Force the previous object to perform an in-game object.
@@ -533,6 +527,10 @@ class EFUNProxy {
         return result === true;
     }
 
+    get english() {
+        return EnglishHelper;
+    }
+
     get exports() {
         let module = driver.cache.get(this.fullPath);
         return module.exports;
@@ -681,6 +679,7 @@ class EFUNProxy {
             .join('\n');
     }
 
+    get input() { return InputHelper; }
 
     /**
      * Determines whether the specified path expression is a directory.
@@ -1545,13 +1544,11 @@ class EFUNProxy {
             if (thisOb) {
                 if (!path.endsWith(SaveExtension))
                     path += SaveExtension;
-                if (this.isFile(path)) {
-                    let data = this.readJsonFile(path);
-                    if (data) {
-                        let $storage = driver.storage.get(thisOb);
-                        $storage && $storage.restore(data);
-                        return true;
-                    }
+                let data = this.readJsonFile(path);
+                if (data) {
+                    let store = driver.storage.get(thisOb);
+                    store && store.restore(data);
+                    return true;
                 }
             }
         }
@@ -1586,6 +1583,10 @@ class EFUNProxy {
             opts = { flags: opts };
         }
         return driver.fileManager.deleteDirectory(this, expr, opts || {}, callback);
+    }
+
+    get saveExtension() {
+        return SaveExtension.slice(0);
     }
 
     /**
@@ -1728,7 +1729,7 @@ class EFUNProxy {
      */
     wizardp(target) {
         return unwrap(target, player => {
-            return player.filename.startsWith('/v/sys/data/creators/');
+            return player.filename.startsWith('/sys/data/creators/');
         });
     }
 

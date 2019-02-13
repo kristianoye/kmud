@@ -9,7 +9,8 @@ const
     MUDEventEmitter = require('./MUDEventEmitter'),
     MUDConfig = require('./MUDConfig'),
     MUDCreationContext = require('./MUDCreationContext'),
-    ClientCaps = require('./network/ClientCaps');
+    ClientCaps = require('./network/ClientCaps'),
+    AccessWords = ['PUBLIC', 'PACKAGE', 'PROTECTED', 'PRIVATE'];
 
 /**
  * Storage for MUD Objects.  In-game objects do not hold their data directly.
@@ -56,6 +57,75 @@ class MUDStorage extends MUDEventEmitter {
 
         /** @type {Object.<Symbol,any>} */
         this.symbols = {};
+
+        /** @type {Object.<string,{value:any, definer:string, access:number}>} */
+        this.data = {};
+    }
+
+    set(thisObject, definingType, key, value, access = 2, createOnlyIfMissing = false) {
+        let cur = this.data[key],
+            definer = definingType.prototype.baseName,
+            doMerge = cur && efuns.isPOO(cur.value) && efuns.isPOO(value);
+
+        if (doMerge) createOnlyIfMissing = true;
+        if (cur && !createOnlyIfMissing)
+            return this.owner;
+        if (cur) {
+            if (cur.access === 3 && cur.definer !== definer) {
+                throw new Error(`Property '${key}' has been set as PRIVATE in base type ${cur.definer}`);
+            }
+            else if (cur.access === 2) {
+                let parts = driver.efuns.parsePath(cur.definer),
+                    module = driver.cache.get(parts.file),
+                    targetType = module && module.getType(parts.type);
+
+                if (!targetType || thisObject instanceof targetType === false)
+                    throw new Error(`Property '${key}' has been set as PROTECTED in base type ${cur.definer}`);
+            }
+            else if (cur.access === 1) {
+                //  Package level - Filenames need to match
+                let p1 = driver.efuns.parsePath(definer),
+                    p2 = driver.efuns.parsePath(thisObject.filename);
+                if (p1.file !== p2.file)
+                    throw new Error(`Property '${key}' has been set as PACKAGE in base type ${cur.definer}`);
+            }
+            if (cur.access !== access) {
+                throw new Error(`Property '${key}' has already been defined as ${AccessWords[cur.access]} in module ${cur.definer}`);
+            }
+            if (doMerge)
+                cur.value = Object.assign(cur.value, value);
+            else
+                cur.value = value;
+        }
+        else
+            this.data[key] = access ? { definer, access, value } : { value };
+        return this.owner;
+    }
+
+    get(thisObject, definingType, key) {
+        let cur = this.data[key], definer = definingType.prototype.baseName;
+        if (cur) {
+            if (cur.access === 3 && cur.definer !== definer) {
+                throw new Error(`Property '${key}' has been set as PRIVATE in base type ${cur.definer}`);
+            }
+            else if (cur.access === 2) {
+                let parts = driver.efuns.parsePath(cur.definer),
+                    module = driver.cache.get(parts.file),
+                    targetType = module && module.getType(parts.type);
+
+                if (!targetType || thisObject instanceof targetType === false)
+                    throw new Error(`Property '${key}' has been set as PROTECTED in base type ${cur.definer}`);
+            }
+            else if (cur.access === 1) {
+                //  Package level - Filenames need to match
+                let p1 = driver.efuns.parsePath(definer),
+                    p2 = driver.efuns.parsePath(thisObject.filename);
+                if (p1.file !== p2.file)
+                    throw new Error(`Property '${key}' has been set as PACKAGE in base type ${cur.definer}`);
+            }
+            return cur.value;
+        }
+        throw new Error(`Property '${key}' was not found!`);
     }
 
     /**

@@ -7,5 +7,7 @@
 
 ### Nice to have:
 1. Redirect HTTP clients to HTTP ports when connecting to Telnet port.
+1. Add support for virtual Diku/Circle areas https://www.circlemud.org/cdp/building/building.html
 
 ## Mudlib:
+1. Finish command shell applies

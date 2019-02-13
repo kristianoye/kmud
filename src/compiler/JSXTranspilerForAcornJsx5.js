@@ -9,8 +9,9 @@ const
     PipelineComponent = require('./PipelineComponent'),
     PipeContext = require('./PipelineContext'),
     SettersGetters = [
-        'get',
-        'set'
+        'get',          // Get a value
+        'register',     // Initialize but do not overwrite
+        'set'           // Sets a value
     ],
     acorn = require('acorn'),
     modifiers = require('./SecurityModifiers'),

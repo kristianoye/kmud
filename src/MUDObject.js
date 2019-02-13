@@ -46,7 +46,6 @@ class MUDObject extends MUDEventEmitter {
         try {
             if (ecc && ecc.newContext) {
                 let ctx = ecc.newContext;
-                delete ecc.newContext;
                 Object.defineProperties(this, {
                     createTime: {
                         value: new Date().getTime(),
@@ -70,6 +69,7 @@ class MUDObject extends MUDEventEmitter {
             }
         }
         finally {
+            delete ecc.newContext;
             ecc.pop('constructor');
         }
     }

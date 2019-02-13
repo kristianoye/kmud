@@ -56,7 +56,7 @@ class GameServer extends MUDEventEmitter {
         this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
         /** @type {EFUNProxy} */
         let efunType = require('./EFUNProxy');
-        this.efuns = new efunType('/');
+        this.initDriverEfuns(new efunType('/'));
         this.simulEfunPath = config.mudlib.simulEfuns;
 
         this.startTime = new Date().getTime();
@@ -381,7 +381,7 @@ class GameServer extends MUDEventEmitter {
             }
             finally {
                 Object.seal(this.simulEfunType);
-                this.efuns = new this.simulEfunType('/', '/');
+                this.initDriverEfuns(new this.simulEfunType('/', '/'));
                 this.efuns.SaveExtension = this.config.mudlib.defaultSaveExtension;
                 Object.freeze(this.efuns);
             }
@@ -716,6 +716,14 @@ class GameServer extends MUDEventEmitter {
     inGroup(target, groups) {
         if (this.gameState < GAMESTATE_RUNNING) return true;
         else return driver.masterObject.inGroup(target, [].slice.call(arguments, 1));
+    }
+
+    /**
+     * Set the driver's version of the efuns object.
+     * @param {any} efuns
+     */
+    initDriverEfuns(efuns) {
+        this.efuns = global.efuns = efuns;
     }
 
     isVirtualPath(path) {
@@ -1149,6 +1157,8 @@ class GameServer extends MUDEventEmitter {
         else if (frame.object === driver)
             return true;
         else if (frame.object === driver.masterObject)
+            return true;
+        else if (path === `${frame.object.filename}.${efuns.saveExtension}`)
             return true;
         else
             return this.applyValidRead(path, frame.object || frame.file, frame.method);

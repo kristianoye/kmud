@@ -231,24 +231,26 @@ class MUDModule extends MUDEventEmitter {
         catch (err) {
             /* rollback object creation */
             driver.storage.delete(instanceData.filename);
+            throw err;
         }
         finally {
         }
     }
 
     createInstances(isReload) {
-        Object.keys(this.types).forEach(typeName => {
-            let type = this.types[typeName];
-            if (type.prototype instanceof MUDObject) {
-                if (isReload || !this.instanceMap[typeName][0]) {
-                    let ecc = driver.getExecution();
-                    if (!ecc)
-                        throw new Error('No execution context is currently running');
-                    ecc.newContext = this.getNewContext(type, 0);
-                    this.create(type, this.getNewContext(type, 0));
-                }
-            }
-        });
+        // TODO: Optionally flag to enable creating instance 0... seems silly, now
+        //Object.keys(this.types).forEach(typeName => {
+        //    let type = this.types[typeName];
+        //    if (type.prototype instanceof MUDObject) {
+        //        if (isReload || !this.instanceMap[typeName][0]) {
+        //            let ecc = driver.getExecution();
+        //            if (!ecc)
+        //                throw new Error('No execution context is currently running');
+        //            ecc.newContext = this.getNewContext(type, 0);
+        //            this.create(type, this.getNewContext(type, 0));
+        //        }
+        //    }
+        //});
         if (this.typeNames.length === 1)
             this.defaultInstance = this.instanceMap[this.typeNames[0]][0];
     }

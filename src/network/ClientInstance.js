@@ -82,7 +82,6 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
      * @returns {number} An enumeration indicating what the client should do next.
      */
     commandComplete(nextAction, evt) {
-        this.releaseContext();
         if (!evt.finished) {
             evt.finished = true;
         }
@@ -125,26 +124,28 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
 
     /**
      * Initialize
-     * @param {ExecutionContext} ecc The current context
      * @param {MUDObject} body The user's current body
-     * @param {MUDInputEvent} cmdEvent The command to be executed.
-     * @returns {MUDInputEvent} The new command event
+     * @returns {[MUDObject, ExecutionContext]} The user's body
      */
-    initContext(ecc, body, cmdEvent) {
-        ecc.alarmTime = maxCommandExecutionTime ? new Date().getTime()
-            + maxCommandExecutionTime : Number.MAX_SAFE_INTEGER;
-        ecc.thisClient = this;
-        ecc.input = cmdEvent;
-        ecc.$storage = this.$storage;
-        ecc.setThisPlayer(body, body, '');
-        ecc.startTime = new Date().getTime();
+    initContext(body) {
+        return unwrap(body, thisPlayer => {
+            let ecc = driver.getExecution();
 
-        ecc.on('complete', completed => {
-            let te = new Date().getTime() - completed.startTime;
-            console.log(`Command complete [ellapsed: ${te} ms]`);
-            this.renderPrompt(completed.input.prompt);
+            ecc.alarmTime = maxCommandExecutionTime ? new Date().getTime()
+                + maxCommandExecutionTime : Number.MAX_SAFE_INTEGER;
+            ecc.$storage = this.$storage;
+            ecc.setThisPlayer(thisPlayer, thisPlayer, '');
+            ecc.startTime = new Date().getTime();
+
+            ecc.on('complete', completed => {
+                let te = new Date().getTime() - completed.startTime;
+                console.log(`Command complete [ellapsed: ${te} ms]`);
+                this.renderPrompt();
+//                this.renderPrompt(completed.input.prompt);
+            });
+
+            return [thisPlayer, ecc];
         });
-        return cmdEvent;
     }
 
     /**
@@ -217,15 +218,15 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
      * @param {string} text The command to execute.
      */
     executeCommand(text) {
-        driver.driverCall('executeCommand', ecc => {
-            let body = unwrap(this.body);
+        driver.driverCall('executeCommand', () => {
+            let [body, ecc] = this.initContext(this.body);
             if (!body) {
                 this.write('You have no body!  Sorry, no ghosts allowed!');
                 return this.disconnect(false, 'You have no body!  Releasing spirit!');
             }
-            let cmdEvent = this.initContext(ecc, body, this.createCommandEvent(text || ''));
             try {
                 if (this.inputStack.length) {
+                    //let cmdEvent = this.initContext(ecc, body, this.createCommandEvent(text || ''));
                     let inputFrame = this.inputStack.shift(), result;
                     try {
                         text = text.replace(/[\r\n]+/g, '');
@@ -233,42 +234,46 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                             this.write('\r\n');
                             this.client.toggleEcho(true);
                         }
-                        result = inputFrame.callback.call(body, text, cmdEvent);
+                        result = inputFrame.callback.call(body, text);
                         if (result === true) {
                             this.inputStack.unshift(inputFrame);
                         }
                     }
-                    catch (_err) {
-                        this.writeLine('Error: ' + _err);
-                        this.writeLine(_err.stack);
-                        result = true;
-                    }
-                    finally {
-                        this.releaseContext();
+                    catch (err) {
+                        this.writeLine('Error: ' + err);
+                        this.writeLine(err.stack);
                     }
                 }
                 else {
-                    let cmds = [cmdEvent];
-                    if (typeof body.processInput === 'function')
+                    let cmds = [];
+                    if (typeof body.processInput === 'function') {
                         try {
-                            cmds = body.processInput(cmdEvent);
-                            if (!Array.isArray(cmds))
-                                return this.writeLine(cmdEvent.error);
+                            cmds = body.processInput(text);
                         }
                         catch (err) {
-                            this.writeLine(`Error in command preprocessor: ${err.message}`);
+                            this.writeLine(err.message);
                         }
+                    }
+                    else {
+                        cmds = efuns.input.splitCommand(text);
+//                        cmds.push(this.initContext(ecc, body, this.createCommandEvent(text || '')));
+                    }
+                    if (!Array.isArray(cmds))
+                        cmds = [cmds];
+
                     for (let i = 0; i < cmds.length; i++) {
                         try {
-                            if (!body.executeCommand(cmds[i])) {
-                                this.writeLine(cmds[i].error);
-                            }
+                            cmds[i].caps = Object.assign({}, this.caps);
+                            cmds[i].complete = c => {
+                                console.log('Command complete');
+                            };
+                            cmds[i].htmlEnabled = false;
+                            cmds[i].input = cmds[i].text;
+                            cmds[i].alarmTime = new Date().getTime() + (maxCommandExecutionTime || 5000);
+                            body.executeCommand(cmds[i]);
                         }
                         catch (err) {
-                            this.writeLine('Error: ' + err.message);
-                            cmdEvent.complete();
-                        }
-                        finally {
+
                         }
                     }
                 }
@@ -281,45 +286,6 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
 
     get idleTime() {
         return new Date().getTime() - this.lastCommand.getTime();
-    }
-
-    /**
-     * Handle an exec event.
-     * @param {MUDInputEvent} evt User input event
-     */
-    handleExec(evt) {
-        this.removeAllListeners('disconnected');
-        if (evt.oldStorage) {
-            evt.oldStorage.setClient(false);
-        }
-        this.$storage = driver.storage.get(this.body = evt.newBody);
-
-        driver.addPlayer(this.body);
-        driver.removePlayer(evt.oldBody);
-        driver.setThisPlayer(this.body, true, '');
-
-        this.inputStack = [];
-
-        if (!this.context) {
-            this.createContext({
-                args: [],
-                original: '',
-                fromHistory: false,
-                complete: function () { },
-                verb: ''
-            });
-        }
-        this.context.restore();
-        this.$storage.emit('kmud.exec', evt);
-        this.$storage.setClient(this);
-        this.releaseContext();
-    }
-
-    releaseContext() {
-        if (this.context) {
-            if (this.context.refCount > 0) this.context.release();
-            this.context = false;
-        }
     }
 
     renderPrompt() {

@@ -149,6 +149,8 @@ class ExecutionContext extends MUDEventEmitter {
                 continue; // Does this ever happen?
             else if (frame.object === driver)
                 continue; // The driver always succeeds
+            else if (frame.object === driver.masterObject)
+                return true; // The master object always succeeds as well
             else if (c[frame.file])
                 continue;
             else if ((c[frame.file] = callback(frame)) === false)

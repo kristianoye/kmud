@@ -183,7 +183,7 @@ class MUDLoader {
                             if (module) {
                                 instanceData = ecc.newContext = Object.assign(
                                     module.getNewContext(parts.type),
-                                    driver.newContext);
+                                    ecc.newContext);
 
                                 if (!constructorType)
                                     constructorType = module.getType(parts.type);
@@ -315,20 +315,20 @@ class MUDLoader {
                 value: global.setTimeout,
                 writable: false
             },
-            PACKAGE: {
-                value: 1,
-                writeable: false
-            },
             PRIVATE: {
-                value: 1,
+                value: 3,
                 writable: false
             },
             PROTECTED: {
                 value: 2,
                 writeable: false
             },
+            PACKAGE: {
+                value: 1,
+                writeable: false
+            },
             PUBLIC: {
-                value: 3,
+                value: 0,
                 writeable: false
             },
         });
@@ -369,13 +369,37 @@ class MUDLoader {
         ecc.thisClient && ecc.thisClient.addPrompt(opts, callback);
     }
 
-    get(usingType, key, val) {
-        console.log('get()');
+    get(usingType, key, defaultValue = undefined) {
+        let store = driver.storage.get(this),
+            result = store.get(this, usingType, key);
+        return typeof result === 'undefined' ? defaultValue : result;
     }
 
-    set(usingType, key, val, access = 3) {
-        console.log('set()');
+    /**
+     * Registers a new value but only if not already defined.
+     * @param {any} usingType The module attempting to set the value
+     * @param {any} key The name of the variable to create
+     * @param {any} val The initial value of the variable
+     * @param {any} access The level access required to set/read the key
+     * @returns {MUDObject} A reference to this object.
+     */
+    register(usingType, key, val, access = 2) {
+        let store = driver.storage.get(this);
+        return store.set(this, usingType, key, val, access, false);
 
+    }
+
+    /**
+     * Sets a value (and creates if needed).
+     * @param {any} usingType The module attempting to set the value
+     * @param {any} key The name of the variable to create
+     * @param {any} val The initial value of the variable
+     * @param {any} access The level access required to set/read the key
+     * @returns {MUDObject} A reference to this object.
+     */
+    set(usingType, key, val, access = 2) {
+        let store = driver.storage.get(this);
+        return store.set(this, usingType, key, val, access);
     }
 
     thisPlayer(flag) {
