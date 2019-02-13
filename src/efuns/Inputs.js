@@ -7,7 +7,6 @@
  */
 
 class InputHelper {
-
     /**
      * Splits a string into verb and statement
      * @param {string} input The text to split
@@ -24,12 +23,15 @@ class InputHelper {
      * @param {string} input The input to parse
      * @returns {string[]} Returns the input split into argument form
      */
-    static splitArgs(input, preserveWhitespace = false) {
+    static splitArgs(input, preserveWhitespace = false, getIO = false) {
         let text = input.trim(),
             isEscaped = false,
             isString = false,
+            ioTarget = false,
             current = '',
-            result = [],
+            args = [],
+            io = {},
+            ioMode = false,
             i = 0, s = 0,
             m = text.length,
             last = m - 1,
@@ -40,7 +42,7 @@ class InputHelper {
                 return preserveWhitespace ? ws : '';
             };
 
-        for (let c; c = text.charAt(i), i < m; i++) {
+        for (let c, n = false; c = text.charAt(i), i < m; n = text.charAt(i + 1), i++) {
             if (isEscaped) {
                 current += c, isEscaped = false;
                 continue;
@@ -50,6 +52,29 @@ class InputHelper {
                     if (i === last)
                         throw new Error(`Bad argument 1 to splitArgs: Last character cannot be an escape character.`);
                     isEscaped = true;
+                    break;
+
+                case '1':
+                case '2':
+                case '>':
+                case '&':
+                case ':':
+                    if (getIO) {
+                        ioMode += c;
+                        switch (n) {
+                            case '>':
+                            case '':
+                                ioMode += c;
+                                i++;
+                                n = text.charAt(i + 1);
+                                if (n === '>') {
+                                    ioMode += c;
+                                    i++;
+                                }
+                                break;
+
+                        }
+                    }
                     break;
 
                 case '"':
@@ -69,7 +94,12 @@ class InputHelper {
                 default:
                     if (/\s/.test(c) && !isString) {
                         current += eatWhitespace();
-                        if (current) result.push(current);
+                        if (current) {
+                            if (ioMode)
+                                io[ioMode] = current;
+                            else
+                                args.push(current);
+                        }
                         current = '';
                         i--;
                     }
@@ -80,24 +110,36 @@ class InputHelper {
         }
         if (isString)
             throw new Error(`Bad argument 1 to splitArgs: Unterminated string staring at position ${s}`);
-        if (current) result.push(current);
-        return result;
+
+        if (current) {
+            if (ioMode)
+                io[ioMode] = current;
+            else
+                args.push(current);
+        }
+        else if (ioMode)
+            throw new Error(`Bad argument 1 to splitArgs: Unterminated file I/O specification`);
+
+        return getIO ? { args, io } : args;
     }
 
     /**
      * Splits a line of text into component parts.
      * @param {string} original The text to split
-     * @param {boolean} [returnArgs] Also split the remaining text into an array
+     * @param {boolean} [getArgs] Also split the remaining text into an array
      * @returns {{ verb: string, text: string, args: string[], original: string }} Returns command components
      */
-    static splitCommand(original, returnArgs = false) {
-        let [verb, text] = InputHelper.getVerb(original);
-        if (returnArgs) {
+    static splitCommand(original, getArgs = false, getIO = false) {
+        let [verb, text] = InputHelper.getVerb(original),
+            { args, io } = getArgs || getIO ?
+                InputHelper.splitArgs(original, false, true) : {};
+
+        if (getArgs || getIO) {
             return {
                 verb,
                 text,
                 original,
-                args: InputHelper.splitArgs(text.slice(0))
+                args
             };
         }
         return {
