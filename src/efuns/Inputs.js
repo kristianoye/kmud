@@ -162,13 +162,32 @@ class InputHelper {
             cmd,
             cmds = [],
             prev,
+            forHistory = '',
+            fromHistory = false,
             eatWhitespace = (n = 0) => {
                 let ws = '';
                 while (i < m && /\s+/.test(source.charAt(i)))
                     ws += source.charAt(i++);
                 return ws;
             },
-            forHistory = '',
+            peek = (f, t) => {
+                let ret = source.slice(f = f || i, t || f + 1);
+                return ret;
+            },
+            take = (f, t) => {
+                let ret = '';
+                if (f instanceof RegExp) {
+                    let ret = f.exec(source.slice(i));
+                    if (Array.isArray(ret)) {
+                        i += (ret[1] || ret[0]).length;
+                        return ret[1] || ret[0];
+                    }
+                    return '';
+                }
+                ret = source.slice(f = f || i, t = t || f + 1);
+                i = t;
+                return ret;
+            },
             assertValid = (token, expect) => {
                 if (!expect || token.type === expect)
                     return true;
@@ -357,8 +376,8 @@ class InputHelper {
                                 if (!found)
                                     throw Error(`${search}: event not found`);
 
-                                if (source.charAt(i) === ':') {
-                                    let nc = ++i && source.charAt(i++),
+                                if (peek() === ':') {
+                                    let nc = ++i && take(),
                                         args = found.split(/\s+/);
                                     if (nc === '^')
                                         found = args[1];
@@ -367,15 +386,13 @@ class InputHelper {
                                     else if (nc === '$')
                                         found = args[args.length - 1];
                                     else if (/\d/.test(nc)) {
-                                        while (/\d/.test(source.charAt(i)))
-                                            nc += source.charAt(i++);
-                                        if (source.charAt(i) === '-') {
-                                            let endRange = '';
-                                            while (/\d+/.test(source.charAt(++i))) endRange += source.charAt(i);
+                                        nc += take(/^\d+/);
+                                        if (peek() === '-') {
+                                            let endRange = ++i && take(/^\d+/);
                                             if (endRange)
-                                                found = i-- && args.slice(parseInt(nc), parseInt(endRange) + 1).join(' ');
+                                                found = args.slice(parseInt(nc), parseInt(endRange) + 1).join(' ');
                                             else
-                                                found = i-- && args.slice(parseInt(nc)).join(' ');
+                                                found = args.slice(parseInt(nc)).join(' ');
                                         }
                                         else {
                                             let foo = parseInt(nc);
@@ -385,11 +402,27 @@ class InputHelper {
                                                 throw new Error(`:${nc}: bad word specifier`);
                                         }
                                     }
+                                    else if (nc === 's' || nc === 'g') {
+                                        if (peek() === 'g' || peek() === 's') nc += take();
+                                        if (take() !== '/')
+                                            throw new Error(`Expected symbol / at position ${i}`);
+                                        let searchFor = take(/(?<!\\)(?:\\\\)*/);
+                                        if (take() !== '/') 
+                                            throw new Error(`Expected symbol / at position ${i}`);
+                                        let replaceWith = take(/(?<!\\)(?:\\\\)*/);
+                                        if (take() !== '/')
+                                            throw new Error(`Expected symbol / at position ${i}`);
+                                        if (peek() === 'g') i++ , nc += 'g';
+                                        found = found.replace(
+                                            new RegExp(`/${searchFor}/${replaceWith}/`,
+                                                nc.indexOf('g') > -1 ? 'g' : undefined));
+                                    }
                                     arg.end = i;
                                 }
                                 source = source.slice(0, start) + found + source.slice(arg.end + 1).trim();
                                 i = start - 1; // Rewind even if it goes to -1
                                 m = source.length; // Update max length to reflect new size
+                                fromHistory = true;
                             }
                             else
                                 result.value += c;
