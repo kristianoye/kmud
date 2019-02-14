@@ -9,11 +9,13 @@ const
     OP_AND = '&&',
     OP_OR = '||',
     OP_PIPE = '|',
-    OP_SEMI = ';';
+    OP_SEMI = ';',
+    OP_INPUT = '<';
 
 const
     T_BG = 'BG',
     T_IO = 'IO',
+    T_INPUT = 'INPUT',
     T_OPERATOR = 'OP',
     T_WORD = 'WORD';
 
@@ -108,6 +110,7 @@ class InputHelper {
      * @property {boolean} allowFileExpressions Indicates that file expressions should be expanded, otherwise it is treated as literal text.
      * @property {boolean} allowFileIO Indicates file I/O operations should be parsed out, otherwise it is literal text.
      * @property {boolean} allowFunctionVariables Controls whether variables can be functions.
+     * @property {boolean} allowInputRedirect Allows user to read one or more file in as STDIN
      * @property {boolean} allowPiping Indicates command piping will be split out, otherwise it is literal text.
      * @property {boolean} expandAliases Controls whether aliases are expanded or not.
      * @property {boolean} expandVariables Control whether variable expansion occurs or not.
@@ -130,6 +133,7 @@ class InputHelper {
             allowChaining: false,
             allowFileExpressions: false,
             allowFileIO: false,
+            allowInputRedirect: false,
             allowPiping: false,
             expandHistory: true,
             expandVariables: true,
@@ -139,18 +143,17 @@ class InputHelper {
 
         let i = 0,
             m = source.length,
-            op,
             cmd,
             cmds = [],
             prev,
-            eatWhitespace = () => {
+            eatWhitespace = (n = 0) => {
                 let ws = '';
                 while (i < m && /\s+/.test(source.charAt(i)))
                     ws += source.charAt(i++);
-                return ws && --i, ws;
+                return ws;
             },
 
-            nextToken = () => {
+            nextToken = (n = 0) => {
                 let isEscaped = false,
                     isString = false,
                     result = { value: '', type: T_WORD, pos: i, arg: '' },
@@ -160,7 +163,9 @@ class InputHelper {
                                 i = token.pos + token.value.length;
                                 return token;
                             }
-                            result.end = (i = token.pos) - 1;
+                            //  We want to return to this token next
+                            result.end = token.pos - 1;
+                            i = token.pos;
                             return result;
                         }
                         return result;
@@ -182,8 +187,11 @@ class InputHelper {
 
                         case '&':
                             if (source.charAt(i + 1) === '&') {
-                                if (settings.allowChaining)
-                                    return sendToken({ type: T_OPERATOR, value: OP_AND, pos: i++ });
+                                if (settings.allowChaining) {
+                                    if (result.value)
+                                        return sendToken();
+                                    return sendToken({ type: T_OPERATOR, value: OP_AND, pos: i });
+                                }
                             }
                             else if (source.charAt(i + 1) !== '>') {
                                 if (settings.allowBackground)
@@ -193,10 +201,16 @@ class InputHelper {
                             }
                         /* intentionally fall through to I/O */
 
-                        /* I/O redirect stuff */
-                        case '>':
                         case '1':
                         case '2':
+                            if (source.charAt(i + 1) !== '>') {
+                                result.value += c;
+                                break;
+                            }
+                        /* intentionally fall through to I/O */
+
+                        /* I/O redirect stuff */
+                        case '>':
                         case ':':
                             if (settings.allowFileIO) {
                                 let n = source.charAt(i + 1),
@@ -223,14 +237,17 @@ class InputHelper {
                                         case '2>':
                                         case '2>>':
                                      */
-                                    i += mode.length - 1;
+                                    if (result.value)
+                                        return sendToken();
+
+                                    i += mode.length;
                                     let arg = nextToken();
                                     if (!arg)
                                         throw new Error(`-kmsh: Missing expected token WORD after ${mode} I/O operator at position ${i}`);
                                     if (arg.type !== T_WORD)
                                         throw new Error(`-kmsh: Unexpected token ${result.arg.type} after ${mode} at position ${i}`);
                                     result.value = mode;
-                                    result.arg = arg;
+                                    result.path = efuns.resolvePath(arg.value, settings.cwd || '/');
                                     result.type = T_IO;
                                     return sendToken();
                                 }
@@ -246,7 +263,6 @@ class InputHelper {
                             }
                             else if (settings.allowPiping) {
                                 /* eat extra pipes and whitespace */
-                                while (/[\|\s]/.test(source.charAt(i + 1))) i++;
                                 return sendToken({ type: T_OPERATOR, value: OP_PIPE, pos: i });
                             }
                             else
@@ -276,12 +292,26 @@ class InputHelper {
                             result.value += c;
                             break;
 
+                        case '<':
+                            if (settings.allowInputRedirect) {
+                                if (result.value)
+                                    return sendToken();
+                                let arg = nextToken();
+                                if (arg.type !== T_WORD)
+                                    throw new Error(`Expected token WORD starting at position ${i + 1}`);
+                                return sendToken({ type: T_INPUT, value: OP_INPUT, path: arg.value });
+                            }
+                            result.value += c;
+                            break;
+
                         default:
                             let ws = eatWhitespace();
                             if (ws) {
                                  // Only trailing whitespace is appended.  Leading whitespace is ignored.
                                 if (result.value)
                                     return result.arg = ws, sendToken();
+                                else
+                                    i--;
                             }
                             else
                                 result.value += c;
@@ -305,12 +335,13 @@ class InputHelper {
                         case T_IO:
                             if (!result)
                                 throw new Error(`-kmsh: Unexpected token (${token.value}) at position ${token.pos}; Expected command.`);
-                            result.io.push({ mode: token.value, arg: token.arg });
+                            result.io.push({ mode: token.value, arg: token.path });
                             break;
 
                         case T_OPERATOR:
                             if (result) {
-                                i = token.pos; // Rewind
+                                if (typeof result.end === 'undefined')
+                                    result.end = token.pos - 1, i = token.pos;
                                 return result;
                             }
                             return token;
@@ -346,8 +377,14 @@ class InputHelper {
                             }
                             break;
 
+                        case T_INPUT:
+                            if (!result)
+                                throw new Error(`Unexpected redirect operator at position ${token.pos}`);
+                            result.stdin = efuns.resolvePath(token.path, this.cwd);
+                            break;
+
                         default:
-                            throw new Error(`Unexpected token type: ${op.type || '(UNKNOWN)'} at position ${i}`);
+                            throw new Error(`Unexpected token type: ${token.type || '(UNKNOWN)'} at position ${i}`);
                     }
                 }
                 return result;
@@ -373,7 +410,7 @@ class InputHelper {
                         break;
 
                     case OP_PIPE:
-                        prev.next = cmd, prev = cmd;
+                        prev.redirect = cmd, prev = cmd;
                         break;
 
                     case OP_SEMI:
@@ -382,7 +419,7 @@ class InputHelper {
                         break;
 
                     default:
-                        throw new Error(`-kmsh: Unhandled operator ${op.value} `)
+                        throw new Error(`Unhandled operator ${op.value} `)
                 }
             }
             else if (cmd.type)
