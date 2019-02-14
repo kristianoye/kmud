@@ -309,12 +309,12 @@ class InputHelper {
                                     }
                                     else if (nc === 's' || nc === 'g') {
                                         if (peek() === 'g' || peek() === 's') nc += take();
-                                        if (take() !== '/')
+                                        if (!take(/^(?<!\\)([^\/]+)/))
                                             throw new Error(`Expected symbol / at position ${i}`);
-                                        let searchFor = take(/((?<!\\)(?:\\\\))+/);
-                                        if (take() !== '/') 
+                                        let searchFor = take(/^(?<!\\)([^\/]+)/);
+                                        if (!take(/^(?<!\\)([^\/]+)/))
                                             throw new Error(`Expected symbol / at position ${i}`);
-                                        let replaceWith = take(/(?<!\\)(?:\\\\)*/);
+                                        let replaceWith = take(/^(?<!\\)([^\/]+)/);
                                         if (take() !== '/')
                                             throw new Error(`Expected symbol / at position ${i}`);
                                         if (peek() === 'g') i++ , nc += 'g';
