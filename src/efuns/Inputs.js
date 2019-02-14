@@ -17,9 +17,22 @@ const
     T_IO = 'IO',
     T_INPUT = 'INPUT',
     T_OPERATOR = 'OP',
+    T_IDENTIFIER = 'IDENTIFIER',
     T_WORD = 'WORD';
 
 class InputHelper {
+    static expandHistory(search, history) {
+        let index = parseInt(search);
+
+        if (isNaN(index)) {
+            for (let i = history.length - 1; i > -1; i--) {
+                if (history[i].startsWith(search)) return history[i]
+            }
+        }
+        else if (history[index]) return history[index];
+        else throw Error(`${args[i].trim()}: event not found`);
+    }
+
     /**
      * Splits a string into verb and statement
      * @param {string} input The text to split
@@ -105,7 +118,7 @@ class InputHelper {
     /**
      * @typedef {Object} SplitCommandOptions
      * @property {Object.<string,string>} [aliases] The user's aliases
-     * @property {boolean} [allowBackground] Indicates the user can make a command async by appending (&)
+     * @property {boolean} [allowAsyncCommands] Indicates the user can make a command async by appending (&)
      * @property {boolean} allowChaining Indicates operators like logical and (&&), local or (||), and semicolons (;) are parsed
      * @property {boolean} allowFileExpressions Indicates that file expressions should be expanded, otherwise it is treated as literal text.
      * @property {boolean} allowFileIO Indicates file I/O operations should be parsed out, otherwise it is literal text.
@@ -129,17 +142,20 @@ class InputHelper {
      */
     static splitCommand(source, options = {}) {
         let settings = Object.assign({
-            allowBackground: false,
+            allowAsyncCommands: false,
             allowChaining: false,
             allowFileExpressions: false,
             allowFileIO: false,
             allowInputRedirect: false,
             allowPiping: false,
-            expandHistory: true,
-            expandVariables: true,
-            history: {},
-            variables: {}
+            expandAliases: false,
+            expandHistory: false,
+            expandVariables: false
         }, options);
+
+        settings.expandHistory = settings.expandHistory === true || typeof settings.history === 'object';
+        settings.expandAliases = settings.expandAliases === true || typeof settings.aliases === 'object';
+        settings.expandVariables = settings.expandVariables === true || typeof settings.variables === 'object';
 
         let i = 0,
             m = source.length,
@@ -152,28 +168,45 @@ class InputHelper {
                     ws += source.charAt(i++);
                 return ws;
             },
-
-            nextToken = (n = 0) => {
+            forHistory = '',
+            assertValid = (token, expect) => {
+                if (!expect || token.type === expect)
+                    return true;
+                throw new Error(`Unexpected token ${token.type} at position ${token.pos}; Expected ${expect}`);
+            },
+            nextToken = /** @returns {{ type: string, value: string, pos: number }} */ (expect) => {
                 let isEscaped = false,
                     isString = false,
                     result = { value: '', type: T_WORD, pos: i, arg: '' },
-                    sendToken = token => {
+                    sendToken = (token, endCommand) => {
                         if (token) {
+                            assertValid(token);
                             if (!result.value) {
                                 i = token.pos + token.value.length;
+                                token.end = token.pos + token.length.value;
                                 return token;
                             }
                             //  We want to return to this token next
                             result.end = token.pos - 1;
+                            result.endCommand = endCommand === true;
                             i = token.pos;
                             return result;
                         }
+                        assertValid(result);
+                        result.end = i;
                         return result;
                     };
-                if (i === m)
-                    return false;
+                // We are at the end of the input
+                if (i === m) return false;
                 for (; i < m; i++) {
                     let c = source.charAt(i);
+                    if (expect === T_IDENTIFIER) {
+                        if (!/[a-zA-Z0-9]/.test(c)) {
+                            result.type = T_IDENTIFIER;
+                            result.end = i - 1;
+                            return sendToken();
+                        }
+                    }
                     if (isEscaped) result.value += c;
                     else switch (c) {
                         /* Quoted blocks */
@@ -194,7 +227,7 @@ class InputHelper {
                                 }
                             }
                             else if (source.charAt(i + 1) !== '>') {
-                                if (settings.allowBackground)
+                                if (settings.allowAsyncCommands)
                                     return sendToken({ type: T_BG, value: 'true', pos: i });
                                 result.value += c;
                                 break;
@@ -203,6 +236,7 @@ class InputHelper {
 
                         case '1':
                         case '2':
+                        case ':':
                             if (source.charAt(i + 1) !== '>') {
                                 result.value += c;
                                 break;
@@ -211,14 +245,13 @@ class InputHelper {
 
                         /* I/O redirect stuff */
                         case '>':
-                        case ':':
                             if (settings.allowFileIO) {
                                 let n = source.charAt(i + 1),
                                     nn = source.charAt(i + 2),
                                     mode = c + (n === '>' ? n : '') + (nn === '>' ? nn : '');
 
                                 if (mode === '&') {
-                                    if (settings.allowBackground)
+                                    if (settings.allowAsyncCommands)
                                         return sendToken({ type: T_BG, value: 'true', pos: i });
                                     else {
                                         result.value += c;
@@ -241,11 +274,7 @@ class InputHelper {
                                         return sendToken();
 
                                     i += mode.length;
-                                    let arg = nextToken();
-                                    if (!arg)
-                                        throw new Error(`-kmsh: Missing expected token WORD after ${mode} I/O operator at position ${i}`);
-                                    if (arg.type !== T_WORD)
-                                        throw new Error(`-kmsh: Unexpected token ${result.arg.type} after ${mode} at position ${i}`);
+                                    let arg = nextToken(T_WORD);
                                     result.value = mode;
                                     result.path = efuns.resolvePath(arg.value, settings.cwd || '/');
                                     result.type = T_IO;
@@ -271,19 +300,116 @@ class InputHelper {
 
                         case ';':
                             if (settings.allowChaining) {
-                                return sendToken({ type: T_OPERATOR, value: OP_SEMI, pos: i });
+                                return sendToken({ type: T_OPERATOR, value: OP_SEMI, pos: i }, true);
                             }
                             result.value += c;
                             break;
 
                         case '$':
-                            result.hasVariables = true;
-                            result.value += c;
+                            if (settings.expandVariables && settings.variables) {
+                                let env = settings.variables, pos = i;
+                                if (typeof env === 'object') {
+                                    let varToken = ++i && nextToken(T_IDENTIFIER),
+                                        varValue = env[varToken.value] || '',
+                                        varLen = varToken.value.length;
+                                    if (varValue) {
+                                        if (typeof varValue === 'function') {
+                                            if (settings.allowFunctionVariables)
+                                                varValue = varValue.apply(settings.user) || '';
+                                            else
+                                                varValue = '';
+                                        }
+                                    }
+                                    result.value += `${varValue}`;
+                                    i = pos + varLen;
+                                }
+                            }
+                            else
+                                result.value += c;
                             break;
 
                         case '!':
-                            result.hasHistory = true;
-                            result.value += c;
+                            if (settings.expandHistory && typeof settings.history === 'object') {
+                                let found = '', start = i, search = '!', index = -1, arg = { end: i + 1 };
+
+                                if (source.charAt(i + 1) === '!') {
+                                    found = (i+=2) && settings.history[settings.history.length - 1];
+                                }
+                                else {
+                                    let contains = source.charAt(i + 1) === '?' && ++i;
+                                    arg = ++i && nextToken(T_IDENTIFIER);
+                                    search = arg.value, index = parseInt(search), found = false
+                                    if (isNaN(index)) {
+                                        if (contains)
+                                            for (let i = settings.history.length - 1; !found && i > -1; i--) {
+                                                if (settings.history[i].indexOf(search) > 0)
+                                                    found = settings.history[i];
+                                            }
+                                        else
+                                            for (let i = settings.history.length - 1; !found && i > -1; i--) {
+                                                if (settings.history[i].startsWith(search))
+                                                    found = settings.history[i];
+                                            }
+                                    }
+                                    else if (settings.history[index])
+                                        found = settings.history[index];
+                                }
+                                if (!found)
+                                    throw Error(`${search}: event not found`);
+
+                                if (source.charAt(i) === ':') {
+                                    let nc = ++i && source.charAt(i++),
+                                        args = found.split(/\s+/);
+                                    if (nc === '^')
+                                        found = args[1];
+                                    else if (nc === '*')
+                                        found = args.slice(1).join(' ');
+                                    else if (nc === '$')
+                                        found = args[args.length - 1];
+                                    else if (/\d/.test(nc)) {
+                                        while (/\d/.test(source.charAt(i)))
+                                            nc += source.charAt(i++);
+                                        if (source.charAt(i) === '-') {
+                                            let endRange = '';
+                                            while (/\d+/.test(source.charAt(++i))) endRange += source.charAt(i);
+                                            if (endRange)
+                                                found = i-- && args.slice(parseInt(nc), parseInt(endRange) + 1).join(' ');
+                                            else
+                                                found = i-- && args.slice(parseInt(nc)).join(' ');
+                                        }
+                                        else {
+                                            let foo = parseInt(nc);
+                                            if (foo < args.length)
+                                                found = args[foo];
+                                            else
+                                                throw new Error(`:${nc}: bad word specifier`);
+                                        }
+                                    }
+                                    arg.end = i;
+                                }
+                                source = source.slice(0, start) + found + source.slice(arg.end + 1).trim();
+                                i = start - 1; // Rewind even if it goes to -1
+                                m = source.length; // Update max length to reflect new size
+                            }
+                            else
+                                result.value += c;
+                            break;
+
+                        case '^':
+                            if (settings.expandHistory && typeof settings.history === 'object') {
+                                let start = i, searchFor = ++i && nextToken(T_IDENTIFIER);
+                                let replaceWith = ++i &&  nextToken(T_IDENTIFIER);
+                                let lastCommand = settings.history[settings.history.length - 1];
+                                if (!lastCommand) {
+                                    throw Error('^: event not found');
+                                }
+                                else {
+                                    lastCommand = lastCommand.replace(searchFor.value, replaceWith.value);
+                                }
+                                source = source.slice(0, start) + lastCommand + source.slice(replaceWith.end + 1);
+                                i = start - 1; // Rewind even if it goes to -1
+                                m = source.length; // Update max length to reflect new size
+                             }
                             break;
 
                         case '*':
@@ -330,11 +456,13 @@ class InputHelper {
                             if (!result)
                                 throw new Error(`-kmsh: Unexpected token (&) at position ${token.pos}; Expected command.`);
                             result.background = true;
+                            forHistory += '&';
                             break;
 
                         case T_IO:
                             if (!result)
                                 throw new Error(`-kmsh: Unexpected token (${token.value}) at position ${token.pos}; Expected command.`);
+                            forHistory += token.value + ' ' + token.path;
                             result.io.push({ mode: token.value, arg: token.path });
                             break;
 
@@ -342,20 +470,56 @@ class InputHelper {
                             if (result) {
                                 if (typeof result.end === 'undefined')
                                     result.end = token.pos - 1, i = token.pos;
+                                forHistory += token.value;
                                 return result;
                             }
                             return token;
 
                         case T_WORD:
+
+                            //if (token.hasHistory && settings.expandHistory && typeof settings.history === 'object') {
+                            //    let search = token.value, index = parseInt(search), found = false
+                            //    if (isNaN(index)) {
+                            //        for (let i = settings.history.length - 1; !found && i > -1; i--) {
+                            //            if (settings.history[i].startsWith(search))
+                            //                found = settings.history[i];
+                            //        }
+                            //    }
+                            //    else if (settings.history[index])
+                            //        found = settings.history[index];
+                            //    if (!found)
+                            //        throw Error(`${search}: event not found`);
+
+                            //    forHistory += found + token.arg;
+
+                            //    let words = found.split(/(?=[\s]+)/);
+                            //    token.value = words.shift();
+                            //    token.args = words;
+                            //    token.arg = words.join('').trim();
+                            //}
+                            //else
+                            forHistory += token.value + (token.arg || ' '); 
+
+                            if (token.hasWildcards && settings.allowFileExpressions) {
+                                let pathExpression = efuns.resolvePath(token.value.trim(), settings.cwd),
+                                    files = efuns.readDirectorySync(pathExpression);
+
+                                if (files.length > 0) {
+                                    let ep = token.value.lastIndexOf('/');
+                                    if (ep > -1) {
+                                        let dir = token.value.slice(0, ep + 1);
+                                        files = files.map(fn => dir + fn);
+                                    }
+                                    token.args = files;
+                                    token.value = files.join(' ');
+                                }
+                            }
                             if (!result) {
                                 result = {
                                     verb: token.value,
                                     background: false,
-                                    args: [],
+                                    args: token.args || [],
                                     original: token.value + token.arg,
-                                    hasHistory: token.hasHistory === true,
-                                    hasVariables: token.hasVariables === true,
-                                    hasWildcards: token.hasWildcards === true,
                                     io: [],
                                     and: false,
                                     or: false,
@@ -366,15 +530,17 @@ class InputHelper {
                                     settings.onFirstVerb(result, settings);
                             }
                             else if (token.value) {
-                                result.args.push(token.value);
+                                if (Array.isArray(token.args))
+                                    result.args.push(...token.args);
+                                else
+                                    result.args.push(token.value);
+
                                 result.text += token.value + token.arg;
                                 result.original += token.value + token.arg;
-                                result.hasHistory |= token.hasHistory;
-                                result.hasVariables |= token.hasVariables;
-                                result.hasWildcards |= token.hasWildcards;
-                                if ((result.end = token.end) > 0)
-                                    return result;
+
                             }
+                            if (result.endCommand === true)
+                                return result;
                             break;
 
                         case T_INPUT:
@@ -396,7 +562,9 @@ class InputHelper {
             }
             else if (cmd.type == T_OPERATOR) {
                 let op = cmd;
+
                 cmd = nextCommandOrOperator();
+
                 switch (op.value) {
                     case OP_AND:
                         if (!prev.tail)
@@ -425,6 +593,7 @@ class InputHelper {
             else if (cmd.type)
                 throw new Error(`Unexpected token ${cmd.type} at position ${cmd.pos}`);
         }
+        typeof settings.onWriteHistory === 'function' && settings.onWriteHistory(forHistory);
         return cmds;
     }
 }

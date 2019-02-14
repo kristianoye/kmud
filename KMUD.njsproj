@@ -41,6 +41,9 @@
     <Compile Include="lib\base\Armor.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\base\BaseShell.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\base\Command.js">
       <SubType>Code</SubType>
     </Compile>

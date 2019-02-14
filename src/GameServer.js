@@ -486,19 +486,19 @@ class GameServer extends MUDEventEmitter {
      * @returns {any} The result of the callback
      */
     driverCall(method, callback, fileName, rethrow = false) {
-        let ecc = this.getExecution(this, method, fileName || '(driver)', false, 0);
+        let ecc = this.getExecution(this, method, fileName || '(driver)', false, 0), result = undefined;
         try {
-            return callback(ecc);
+            result = callback(ecc);
         }
         catch (err) {
             console.log(`Error in method '${method}': ${err.message}`);
             if (rethrow) throw err;
-            else 
-                console.log(`Error in method '${method}': ${err.message}`);
+            else result = err;
         }
         finally {
             ecc.pop(method);
         }
+        return result;
     }
 
     /**

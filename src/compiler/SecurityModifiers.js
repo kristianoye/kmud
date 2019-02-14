@@ -21,9 +21,10 @@ function plugin(options, Parser) {
                 const start = this.start, startLoc = this.startLoc;
                 if (!this.eatContextual(k)) return false;
                 if (this.type !== tt.parenL && (!noLineBreak || !this.canInsertSemicolon())) {
-                    if (["public", "protected", "private", "package"].indexOf(k) > -1) {
+                    if (["public", "protected", "private", "package", "abstract"].indexOf(k) > -1) {
+                        // TODO: Fix VS code folding to allow for "package" keyword
                         method.access = this.startNodeAt(start, startLoc);
-                        method.access.name = k;
+                        method.access.name = k === 'abstract' ? 'package' : k;
                         this.finishNode(method.access, "AccessSpecifier");
                     }
                     return true;
@@ -44,6 +45,9 @@ function plugin(options, Parser) {
                 method.accessKind = "protected";
             }
             else if (options.allowPackageModifier && tryContextual("package")) {
+                method.accessKind = "package";
+            }
+            else if (options.allowPackageModifier && tryContextual("abstract")) {
                 method.accessKind = "package";
             }
             else if (tryContextual("public")) {

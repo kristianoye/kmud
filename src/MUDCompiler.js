@@ -255,9 +255,15 @@ class MUDCompiler {
                     module.loader[options.altParent.name] = options.altParent;
                 }
 
-                driver.driverCall('compileObject',
+                module.isCompiling = true;
+
+                let result = driver.driverCall('compileObject',
                     () => VM.run(context, module),
-                    context.filename, true);
+                    context.filename);
+
+                delete module.isCompiling;
+                if (result instanceof Error)
+                    throw result;
 
                 if (this.sealTypesAfterCompile && !options.noSeal) {
                     module.sealTypes();

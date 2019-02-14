@@ -1463,6 +1463,9 @@ class EFUNProxy {
                         filename = isInclude ?
                             this.resolveInclude(moduleName) :
                             this.resolvePath(moduleName, this.directoryName(this.filename)),
+                        module = driver.cache.get(filename);
+
+                    if (!module)
                         module = driver.compiler.compileObject({
                             file: filename,
                             reload: false,
@@ -1470,6 +1473,8 @@ class EFUNProxy {
                         });
                     if (!module)
                         throw new Error(`Failed to load required module '${filename}'`);
+                    else if (module.isCompiling)
+                        throw new Error(`Circular dependency detected: ${module.filename} <-> ${this.fileName}`);
                     return module.exports;
             }
         }
