@@ -39,6 +39,7 @@ class GameServer extends MUDEventEmitter {
 
         /** @type {MUDConfig} */
         this.config = config;
+        this.executionContext = false;
 
         ResetInterval = config.mudlib.objectResetInterval;
         UseLazyResets = config.driver.useLazyResets;
@@ -229,6 +230,14 @@ class GameServer extends MUDEventEmitter {
         e.stack = newStack.join('\n');
         e.clean = true;
         return e;
+    }
+
+    /**
+     * Clears the execution context
+     * @param {ExecutionContext} ecc The context that is finishing.
+     */
+    clearContext(ecc) {
+        this.executionContext = ecc.previous || false;
     }
 
     compileVirtualObject(filename) {
@@ -854,18 +863,13 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
-     * 
-     * @param {MXC} ctx
+     * Restores context after an async call has completed.
+     * @param {ExecutionContext} ecc The context to restore
      */
-    restoreContext(ctx) {
-        if (ctx && ctx.released)
-            ctx = false;
-        this.currentContext = ctx;
-        this.thisPlayer = ctx && ctx.thisPlayer;
-        this.truePlayer = ctx && ctx.truePlayer;
-        this.currentVerb = (ctx && ctx.currentVerb) || '';
-        this.objectStack = (ctx && ctx.objectStack) || [];
-        return ctx;
+    restoreContext(ecc) {
+        if (this.executionContext && ecc && this.executionContext !== ecc)
+            throw new Error(`There is already an execution context that appears to be running!`); // FATAL
+        this.executionContext = ecc || false;
     }
 
     /**
@@ -896,28 +900,15 @@ class GameServer extends MUDEventEmitter {
         this.createFileSystems();
         this.configureRuntime();
 
-        let mxc = this.getContext(true, init => {
-            init.note = 'Loading driver and efuns';
-            init.onDestroy = (ctx) => {
-                this.runStarting();
-            };
-        });
-
-        try {
-            mxc.restore();
+        return this.driverCall('startup', () => {
+            console.log('Loading driver and external features');
             this.createSimulEfuns();
             this.createMasterObject();
             this.enableFeatures();
             this.sealProtectedTypes();
-        }
-        catch (err) {
-            logger.log(err.message);
-        }
-        finally {
-            mxc.release();
-        }
-        return this;
-
+            this.runStarting();
+            return this;
+        });
     }
 
     runStarting() {

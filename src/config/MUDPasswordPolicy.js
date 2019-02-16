@@ -1,5 +1,6 @@
 ﻿const
-    bcrypt = require('bcrypt');
+    bcrypt = require('bcrypt'),
+    ExecutionContext = require('../ExecutionContext');
 
 /**
  * Config object responsible for controlling how passwords are created and used.
@@ -98,24 +99,19 @@ class MUDPasswordPolicy {
     }
 
     hashPasswordAsync(str) {
-        return new Promise((resolve, reject) => {
-            try {
-                let checks = this.validPassword(str);
-                if (checks === true) {
-                    bcrypt.hash(str, this.saltRounds, (err, enc) => {
-                        err ? reject(err) : resolve(enc);
-                    });
-                }
-                else if (!Array.isArray(checks) || typeof checks[0] !== 'string') {
-                    reject(new Error(`${typeof this}.validPassword() returned ${typeof checks}; Expected true|string[]`));
-                }
-                else {
-                    let err = new Error(checks[0]);
-                    err.Errors = checks;
-                    reject(err);
-                }
+        return new ExecutionContext.asyncWrapper((resolve, reject) => {
+            let checks = this.validPassword(str);
+            if (checks === true) {
+                bcrypt.hash(str, this.saltRounds, (err, enc) => {
+                    err ? reject(err) : resolve(enc);
+                });
             }
-            catch (err) {
+            else if (!Array.isArray(checks) || typeof checks[0] !== 'string') {
+                reject(new Error(`${typeof this}.validPassword() returned ${typeof checks}; Expected true|string[]`));
+            }
+            else {
+                let err = new Error(checks[0]);
+                err.list = checks;
                 reject(err);
             }
         });
@@ -128,8 +124,8 @@ class MUDPasswordPolicy {
      */
     validPassword(str) {
         let errors = [];
-        if (str.length < this.minLength) errors.push('Password is too short');
-        if (str.length > this.maxLength) errors.push('Password is too long');
+        if (str.length < this.minLength) errors.push('Password is too short.');
+        if (str.length > this.maxLength) errors.push('Password is too long.');
         if (this.requiredUpper > 0) {
             let ucc = str.replace(/[^A-Z]+/g, '').length;
             if (ucc < this.requiredUpper) errors.push(`Password must contain ${this.requiredUpper} uppercase characters.`);

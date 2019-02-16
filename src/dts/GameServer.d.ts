@@ -38,16 +38,14 @@ declare class ExecutionFrame {
 }
 
 declare class ExecutionContext {
-    /** Create a related child context.  This context must complete before its parent is finished */
-    fork(): ExecutionContext;
-
-    /** Create a related child context.  This context must complete before its parent is finished 
-     * @param {boolean} isAsync Whether or not this is an async method call.
-     */
-    fork(isAsync: boolean): ExecutionContext;
-
     /** Indicates the context was created for an async call. */
     readonly async: boolean;
+
+    /** Creates a new child context to be associated with an async call */
+    asyncCreate(): ExecutionContext;
+
+    /** Indicate the current execution context has completed */
+    complete(): ExecutionContext;
 
     getFrame(index: number): ExecutionFrame;
 
@@ -57,17 +55,27 @@ declare class ExecutionContext {
      */
     guarded(check: (frame: ExecutionFrame) => boolean): boolean;
 
-    //  Indicate the current execution frame is complete.
+    /** Indicate the current execution frame is complete. */
     pop(): ExecutionContext;
 
-    //  Push a new frame on to the stack
+    /** Push a new frame on to the stack */
     push(ob: MUDObject, method: string, filename: string): ExecutionContext;
+
+    /** Restore the context so that it is the active context in the driver. */
+    restore(): ExecutionContext;
 
     readonly thisObject: MUDObject;
 
     readonly thisPlayer: MUDObject;
 
     readonly truePlayer: MUDObject;
+
+    /**
+     * Creates a wrapper around an asyncronous call
+     * @param code The code to wrap
+     * @param timeout The maximum amount of time to wait for call to return
+     */
+    static asyncWrapper(asyncCode: (resolve: (any) => void, reject: (any) => void) => void, timeout: number = 5000): Promise<T>;
 }
 
 declare class GameServer {

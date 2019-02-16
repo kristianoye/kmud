@@ -19,26 +19,16 @@ const
         'receiveMessage', // Called when an object receives a message
         'reset'           // Called periodically to reset the object state
     ],
-    MXC = require('./MXC'),
     vm = require('vm'),
     loopsPerAssert = 10000;
 
-var _asyncContexts = {};
-
-Promise.prototype.always = function (onResolveOrReject) {
-    return this.then(onResolveOrReject, reason => {
-        onResolveOrReject(reason);
-        throw reason;
-    });
-};
-
-function createTimeoutError() {
-    let error = new TimeoutError('Maximum execution time exceeded');
-    Error.captureStackTrace(error, createTimeoutError);
-    let stack = error.stack.split('\n');
-    stack.splice(1, 1);
-    error.stack = stack.join('\n');
-    return error;
+if (typeof Promise.prototype.always !== 'function') {
+    Promise.prototype.always = function (onResolveOrReject) {
+        return this.then(onResolveOrReject, reason => {
+            onResolveOrReject(reason);
+            throw reason;
+        });
+    };
 }
 
 class MUDLoader {
@@ -46,21 +36,10 @@ class MUDLoader {
      * @param {MUDCompiler} compiler The compiler.
      */
     constructor(compiler) {
-        let
-            _contexts = MXC.initMap(),
-            _loopCounter = loopsPerAssert;
-        let self = this;
-
+        let _loopCounter = loopsPerAssert;
         this.console = console;
-
         Object.defineProperties(this, {
-            $: {
-                value: function (file) {
-                    return unwrap(_efuns.findObject(file));
-                },
-                writable: false
-            },
-            __act: {
+            __cat: {
                 // Assert Catch Type
                 value: function (val) {
                     driver.cleanError(val, true);
@@ -125,16 +104,6 @@ class MUDLoader {
                 },
                 enumerable: false,
                 writable: false
-            },
-            __dac: {
-                //  Decrement Async Context
-                value: function (aid) {
-                    let ctx = _asyncContexts[aid] || false;
-                    if (ctx) {
-                        ctx.pop();
-                        delete _contexts[aid];
-                    }
-                }
             },
             __efc: {
                 // End Function Call
@@ -211,20 +180,6 @@ class MUDLoader {
                 writable: false,
                 enumerable: false
             },
-            __iac: {
-                ///   Increment Async Context
-                value: function (ob, handleId, methodName, file) {
-                    let ecc = driver.getExecution();
-                    if (ecc) {
-                        let ncc = ecc.fork(true)
-                            .push(ob, methodName, file);
-                        ncc && ncc.alarm().suspend();
-                        _asyncContexts[handleId] = ncc;
-                    }
-                },
-                enumerable: false,
-                writable: false
-            },
             __rmt: {
                 //  Reset Module Types
                 value: function (fileName) {
@@ -251,10 +206,10 @@ class MUDLoader {
                 writable: false
             },
             eval: {
-                value: function (code) {
+                value: (code) => {
                     let source = compiler.preprocess(code),
                         maxEvalTime = driver.config.driver.maxEvalTime || 10000;
-                    return vm.runInContext(source, self, {
+                    return vm.runInContext(source, this, {
                         filename: 'eval',
                         displayErrors: true,
                         timeout: maxEvalTime

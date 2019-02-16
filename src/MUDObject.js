@@ -242,7 +242,6 @@ class MUDObject extends MUDEventEmitter {
     }
 
     getPrivate(key, defaultValue) {
-        driver.getExecution().assertPrivate(this, 'method', 'getPrivate');
         let $storage = driver.storage.get(this);
         return $storage.getPrivate(this.filename, key, defaultValue);
     }
@@ -260,7 +259,6 @@ class MUDObject extends MUDEventEmitter {
      * @returns {any} The property value or default if not set.
      */
     getProtected(key, defaultValue) {
-        driver.getExecution().assertProtected(this, 'method', 'getProtected');
         let $storage = driver.storage.get(this);
         return $storage.getProtected(key, defaultValue);
     }
@@ -391,7 +389,6 @@ class MUDObject extends MUDEventEmitter {
      * @returns {MUDObject} A reference to the object itself.
      */
     setPrivate(key, value) {
-        driver.getExecution().assertPrivate(this, 'method', 'getPrivate');
         let s = driver.storage.get(this), fileName = this.filename;
         if (typeof key === 'object')
             Object.keys(key).forEach(name => s.setPrivate(fileName, name, key[name]));
@@ -410,7 +407,6 @@ class MUDObject extends MUDEventEmitter {
     }
 
     setProtected(key, value) {
-        driver.getExecution().assertProtected(this, 'method', 'getPrivate');
         let $storage = driver.storage.get(this);
         $storage.setProtected(key, value);
         return this;

@@ -235,6 +235,9 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                             this.client.toggleEcho(true);
                         }
                         result = inputFrame.callback.call(body, text);
+                        if (result && typeof result.catch === 'function') {
+                            result.catch(err => console.log(err));
+                        }
                         if (result === true) {
                             this.inputStack.unshift(inputFrame);
                         }

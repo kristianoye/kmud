@@ -47,7 +47,7 @@ class RanvierTelnetInstance extends ClientInstance {
         let frame = Object.assign({ type: 'text', text: '> ', callback }, opts);
 
         if (frame.error) {
-            this.writeLine(frame.error);
+            this.writeLine('\n' + frame.error.trim() + '\n');
         }
         this.inputStack.unshift(frame);
         return opts.drawPrompt === true ? this.renderPrompt(frame) : this;

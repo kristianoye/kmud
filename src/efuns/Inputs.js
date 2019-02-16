@@ -6,6 +6,9 @@
  * Helper methods for user input interactions
  */
 const
+    semver = require('semver');
+
+const
     OP_AND = '&&',
     OP_OR = '||',
     OP_PIPE = '|',
@@ -46,38 +49,36 @@ class InputHelper {
      * @returns {MUDInputEvent[]} One or more command statements prepared for execution
      */
     static splitCommand(source, options = {}) {
-        let settings = Object.assign({
-            allowAsyncCommands: false,
-            allowChaining: false,
-            allowFileExpressions: false,
-            allowFileIO: false,
-            allowInputRedirect: false,
-            allowPiping: false,
-            expandAliases: false,
-            expandHistory: false,
-            expandVariables: false
-        }, options);
-
-        settings.expandHistory = settings.expandHistory === true || typeof settings.history === 'object';
-        settings.expandAliases = settings.expandAliases === true || typeof settings.aliases === 'object';
-        settings.expandVariables = settings.expandVariables === true || typeof settings.variables === 'object';
-
-        let i = 0,
+        let settings = Object.assign(
+            {
+                allowAsyncCommands: false,
+                allowChaining: false,
+                allowFileExpressions: false,
+                allowFileIO: false,
+                allowInputRedirect: false,
+                allowPiping: false,
+                expandAliases: false,
+                expandHistory: false,
+                expandVariables: false
+            }, options),
+            i = 0,
             m = source.length,
             cmd,
             cmds = [],
             prev,
             forHistory = '',
             fromHistory = false,
-            eatWhitespace = (n = 0) => {
+            printOnly = false;
+
+        settings.expandHistory = settings.expandHistory === true || typeof settings.history === 'object';
+        settings.expandAliases = settings.expandAliases === true || typeof settings.aliases === 'object';
+        settings.expandVariables = settings.expandVariables === true || typeof settings.variables === 'object';
+
+        let eatWhitespace = (n = 0) => {
                 let ws = '';
                 while (i < m && /\s+/.test(source.charAt(i)))
                     ws += source.charAt(i++);
                 return ws;
-            },
-            peek = (f, t) => {
-                let ret = source.slice(f = f || i, t || f + 1);
-                return ret;
             },
             take = (f, t) => {
                 let ret = '';
@@ -88,6 +89,13 @@ class InputHelper {
                         return ret[1] || ret[0];
                     }
                     return '';
+                }
+                else if (typeof f === 'string') {
+                    let check = source.slice(i, i + f.length);
+                    if (check !== f)
+                        return false;
+                    i += check.length;
+                    return check;
                 }
                 ret = source.slice(f = f || i, t = t || f + 1);
                 i = t;
@@ -254,46 +262,58 @@ class InputHelper {
 
                         case '!':
                             if (settings.expandHistory && typeof settings.history === 'object') {
-                                let found = '', start = i, search = '!', index = -1, arg = { end: i + 1 };
+                                let found = '',
+                                    start = i++,
+                                    search = '!',
+                                    index = -1,
+                                    arg = { end: i },
+                                    history = settings.history;
 
-                                if (source.charAt(i + 1) === '!') {
-                                    found = (i+=2) && settings.history[settings.history.length - 1];
-                                }
+                                if (take('!')) found = history[history.length - 1];
+                                else if (take('%')) found = history.keyword || '';
                                 else {
-                                    let contains = source.charAt(i + 1) === '?' && ++i;
-                                    arg = ++i && nextToken(T_IDENTIFIER);
+                                    let contains = take('?'), searchBack = take('-');
+                                    arg = nextToken(T_IDENTIFIER);
                                     search = arg.value, index = parseInt(search), found = false
                                     if (isNaN(index)) {
                                         if (contains)
-                                            for (let i = settings.history.length - 1; !found && i > -1; i--) {
-                                                if (settings.history[i].indexOf(search) > 0)
-                                                    found = settings.history[i];
+                                            for (let i = history.length - 1; !found && i > -1; i--) {
+                                                let n = history[i].indexOf(search)
+                                                if (n > -1) {
+                                                    let args = InputHelper.splitArgs(found = history[i], true);
+                                                    for (let x = 0; x < args.length; x++) {
+                                                        if (args[x].indexOf(search) > -1) {
+                                                            history.keyword = args[x];
+                                                            break;
+                                                        }
+                                                    }
+                                                }
                                             }
                                         else
-                                            for (let i = settings.history.length - 1; !found && i > -1; i--) {
-                                                if (settings.history[i].startsWith(search))
-                                                    found = settings.history[i];
+                                            for (let i = history.length - 1; !found && i > -1; i--) {
+                                                if (history[i].startsWith(search))
+                                                    found = history[i];
                                             }
                                     }
-                                    else if (settings.history[index])
-                                        found = settings.history[index];
+                                    else if (index > 0) {
+                                        if (searchBack)
+                                            found = history[history.length - index];
+                                        else
+                                            found = history[index];
+                                    }
                                 }
                                 if (!found)
                                     throw Error(`${search}: event not found`);
 
-                                if (peek() === ':') {
-                                    let nc = ++i && take(),
-                                        args = found.split(/\s+/);
-                                    if (nc === '^')
-                                        found = args[1];
-                                    else if (nc === '*')
-                                        found = args.slice(1).join(' ');
-                                    else if (nc === '$')
-                                        found = args[args.length - 1];
+                                if (take(':')) {
+                                    let nc = take(), args = found.split(/\s+/);
+                                    if (nc === '^') found = args[1];
+                                    else if (nc === '*') found = args.slice(1).join(' ');
+                                    else if (nc === '$') found = args[args.length - 1];
                                     else if (/\d/.test(nc)) {
                                         nc += take(/^\d+/);
-                                        if (peek() === '-') {
-                                            let endRange = ++i && take(/^\d+/);
+                                        if (take('-')) {
+                                            let endRange = take(/^\d+/);
                                             if (endRange)
                                                 found = args.slice(parseInt(nc), parseInt(endRange) + 1).join(' ');
                                             else
@@ -308,23 +328,59 @@ class InputHelper {
                                         }
                                     }
                                     else if (nc === 's' || nc === 'g') {
-                                        if (peek() === 'g' || peek() === 's') nc += take();
-                                        if (!take(/^(?<!\\)([^\/]+)/))
-                                            throw new Error(`Expected symbol / at position ${i}`);
-                                        let searchFor = take(/^(?<!\\)([^\/]+)/);
-                                        if (!take(/^(?<!\\)([^\/]+)/))
-                                            throw new Error(`Expected symbol / at position ${i}`);
-                                        let replaceWith = take(/^(?<!\\)([^\/]+)/);
-                                        if (take() !== '/')
-                                            throw new Error(`Expected symbol / at position ${i}`);
-                                        if (peek() === 'g') i++ , nc += 'g';
-                                        found = found.replace(
-                                            new RegExp(`/${searchFor}/${replaceWith}/`,
-                                                nc.indexOf('g') > -1 ? 'g' : undefined));
+                                        if (semver.lt(process.version, '9.0.0')) {
+                                            throw new Error('Search and replace is only available in Node v9+');
+                                        }
+                                        else if (take('&')) {
+                                            if (!history.lastReplace)
+                                                throw new Error(':g&: no previous substitution');
+                                        }
+                                        else {
+                                            if (!take('/'))
+                                                throw new Error(`Expected symbol / at position ${i}`);
+
+                                            let searchFor = take(/^(?<!\\)([^\/]+)/);
+
+                                            if (!take('/'))
+                                                throw new Error(`Expected symbol / at position ${i}`);
+
+                                            let replaceWith = take(/^(?<!\\)([^\/]+)/);
+
+                                            if (take() !== '/')
+                                                throw new Error(`Expected symbol / at position ${i}`);
+
+                                            let flags = take(/[gimu]+/) || undefined;
+                                            history.lastReplace = new RegExp(`/${searchFor}/${replaceWith}/`, flags);
+                                        }
+                                        found = found.replace(history.lastReplace);
+                                    }
+
+                                    while (take(':')) {
+                                        nc = take();
+                                        //  remove trailing path
+                                        if (nc === 'h') {
+                                            let n = found.lastIndexOf('/');
+                                            if (n > -1) found = found.slice(0, n);
+                                        }
+                                        else if (nc === 'p') {
+                                            printOnly = true;
+                                        }
+                                        //  remove the suffix
+                                        else if (nc === 'r') {
+                                            let n = found.lastIndexOf('.');
+                                            if (n > -1) found = found.slice(0, n);
+                                        }
+                                        //  removing leading path
+                                        else if (nc === 't') {
+                                            let n = found.lastIndexOf('/');
+                                            if (n > -1) found = found.slice(n + 1);
+                                        }
+                                        else
+                                            throw Error(`Unrecognized expression starting at position ${i-1}`);
                                     }
                                     arg.end = i;
                                 }
-                                source = source.slice(0, start) + found + source.slice(arg.end + 1).trim();
+                                source = source.slice(0, start) + found.trim() + source.slice(arg.end + 1).trim();
                                 i = start - 1; // Rewind even if it goes to -1
                                 m = source.length; // Update max length to reflect new size
                                 fromHistory = true;
@@ -531,7 +587,8 @@ class InputHelper {
             else if (cmd.type)
                 throw new Error(`Unexpected token ${cmd.type} at position ${cmd.pos}`);
         }
-        typeof settings.onWriteHistory === 'function' && settings.onWriteHistory(forHistory);
+        typeof settings.onWriteHistory === 'function' && settings.onWriteHistory(forHistory.trim());
+        if (fromHistory) efuns.write(forHistory.trim());
         return cmds;
     }
 

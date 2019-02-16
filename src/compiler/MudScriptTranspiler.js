@@ -2,8 +2,6 @@
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
- * 
- * TODO: Merge added functionality back into original JSXTranspiler
  */
 const
     PipelineComponent = require('./PipelineComponent'),
@@ -15,17 +13,28 @@ const
     ],
     acorn = require('acorn'),
     modifiers = require('./SecurityModifiers'),
-    jsx = require('acorn-jsx');
+    jsx = require('acorn-jsx'),
+    uuid = require('uuid/v1');
 
 const
     //  These cannot be used as identifiers (reserved words)
     IllegalIdentifiers = [
-        '__act',
-        '__ada',
-        '__ala',
-        '__afa',
+        // Async-related reserved tokens
+        '__acb',    // Async Callback
+        '__aeh',    // Async Error Handler
+        '__acr',    // Async Call Result
+        '__ahi',    // Async Handle ID
+
+        //  Error handling
+        '__cat',    // Catch Error
+
+        //  Execution Time Assertions
+        '__ala',    // Assert Loop Alarm
+
+        //  Method/Function execution
         '__bfc',    // Begin Function Call
         '__efc',    // End Function Call
+
         '__rmt',    // Reset Module Types
         '__dmt',    // Define Module Type
         '__iac',
@@ -36,19 +45,6 @@ const
 
     //  These methods cannot be defined by objects in the game
     ProtectedApplies = ['setPrivate', 'getPrivate', 'setProtected', 'getProtected'];
-
-var nextAsyncHandleId = 1;
-
-/**
- * Fetch the next async handle ID to use 
- * @returns {number} The next async handle to use
- */
-function getAsyncHandleId() {
-    // We could use UUID and never have to worry?
-    if (nextAsyncHandleId === Number.MAX_SAFE_INTEGER)
-        nextAsyncHandleId = 1;
-    return nextAsyncHandleId++;
-}
 
 /** @typedef {{ allowJsx: boolean, context: PipeContext, source: string }} OpParams */
 class JSXTranspilerOp {
@@ -332,22 +328,12 @@ function parseElement(op, e, depth) {
 
             case 'AwaitExpression':
                 {
-                    /**
-                     * This block needs some love to be really bulletproof:
-                     *   (1) Need different or rolling async handles for
-                     *       long-running utimes,
-                     *       
-                     *   (2) Need foolproof wrapper to ensure context cannot
-                     *       outlive the async call,
-                     *       
-                     *   (3) Need to safeguard against users calling async
-                     *       methods without using await.
-                     */
-                    let handleId = getAsyncHandleId(); 
-                    ret += `(__iac(this, ${handleId}, '${op.method}', __FILE__), `;
+                    // Not quite there....
+                    //ret += '(__mec.asyncReservation() && await (new Promise(async (__acb, __aeh) => {  let __acr, __ahi = __mec.beginAsyncCall(); try { __acr = ';
+                    //ret += parseElement(op, e.argument, depth + 1);
+                    //ret += '.catch(e => { throw e }); __acb([__acr, false]); } catch(err) { console.log(err); __acb([undefined, err]); } finally { __ahi.complete(); } })))';
+
                     ret += parseElement(op, e.argument, depth + 1);
-                    ret += `.always(() => __dac(${handleId})))`;
-                    
                 }
                 break;
 
@@ -449,7 +435,7 @@ function parseElement(op, e, depth) {
 
             case 'CatchClause':
                 ret += parseElement(op, e.param, depth + 1);
-                addRuntimeAssert(e, `__act(${e.param.name}); `);
+                addRuntimeAssert(e, `__cat(${e.param.name}); `);
                 ret += parseElement(op, e.body, depth + 1);
                 break;
 
@@ -814,7 +800,7 @@ function parseElement(op, e, depth) {
     return ret;
 }
 
-class JSXTranspilerForAcornJsx5 extends PipelineComponent {
+class MudScriptTranspiler extends PipelineComponent {
     constructor(config) {
         super(config);
 
@@ -860,4 +846,4 @@ class JSXTranspilerForAcornJsx5 extends PipelineComponent {
     }
 }
 
-module.exports = JSXTranspilerForAcornJsx5;
+module.exports = MudScriptTranspiler;
