@@ -66,7 +66,7 @@ class MUDLoader {
             },
             __bfc: {
                 //  Begin Function Call
-                value: function (ob, access, method, fileName, isAsync, lineNumber) {
+                value: function (ob, access, method, fileName, isAsync, lineNumber, type) {
                     let mec = driver.getExecution(), newContext = false;
 
                     if (method.length === 0) {
@@ -325,9 +325,9 @@ class MUDLoader {
         ecc.thisClient && ecc.thisClient.addPrompt(opts, callback);
     }
 
-    get(usingType, key, defaultValue = undefined) {
+    get(usingType, key, defaultValue = undefined, access = 2) {
         let store = driver.storage.get(this),
-            result = store.get(this, usingType, key);
+            result = store.get(this, usingType, key, defaultValue, access);
         return typeof result === 'undefined' ? defaultValue : result;
     }
 
@@ -341,7 +341,13 @@ class MUDLoader {
      */
     register(usingType, key, val, access = 2) {
         let store = driver.storage.get(this);
-        return store.set(this, usingType, key, val, access, false);
+        if (efuns.isPOO(key)) {
+            Object.keys(key).forEach(prop => {
+                store.set(this, usingType, prop, key[prop], access, true);
+            });
+            return;
+        }
+        store.set(this, usingType, key, val, access, true);
 
     }
 
@@ -355,7 +361,7 @@ class MUDLoader {
      */
     set(usingType, key, val, access = 2) {
         let store = driver.storage.get(this);
-        return store.set(this, usingType, key, val, access);
+        store.set(this, usingType, key, val, access);
     }
 
     thisPlayer(flag) {

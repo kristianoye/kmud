@@ -222,9 +222,10 @@ class MUDCompiler {
                     true,
                     false,
                     parentInfo);
+
                 if (virtualResult instanceof MUDObject) {
                     module.insertInstance(virtualResult, { name: module.name });
-                    module.defaultInstance = virtualResult;
+                    module.defaultExport = virtualResult;
                 }
                 module.loaded = true;
                 return module;
@@ -238,7 +239,13 @@ class MUDCompiler {
             else if (!pipeline.enabled)
                 throw new Error(`Could not load ${context.filename} [${pipeline.name} - not enabled]`);
 
-            pipeline.execute(context);
+            let ecc = driver.getExecution(context.filename, 'compileObject', context.filename);
+            try {
+                pipeline.execute(context);
+            }
+            finally {
+                ecc.pop('compileObject');
+            }
 
             if (context.state === PipeContext.CTX_FINISHED) {
                 if (!context.content)

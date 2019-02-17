@@ -68,7 +68,7 @@ class JSXTranspilerOp {
         this.pos = 0;
         this.scopes = [];
         this.source = p.source;
-
+        this.symbols = {};
         this.thisAccess = "public";
         this.thisClass = false;
         this.thisMethod = false;
@@ -123,6 +123,19 @@ class JSXTranspilerOp {
 
     getCallerId() {
         return this.callerId.pop();
+    }
+
+    /**
+     * Attempts to import one or more simple includes
+     * @param {string[]} fileSpec One or more files to include
+     */
+    include(fileSpec) {
+        fileSpec.forEach(f => {
+            let symbols = driver.includeFile(f);
+            if (typeof symbols === 'object') {
+                this.symbols = Object.assign(this.symbols, symbols);
+            }
+        });
     }
 
     get method() {
@@ -366,14 +379,36 @@ function parseElement(op, e, depth) {
 
                             // set.call(this, ... args)
                             ret += propName;
-                            ret += `.call(this, ${op.thisClass}, `
+                            if (op.thisClass && op.thisMethod === 'constructor') {
+                                //  No need to check... use this' type if setting/getting private data
+                                ret += `.call(this, { type: ${op.thisClass} }, `
+                            }
+                            else {
+                                ret += `.call(this, ${op.thisClass}, `
+                            };
                             if (e.arguments.length > 0) {
-                                let unusedText = op.readUntil(e.arguments[0].start);
+                                op.readUntil(e.arguments[0].start);
                             }
                             e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
                             ret += op.readUntil(e.end);
                             isCallout = true;
                             writeCallee = false;
+                        }
+                        else if (propName === '$include') {
+                            let fileSpec = e.arguments.map(a => {
+                                if (a.type !== 'Literal')
+                                    throw new Error(`Illegal include statement; Cannot include type ${a.type} (must be Literal)`);
+                                return a.value;
+                            });
+
+                            if (fileSpec.length === 0)
+                                throw new Error('Illegal include statement; Must specify at least one file.');
+
+                            ret += `/* included ${fileSpec.join(', ')} */`;
+                            op.include(fileSpec);
+                            writeCallee = false;
+                            isCallout = true;
+                            op.pos = e.end;
                         }
                         else
                             op.addCallerId(propName);
@@ -390,7 +425,7 @@ function parseElement(op, e, depth) {
                         propName = callee = parseElement(op, e.callee, depth + 1);
                         op.addCallerId('() => {}');
                     }
-                   else {
+                    else {
                         throw new Error(`Unexpected callee type ${e.callee.type}`);
                     }
                     if (op.allowLiteralCallouts) {
@@ -521,20 +556,40 @@ function parseElement(op, e, depth) {
                     ret += parseElement(op, e.id, depth + 1);
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
                     if (op.thisClass && op.thisMethod) {
-                        addRuntimeAssert(e,
-                            `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false); try { `,
-                            ` } finally { __efc(__mec, '${op.method}'); }`,
-                            op.method === 'constructor');
+                        if (op.method === 'constructor' && op.thisClass) {
+                            addRuntimeAssert(e,
+                                `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false, ${op.thisClass}); try { `,
+                                ` } finally { __efc(__mec, '${op.method}'); }`, true);
+                        }
+                        else {
+                            addRuntimeAssert(e,
+                                `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false); try { `,
+                                ` } finally { __efc(__mec, '${op.method}'); }`, false);
+                        }
                     }
                     ret += parseElement(op, e.body, depth + 1);
                 }
                 break;
 
             case 'Identifier':
-                let _id = op.source.slice(e.start, e.end);
-                if (IllegalIdentifiers.indexOf(_id) > -1)
-                    throw new Error(`Illegal identifier: ${_id}`);
-                ret += _id;
+                let identifier = op.source.slice(e.start, e.end);
+
+                if (IllegalIdentifiers.indexOf(identifier) > -1)
+                    throw new Error(`Illegal identifier: ${identifier}`);
+                else if (identifier in op.symbols && identifier in op.symbols.__proto__ === false) {
+                    let symbolValue = op.symbols[identifier];
+                    if (typeof symbolValue === 'string') {
+                        ret += `'${op.symbols[identifier]}'`;
+                    }
+                    else if (typeof symbolValue === 'function') {
+                        ret += symbolValue.toString();
+                    }
+                    else if (efuns.isPOO(symbolValue)) {
+                        ret += JSON.stingify(symbolValue);
+                    }
+                }
+                else
+                    ret += identifier;
                 op.pos = e.end;
                 break;
 
@@ -627,7 +682,8 @@ function parseElement(op, e, depth) {
                 break;
 
             case 'Literal':
-                ret += op.source.slice(e.start, e.end);
+                let literal = op.source.slice(e.start, e.end);
+                ret += literal;
                 op.pos = e.end;
                 break;
 

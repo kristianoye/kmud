@@ -60,72 +60,105 @@ class MUDStorage extends MUDEventEmitter {
 
         /** @type {Object.<string,{value:any, definer:string, access:number}>} */
         this.data = {};
+
+        /** @type {Object.<string,{value:any, definer:string, access:number}>} */
+        this.privateData = {};
     }
 
-    set(thisObject, definingType, key, value, access = 2, createOnlyIfMissing = false) {
-        let cur = this.data[key],
-            definer = definingType.prototype.baseName,
-            doMerge = cur && efuns.isPOO(cur.value) && efuns.isPOO(value);
+    /**
+     * 
+     * @param {MUDObject} thisObject The object to associate data with
+     * @param {function} definingType
+     * @param {string} key The key to set/create
+     * @param {any} value The value (or undef to delete)
+     * @param {any} access
+     * @param {any} initMode
+     */
+    set(thisObject, definingType, key, value, access = 2, initMode = false) {
+        let ptr = access === 3 ? this.privateData : this.data,
+            definer = definingType.type ?
+                definingType.type.prototype.baseName :
+                definingType.prototype.baseName,
 
-        if (doMerge) createOnlyIfMissing = true;
-        if (cur && !createOnlyIfMissing)
-            return this.owner;
-        if (cur) {
-            if (cur.access === 3 && cur.definer !== definer) {
-                throw new Error(`Property '${key}' has been set as PRIVATE in base type ${cur.definer}`);
-            }
-            else if (cur.access === 2) {
-                let parts = driver.efuns.parsePath(cur.definer),
-                    module = driver.cache.get(parts.file),
-                    targetType = module && module.getType(parts.type);
+            //  This set/get/register is taking place in a constructor of definer type
+            thisBase = definingType.type ? definer : 
+                thisObject.constructor.prototype.baseName,
+            keyPath = key.split('/').filter(s => s.length),
+            keyName = [],
+            keySize = keyPath.length;
 
-                if (!targetType || thisObject instanceof targetType === false)
-                    throw new Error(`Property '${key}' has been set as PROTECTED in base type ${cur.definer}`);
+        if (access === 3) {
+            if (thisBase !== definer)
+                throw new Error(`Illegal attempt to access private data.`);
+
+            if (definer in ptr === false) {
+                ptr = ptr[definer] = {};
             }
-            else if (cur.access === 1) {
-                //  Package level - Filenames need to match
-                let p1 = driver.efuns.parsePath(definer),
-                    p2 = driver.efuns.parsePath(thisObject.filename);
-                if (p1.file !== p2.file)
-                    throw new Error(`Property '${key}' has been set as PACKAGE in base type ${cur.definer}`);
-            }
-            if (cur.access !== access) {
-                throw new Error(`Property '${key}' has already been defined as ${AccessWords[cur.access]} in module ${cur.definer}`);
-            }
-            if (doMerge)
-                cur.value = Object.assign(cur.value, value);
-            else
-                cur.value = value;
         }
-        else
-            this.data[key] = access ? { definer, access, value } : { value };
+        while(--keySize) {
+            let subkey = keyPath.shift();
+
+            if (subkey in ptr === false) 
+                ptr = ptr[subkey] = keySize ? {} : value;
+            else
+                ptr = ptr[subkey];
+
+            keyName.push(subkey);
+
+            if (!efuns.isPOO(ptr)) {
+                throw new Error(`Illegal value key ${key}; ${keyName.join('/')} already exists as value.`);
+            }
+        }
+
+        keyName = keyPath[0];
+
+        if (keyName in ptr === false) {
+            ptr[keyName] = value;
+        }
+        else if (efuns.isPOO(value)) {
+            Object.keys(value).forEach(subkey => {
+                this.set(thisObject, definingType, key + '/' + subkey, value[subkey], access, initMode);
+            });
+            return;
+        }
+        else if (!initMode)
+            ptr[keyName] = value;
+
         return this.owner;
     }
 
-    get(thisObject, definingType, key) {
-        let cur = this.data[key], definer = definingType.prototype.baseName;
-        if (cur) {
-            if (cur.access === 3 && cur.definer !== definer) {
-                throw new Error(`Property '${key}' has been set as PRIVATE in base type ${cur.definer}`);
-            }
-            else if (cur.access === 2) {
-                let parts = driver.efuns.parsePath(cur.definer),
-                    module = driver.cache.get(parts.file),
-                    targetType = module && module.getType(parts.type);
+    get(thisObject, definingType, key, defaultValue, access = 2) {
+        let ptr = access === 3 ? this.privateData : this.data,
+            definer = definingType.type ?
+                definingType.type.prototype.baseName :
+                definingType.prototype.baseName,
 
-                if (!targetType || thisObject instanceof targetType === false)
-                    throw new Error(`Property '${key}' has been set as PROTECTED in base type ${cur.definer}`);
+            //  This set/get/register is taking place in a constructor of definer type
+            thisBase = definingType.type ? definer :
+                thisObject.constructor.prototype.baseName,
+            keyPath = key.split('/').filter(s => s.length),
+            keySize = keyPath.length;
+
+        if (access === 3) {
+            if (thisBase !== definer)
+                throw new Error(`Illegal attempt to access private data.`);
+
+            if (definer in ptr === false) {
+                ptr = ptr[definer] = {};
             }
-            else if (cur.access === 1) {
-                //  Package level - Filenames need to match
-                let p1 = driver.efuns.parsePath(definer),
-                    p2 = driver.efuns.parsePath(thisObject.filename);
-                if (p1.file !== p2.file)
-                    throw new Error(`Property '${key}' has been set as PACKAGE in base type ${cur.definer}`);
-            }
-            return cur.value;
         }
-        throw new Error(`Property '${key}' was not found!`);
+        while (--keySize) {
+            let subkey = keyPath.shift();
+
+            if (subkey in ptr === false)
+                return defaultValue;
+            else
+                ptr = ptr[subkey];
+        }
+        if (keyPath[0] in ptr === false && defaultValue) {
+            return ptr[keyPath[0]] = defaultValue;
+        }
+        return ptr[keyPath[0]] || defaultValue;
     }
 
     /**

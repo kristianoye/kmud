@@ -97,6 +97,19 @@ function plugin(options, Parser) {
             method.value = this.parseMethod(isGenerator, isAsync, allowsDirectSuper);
             return this.finishNode(method, "MethodDefinition");
         }
+
+        //readToken(code) {
+        //    let context = this.curContext();
+        //    if (options.allowIncludes) {
+        //        if (code === 36) {
+        //            let includeCheck = this.input.slice(this.pos, this.pos + 8);
+        //            if (includeCheck === '$include') {
+
+        //            }
+        //        }
+        //    }
+        //    return super.readToken(code);
+        //}
     };
 }
 
@@ -108,7 +121,8 @@ module.exports = function (optionsIn) {
             allowStaticProperties: true,
             allowPackageModifier: true,
             defaultAccessModifier: "public",
-            requireAccessModifiers: false
+            requireAccessModifiers: false,
+            allowIncludes: true
         }, Parser);
     };
 };

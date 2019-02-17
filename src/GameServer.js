@@ -722,6 +722,33 @@ class GameServer extends MUDEventEmitter {
         return this.config.mud.name;
     }
 
+    /**
+     * Attempt to read symbols from the specified file
+     * @param {string} file The file
+     */
+    includeFile(file) {
+        let files = this.includePath.map(fn => {
+            let result = fn + '/' + file;
+            if (result.lastIndexOf('.') < result.lastIndexOf('/'))
+                result += '.js';
+            return result;
+        });
+        let result = this.driverCall('includeFile', ecc => {
+            for (let i = 0; i < files.length; i++) {
+                try {
+                    if (efuns.isFileSync(files[i])) {
+                        let module = driver.compiler.compileObject({ file: files[i] });
+                        return module.defaultExport || module.exports;
+                    }
+                }
+                catch (err) {
+                    console.log('includeFile:', err);
+                }
+            }
+        });
+        return result;
+    }
+
     inGroup(target, groups) {
         if (this.gameState < GAMESTATE_RUNNING) return true;
         else return driver.masterObject.inGroup(target, [].slice.call(arguments, 1));
@@ -1143,7 +1170,8 @@ class GameServer extends MUDEventEmitter {
      * @returns {boolean} True if the read operation can proceed.
      */
     validRead(efuns, frame, path) {
-        if (this.gameState < GAMESTATE_RUNNING)
+        //  No master object yet; We have no way of validating reads.
+        if (!this.masterObject)
             return true;
         else if (frame.object === driver)
             return true;

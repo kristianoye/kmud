@@ -59,6 +59,9 @@
     <Compile Include="lib\base\GameObject.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\base\include\Body.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\base\Limb.js" />
     <Compile Include="lib\base\Living.js">
       <SubType>Code</SubType>
@@ -126,7 +129,7 @@
     <Compile Include="lib\sys\cmds\filesystem\Compile.jsx">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\filesystem\Eval.jsx" />
+    <Compile Include="lib\sys\cmds\filesystem\Eval.js" />
     <Compile Include="lib\sys\cmds\creator\Force.jsx">
       <SubType>Code</SubType>
     </Compile>
@@ -251,6 +254,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\include\Daemon.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\include\Object.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\lib\BaseShell.js">

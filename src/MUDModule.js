@@ -36,7 +36,7 @@ class MUDModule extends MUDEventEmitter {
 
         this.context = null;
 
-        this.defaultInstance = false;
+        this.defaultExport = false;
 
         /** @type {string[]} */
         this.typeNames = [];
@@ -177,7 +177,7 @@ class MUDModule extends MUDEventEmitter {
                 }
             }
             else if (this.efuns.isClass(val)) {
-                this.defaultInstance = val;
+                this.defaultExport = val;
             }
         }
         this.singletons = sc > 0 && singles;
@@ -252,7 +252,7 @@ class MUDModule extends MUDEventEmitter {
         //    }
         //});
         if (this.typeNames.length === 1)
-            this.defaultInstance = this.instanceMap[this.typeNames[0]][0];
+            this.defaultExport = this.instanceMap[this.typeNames[0]][0];
     }
 
     createObject(id, creationContext) {
@@ -313,7 +313,7 @@ class MUDModule extends MUDEventEmitter {
             req = { type: this.name, instance: req, file: this.fullPath };
         }
         else if (!this.types[req.type]) {
-            return req.instance === 0 && this.defaultInstance;
+            return req.instance === 0 && this.defaultExport;
         }
         let instances = this.instanceMap[req.type] || [];
         if (req.instance < 0 || req.instance > instances.length)
