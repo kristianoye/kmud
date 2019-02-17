@@ -744,8 +744,10 @@ class EFUNProxy {
      * @returns {boolean} True if the item is a plain old object.
      */
     isPOO(target) {
-        return typeof target === 'object' && target.constructor.name === 'Object' &&
-            target.constructor.constructor && target.constructor.constructor.name === 'Function';
+        return typeof target === 'object' &&
+            target.constructor.name === 'Object' &&
+            target.constructor.constructor &&
+            target.constructor.constructor.name === 'Function';
     }
 
     /**

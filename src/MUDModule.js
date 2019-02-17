@@ -373,9 +373,19 @@ class MUDModule extends MUDEventEmitter {
         let typeName = typeof type === 'function' ? type.name
             : typeof type === 'string' ? type : false;
 
+
         let instanceId = typeof idArg === 'number' ? idArg : (this.instanceMap[typeName] || []).length,
             filename = this.filename + (this.name !== typeName ? '$' + typeName : '');
-        if (instanceId > 0) filename += '#' + instanceId;
+        if (instanceId > 0) {
+            if (this.singletons[typeName]) {
+                if (!this.isCompiling)
+                    throw new Error(`Type ${this.filename}$${typeName} is a singleton and cannot be cloned`);
+                else
+                    instanceId = 0;
+            }
+            else
+                filename += '#' + instanceId;
+        }
         return { filename, instanceId, args: args || [] };
     }
 

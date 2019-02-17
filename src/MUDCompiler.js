@@ -260,10 +260,15 @@ class MUDCompiler {
                 }
 
                 module.isCompiling = true;
-
-                let result = driver.driverCall('runInContext',
-                    () => VM.run(context, module),
-                    context.filename, true);
+                let result = driver.driverCall(
+                    'runInContext',
+                    () => {
+                        //  Clear previous exports in case they've changed
+                        module.exports = false;
+                        VM.run(context, module);
+                    },
+                    context.filename,
+                    true);
 
                 delete module.isCompiling;
                 if (result instanceof Error)

@@ -187,6 +187,9 @@ class MUDLoader {
                     let module = driver.cache.get(fileName);
                     module.typeNames = [];
                     module.types = {};
+
+                    // You would THINK we could clear exports here, but no.
+                    // module.exports = {};
                 },
                 writable: false,
                 enumerable: false

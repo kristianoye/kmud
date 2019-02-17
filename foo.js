@@ -1,15 +1,11 @@
-
-async function foobar() {
-	return (console.log('Starting'), true) && await (new Promise((r,e) => {
-		setTimeout(() => r('Hello World'), 2000);
-	}));
+class A {
+	get test() { return 'A'; }
 }
 
-async function doIt() {
-	let foo = await foobar().then(value => value);
-	
-	console.log(foo);
+class B {
+	get tester() { return this.test; }
 }
 
-doIt();
+let foo = new B();
 
+console.log(foo.tester);
