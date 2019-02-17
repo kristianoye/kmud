@@ -67,6 +67,11 @@ class MUDObject extends MUDEventEmitter {
                     }
                 });
             }
+            //  Set this before going back up the constructor chain
+            if (ecc.storage) {
+                ecc.storage.owner = this;
+                delete ecc.storage;
+            }
         }
         finally {
             delete ecc.newContext;
@@ -199,10 +204,6 @@ class MUDObject extends MUDEventEmitter {
             return prop;
     }
 
-    get adjectives() {
-        return this.getProperty('adjectives', []);
-    }
-
     get inventory() {
         return driver.storage.get(this).inventory.map(o => unwrap(o));
     }
@@ -210,16 +211,6 @@ class MUDObject extends MUDEventEmitter {
     isLiving() { return false; }
 
     isPlayer() { return false; }
-
-    get name() {
-        return this.getPrivate('name', 'OBJECT');
-    }
-
-    set name(value) {
-        if (typeof value !== 'string')
-            throw new Error(`Invalid value for "name"; Must be string not ${typeof value}`);
-        this.setPrivate('name', value);
-    }
 
     getFirstProperty(...propList) {
         let store = driver.storage.get(this),
@@ -286,10 +277,6 @@ class MUDObject extends MUDEventEmitter {
 
     isPlayer() {
         return false;
-    }
-
-    get keyId() {
-        return driver.storage.get(this).getProperty('id', 'unknown');
     }
 
     moveObject(destination, callback) {

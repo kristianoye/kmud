@@ -325,9 +325,9 @@ class MUDLoader {
         ecc.thisClient && ecc.thisClient.addPrompt(opts, callback);
     }
 
-    get(usingType, key, defaultValue = undefined, access = 2) {
+    get(usingType, file, key, defaultValue = undefined, access = 2) {
         let store = driver.storage.get(this),
-            result = store.get(this, usingType, key, defaultValue, access);
+            result = store.get(this, usingType, file, key, defaultValue, access);
         return typeof result === 'undefined' ? defaultValue : result;
     }
 
@@ -339,15 +339,15 @@ class MUDLoader {
      * @param {any} access The level access required to set/read the key
      * @returns {MUDObject} A reference to this object.
      */
-    register(usingType, key, val, access = 2) {
+    register(usingType, file, key, val, access = 2) {
         let store = driver.storage.get(this);
         if (efuns.isPOO(key)) {
             Object.keys(key).forEach(prop => {
-                store.set(this, usingType, prop, key[prop], access, true);
+                store.set(this, usingType, file, prop, key[prop], access, true);
             });
             return;
         }
-        store.set(this, usingType, key, val, access, true);
+        store.set(this, usingType, file, key, val, access, true);
 
     }
 
@@ -359,9 +359,9 @@ class MUDLoader {
      * @param {any} access The level access required to set/read the key
      * @returns {MUDObject} A reference to this object.
      */
-    set(usingType, key, val, access = 2) {
+    set(usingType, file, key, val, access = 2) {
         let store = driver.storage.get(this);
-        store.set(this, usingType, key, val, access);
+        store.set(this, usingType, file, key, val, access, false);
     }
 
     thisPlayer(flag) {

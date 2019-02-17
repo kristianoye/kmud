@@ -920,7 +920,7 @@ class EFUNProxy {
     normalizeName(name) {
         if (typeof name !== 'string')
             throw new Error(`Bad argument 1 to normalizeName; Expected string got ${(typeof name)}`);
-        return name.toLowerCase().replace(/[^a-z0-9]+/g, '');
+        return name.toLowerCase().replace(/[^a-zA-Z]+/g, '');
     }
 
     /**

@@ -239,13 +239,9 @@ class MUDCompiler {
             else if (!pipeline.enabled)
                 throw new Error(`Could not load ${context.filename} [${pipeline.name} - not enabled]`);
 
-            let ecc = driver.getExecution(context.filename, 'compileObject', context.filename);
-            try {
+            driver.driverCall('compileObject', () => {
                 pipeline.execute(context);
-            }
-            finally {
-                ecc.pop('compileObject');
-            }
+            }, context.filename, true);
 
             if (context.state === PipeContext.CTX_FINISHED) {
                 if (!context.content)
@@ -265,9 +261,9 @@ class MUDCompiler {
 
                 module.isCompiling = true;
 
-                let result = driver.driverCall('compileObject',
+                let result = driver.driverCall('runInContext',
                     () => VM.run(context, module),
-                    context.filename);
+                    context.filename, true);
 
                 delete module.isCompiling;
                 if (result instanceof Error)

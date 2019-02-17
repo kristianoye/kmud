@@ -381,10 +381,10 @@ function parseElement(op, e, depth) {
                             ret += propName;
                             if (op.thisClass && op.thisMethod === 'constructor') {
                                 //  No need to check... use this' type if setting/getting private data
-                                ret += `.call(this, { type: ${op.thisClass} }, `
+                                ret += `.call(this, ${op.thisClass}, __FILE__, `
                             }
                             else {
-                                ret += `.call(this, ${op.thisClass}, `
+                                ret += `.call(this, ${op.thisClass}, __FILE__, `
                             };
                             if (e.arguments.length > 0) {
                                 op.readUntil(e.arguments[0].start);

@@ -217,6 +217,7 @@ class MUDModule extends MUDEventEmitter {
                 ecc = driver.getExecution();
 
             ecc.newContext = instanceData;
+            ecc.storage = store;
 
             let instance = create ? create(type, ...args) : new type(...args);
             this.finalizeInstance(instance, !instance.filename && instanceData);

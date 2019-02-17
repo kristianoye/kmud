@@ -74,7 +74,7 @@ class MUDStorage extends MUDEventEmitter {
      * @param {any} access
      * @param {any} initMode
      */
-    set(thisObject, definingType, key, value, access = 2, initMode = false) {
+    set(thisObject, definingType, file, key, value, access = 2, initMode = false) {
         let ptr = access === 3 ? this.privateData : this.data,
             definer = definingType.type ?
                 definingType.type.prototype.baseName :
@@ -88,7 +88,7 @@ class MUDStorage extends MUDEventEmitter {
             keySize = keyPath.length;
 
         if (access === 3) {
-            if (thisBase !== definer)
+            if (thisBase !== definer && definer !== file)
                 throw new Error(`Illegal attempt to access private data.`);
 
             if (definer in ptr === false) {
@@ -117,7 +117,7 @@ class MUDStorage extends MUDEventEmitter {
         }
         else if (efuns.isPOO(value)) {
             Object.keys(value).forEach(subkey => {
-                this.set(thisObject, definingType, key + '/' + subkey, value[subkey], access, initMode);
+                this.set(thisObject, definingType, file, key + '/' + subkey, value[subkey], access, initMode);
             });
             return;
         }
@@ -127,7 +127,7 @@ class MUDStorage extends MUDEventEmitter {
         return this.owner;
     }
 
-    get(thisObject, definingType, key, defaultValue, access = 2) {
+    get(thisObject, definingType, file, key, defaultValue, access = 2) {
         let ptr = access === 3 ? this.privateData : this.data,
             definer = definingType.type ?
                 definingType.type.prototype.baseName :
@@ -140,11 +140,14 @@ class MUDStorage extends MUDEventEmitter {
             keySize = keyPath.length;
 
         if (access === 3) {
-            if (thisBase !== definer)
+            if (thisBase !== definer && definer !== file)
                 throw new Error(`Illegal attempt to access private data.`);
 
             if (definer in ptr === false) {
                 ptr = ptr[definer] = {};
+            }
+            else {
+                ptr = ptr[definer];
             }
         }
         while (--keySize) {
