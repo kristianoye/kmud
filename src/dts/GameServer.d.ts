@@ -41,11 +41,11 @@ declare class ExecutionContext {
     /** Indicates the context was created for an async call. */
     readonly async: boolean;
 
-    /** Creates a new child context to be associated with an async call */
-    asyncCreate(): ExecutionContext;
-
     /** Indicate the current execution context has completed */
     complete(): ExecutionContext;
+
+    /** Creates a new child context to be associated with an async call */
+    fork(): ExecutionContext;
 
     getFrame(index: number): ExecutionFrame;
 
@@ -55,11 +55,17 @@ declare class ExecutionContext {
      */
     guarded(check: (frame: ExecutionFrame) => boolean): boolean;
 
-    /** Indicate the current execution frame is complete. */
-    pop(): ExecutionContext;
+    /** 
+     * Indicate the current execution frame is complete. 
+     * @param method The name of the method popping off the stack
+     */
+    pop(method: string): ExecutionContext;
 
     /** Push a new frame on to the stack */
     push(ob: MUDObject, method: string, filename: string): ExecutionContext;
+
+    /** Previous objects on the stack; Starting with "thisObject" */
+    readonly previousObjects: MUDObject[];
 
     /** Restore the context so that it is the active context in the driver. */
     restore(): ExecutionContext;

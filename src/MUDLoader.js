@@ -38,6 +38,7 @@ class MUDLoader {
     constructor(compiler) {
         let _loopCounter = loopsPerAssert;
         this.console = console;
+
         Object.defineProperties(this, {
             __cat: {
                 // Assert Catch Type

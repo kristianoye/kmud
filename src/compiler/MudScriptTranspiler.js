@@ -13,8 +13,7 @@ const
     ],
     acorn = require('acorn'),
     modifiers = require('./SecurityModifiers'),
-    jsx = require('acorn-jsx'),
-    uuid = require('uuid/v1');
+    jsx = require('acorn-jsx');
 
 const
     //  These cannot be used as identifiers (reserved words)
@@ -35,16 +34,16 @@ const
         '__bfc',    // Begin Function Call
         '__efc',    // End Function Call
 
-        '__rmt',    // Reset Module Types
-        '__dmt',    // Define Module Type
-        '__iac',
-        '__dac',
-        '__pcc',    // Perform Constructor Call
-        '__mec'     // MUD Execution Context 
-    ],
+        //  Module definition control
+        '__rmt',    // Reset Module Types - Called during compiling to reset manifest
+        '__dmt',    // Define Module Type - Define a type in a module
 
-    //  These methods cannot be defined by objects in the game
-    ProtectedApplies = ['setPrivate', 'getPrivate', 'setProtected', 'getProtected'];
+        //  Constructor call
+        '__pcc',    // Perform Constructor Call
+
+        //  Reserved for passing the execution context
+        '__mec'     // MUD Execution Context 
+    ];
 
 /** @typedef {{ allowJsx: boolean, context: PipeContext, source: string }} OpParams */
 class JSXTranspilerOp {
@@ -58,16 +57,6 @@ class JSXTranspilerOp {
         this.allowJsx = p.allowJsx;
 
         this.appendText = '';
-        if (!this.acornOptions) {
-            this.ast = p.allowJsx ?
-                acorn.Parser
-                    .extend(jsx())
-                    .extend(modifiers({ allowAccessModifiers: true }))
-                    .parse(p.source, acornOptions) :
-                acorn.Parser
-                    .extend(modifiers({ allowAccessModifiers: true }))
-                    .parse(p.source, acornOptions);
-        }
         this.callerId = [];
         this.context = p.context;
         this.filename = p.filename;
@@ -321,6 +310,10 @@ function parseElement(op, e, depth) {
                 break; 
 
             case 'AssignmentExpression':
+                ret += parseElement(op, e.left, depth + 1);
+                ret += parseElement(op, e.right, depth + 1);
+                break;
+
             case 'AssignmentPattern':
                 ret += parseElement(op, e.left, depth + 1);
                 ret += parseElement(op, e.right, depth + 1);
@@ -328,12 +321,12 @@ function parseElement(op, e, depth) {
 
             case 'AwaitExpression':
                 {
-                    // Not quite there....
-                    //ret += '(__mec.asyncReservation() && await (new Promise(async (__acb, __aeh) => {  let __acr, __ahi = __mec.beginAsyncCall(); try { __acr = ';
-                    //ret += parseElement(op, e.argument, depth + 1);
-                    //ret += '.catch(e => { throw e }); __acb([__acr, false]); } catch(err) { console.log(err); __acb([undefined, err]); } finally { __ahi.complete(); } })))';
-
-                    ret += parseElement(op, e.argument, depth + 1);
+                    // Step 1: Suspend context,
+                    // Step 2: Make the async call,
+                    // Step 3: Restore the context and continue... sounds simple enough...
+                    ret += `await __mec.awaitAsync('${e.idType || ''}', `;
+                    ret += parseElement(op, e.argument, depth + 1).slice(5);
+                    ret += ')';
                 }
                 break;
 
@@ -656,9 +649,6 @@ function parseElement(op, e, depth) {
                     op.eatWhitespace();
                 }
                 let methodName = op.setMethod(parseElement(op, e.key, depth + 1), e.accessKind, e.static);
-                if (ProtectedApplies.indexOf(methodName) > -1) {
-                    throw new Error(`Type '${op.thisClass}' attempts to redefine protected apply '${methodName}' in ${op.filename}`);
-                }
                 ret += methodName;
                 ret += parseElement(op, e.value, depth + 1, methodName);
                 op.setMethod();
@@ -769,7 +759,10 @@ function parseElement(op, e, depth) {
 
             case 'VariableDeclarator':
                 ret += parseElement(op, e.id, depth + 1);
-                ret += parseElement(op, e.init, depth + 1);
+                if (e.init) {
+                    e.init.idType = e.id.type;
+                    ret += parseElement(op, e.init, depth + 1);
+                }
                 break;
 
             case 'VariableDeclaration':

@@ -28,6 +28,7 @@ class ExecutionContext extends MUDEventEmitter {
         if (parent) {
             this.stack = parent.stack.slice(0);
 
+            /** @type {Object.<string,ExecutionContext>} */
             this.asyncChildren = { length: 0 };
             this.alarmTime = parent.alarmTime;
             this.async = true;
@@ -42,7 +43,6 @@ class ExecutionContext extends MUDEventEmitter {
             this.onComplete = false;
 
             this.thisClient = parent.thisClient;
-            this.thisObject = parent.thisObject;
             this.thisPlayer = parent.thisPlayer;
             this.truePlayer = parent.truePlayer;
 
@@ -54,6 +54,7 @@ class ExecutionContext extends MUDEventEmitter {
             /** @type {ObjectStackItem[]} */
             this.stack = [];
 
+            /** @type {Object.<string,ExecutionContext>} */
             this.asyncChildren = { length: 0 };
             this.alarmTime = Number.MAX_SAFE_INTEGER;
             this.async = false;
@@ -68,7 +69,6 @@ class ExecutionContext extends MUDEventEmitter {
             this.onComplete = false;
             /** @type {ObjectStackItem} */
             this.originalFrame = false;
-            this.thisObject = false;
             this.thisPlayer = false;
             this.truePlayer = false;
 
@@ -93,7 +93,7 @@ class ExecutionContext extends MUDEventEmitter {
      */
     assertAccess(thisObject, access, method, fileName) {
         if (!this.thisObject) // static method?
-            throw new Access(`Cannot access ${access} method '${method}'`);
+            throw new Error(`Cannot access ${access} method '${method}'`);
 
         if (this.thisObject === thisObject)
             return true;
@@ -129,6 +129,35 @@ class ExecutionContext extends MUDEventEmitter {
         return true;
     }
 
+    async awaitAsync(type, promiseLike) {
+        let ret = [undefined, undefined],
+            frame = this.stack.shift();
+        try {
+            if (promiseLike.completed)
+                ret = promiseLike.result;
+            else {
+                let child = this.asyncChildren[promiseLike.handleId];
+                if (child) child.frame = frame;
+                ret = await promiseLike;
+            }
+            if (type === 'ArrayPattern')
+                return [ret.result, ret.error];
+            else if (type === 'ObjectPattern')
+                return ret;
+            else if (ret.error)
+                throw ret.error;
+            else
+                return ret.result;
+        }
+        catch (ex) {
+            console.log(`FATAL: ${ex.message}`);
+        }
+        finally {
+            //  Do context stuff here
+            this.join(promiseLike.handleId, frame);
+        }
+    }
+
     /**
      * Complete execution
      * @returns {ExecutionContext} Reference to this context.
@@ -143,23 +172,24 @@ class ExecutionContext extends MUDEventEmitter {
             this.completed = true;
             return parent.complete();
         }
-        if (this.asyncChildren.length === 0) {
-            if (this.parent) {
-                this.parent.complete(this);
+        if (this.stack.length === 0) {
+            if (this.asyncChildren.length === 0) {
+                if (this.parent) {
+                    this.parent.complete(this);
+                }
+                //  Make sure not to call completion twice
+                if (!this.completed) {
+                    this.completed = true;
+                    if (typeof this.onComplete === 'function')
+                        this.onComplete(this);
+                    this.emit('complete', this);
+                }
             }
-            //  Make sure not to call completion twice
-            if (!this.completed) {
-                this.completed = true;
-                if (typeof this.onComplete === 'function')
-                    this.onComplete(this);
-                this.emit('complete', this);
-            }
-        }
-        // My children may or may not be done, but the context needs to be cleared anyway
-        if (this.stack.length === 0)
+            // My children may or may not be done, but the context needs to be cleared anyway
             driver.restoreContext(false);
+        }
         else
-            driver.log('Stack was not empty, yet'); // Fatal error?
+            driver.restoreContext(this);
         return this;
     }
 
@@ -225,10 +255,27 @@ class ExecutionContext extends MUDEventEmitter {
         return this.thisObject === driver || this.thisObject === callee;
     }
 
+    /**
+     * Join an async result after it has completed
+     * @param {string} handleId The unique ID of the child context
+     * @param {MUDObjectStack} frame The stack snapshot from just before the async call.
+     */
+    join(handleId, frame) {
+        let child = this.asyncChildren[handleId];
+
+        if (child) child.frame = frame;
+
+        return this;
+    }
+
     get length() {
         return this.stack.length;
     }
 
+    /**
+     * Pops a MUD frame off the stack
+     * @param {any} method
+     */
     pop(method) {
         let lastFrame = this.stack.shift();
         if (!lastFrame || lastFrame.callString !== method) {
@@ -238,22 +285,16 @@ class ExecutionContext extends MUDEventEmitter {
             else
                 console.log(`ExecutionContext out of sync... no frames left!`);
         }
-
-        this.thisObject = false;
-        let m = this.stack.length;
-
-        for (let i = 0, max = this.stack.length; i < max; i++) {
-            if (typeof this.stack[i].object === 'object') {
-                this.thisObject = this.stack[i].object;
-                break;
-            }
-        }
-        if (m === this.forkedAt)
+        if (this.stack.length === this.forkedAt)
             return this.complete();
 
         return lastFrame;
     }
 
+    /**
+     * Returns the previous objects off the stack
+     * @type {MUDObject[]}
+     */
     get previousObjects() {
         return this.stack.filter(f => f.object instanceof MUDObject).slice(0);
     }
@@ -267,10 +308,6 @@ class ExecutionContext extends MUDEventEmitter {
             lineNumber,
             callString: callString || method
         });
-
-        if (typeof object === 'object')
-            this.thisObject = object;
-
         return this;
     }
 
@@ -287,6 +324,20 @@ class ExecutionContext extends MUDEventEmitter {
         let $storage = driver.storage.get(player);
         this.thisClient = $storage && $storage.getSymbol('$client');
     }
+
+    /**
+     * Returns the current object
+     * @type {MUDObject}
+     */
+    get thisObject() {
+        for (let i = 0, m = this.stack.length; i < m; i++) {
+            let ob = this.stack[i].object;
+            if (ob instanceof MUDObject) return ob;
+            // NEVER expose the driver directly to the game, use master instead
+            if (ob === driver) return driver.masterObject;
+        }
+        return false;
+    }
 }
 
 /**
@@ -301,25 +352,29 @@ class ExecutionContext extends MUDEventEmitter {
 ExecutionContext.asyncWrapper = function (asyncCode, timeout = 5000, callback = false) {
     let ecc = driver.getExecution(),    // Get current execution context
         child = ecc.fork(),             // Spawn child context to monitor this call
-        frame = ecc.stack[0],
-        prevFrame = frame && ecc.pop(frame.method),
+//        frame = ecc.stack[0],
+        finalValue = undefined,
+//        prevFrame = frame && ecc.pop(frame.method),
         timerId = false;                // Timer to ensure prompt resolution
 
-    return new Promise(
+    let promise = new Promise(
         (resolve, reject) => {
             try {
-                let finished = (val, err) => {
+                let finished = (result, error) => {
                     if (timerId) {
                         clearTimeout(timerId), (timerId = false);
-                        resolve([val, err]); // Node does not like uncaught rejections... easy enough!
+                        // Node does not like uncaught rejections... easy enough!
+                        resolve(finalValue = { result, error });
                         callback && callback(val, err);
                     }
                 };
                 timerId = setTimeout(() => finished(undefined, new Error('Async call timeout expired')), timeout);
+
                 //  Make the actual call to do the stuff and get the thing
                 let result = asyncCode(
                     val => finished(val, undefined),
                     err => finished(undefined, err));
+
                 //  Unexpected, but we can do that too...
                 if (result instanceof Promise && timerId) {
                     result
@@ -333,26 +388,42 @@ ExecutionContext.asyncWrapper = function (asyncCode, timeout = 5000, callback = 
             }
         })
         .always(result => {
-            try {
-                //  If the promise was resolved syncronously then the original
-                //  context should still be loaded.
-                let cec = driver.getExecution();
-                if (cec) {
-                    //  If there is another context running and it is NOT the context
-                    //  that spawned this async request then we have serious problems.
-                    if (cec !== ecc) throw new Error('FATAL: Context mismatch; Game over, man!');
-                    //  Otherwise we need to put the original frame back on the stack (sync).
-                    else ecc.stack.unshift(frame);
+            let cec = driver.getContext();
+
+            //  Call finished syncronously
+            if (!cec || cec === ecc) {
+                if (child.frame) {
+                    ecc.stack.unshift(child.frame);
+                    delete child.frame;
+                    driver.restoreContext(ecc);
+                    child.complete();
                 }
-                else if (!cec) {
-                    //  There is no context running; The call was async time and
-                    //  the child context must be restored to finish execution.
-                    child.restore();
+                else {
+                    if (ecc.stack.length === 0)
+                        for (let i = 0; i < child.stack.length; i++) {
+                            ecc.stack[i] = child.stack[i];
+                        }
+                    child.complete();
                 }
             }
-            catch (err) { console.log('Error finalizing async call:', err); }
+            else
+                throw new Error('Fatal error: Wrong context is running');
             return result;
         });
+
+    Object.defineProperties(promise, {
+        completed: {
+            get: () => { return typeof finalValue !== 'undefined' }
+        },
+        handleId: {
+            get: () => child.handleId
+        },
+        result: {
+            get: () => finalValue
+        }
+    })
+
+    return Object.freeze(promise);
 };
 
 module.exports = ExecutionContext;
