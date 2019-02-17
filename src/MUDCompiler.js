@@ -198,13 +198,14 @@ class MUDCompiler {
                 //  Attempt to compile a virtual object.
                 virtualResult = driver.driverCall('compileVirtual', ecc => {
                     try {
+                        let args = options.args || [];
                         ecc.newContext = {
-                            args: options.args || [],
+                            args,
                             instanceId: 0,
                             isVirtual: true,
                             filename: context.filename
                         };
-                        return driver.compileVirtualObject(ecc.newContext.filename);
+                        return driver.compileVirtualObject(ecc.newContext.filename, args);
                     }
                     finally {
                         parentInfo = ecc.virtualParents.pop();

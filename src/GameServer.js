@@ -240,14 +240,14 @@ class GameServer extends MUDEventEmitter {
         this.executionContext = ecc.previous || false;
     }
 
-    compileVirtualObject(filename) {
+    compileVirtualObject(filename, args = []) {
         if (!this.masterObject)
             throw new Error('FATAL: No master object has been loaded!');
         else if (!this.applyCompileVirtual)
             //  Virtual compiling is not enabled
             return false;
         else
-            return this.applyCompileVirtual(filename);
+            return this.applyCompileVirtual(filename, args);
     }
 
     createMasterObject() {

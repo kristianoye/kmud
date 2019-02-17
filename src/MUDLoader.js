@@ -165,7 +165,7 @@ class MUDLoader {
                             throw new Error(`Unable to load module for expression ${type}`);
                         }
                         if (instanceData) {
-                            result = module.create(constructorType, instanceData, con);
+                            result = module.create(constructorType, instanceData, instanceData.args, con);
                         }
                         else
                             result = con(constructorType);

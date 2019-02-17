@@ -210,7 +210,7 @@ class MUDModule extends MUDEventEmitter {
 
     }
 
-    create(type, instanceData, args = []) {
+    create(type, instanceData, args = [], create = false) {
         try {
             // Storage needs to be set before starting...
             let store = driver.storage.createForId(instanceData.filename),
@@ -218,7 +218,7 @@ class MUDModule extends MUDEventEmitter {
 
             ecc.newContext = instanceData;
 
-            let instance = typeof args === 'function' ? args(type) : new type(...args);
+            let instance = create ? create(type, ...args) : new type(...args);
             this.finalizeInstance(instance, !instance.filename && instanceData);
             if (typeof instance.create === 'function') {
                 driver.driverCall('create', () => {
