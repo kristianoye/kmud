@@ -276,9 +276,10 @@ class MUDModule extends MUDEventEmitter {
             instance = instances[parts.instance];
 
         if (instance) {
-            let store = driver.store.get(instance);
+            let store = driver.storage.get(instance);
             if (store && !store.destroyed) return store.destroy();
             instances[parts.instance] = false;
+            return true;
         }
         return false;
     }

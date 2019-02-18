@@ -52,7 +52,7 @@ class LinkedList {
             this.tail = entry;
         }
         this.index[entry.index] = entry;
-        return ++this.length;
+        return entry.index;
     }
 
     /**

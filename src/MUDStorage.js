@@ -251,6 +251,7 @@ class MUDStorage extends MUDEventEmitter {
                 case MUDStorage.PROP_ISPLAYER:
                 case MUDStorage.PROP_LIVING:
                 case MUDStorage.PROP_WIZARD:
+                case MUDStorage.PROP_DESTRUCTED:
                     break;
 
                 case MUDStorage.PROP_HEARTBEAT:
@@ -310,9 +311,7 @@ class MUDStorage extends MUDEventEmitter {
             if (this.environment)
                 this.owner.emit('kmud.item.removed', this.environment);
 
-            if (this.isPlayer()) {
-                driver.removePlayer(this);
-            }
+            this.player = false;
 
             this.owner.removeAllListeners();
             driver.storage.delete(this.owner);
