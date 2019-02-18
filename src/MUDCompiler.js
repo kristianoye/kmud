@@ -177,7 +177,7 @@ class MUDCompiler {
         }
         let context = new PipeContext.PipelineContext(options.file),
             module = this.driver.cache.get(context.basename),
-            t0 = new Date().getTime(), virtualResult = false, cerr = false;
+            t0 = efuns.ticks, virtualResult = false, cerr = false;
 
         if (options.source)
             context.setContent(options);
@@ -304,7 +304,7 @@ class MUDCompiler {
             }
         }
         catch (err) {
-            let t1 = new Date().getTime();
+            let t1 = efuns.ticks;
             if (module && module.stats) {
                 module.stats.errors++;
             }
@@ -318,7 +318,7 @@ class MUDCompiler {
             throw err;
         }
         finally {
-            let t1 = new Date().getTime(), ecc = driver.getExecution();
+            let t1 = efuns.ticks, ecc = driver.getExecution();
             if (!cerr) {
                 if (ecc)
                     logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ${ecc.stack.length}]`);

@@ -12,7 +12,8 @@ const
  */
 class Square extends Room {
     private create() {
-        this.title = 'The Central Square of Sarta';
+        this.keyId = 'Square';
+        this.brief = 'The Central Square of Sarta';
         this.description =
             <p>This is the heart of the main city in Sarta.  There are many tall buildings
             surrounding the square and hundreds of people mill about the street conducting

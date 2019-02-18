@@ -54,7 +54,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
         this.lastCommand = new Date();
         this.port = endpoint.port;
         this.remoteAddress = remoteAddress;
-        this.$storage = false;
+        this.storage = false;
 
         this.client.on('terminal type', ttype => this.emit('terminal type', ttype));
         this.client.on('window size', spec => this.emit('window size', spec));
@@ -131,14 +131,16 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
         return unwrap(body, thisPlayer => {
             let ecc = driver.getExecution();
 
-            ecc.alarmTime = maxCommandExecutionTime ? new Date().getTime()
-                + maxCommandExecutionTime : Number.MAX_SAFE_INTEGER;
-            ecc.$storage = this.$storage;
+            ecc.alarmTime = maxCommandExecutionTime ?
+                efuns.ticks + maxCommandExecutionTime :
+                Number.MAX_SAFE_INTEGER;
+
+            ecc.storage = this.storage;
             ecc.setThisPlayer(thisPlayer, thisPlayer, '');
             ecc.startTime = new Date().getTime();
 
             ecc.on('complete', completed => {
-                let te = new Date().getTime() - completed.startTime;
+                let te = efuns.ticks - completed.startTime;
                 console.log(`Command complete [ellapsed: ${te} ms]`);
                 this.renderPrompt();
 //                this.renderPrompt(completed.input.prompt);
@@ -170,7 +172,6 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
      * @param {string} msg The reason for the disconnect.
      */
     disconnect(protocol, msg) {
-        if (this.$storage) this.$storage.setClient(false);
         this.emit('kmud.connection.closed', this, protocol);
         this.emit('disconnected', this);
     }
@@ -194,6 +195,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
      * @param {any} text
      */
     enqueueCommand(text) {
+        this.storage && (this.storage.lastActivity = efuns.ticks);
         if (this.commandStack.length > 0) {
             if (!this.commandTimer && maxCommandsPerSecond) {
                 this.commandTimer = setInterval(() => {
@@ -254,7 +256,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                             cmds = body.processInput(text);
                         }
                         catch (err) {
-                            this.writeLine(err.message);
+                            this.writeLine('processInput', err.message);
                         }
                     }
                     else {
@@ -272,7 +274,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                             };
                             cmds[i].htmlEnabled = false;
                             cmds[i].input = cmds[i].text;
-                            cmds[i].alarmTime = new Date().getTime() + (maxCommandExecutionTime || 5000);
+                            cmds[i].alarmTime = efuns.ticks + (maxCommandExecutionTime || 5000);
                             body.executeCommand(cmds[i]);
                         }
                         catch (err) {
@@ -288,7 +290,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
     }
 
     get idleTime() {
-        return new Date().getTime() - this.lastCommand.getTime();
+        return this.store && this.store.idleTime;
     }
 
     renderPrompt() {
@@ -301,25 +303,12 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
             return false;
 
         driver.driverCall('setBody', ecc => {
-            //  Disconnect from old body
-            unwrap(this.body, oldBody => {
-                ecc.setThisPlayer(oldBody, oldBody, '');
-                oldBody.disconnect && oldBody.disconnect();
-
-                let storage = driver.storage.get(oldBody);
-                storage && storage.setClient(false);
-            });
-
             // Connect to the new body
             return unwrap(body, newBody => {
-                let storage = this.$storage = driver.storage.get(newBody);
+                let storage = driver.storage.get(newBody);
 
-                storage.setClient(this);
-                this.body = body;
-
+                storage && storage.setClient(this, this.port, this.clientType);
                 ecc.setThisPlayer(newBody, newBody, '');
-                newBody.connect && newBody.connect(this.port, this.clientType);
-
                 this.eventSend({
                     eventType: 'kmud.connected',
                     eventData: driver.efuns.mudName()

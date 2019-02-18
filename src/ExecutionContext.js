@@ -77,8 +77,7 @@ class ExecutionContext extends MUDEventEmitter {
     }
 
     alarm() {
-        let now = new Date().getTime();
-        if (this.alarmTime && now > this.alarmTime) {
+        if (this.alarmTime && efuns.ticks > this.alarmTime) {
             throw new Error(`Maxiumum execution time exceeded`);
         }
         return this;
@@ -337,6 +336,34 @@ class ExecutionContext extends MUDEventEmitter {
             if (ob === driver) return driver.masterObject;
         }
         return false;
+    }
+
+    /**
+     * Execute an action with an alternate thisPlayer
+     * @param {MUDStorage} store The player that should be "thisPlayer"
+     * @param {function(MUDObject, ExecutionContext): any} callback The action to execute
+     */
+    withPlayer(store, callback) {
+        let player = store.owner;
+        return unwrap(player, thisPlayer => {
+            let oldPlayer = this.thisPlayer,
+                oldClient = this.thisClient,
+                oldStore = this.thisStore;
+
+            try {
+                this.thisPlayer = thisPlayer;
+                this.thisClient = store.client;
+                this.thisStore = store;
+                this.truePlayer = this.truePlayer || thisPlayer;
+
+                return callback(thisPlayer, this);
+            }
+            finally {
+                if (oldPlayer) this.thisPlayer = oldPlayer;
+                if (oldClient) this.thisClient = oldClient;
+                if (oldStore) this.thisStore = oldStore;
+            }
+        });
     }
 }
 

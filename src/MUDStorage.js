@@ -7,10 +7,8 @@
  */
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
-    MUDConfig = require('./MUDConfig'),
     MUDCreationContext = require('./MUDCreationContext'),
-    ClientCaps = require('./network/ClientCaps'),
-    AccessWords = ['PUBLIC', 'PACKAGE', 'PROTECTED', 'PRIVATE'];
+    ClientCaps = require('./network/ClientCaps');
 
 /**
  * Storage for MUD Objects.  In-game objects do not hold their data directly.
@@ -27,6 +25,7 @@ class MUDStorage extends MUDEventEmitter {
         super();
 
         this.client = false;
+        this.clientCaps = ClientCaps.DefaultCaps;
 
         /** @type {MUDObject} The current environment */
         this.environment = null;
@@ -39,6 +38,9 @@ class MUDStorage extends MUDEventEmitter {
 
         /** @type {MUDObject[]}} All of the inventory contained with the object */
         this.inventory = [];
+
+        /** The time at which this object's client did something */
+        this.lastActivity = 0;
 
         /** @type {number} */
         this.nextReset = 0;
@@ -75,6 +77,8 @@ class MUDStorage extends MUDEventEmitter {
      * @param {any} initMode
      */
     set(thisObject, definingType, file, key, value, access = 2, initMode = false) {
+        let inc = access & 128;
+        access &= ~128;
         let ptr = access === 3 ? this.privateData : this.data,
             definer = definingType.type ?
                 definingType.type.prototype.baseName :
@@ -122,9 +126,79 @@ class MUDStorage extends MUDEventEmitter {
             return;
         }
         else if (!initMode)
-            ptr[keyName] = value;
+            ptr[keyName] = inc ? (ptr[keyName] || 0) + value : value;
 
         return this.owner;
+    }
+
+    /**
+     * Pass the heartbeat on to the in-game object.
+     * @param {number} total
+     * @param {number} ticks
+     */
+    eventHeartbeat(total, ticks) {
+        if (this.lastActivity) {
+            if (this.idleTime > this.maxIdleTime) {
+                return this.setClient(false, 'You have been idle for too long.');
+            }
+        }
+        this.owner.heartbeat(total, ticks);
+    }
+
+    get connected() {
+        return this.hasFlag(MUDStorage.PROP_CONNECTED);
+    }
+
+    set connected(flag) {
+        return this.flag(MUDStorage.PROP_CONNECTED, flag);
+    }
+
+    get heartbeat() {
+        return this.hasFlag(MUDStorage.PROP_HEARTBEAT);
+    }
+
+    set heartbeat(flag) {
+        this.flag(MUDStorage.PROP_HEARTBEAT, flag);
+    }
+
+    get interactive() {
+        return this.hasFlag(MUDStorage.PROP_INTERACTIVE);
+    }
+
+    set interactive(flag) {
+        return this.flag(MUDStorage.PROP_INTERACTIVE, flag);
+    }
+
+    get maxIdleTime() {
+        return this.owner && this.owner.maxIdleTime || 0;
+    }
+
+    get player() {
+        return this.hasFlag(MUDStorage.PROP_ISPLAYER);
+    }
+
+    set player(flag) {
+        this.flag(MUDStorage.PROP_ISPLAYER, flag);
+    }
+
+    /**
+     * Check to see if the object has a certain flag enabled.
+     * @param {number} flag One or more flags to check.
+     * @returns {boolean} True if the flag is set.
+     */
+    hasFlag(flag) {
+        return (this.flags & flag) > 0;
+    }
+
+    /**
+     * Indicates how long this object has been active.
+     * @returns {number} Returns the object's idle time in miliseconds.
+     */
+    get idleTime() {
+        if (this.lastActivity > 0)
+            return (efuns.ticks - this.lastActivity);
+        else
+            return 0;
     }
 
     get(thisObject, definingType, file, key, defaultValue, access = 2) {
@@ -164,32 +238,97 @@ class MUDStorage extends MUDEventEmitter {
         return ptr[keyPath[0]] || defaultValue;
     }
 
+    flag(flag, setFlag = true) {
+        let andFlag = setFlag ? flag : ~flag;
+
+        if ((this.flag & andFlag) !== this.flag) {
+            switch (flag) {
+                case MUDStorage.PROP_CONNECTED:
+                case MUDStorage.PROP_EDITING:
+                case MUDStorage.PROP_IDLE:
+                case MUDStorage.PROP_INPUT:
+                case MUDStorage.PROP_INTERACTIVE:
+                case MUDStorage.PROP_ISPLAYER:
+                case MUDStorage.PROP_LIVING:
+                case MUDStorage.PROP_WIZARD:
+                    break;
+
+                case MUDStorage.PROP_HEARTBEAT:
+                    if (setFlag) {
+                        if (this.owner instanceof MUDObject && typeof this.owner.heartbeat === 'function') {
+                            if (this.heartbeatIndex)
+                                return false;
+                            this.heartbeatIndex = driver.heartbeatObjects.add(this);
+                            return true;
+                        }
+                        return false;
+                    }
+                    else {
+                        if (!this.heartbeatIndex)
+                            return false;
+                        else
+                            driver.heartbeatObjects.remove(this.heartbeatIndex);
+                    }
+                    break;
+
+                default:
+                    throw new Error(`Attempted to set meaningless bit flag: ${flag}`);
+            }
+            if (setFlag)
+                this.flags |= flag;
+            else
+                this.flags &= ~flag;
+        }
+    }
+
     /**
      * 
      * @param {string} cmdline
      */
     command(cmdline) {
-        let client = this.getProtected('$client'), evt,
-            prevPlayer = driver.thisPlayer;
+        return driver.driverCall('command', ecc => {
+            ecc.withPlayer(this, player => {
+                let cmd = player.processInput(cmdline);
+                return cmd.executeCommand(cmd);
+            });
+        });
+    }
 
-        try {
-            if (client) {
-                client.createCommandEvent(cmdline);
+    /**
+     * Destroys the object.
+     */
+    eventDestroy(...args) {
+        if (!this.destroyed) {
+            let parts = efuns.parsePath(this.owner.filename),
+                module = driver.cache.get(parts.file);
+
+            this.heartbeat = false;
+
+            if (this.client)
+                this.setClient(false, ...args);
+
+            if (this.environment)
+                this.owner.emit('kmud.item.removed', this.environment);
+
+            if (this.isPlayer()) {
+                driver.removePlayer(this);
             }
-            else {
-                let words = cmdline.split(/\s+/g),
-                    verb = words.shift();
-                evt = {
-                    verb: verb,
-                    args: words
-                };
-            }
-            driver.setThisPlayer(this.owner, false, evt.verb);
-            this.emit('kmud.command', evt);
+
+            this.owner.removeAllListeners();
+            driver.storage.delete(this.owner);
+
+            this.owner = false;
+            this.destroyed = true;
+
+            return this.destroyed = module.destroyInstance(parts);
         }
-        finally {
-            driver.setThisPlayer(prevPlayer, false);
-        }
+        return false;
+    }
+
+    get destroyed() { return this.hasFlag(MUDStorage.PROP_DESTRUCTED); }
+
+    set destroyed(value) {
+        if (value) this.flag(MUDStorage.PROP_DESTRUCTED, true);
     }
 
     /**
@@ -257,29 +396,6 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     /**
-     * Probably very inaccurate but it will do for now...
-     * @returns {number} A guess as to how much memory the object is using.
-     */
-    getSizeOf() {
-        let data = this.serialize(true),
-            size = JSON.stringify(data).length;
-        return size;
-    }
-
-    /**
-     * Increment a numeric property by a specified amount.
-     * @param {string} prop
-     * @param {number} incrementBy
-     * @param {number} initialValue
-     */
-    incrementProperty(prop, incrementBy, initialValue) {
-        if (!(prop in this.properties))
-            this.properties[prop] = parseInt(initialValue);
-        this.properties[prop] += incrementBy;
-        return this.owner;
-    }
-
-    /**
      * Re-associate a new object instance with an existing storage object.
      * @param {MUDObject} owner The new owner of this storage
      * @param {MUDCreationContext} ctx The context from the reload
@@ -293,6 +409,38 @@ class MUDStorage extends MUDEventEmitter {
             this.filename = owner ? owner.filename : '';
         }
         return this.merge(ctx);
+    }
+
+    addInventory(item) {
+        let wrapped = wrapper(item),
+            itemStore = driver.storage.get(item);
+
+        //  Just in case...
+        itemStore.leaveEnvironment();
+        this.inventory.push(wrapped);
+        itemStore.environment = this.owner;
+
+        return true;
+    }
+
+    leaveEnvironment() {
+        unwrap(this.environment, env => {
+            let store = driver.storage.get(env);
+            store && store.removeInventory(this);
+        })
+    }
+
+    removeInventory(item) {
+        let list = [];
+        this.inventory.forEach((ow, i) => {
+            if (ow.filename === item.filename) list.push(i);
+        });
+        if (list.length === 0)
+            return false;
+        while (list.length) {
+            this.inventory.splice(list.pop(), 1);
+        }
+        return true;
     }
 
     /**
@@ -522,27 +670,59 @@ class MUDStorage extends MUDEventEmitter {
      * Associate a client with this store and its related object.
      * @param {any} client
      */
-    setClient(client) {
-        if (client) {
-            this.flags |= MUDStorage.OB_CONNECTED | MUDStorage.OB_INTERACTIVE;
-            this.setSymbol('$client', client);
-            this.setSymbol('$clientCaps', client.caps);
-            client.on('disconnected', this.onDisconnect = client => {
-                this.setClient(false);
-            });
-        }
-        else {
-            this.flags &= ~MUDStorage.OB_CONNECTED;
-            this.setSymbol('$client', false);
-            this.setSymbol('$clientCaps', false);
+    setClient(client, ...args) {
+        try {
+            if (client) {
+                //  If the client has an old body, the client needs to drop out
+                if (client.body) {
+                    let store = driver.store.get(client.body);
+                    if (store) {
+                        driver.driverCall('disconnect', context => {
+                            context.withPlayer(store, player => player.disconnect(...args));
+                        });
+                        store.interactive = false;
+                        store.connected = false;
+                        store.lastActivity = 0;
+                        store.client = false;
+                        store.clientCaps = ClientCaps.DefaultCaps;
+                    }
+                }
 
-            if (this.client && this.onDisconnect) {
-                this.client.off('disconnected', this.onDisconnect);
-                this.onDisconnect = false;
+                this.connected = true;
+                this.interactive = true;
+                this.lastActivity = efuns.ticks;
+
+                client.body = this.owner;
+                client.storage = this;
+
+                this.client = client;
+                this.clientCaps = client.caps;
+
+                //  Linkdeath
+                client.once('disconnected', () => this.setClient(false));
+
+                driver.driverCall('connect', context => {
+                    context.withPlayer(this, player => player.connect(...args));
+                });
+                return true;
             }
+            else {
+                if (this.connected)
+                    driver.driverCall('disconnect', context => {
+                        this.connected = false;
+                        context.withPlayer(this, player => player.disconnect(...args));
+                    });
+                if (this.client) this.client.body = false;
+                this.client && this.client.close();
+                this.client = false;
+                this.clientCaps = ClientCaps.DefaultCaps;
+            }
+            return true;
         }
-        this.client = client;
-        return this;
+        catch (err) {
+            logger.log('Error in setClient: ', err);
+        }
+        return false;
     }
 
     /**
@@ -639,7 +819,9 @@ class MUDStorageContainer {
      * @returns {MUDStorage} The storage object for the item or false.
      */
     get(ob) {
-        return this.storage[typeof ob === 'object' ? ob.filename : ob] || false;
+        return unwrap(ob, target => {
+            return this.storage[target.filename];
+        });
     }
 
     /**
@@ -663,25 +845,34 @@ MUDStorage.configureForRuntime = function (driver) {
 };
 
 /** Indicates the object is interactive */
-MUDStorage.OB_INTERACTIVE = 1 << 0;
+MUDStorage.PROP_INTERACTIVE = 1 << 0;
 
 /** Indicates the object is connected (not linkdead) */
-MUDStorage.OB_CONNECTED = 1 << 1;
+MUDStorage.PROP_CONNECTED = 1 << 1;
 
 /** Indicates the object is living and can execute commands */
-MUDStorage.OB_LIVING = 1 << 2;
+MUDStorage.PROP_LIVING = 1 << 2;
 
 /** Indicates the object has wizard permissions */
-MUDStorage.OB_WIZARD = 1 << 3;
+MUDStorage.PROP_WIZARD = 1 << 3;
 
 /** Indicates the interactive object is idle */
-MUDStorage.OB_IDLE = 1 << 4;
+MUDStorage.PROP_IDLE = 1 << 4;
 
 /** Indicates the object is in edit mode */
-MUDStorage.OB_EDITING = 1 << 5;
+MUDStorage.PROP_EDITING = 1 << 5;
 
 /** Indicates the object is in input mode */
-MUDStorage.OB_INPUT = 1 << 6;
+MUDStorage.PROP_INPUT = 1 << 6;
+
+/** Indicates the object has a heartbeat */
+MUDStorage.PROP_HEARTBEAT = 1 << 7;
+
+/** Indicates the object is (or was) a player */
+MUDStorage.PROP_ISPLAYER = 1 << 8;
+
+/** Indicates the object has been destroyed */
+MUDStorage.PROP_DESTRUCTED = 1 << 9;
 
 module.exports = MUDStorage;
 

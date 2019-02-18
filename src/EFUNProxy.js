@@ -23,7 +23,8 @@ const
 const
     ArrayHelper = require('./efuns/Arrays'),
     EnglishHelper = require('./efuns/English'),
-    InputHelper = require('./efuns/Inputs');
+    InputHelper = require('./efuns/Inputs'),
+    LivingsHelper = require('./efuns/Livings');
 
 var
     IncludeCache = {},
@@ -108,7 +109,7 @@ class EFUNProxy {
 
         list = list.map(function (o) {
             var uw = unwrap(o);
-            return uw ? uw.shortDescription : o.toString();
+            return uw ? uw.brief : o.toString();
         });
 
         if (consolidate) {
@@ -189,16 +190,16 @@ class EFUNProxy {
      * @returns {{ clientHeight: number, clientWidth: number, colorEnabled: boolean, htmlEnabled: boolean, soundEnabled: boolean }} Client capabilities.
      */
     clientCaps(target) {
-        let $storage = false;
+        let store = false;
 
         if (!target) {
-            $storage = driver.currentContext && driver.currentContext.$storage;
+            store = driver.currentContext && driver.currentContext.$storage;
         }
         else {
-            $storage = unwrap(target, ob => driver.storage.get(ob));
+            store = unwrap(target, ob => driver.storage.get(ob));
         }
-        if ($storage) {
-            let caps = $storage.getProtected('$clientCaps');
+        if (store) {
+            let caps = store.clientCaps;
             if (caps) return caps.queryCaps();
         }
         return {
@@ -383,16 +384,22 @@ class EFUNProxy {
      * Remove an object from the game and (hopefully) allow it to be garbage-
      * collected on the next gc run.  This requires that there are no objects
      * referencing it.
-     * @param {MUDObject} ob The object to destruct.
+     * @param {MUDObject} target The object to destruct.
      */
-    destruct(ob) {
-        unwrap(ob, target => {
-            if (driver.validDestruct(this, target)) {
-                driver.driverCall('destruct', () => {
-                    target.destroy();
-                });
+    destruct(target, ...args) {
+        return unwrap(target, ob => {
+            let ecc = driver.getExecution(),
+                store = driver.storage.get(ob);
+
+            if (store) {
+                if (ecc.guarded(frame => driver.validDestruct(ob, frame))) {
+                    return driver.driverCall('destruct', () => {
+                        return store.eventDestroy(...args);
+                    });
+                }
             }
         });
+        return false;
     }
 
     /**
@@ -580,7 +587,7 @@ class EFUNProxy {
             len = search.length,
             matches = driver.players
                 .filter(p => {
-                    let pn = p().getName();
+                    let pn = unwrap(p, u => u.name);
                     return pn === search || partial && pn.slice(0, len) === search;
                 });
         return matches.length === 1 ? matches[0] : false;
@@ -759,6 +766,9 @@ class EFUNProxy {
             expr.unshift(this.directory);
         return path.posix.join(...expr);
     }
+
+    /** The livings namespace */
+    get livings() { return LivingsHelper; }
 
     /**
      * Attempts to find the specified object.  If not found then the object is compiled and returned.
@@ -1560,7 +1570,7 @@ class EFUNProxy {
             }
         }
         catch (err) {
-            logger.log(err);
+            logger.log('restoreObject', err);
         }
         return false;
     }
@@ -1613,9 +1623,60 @@ class EFUNProxy {
             }
         }
         catch (err) {
-            logger.log(err);
+            logger.log('saveObject', err);
         }
         return false;
+    }
+
+    serialize(target) {
+        return unwrap(target, targetObject => {
+            let serializeMudObject, serializeValue = (hive, key, val) => {
+                let vt = typeof val;
+                hive = hive || {};
+                if (['number', 'string'].indexOf(vt) > -1)
+                    return hive[key] = val;
+                else if (vt === 'object' && this.isPOO(val)) {
+                    hive = hive[key] = {};
+                    Object.keys(val).forEach(sk => serializeValue(hive, sk, val[sk]));
+                    return hive;
+                }
+                else if (vt === 'object' && val.vilename)
+                    return hive[key] = serializeMudObject(val);
+                else if (Array.isArray(val)) {
+                    return hive[key] = val.map(v => serializeValue(false, false, v));
+                }
+            };
+            serializeMudObject = target => {
+                return unwrap(target, ob => {
+                    let store = driver.storage.get(ob),
+                        result = {
+                            $type: ob.filename,
+                            environment: unwrap(store.environment, e => e.filename),
+                            flags: store.flags,
+                            inventory: store.inventory.map(i => unwrap(i, item => serializeMudObject(item))),
+                            private: {},
+                            protected: {}
+                        };
+
+                    Object.keys(store.privateData).forEach(key => {
+                        let val = store.privateData[key];
+                        if (!key.startsWith(':')) {
+                            serializeValue(result.private, key, val);
+                        }
+                    });
+                    Object.keys(store.data).forEach(key => {
+                        let val = store.data[key];
+                        if (!key.startsWith(':')) {
+                            serializeValue(result.protected, key, val);
+                        }
+                    });
+
+                    return result;
+                });
+            };
+
+            return serializeMudObject(targetObject);
+        });
     }
 
     /**
@@ -1629,7 +1690,7 @@ class EFUNProxy {
                 interval = driver.config.mudlib.objectResetInterval;
                 interval = (interval / 2) + Math.random(interval / 2);
             }
-            driver.registerResetTime(ob, new Date().getTime() + interval);
+            driver.registerResetTime(ob, efuns.ticks + interval);
         });
     }
 
@@ -1692,11 +1753,13 @@ class EFUNProxy {
      * Simulates a standard time call that returns number of seconds since epoch
      * @returns {number} The number of seconds since January 1, 1970
      */
-    time() {
-        let t = new Date().getTime() / 1000;
-        return Math.floor(t);
+    get time() {
+        return Math.floor(this.ticks / 1000);
     }
 
+    get ticks() {
+        return new Date().getTime();
+    }
 
     /**
      * Starts a new context that does not include any previous frames.

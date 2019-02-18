@@ -11,7 +11,7 @@ declare class MUDCache {
      * Gets an existing module or returns false.
      * @param filename
      */
-    get(filename: string): MUDModule | false;
+    get(filename: string): MUDModule;
 
     /**
      * Gets an existing module or creates an entry if not.

@@ -10,8 +10,7 @@ const ClientEndpoint = require('./ClientEndpoint'),
     TelnetServer = Telnet.TelnetServer,
     TelnetSocket = Telnet.TelnetSocket,
     MudPort = require('../config/MudPort'),
-    RanvierTelnetInstance = require('./RanvierTelnetInstance'),
-    _connections = Symbol('_connections');
+    RanvierTelnetInstance = require('./RanvierTelnetInstance');
 
 class RanvierTelnetEndpoint extends ClientEndpoint {
     /**

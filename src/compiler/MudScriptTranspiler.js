@@ -8,6 +8,7 @@ const
     PipeContext = require('./PipelineContext'),
     SettersGetters = [
         'get',          // Get a value
+        'inc',          // Increment a value
         'register',     // Initialize but do not overwrite
         'set'           // Sets a value
     ],
@@ -18,7 +19,10 @@ const
 const
     //  These cannot be used as identifiers (reserved words)
     IllegalIdentifiers = [
-        // Async-related reserved tokens
+        //  Property indicating whether an object is destroyed
+        'destructed',
+
+        //  Async-related reserved tokens
         '__acb',    // Async Callback
         '__aeh',    // Async Error Handler
         '__acr',    // Async Call Result
@@ -888,7 +892,7 @@ class MudScriptTranspiler extends PipelineComponent {
             }
         }
         catch (x) {
-            console.log(x.message);
+            console.log('MudScriptTranspiler.run', x.message);
             console.log(x.stack);
             throw x;
         }

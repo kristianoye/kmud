@@ -267,10 +267,20 @@ class MUDModule extends MUDEventEmitter {
         }
     }
 
-    destroyInstance(t) {
-        let targetId = unwrap(t, ob => this.instances.indexOf(ob)) || t;
-        var id = t.instanceId;
-        this.wrappers[id] = null;
+    /**
+     * Destroy an instance of an object and invalidate all wrappers.
+     * @param {PathExpr} parts The instance information
+     */
+    destroyInstance(parts) {
+        let instances = this.instanceMap[parts.type],
+            instance = instances[parts.instance];
+
+        if (instance) {
+            let store = driver.store.get(instance);
+            if (store && !store.destroyed) return store.destroy();
+            instances[parts.instance] = false;
+        }
+        return false;
     }
 
     finalizeInstance(instance, instanceData) {
@@ -282,7 +292,7 @@ class MUDModule extends MUDEventEmitter {
         if (instanceData) {
             Object.defineProperties(instance, {
                 createTime: {
-                    value: new Date().getTime(),
+                    value: efuns.ticks,
                     writable: false
                 },
                 filename: {
@@ -334,8 +344,13 @@ class MUDModule extends MUDEventEmitter {
             let wrapper = (() => {
                 let instance = false;
                 return () => {
-                    if (instance && !instance.isDestructed)
+                    if (instance) {
+                        if (instance === -1 || instance.destructed) {
+                            instance = -1;
+                            throw new Error(`Object ${req.file} has been destructed [Invalid Wrapper]`);
+                        }
                         return instance;
+                    }
 
                     this.once('recompiled', () => {
                         let typeName = instance.constructor.name;
@@ -351,6 +366,10 @@ class MUDModule extends MUDEventEmitter {
             })();
 
             Object.defineProperties(wrapper, {
+                filename: {
+                    value: instance.filename,
+                    writable: false
+                },
                 isWrapper: {
                     value: true,
                     writable: false,

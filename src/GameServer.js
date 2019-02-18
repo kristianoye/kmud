@@ -7,6 +7,7 @@ const
     MUDConfig = require('./MUDConfig'),
     ExecutionContext = require('./ExecutionContext'),
     { NetUtil, NetworkInterface } = require('./network/NetUtil'),
+    LinkedList = require('./LinkedList'),
     async = require('async'),
     MXC = require('./MXC');
 
@@ -60,7 +61,7 @@ class GameServer extends MUDEventEmitter {
         this.initDriverEfuns(new efunType('/'));
         this.simulEfunPath = config.mudlib.simulEfuns;
 
-        this.startTime = new Date().getTime();
+        this.startTime = efuns.ticks;
 
         this.addressList = { '127.0.0.1': true };
         this.endpoints = [];
@@ -69,10 +70,11 @@ class GameServer extends MUDEventEmitter {
         this.fileManager = null;
         this.heartbeatCounter = 0;
         this.heartbeatInterval = config.mudlib.heartbeatInterval;
-        /** @type {MUDObject[]} */
-        this.heartbeatObjects = [];
+        /** @type {LinkedList} */
+        this.heartbeatObjects = new LinkedList();
         this.heartbeatStorage = {};
         this.includePath = config.mudlib.includePath || [];
+
         /** @type {MUDObject[]} */
         this.livings = [];
         this.logDirectory = config.mudlib.logDirectory;
@@ -322,7 +324,7 @@ class GameServer extends MUDEventEmitter {
             if (this.preloads.length > 0) {
                 logger.logIf(LOGGER_PRODUCTION, 'Creating preloads.');
                 this.preloads.forEach(file => {
-                    let t0 = new Date().getTime(), foo = false, err = false;
+                    let t0 = efuns.ticks, foo = false, err = false;
                     try {
                         foo = Array.isArray(file) ?
                             this.compiler.compileObject({ file: file[0], args: file.slice(1) }) :
@@ -332,7 +334,7 @@ class GameServer extends MUDEventEmitter {
                         err = e;
                     }
                     finally {
-                        let t1 = new Date().getTime();
+                        let t1 = efuns.ticks;
                         logger.logIf(LOGGER_DEBUG,
                             `\tPreload: ${file}: ${(file, foo && !err ? '[OK]' : '[Failure]')} [${(t1 - t0)} ms; ${ecc.stack.length}]`);
                     }
@@ -616,46 +618,39 @@ class GameServer extends MUDEventEmitter {
         try {
             let heartbeatStart = new Date(),
                 maxExecTime = this.config.driver.maxCommandExecutionTime,
+                heartbeatInterval = maxExecTime || 2000,
                 failed = [];
 
-            async.forEachOfLimit(this.heartbeatObjects, this.heartbeatLimit || 10, (obj, index, itr) => {
-                let prev = this.currentContext,
-                    $storage = this.heartbeatStorage[index],
-                    mxc = this.getContext(true, init => {
-                        init.alarm = heartbeatStart + maxExecTime;
-                        init.note = 'heartbeat';
-                        init.$storage = $storage;
-                        init.thisPlayer = obj;
-                        init.truePlayer = obj;
-                        init.client = $storage.client;
-                        init.addFrame(obj, 'heartbeat');
-                    });
-                try {
-                    mxc.restore();
-                    obj.heartbeat(this.heartbeatInterval, this.heartbeatCounter);
-                }
-                catch (err) {
-                    failed.push(obj);
-                }
-                finally {
-                    mxc.release();
-                    this.currentContext = prev;
-                    itr();
-                }
-            }, err => {
-                let timing = new Date().getTime() - heartbeatStart.getTime();
-                if (timing > 1000) {
-                    logger.log(`\tWARNING: Last heartbeat cycle took ${timing}ms`);
-                }
-                this.heartbeatCounter++;
-                this.heartbeatTimer = setTimeout(() => {
-                    this.executeHeartbeat();
-                }, this.heartbeatInterval);
-            });
+            async.forEachOfLimit(this.heartbeatObjects.toArray(), this.heartbeatLimit || 10,
+                (obj, index, itr) => {
+                    this.driverCall('heartbeat', ecc => {
+                        try {
+                            ecc.alarmTime = efuns.ticks + heartbeatInterval;
+                            ecc.truePlayer = ecc.thisPlayer = obj.owner;
+                            obj.eventHeartbeat(this.heartbeatInterval, this.heartbeatCounter);
+                        }
+                        catch (err) {
+                            failed.push(obj);
+                        }
+                        finally {
+                            itr();
+                        }
+                    })
+                },
+                () => {
+                    let timing = efuns.ticks - heartbeatStart.getTime();
+                    if (timing > heartbeatInterval) {
+                        logger.log(`\tWARNING: Last heartbeat cycle took ${timing}ms > ${heartbeatInterval}`);
+                    }
+                    this.heartbeatCounter++;
+                    this.heartbeatTimer = setTimeout(() => {
+                        this.executeHeartbeat();
+                    }, this.heartbeatInterval);
+                });
         }
         catch (err) {
             //  TODO: This should be a game-crasher
-            logger.log('Error in executeHeartbeat: ' + err);
+            logger.log('FATAL: Error in executeHeartbeat: ' + err);
             this.errorHandler(err, false);
         }
     }
@@ -827,7 +822,7 @@ class GameServer extends MUDEventEmitter {
     registerReset(ob, resetTime, $storage) {
         if (typeof ob().reset === 'function') {
             if (!resetTime) {
-                resetTime = new Date().getTime() + ResetInterval / 2 + Math.random(ResetInterval / 2);
+                resetTime = efuns.ticks + ResetInterval / 2 + Math.random(ResetInterval / 2);
             }
             if (!$storage) {
                 $storage = driver.storage.get(ob);
@@ -919,7 +914,7 @@ class GameServer extends MUDEventEmitter {
         logger.log('Starting %s', this.mudName.ucfirst());
         if (this.globalErrorHandler) {
             process.on('uncaughtException', err => {
-                logger.log(err);
+                logger.log('uncaughtException', err);
                 logger.log(err.stack);
                 this.errorHandler(err, false);
             });
@@ -996,7 +991,7 @@ class GameServer extends MUDEventEmitter {
                 });
         }
         if (typeof callback === 'function') callback.call(this);
-        var startupTime = new Date().getTime() - this.startTime, startSeconds = startupTime / 1000;
+        var startupTime = efuns.ticks - this.startTime, startSeconds = startupTime / 1000;
         logger.log(`Startup took ${startSeconds} seconds [${startupTime} ms]`);
         this.runMain();
     }
@@ -1022,7 +1017,7 @@ class GameServer extends MUDEventEmitter {
         if (this.config.mudlib.objectResetInterval > 0 && this.config.driver.useLazyResets === false) {
             this.resetTimer = setInterval(() => {
                 let n = 0;
-                for (let i = 0, now = new Date().getTime(); i < this.resetStack.length; i++) {
+                for (let i = 0, now = efuns.ticks; i < this.resetStack.length; i++) {
                     let timestamp = this.resetStack[i],
                         list = this.resetTimes[timestamp];
 
@@ -1132,20 +1127,21 @@ class GameServer extends MUDEventEmitter {
      * @returns {number} The game uptime in milliseconds.
      */
     uptime() {
-        return new Date().getTime() - this.startTime;
+        return efuns.ticks - this.startTime;
     }
 
     /**
      * Check to see if a destruct call should be allowed to succeed.
-     * @param {EFUNProxy} efuns The efun instance that initiatied the destruct.
      * @param {MUDObject} target The object that is being destructed.
+     * @param {ExecutionFrame} frame The frame that is being evaluated.
      * @returns {boolean} True if the destruct is allowed, false if it should be blocked.
      */
-    validDestruct(efuns, target) {
+    validDestruct(target, frame) {
         if (!this.applyValidDestruct)
             return target !== driver.masterObject;
-        this.getExecution()
-            .guarded(f => this.applyValidDestruct(target, f.object || f.file, f.method));
+        else if (frame.object === target)
+            return true;
+        return this.applyValidDestruct(target, frame.object || frame.file, frame.method);
     }
 
     /**

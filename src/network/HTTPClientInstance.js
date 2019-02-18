@@ -9,9 +9,7 @@ const ClientInstance = require('./ClientInstance'),
     ClientEndpoint = require('./ClientEndpoint');
 
 const
-    _client = Symbol('client'),
-    _callbacks = Symbol('callbacks'),
-    MUDEventEmitter = require('../MUDEventEmitter');
+    _callbacks = Symbol('callbacks');
 
 class HTTPClientInstance extends ClientInstance {
     /**

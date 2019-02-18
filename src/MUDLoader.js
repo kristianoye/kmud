@@ -15,6 +15,7 @@ const
         'disconnect',     // Called when a player disconnects from their body
         'heartbeat',      // Called periodically in "living" objects
         'init',           // Called when objects interact with one another
+        'moveObject',     // Called to move the object from one location to another
         'processInput',   // Called to process user input
         'receiveMessage', // Called when an object receives a message
         'reset'           // Called periodically to reset the object state
@@ -332,6 +333,11 @@ class MUDLoader {
         let store = driver.storage.get(this),
             result = store.get(this, usingType, file, key, defaultValue, access);
         return typeof result === 'undefined' ? defaultValue : result;
+    }
+
+    inc(usingType, file, key, value = 0, access = 2) {
+        let store = driver.storage.get(this);
+        store.set(this, usingType, file, key, value, access | 128, false);
     }
 
     /**

@@ -24,9 +24,9 @@ declare class MUDModule {
 
     /**
      * Destructs an instance of the module
-     * @param instanceId The numeric index of the object (see instances).
+     * @param spec Information describing the instance being destructed.
      */
-    destroyInstance(instanceId: number): void;
+    destroyInstance(spec: PathExpr): boolean;
 
     /**
      * The name of the file from which the module was loaded.

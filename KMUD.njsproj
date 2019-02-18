@@ -62,6 +62,10 @@
     <Compile Include="lib\base\include\Body.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\base\include\Container.js" />
+    <Compile Include="lib\base\include\Interactive.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\base\Limb.js" />
     <Compile Include="lib\base\Living.js">
       <SubType>Code</SubType>
@@ -460,6 +464,9 @@
     <Compile Include="src\efuns\Inputs.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\efuns\Livings.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\ErrorTypes.js" />
     <Compile Include="src\features\DomainStats.js">
       <SubType>Code</SubType>
@@ -493,6 +500,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\GameServer.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\LinkedList.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\LPCCompat.js">

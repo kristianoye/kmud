@@ -143,7 +143,7 @@ class NetUtil extends EventEmitter {
                 this.discovery(nets => resolved(nets));
             }
             catch (err) {
-                failed(err.message);
+                failed('discoveryAsync', err.message);
             }
         });
     }

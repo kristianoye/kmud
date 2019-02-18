@@ -9,7 +9,17 @@
 const acorn = require('acorn');
 
 const
-    tt = acorn.tokTypes;
+    tt = acorn.tokTypes,
+    TokContext = acorn.TokContext,
+    TokenType = acorn.TokenType;
+
+const
+    kmcCallOther = new TokContext('->', false);
+
+const
+    tokenTypes = {
+        kmudCallOther: new TokenType('KMUDCallOther')
+    };
 
 function plugin(options, Parser) {
     return class extends Parser {
@@ -98,18 +108,28 @@ function plugin(options, Parser) {
             return this.finishNode(method, "MethodDefinition");
         }
 
-        //readToken(code) {
-        //    let context = this.curContext();
-        //    if (options.allowIncludes) {
-        //        if (code === 36) {
-        //            let includeCheck = this.input.slice(this.pos, this.pos + 8);
-        //            if (includeCheck === '$include') {
+        /*
+        updateContext(prevType) {
+            return super.updateContext(prevType);
+        }
 
-        //            }
-        //        }
-        //    }
-        //    return super.readToken(code);
-        //}
+        readToken(code) {
+            let context = this.curContext();
+            if (this.input.slice(this.pos, this.pos + 7) === 'target.') {
+                console.log('stop here');
+            }
+            if (options.allowCallOtherArrow) {
+                if (code === 45) {
+                    let next = this.input.charCodeAt(this.pos + 1);
+                    if (next === 62) {
+                        this.pos += 2;
+                        return this.finishToken(tokenTypes.kmudCallOther);
+                    }
+                }
+            }
+            return super.readToken(code);
+        }
+        */
     };
 }
 
@@ -118,6 +138,7 @@ module.exports = function (optionsIn) {
         let options = Object.assign({}, optionsIn);
         return plugin({
             allowAccessModifiers: true,
+            allowCallOtherArrow: true,
             allowStaticProperties: true,
             allowPackageModifier: true,
             defaultAccessModifier: "public",
@@ -127,4 +148,4 @@ module.exports = function (optionsIn) {
     };
 };
 
-
+module.exports.tokTypes = tokenTypes;

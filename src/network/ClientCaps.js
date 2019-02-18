@@ -142,4 +142,14 @@ class ClientCaps extends MUDEventEmitter {
     }
 }
 
+ClientCaps.DefaultCaps = Object.freeze({
+    clientHeight: 24,
+    clientWidth: 80,
+    colorEnabled: false,
+    htmlEnabled: false,
+    soundEnabled: false,
+    terminalType: 'ascii',
+    videoEnabled: false
+});
+
 module.exports = ClientCaps;

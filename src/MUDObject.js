@@ -48,7 +48,7 @@ class MUDObject extends MUDEventEmitter {
                 let ctx = ecc.newContext;
                 Object.defineProperties(this, {
                     createTime: {
-                        value: new Date().getTime(),
+                        value: efuns.ticks,
                         writable: false
                     },
                     filename: {
@@ -79,121 +79,16 @@ class MUDObject extends MUDEventEmitter {
         }
     }
 
-    addAction(verb, callback) {
-        var _actions = this.getSymbol(_actions, {});
-        if (_actions[verb]) delete _actions[verb];
-        _actions[verb] = callback;
-        return this;
-    }
-
-    addInventory(item) {
-        var wrapped = wrapper(item),
-            inv = driver.storage.get(this).inventory;
-
-        if (!wrapped) return false;
-        else if (wrapped() === this) return false;
-
-        item.emit('kmud.item.removed', item);
-        item.removeAllListeners('kmud.item.removed');
-        item.on('kmud.item.removed', o => {
-            var _w = wrapper(o);
-            if (_w) inv.removeValue(_w);
-        });
-        inv.push(wrapped);
-        return true;
-    }
-
-    /**
-     * Base objects are not containers.
-     * @param {MUDObject} item The item being added to the container.
-     * @returns {boolean} Always false
-     */
-    canAcceptItem(item) { return false; }
-
-    create() {
-
-    }
-
-    /**
-     * Destroys the object.
-     * @param {boolean=} isReload Indicates the object was destructed as part of a reload.
-     * @returns {MUDObject} The destroyed object.
-     */
-    destroy(isReload) {
-        this.__destroyed = true;
-
-        if (this.environment)
-            this.emit('kmud.item.removed', this.environment);
-
-        if (this.isPlayer()) {
-            driver.removePlayer(this);
-        }
-        this.removeAllListeners();
-        if (!isReload) {
-            var fn = this.basename,
-                mod = driver.cache.get(fn);
-
-            try {
-                if (typeof this.eventDestroy === 'function')
-                    this.eventDestroy();
-                driver.storage.delete(this);
-                mod.destroyInstance(this);
-            }
-            catch (e) {
-                /* nothing to do here */
-            }
-        }
-        return this;
-    }
-
-    enableHeartbeat(flag) {
-        let callback = this.getSymbol($heartbeat) || false;
-        let thisObject = global.wrapper(this),
-            $storage = driver.storage.get(this);
-
-        if (typeof this.heartbeat !== 'function')
-            throw new Error('Cannot call enableHeartbeat() on that object!');
-
-        try {
-            let n = driver.heartbeatObjects.indexOf(this);
-            if (flag) {
-                if (n === -1) {
-                    n = driver.heartbeatObjects.push(this);
-                    driver.heartbeatStorage[n-1] = $storage;
-                }
-                if (callback) {
-                    driver.removeListener('kmud.heartbeat', callback);
-                }
-                callback = (ticks, total) => {
-                    let env = driver.storage.get($storage.environment);
-                    this.heartbeat(ticks, total);
-                    if (env && env.stats) {
-                        env.stats.heartbeats++;
-                    }
-                };
-                this.setSymbol($heartbeat, callback);
-                driver.addListener('kmud.heartbeat', callback);
-                driver.addLiving(thisObject);
-            }
-            else {
-                if (n > -1) {
-                    driver.heartbeatObjects.splice(n, 1);
-                    delete driver.heartbeatStorage[n];
-                }
-                if (listener) driver.removeListener('kmud.heartbeat', callback);
-                this.setSymbol($heartbeat, false);
-                driver.removeLiving(thisObject);
-            }
-        }
-        catch (e) {
-            if (callback) {
-                driver.off('kmud.heartbeat', callback);
-            }
-        }
-    }
-
     get environment() {
         return unwrap(driver.storage.get(this).environment);
+    }
+
+    get destructed() {
+        let store = driver.storage.get(this);
+        if (store)
+            return store.destroyed;
+        else
+            return true;
     }
 
     evaluateProperty(key) {
@@ -211,26 +106,6 @@ class MUDObject extends MUDEventEmitter {
     isLiving() { return false; }
 
     isPlayer() { return false; }
-
-    getFirstProperty(...propList) {
-        let store = driver.storage.get(this),
-            evalFunctions = false,
-            value = undefined;
-        if (!store) return undefined;
-        for (let i = 0; i < propList.length; i++) {
-            if (i === 0 && propList[i] === true) {
-                evalFunctions = true;
-            }
-            value = store.getProperty(propList[i]);
-            if (typeof value !== 'undefined') break;
-        }
-        if (typeof value !== 'undefined') {
-            if (typeof value === 'function' && evalFunctions)
-                return value();
-            return value;
-        }
-        return undefined;
-    }
 
     getPrivate(key, defaultValue) {
         let $storage = driver.storage.get(this);
@@ -254,20 +129,7 @@ class MUDObject extends MUDEventEmitter {
         return $storage.getProtected(key, defaultValue);
     }
 
-    getSizeOf() {
-        return driver.storage.get(this).getSizeOf();
-    }
-
-    incrementProperty(key, value, initialValue, callback) {
-        return driver.storage.get(this)
-            .incrementProperty(key, value, initialValue);
-    }
-
     init() {
-    }
-
-    isProtectedProperty(prop) {
-        return false;
     }
 
     isLiving() {
@@ -279,51 +141,63 @@ class MUDObject extends MUDEventEmitter {
         return false;
     }
 
+    move(target) {
+
+    }
+
+    moveAsync(target) {
+
+    }
+
+    moveSync(target) {
+
+    }
+
     moveObject(destination, callback) {
-        var environment = this.environment,
-            efuns = driver.efuns,
-            target = wrapper(destination) || efuns.loadObjectSync(destination);
+        let store = driver.storage.get(this),
+            env = unwrap(store.environment);
+        
+            let target = wrapper(destination) ||
+                efuns.loadObjectSync(destination),
+                myWrapper = wrapper(this);
 
-        if (target && typeof target() !== 'object') {
-            logger.log('Unable to move object: Bad destination!');
-            self.emit('kmud.item.badmove', destination);
-        }
-        else if (!environment || environment.canReleaseItem(this)) {
-            let $target = driver.storage.get(target);
+        if (!env || env.canReleaseItem(this)) {
+            return unwrap(target, dest => {
+                let targetStore = driver.storage.get(target);
 
-            if (UseLazyResets) {
-                if (typeof target().reset === 'function') {
-                    if ($target.nextReset < new Date().getTime()) {
-                        target().reset();
-                        driver.registerReset(target, false, $target);
+                //  Can the destination accept the obejct?
+                if (dest.canAcceptItem(this)) {
+
+                    //  Do lazy reset if it's time
+                    if (UseLazyResets) {
+                        if (typeof dest.reset === 'function') {
+                            if (targetStore.nextReset < efuns.ticks) {
+                                driver.driverCall('reset', () => dest.reset(), dest.filename);
+                            }
+                        }
+                    }
+
+                    if (targetStore.addInventory(this)) {
+                        if (this.isLiving()) {
+                            let stats = targetStore.stats;
+                            if (stats) stats.moves++;
+                        }
+                        if (this.isLiving()) {
+                            target().init.call(this);
+                        }
+                        dest.inventory.forEach(p => {
+                            if (p !== this && unwrap(p, (o) => o.isLiving())) {
+                                this.init.call(p);
+                            }
+                            if (this.isLiving() && p !== this) {
+                                p.init.call(this);
+                            }
+                        });
+                        return true;
                     }
                 }
-            }
-            if (target().canAcceptItem(this)) {
-                if (target().addInventory(this)) {
-                    let $storage = driver.storage.get(this);
-
-                    if (this.isLiving()) {
-                        let stats = $target.stats;
-                        if (stats) stats.moves++;
-                    }
-                    $storage.environment = target;
-                    if (this.isLiving()) {
-                        target().init.call(this);
-                    }
-                    target().inventory.forEach(p => {
-                        if (p !== this && unwrap(p, (o) => o.isLiving())) {
-                            this.init.call(p);
-                        }
-                        if (this.isLiving() && p !== this) {
-                            p.init.call(this);
-                        }
-                    });
-                    if (typeof callback === 'function')
-                        callback.apply(this, target);
-                    return true;
-                }
-            }
+                return false;
+            });
         }
         return false;
     }
