@@ -139,6 +139,7 @@ class MUDStorage extends MUDEventEmitter {
     eventHeartbeat(total, ticks) {
         if (this.lastActivity) {
             if (this.idleTime > this.maxIdleTime) {
+                this.heartbeat = false;
                 return this.setClient(false, 'You have been idle for too long.');
             }
         }
@@ -267,8 +268,10 @@ class MUDStorage extends MUDEventEmitter {
                     else {
                         if (!this.heartbeatIndex)
                             return false;
-                        else
+                        else {
                             driver.heartbeatObjects.remove(this.heartbeatIndex);
+                            this.heartbeatIndex = 0;
+                        }
                     }
                     break;
 

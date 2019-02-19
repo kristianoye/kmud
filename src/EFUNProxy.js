@@ -13,7 +13,8 @@ const
     KiloByte = 1024,
     MegaByte = KiloByte * 1000,
     GigaByte = MegaByte * 1000,
-    TeraByte = GigaByte * 1000;
+    TeraByte = GigaByte * 1000,
+    EndsWithWhitespace = /\s+$/;
 
 const
     PLURAL_SUFFIX = 1,
@@ -1705,6 +1706,21 @@ class EFUNProxy {
         return driver.fileManager.statSync(this, this.join(this.directory, filepath), flags);
     }
 
+    get stderr() {
+        let ecc = driver.getExecution();
+        return ecc && ecc.stderr;
+    }
+
+    get stdin() {
+        let ecc = driver.getExecution();
+        return ecc && ecc.stdin;
+    }
+
+    get stdout() {
+        let ecc = driver.getExecution();
+        return ecc && ecc.stdout;
+    }
+
     /**
      * Removes color codes from a string.
      * @param {string} str The string to remove color from.
@@ -1833,13 +1849,64 @@ class EFUNProxy {
 
     /**
      * Write a message to the current player's screen.
-     * @param {string|number|function(...any):string|MUDHtmlComponent} expr The expression to display.
+     * @param {boolean} appendNewline If true then a newline is automatically appended at the end 
+     * @param {...any} expr The expression to display.
      * @returns {true} Always returns true.
      */
-    write(expr) {
-        this.message('write', expr, driver.thisPlayer);
-        return true;
+    write(appendNewline = true, ...expr) {
+        return driver.driverCall('write', ecc => {
+            let expandValue = /** @returns {string[]} */ item => {
+                let valType = typeof item;
+                if (valType === 'string')
+                    return [item];
+                else if (valType === 'function') {
+                    item = item();
+                    if (typeof item !== 'string') item = '';
+                    return [item];
+                }
+                else if (valType === 'number')
+                    return [item.toString()];
+                else if (valType === 'boolean')
+                    return [item ? 'true' : 'false'];
+                else if (Array.isArray(item)) {
+                    let r = [];
+                    item.forEach(i => r.push(...expandValue(i)));
+                    return r;
+                }
+                else
+                    return [valType.toUpperCase()];
+            };
+            /** @type {string[]} */
+            let items = [], content = '';
+
+            expr.map(item => items.push(...expandValue(item)));
+            items.filter(v => v.length > 0).forEach((v, i) => {
+                if (i === 0)
+                    content += v;
+                else if (EndsWithWhitespace.test(v)) {
+                    content += v;
+                }
+                else
+                    content += ' ' + v;
+            });
+
+            if (appendNewline)
+                content += '\n';
+
+            if (ecc.stdout) ecc.stdout.write(content);
+            this.message('write', content, driver.thisPlayer);
+            return true;
+        });
     }
+
+    writeRaw(expr) {
+        return driver.driverCall('write', ecc => {
+            ecc.stdout.write(expr);
+            this.message('write', expr, driver.thisPlayer);
+            return true;
+        });
+    }
+
     /**
      * Write text to file.
      * @param {string} filename The file to write to.

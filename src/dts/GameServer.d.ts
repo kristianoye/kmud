@@ -37,6 +37,28 @@ declare class ExecutionFrame {
     readonly object: MUDObject | false;
 }
 
+declare class StandardWriteableStream {
+    /**
+     * Called to fetch the content of the buffer
+     * @param encoding
+     */
+    getBuffer(encoding = false): Buffer;
+
+    /**
+     * Write text to the stream
+     * @param text
+     * @param encoding
+     */
+    write(text: string, encoding = 'utf8'): number;
+
+    /**
+     * Write text with an EOL character to the stream.
+     * @param text
+     * @param encoding
+     */
+    writeLine(text: string, encoding = 'utf8'): number;
+}
+
 declare class ExecutionContext {
     /** Indicates the context was created for an async call. */
     readonly async: boolean;
@@ -69,6 +91,14 @@ declare class ExecutionContext {
 
     /** Restore the context so that it is the active context in the driver. */
     restore(): ExecutionContext;
+
+    readonly stderr: StandardWriteableStream;
+
+    readonly stdin: ReadableStream;
+
+    readonly stdout: StandardWriteableStream;
+
+    readonly thisClient: MUDClient;
 
     readonly thisObject: MUDObject;
 

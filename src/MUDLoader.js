@@ -393,11 +393,12 @@ class MUDLoader {
         return global.wrapper(...args);
     }
 
-    write(str) {
-        let ecc = driver.getExecution();
-        if (ecc && ecc.thisClient) {
-            ecc.thisClient.writeLine(str);
-        }
+    write(...str) {
+        return efuns.write(true, ...str);
+    }
+
+    writeRaw(str) {
+        return efuns.efuns.writeRaw(str);
     }
 }
 

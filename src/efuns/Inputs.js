@@ -139,8 +139,16 @@ class InputHelper {
                             return sendToken();
                         }
                     }
-                    if (isEscaped) result.value += c;
+                    if (isEscaped) {
+                        result.value += c;
+                        isEscaped = false;
+                        continue;
+                    }
                     else switch (c) {
+                        case '\\':
+                            isEscaped = true;
+                            break;
+
                         /* Quoted blocks */
                         case '"':
                         case "'":
@@ -588,7 +596,7 @@ class InputHelper {
                 throw new Error(`Unexpected token ${cmd.type} at position ${cmd.pos}`);
         }
         typeof settings.onWriteHistory === 'function' && settings.onWriteHistory(forHistory.trim());
-        if (fromHistory) efuns.write(forHistory.trim());
+        if (fromHistory) write(forHistory.trim());
         return cmds;
     }
 

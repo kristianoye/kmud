@@ -9,6 +9,7 @@ const
     ClientEndpoint = require('./ClientEndpoint'),
     ClientCaps = require('./ClientCaps'),
     MUDEventEmitter = require('../MUDEventEmitter'),
+    { StandardInputStream, StandardOutputStream } = require('./StandardIO'),
     GameServer = require('../GameServer');
 
 const
@@ -138,6 +139,17 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
             ecc.thisClient = this;
             ecc.startTime = efuns.ticks;
 
+            try {
+                //  TODO: Make these configurable
+                ecc.stdin = new StandardInputStream({ encoding: 'utf8' }, '');
+                ecc.stderr = new StandardOutputStream({ encoding: 'utf8' });
+                ecc.stdout = new StandardOutputStream({ encoding: 'utf8' });
+            }
+            catch (err) {
+                // TODO: Make this fatal for real
+                logger.log('FATAL: Could not allocate streams', err.message);
+            }
+
             if (!skipCallback) {
                 ecc.on('complete', completed => {
                     let te = efuns.ticks - completed.startTime;
@@ -227,26 +239,28 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                 }
                 try {
                     if (this.inputStack.length) {
-                        let body = this.initContext(this.body);
-                        let inputFrame = this.inputStack.shift(), result;
-                        try {
-                            text = text.replace(/[\r\n]+/g, '');
-                            if (!this.client.echoing) {
-                                this.write('\r\n');
-                                this.client.toggleEcho(true);
+                        ecc.withPlayer(this.storage, player => {
+                            this.initContext(this.body);
+                            let inputFrame = this.inputStack.shift(), result;
+                            try {
+                                text = text.replace(/[\r\n]+/g, '');
+                                if (!this.client.echoing) {
+                                    this.write('\r\n');
+                                    this.client.toggleEcho(true);
+                                }
+                                result = inputFrame.callback.call(player, text);
+                                if (result && typeof result.catch === 'function') {
+                                    result.catch(err => console.log(err));
+                                }
+                                if (result === true) {
+                                    this.inputStack.unshift(inputFrame);
+                                }
                             }
-                            result = inputFrame.callback.call(body, text);
-                            if (result && typeof result.catch === 'function') {
-                                result.catch(err => console.log(err));
+                            catch (err) {
+                                this.writeLine('Error: ' + err);
+                                this.writeLine(err.stack);
                             }
-                            if (result === true) {
-                                this.inputStack.unshift(inputFrame);
-                            }
-                        }
-                        catch (err) {
-                            this.writeLine('Error: ' + err);
-                            this.writeLine(err.stack);
-                        }
+                        });
                     }
                     else {
                         let cmds = [];
@@ -276,9 +290,9 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                             // TODO: Get rid of this, too
                             cmd.htmlEnabled = false;
 
-                            cmd.stdin = last.stdout || false;
-                            cmd.stdout = new Buffer('', 'utf8');
-                            cmd.stderr = cmd.stdout;
+                            cmd.stdin = last.stdout || new StandardInputStream({ encoding: 'utf8' }, cmd.text);
+                            cmd.stdout = new StandardOutputStream();
+                            cmd.stderr = new StandardOutputStream();
 
                             setTimeout(() => {
                                 driver.driverCall('executeCommandTree', ecc => {
@@ -316,7 +330,9 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                                         }
                                     };
                                     try {
-                                        body.executeCommand(cmd);
+                                        ecc.withPlayer(this.storage, player => {
+                                            player.executeCommand(cmd);
+                                        });
                                     }
                                     catch (ex) {
                                         setTimeout(cmd.complete(ex), 0);
@@ -325,6 +341,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                             }, 0)
                         };
                         if (cmds.length > 0) executeCommandTree();
+                        else this.renderPrompt();
                     }
                 }
                 catch (ex) {
