@@ -10,9 +10,7 @@ const
     MUDEventEmitter = require('./MUDEventEmitter'),
     { MudlibFileMount } = require('./config/MudlibFileSystem'),
     FileSystem = require('./FileSystem').FileSystem,
-    MXC = require('./MXC'),
-    path = require('path'),
-    fs = require('fs');
+    path = require('path');
 
 mudglobal.MUDFS = {
     GetDirFlags: {

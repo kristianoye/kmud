@@ -38,6 +38,12 @@ class GameServer extends MUDEventEmitter {
 
         global.driver = Instance = this;
 
+        this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
+        /** @type {EFUNProxy} */
+        let efunType = require('./EFUNProxy');
+        this.initDriverEfuns(new efunType('/'));
+        this.startTime = efuns.ticks;
+
         /** @type {MUDConfig} */
         this.config = config;
         this.executionContext = false;
@@ -55,13 +61,7 @@ class GameServer extends MUDEventEmitter {
         this.connections = [];
         this.currentContext = false;
         this.currentVerb = '';
-        this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
-        /** @type {EFUNProxy} */
-        let efunType = require('./EFUNProxy');
-        this.initDriverEfuns(new efunType('/'));
         this.simulEfunPath = config.mudlib.simulEfuns;
-
-        this.startTime = efuns.ticks;
 
         this.addressList = { '127.0.0.1': true };
         this.endpoints = [];
@@ -991,7 +991,10 @@ class GameServer extends MUDEventEmitter {
                 });
         }
         if (typeof callback === 'function') callback.call(this);
-        var startupTime = efuns.ticks - this.startTime, startSeconds = startupTime / 1000;
+
+        let startupTime = efuns.ticks - this.startTime,
+            startSeconds = startupTime / 1000;
+
         logger.log(`Startup took ${startSeconds} seconds [${startupTime} ms]`);
         this.runMain();
     }

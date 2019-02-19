@@ -6,12 +6,10 @@
  * Description: This module contains core game functionality.
  */
 const
-    EventEmitter = require('events'),
     ClientEndpoint = require('./ClientEndpoint'),
     ClientCaps = require('./ClientCaps'),
     MUDEventEmitter = require('../MUDEventEmitter'),
-    GameServer = require('../GameServer'),
-    MXC = require('../MXC');
+    GameServer = require('../GameServer');
 
 const
     MudColorImplementation = require('./impl/MudColorImplementation'),
@@ -48,7 +46,6 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
         this.caps = new ClientCaps(this);
         this.commandStack = [];
         this.commandTimer = false;
-        this.context = MXC.init();
         this.endpoint = endpoint;
         this.inputStack = [];
         this.lastCommand = new Date();
@@ -127,7 +124,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
      * @param {MUDObject} body The user's current body
      * @returns {[MUDObject, ExecutionContext]} The user's body
      */
-    initContext(body) {
+    initContext(body, skipCallback = false) {
         return unwrap(body, thisPlayer => {
             let ecc = driver.getExecution();
 
@@ -136,17 +133,19 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                 Number.MAX_SAFE_INTEGER;
 
             ecc.storage = this.storage;
-            ecc.setThisPlayer(thisPlayer, thisPlayer, '');
-            ecc.startTime = new Date().getTime();
+            ecc.truePlayer = thisPlayer;
+            ecc.thisPlayer = thisPlayer;
+            ecc.thisClient = this;
+            ecc.startTime = efuns.ticks;
 
-            ecc.on('complete', completed => {
-                let te = efuns.ticks - completed.startTime;
-                console.log(`Command complete [ellapsed: ${te} ms]`);
-                this.renderPrompt();
-//                this.renderPrompt(completed.input.prompt);
-            });
-
-            return [thisPlayer, ecc];
+            if (!skipCallback) {
+                ecc.on('complete', completed => {
+                    let te = efuns.ticks - completed.startTime;
+                    console.log(`Command complete [ellapsed: ${te} ms]`);
+                    this.renderPrompt();
+                });
+            }
+            return thisPlayer;
         });
     }
 
@@ -220,72 +219,118 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
      * @param {string} text The command to execute.
      */
     executeCommand(text) {
-        driver.driverCall('executeCommand', () => {
-            let [body, ecc] = this.initContext(this.body);
-            if (!body) {
-                this.write('You have no body!  Sorry, no ghosts allowed!');
-                return this.disconnect(false, 'You have no body!  Releasing spirit!');
-            }
-            try {
-                if (this.inputStack.length) {
-                    //let cmdEvent = this.initContext(ecc, body, this.createCommandEvent(text || ''));
-                    let inputFrame = this.inputStack.shift(), result;
-                    try {
-                        text = text.replace(/[\r\n]+/g, '');
-                        if (!this.client.echoing) {
-                            this.write('\r\n');
-                            this.client.toggleEcho(true);
-                        }
-                        result = inputFrame.callback.call(body, text);
-                        if (result && typeof result.catch === 'function') {
-                            result.catch(err => console.log(err));
-                        }
-                        if (result === true) {
-                            this.inputStack.unshift(inputFrame);
-                        }
-                    }
-                    catch (err) {
-                        this.writeLine('Error: ' + err);
-                        this.writeLine(err.stack);
-                    }
+        driver.driverCall('executeCommand', ecc => {
+            unwrap(this.body, body => {
+                if (!body) {
+                    this.write('You have no body!  Sorry, no ghosts allowed!');
+                    return this.disconnect(false, 'You have no body!  Releasing spirit!');
                 }
-                else {
-                    let cmds = [];
-                    if (typeof body.processInput === 'function') {
+                try {
+                    if (this.inputStack.length) {
+                        let body = this.initContext(this.body);
+                        let inputFrame = this.inputStack.shift(), result;
                         try {
-                            cmds = body.processInput(text);
+                            text = text.replace(/[\r\n]+/g, '');
+                            if (!this.client.echoing) {
+                                this.write('\r\n');
+                                this.client.toggleEcho(true);
+                            }
+                            result = inputFrame.callback.call(body, text);
+                            if (result && typeof result.catch === 'function') {
+                                result.catch(err => console.log(err));
+                            }
+                            if (result === true) {
+                                this.inputStack.unshift(inputFrame);
+                            }
                         }
                         catch (err) {
-                            this.writeLine('processInput', err.message);
+                            this.writeLine('Error: ' + err);
+                            this.writeLine(err.stack);
                         }
                     }
                     else {
-                        cmds = efuns.input.splitCommand(text);
-//                        cmds.push(this.initContext(ecc, body, this.createCommandEvent(text || '')));
-                    }
-                    if (!Array.isArray(cmds))
-                        cmds = [cmds];
-
-                    for (let i = 0; i < cmds.length; i++) {
-                        try {
-                            cmds[i].caps = Object.assign({}, this.caps);
-                            cmds[i].complete = c => {
-                                console.log('Command complete');
-                            };
-                            cmds[i].htmlEnabled = false;
-                            cmds[i].input = cmds[i].text;
-                            cmds[i].alarmTime = efuns.ticks + (maxCommandExecutionTime || 5000);
-                            body.executeCommand(cmds[i]);
+                        let cmds = [];
+                        if (typeof body.processInput === 'function') {
+                            try {
+                                cmds = body.processInput(text);
+                            }
+                            catch (err) {
+                                this.writeLine('processInput', err.message);
+                            }
                         }
-                        catch (err) {
-
+                        else {
+                            cmds = efuns.input.splitCommand(text);
                         }
+                        if (!Array.isArray(cmds))
+                            cmds = [cmds];
+
+                        let prev = false, last = {}, startTime = efuns.ticks;
+
+                        //  Execute 
+                        let executeCommandTree = (c = false) => {
+                            let cmd = c || cmds.shift();
+
+                            // TODO: Get rid of input references
+                            cmd.input = cmd.text;
+
+                            // TODO: Get rid of this, too
+                            cmd.htmlEnabled = false;
+
+                            cmd.stdin = last.stdout || false;
+                            cmd.stdout = new Buffer('', 'utf8');
+                            cmd.stderr = cmd.stdout;
+
+                            setTimeout(() => {
+                                driver.driverCall('executeCommandTree', ecc => {
+                                    this.initContext(body, false);
+                                    cmd.complete = result => {
+                                        last = {};
+
+                                        //  Last command succeeded
+                                        if (result && result instanceof Error === false) {
+                                            //  cmd1 | cmd2
+                                            if (cmd.redirect) {
+                                                prev = prev || cmd;
+                                                last = cmd;
+                                            }
+                                            //  cmd1 && cmd2 
+                                            else if (cmd.and) {
+                                                prev = prev || cmd;
+                                                executeCommandTree(cmd.and);
+                                            }
+                                            if (cmds.length > 0)
+                                                executeCommandTree();
+                                            else {
+                                                let te = efuns.ticks - startTime;
+                                                console.log(`Command complete [ellapsed: ${te} ms]`);
+                                                this.renderPrompt();
+                                            }
+                                        }
+                                        //  Last command failed
+                                        else if (prev.or)
+                                            executeCommandTree(prev.or);
+                                        else {
+                                            let te = efuns.ticks - startTime;
+                                            console.log(`Command complete [ellapsed: ${te} ms]`);
+                                            this.renderPrompt();
+                                        }
+                                    };
+                                    try {
+                                        body.executeCommand(cmd);
+                                    }
+                                    catch (ex) {
+                                        setTimeout(cmd.complete(ex), 0);
+                                    }
+                                });
+                            }, 0)
+                        };
+                        if (cmds.length > 0) executeCommandTree();
                     }
                 }
-            }
-            catch (ex) {
-                driver.errorHandler(ex, false);
-            }
+                catch (ex) {
+                    driver.errorHandler(ex, false);
+                }
+            });
         });
     }
 
@@ -308,7 +353,6 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                 let storage = driver.storage.get(newBody);
 
                 storage && storage.setClient(this, this.port, this.clientType);
-                ecc.setThisPlayer(newBody, newBody, '');
                 this.eventSend({
                     eventType: 'kmud.connected',
                     eventData: driver.efuns.mudName()

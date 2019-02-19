@@ -24,7 +24,8 @@ const
     ArrayHelper = require('./efuns/Arrays'),
     EnglishHelper = require('./efuns/English'),
     InputHelper = require('./efuns/Inputs'),
-    LivingsHelper = require('./efuns/Livings');
+    LivingsHelper = require('./efuns/Livings'),
+    TimeHelper = require('./efuns/Time');
 
 var
     IncludeCache = {},
@@ -768,7 +769,7 @@ class EFUNProxy {
     }
 
     /** The livings namespace */
-    get livings() { return LivingsHelper; }
+    get living() { return LivingsHelper; }
 
     /**
      * Attempts to find the specified object.  If not found then the object is compiled and returned.
@@ -1754,7 +1755,7 @@ class EFUNProxy {
      * @returns {number} The number of seconds since January 1, 1970
      */
     get time() {
-        return Math.floor(this.ticks / 1000);
+        return TimeHelper;
     }
 
     get ticks() {

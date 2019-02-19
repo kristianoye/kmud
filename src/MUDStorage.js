@@ -672,26 +672,29 @@ class MUDStorage extends MUDEventEmitter {
     setClient(client, ...args) {
         try {
             if (client) {
-                //  If the client has an old body, the client needs to drop out
+                //  If the client has an old body, the client needs to be dissassociated with it
                 if (client.body) {
-                    let store = driver.store.get(client.body);
+                    let store = driver.storage.get(client.body);
                     if (store) {
                         driver.driverCall('disconnect', context => {
-                            context.withPlayer(store, player => player.disconnect(...args));
+                            store.connected = false;
+                            store.interactive = false;
+                            store.connected = false;
+                            store.lastActivity = 0;
+                            context.withPlayer(store, player => player.disconnect());
+                            store.client = false;
+                            store.clientCaps = ClientCaps.DefaultCaps;
                         });
-                        store.interactive = false;
-                        store.connected = false;
-                        store.lastActivity = 0;
-                        store.client = false;
-                        store.clientCaps = ClientCaps.DefaultCaps;
                     }
+                    else
+                        return false;
                 }
 
                 this.connected = true;
                 this.interactive = true;
                 this.lastActivity = efuns.ticks;
 
-                client.body = this.owner;
+                client.body = wrapper(this.owner);
                 client.storage = this;
 
                 this.client = client;
@@ -700,8 +703,9 @@ class MUDStorage extends MUDEventEmitter {
                 //  Linkdeath
                 client.once('disconnected', () => this.setClient(false));
 
+                //  Connect to the new body
                 driver.driverCall('connect', context => {
-                    context.withPlayer(this, player => player.connect(...args));
+                    context.withPlayer(this, player => player.connect(...args), false);
                 });
                 return true;
             }
@@ -710,9 +714,9 @@ class MUDStorage extends MUDEventEmitter {
                     driver.driverCall('disconnect', context => {
                         this.connected = false;
                         context.withPlayer(this, player => player.disconnect(...args));
+                        this.client && this.client.close();
                     });
                 if (this.client) this.client.body = false;
-                this.client && this.client.close();
                 this.client = false;
                 this.clientCaps = ClientCaps.DefaultCaps;
             }

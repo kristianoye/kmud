@@ -321,7 +321,7 @@ class ExecutionContext extends MUDEventEmitter {
         this.currentVerb = verb || '';
 
         let $storage = driver.storage.get(player);
-        this.thisClient = $storage && $storage.getSymbol('$client');
+        t//his.thisClient = $storage && $storage.getSymbol('$client');
     }
 
     /**
@@ -343,7 +343,7 @@ class ExecutionContext extends MUDEventEmitter {
      * @param {MUDStorage} store The player that should be "thisPlayer"
      * @param {function(MUDObject, ExecutionContext): any} callback The action to execute
      */
-    withPlayer(store, callback) {
+    withPlayer(store, callback, restoreOldPlayer = true) {
         let player = store.owner;
         return unwrap(player, thisPlayer => {
             let oldPlayer = this.thisPlayer,
@@ -352,16 +352,18 @@ class ExecutionContext extends MUDEventEmitter {
 
             try {
                 this.thisPlayer = thisPlayer;
-                this.thisClient = store.client;
+                this.thisClient = store.client || this.thisClient;
                 this.thisStore = store;
                 this.truePlayer = this.truePlayer || thisPlayer;
 
                 return callback(thisPlayer, this);
             }
             finally {
-                if (oldPlayer) this.thisPlayer = oldPlayer;
-                if (oldClient) this.thisClient = oldClient;
-                if (oldStore) this.thisStore = oldStore;
+                if (restoreOldPlayer) {
+                    if (oldPlayer) this.thisPlayer = oldPlayer;
+                    if (oldClient) this.thisClient = oldClient;
+                    if (oldStore) this.thisStore = oldStore;
+                }
             }
         });
     }
