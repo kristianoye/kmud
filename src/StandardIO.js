@@ -13,7 +13,7 @@ const
     /** @type {Object.<string,string>} */
     Buffers = {};
 
-/** @typedef {{ buffer: string, pos: number, length: number, encoding: string }} InternalBuffer */
+/** @typedef {{ buffer: string|MUDClient, pos: number, length: number, encoding: string }} InternalBuffer */
 
 /**
  * Returns a buffer by ID
@@ -29,7 +29,7 @@ function $(o) { return Buffers[o.id]; }
  */
 function $c(o, buffer = '', encoding = 'utf8') {
     let id = uuidv1();
-    Buffers[id] = { buffer, length: buffer.length, pos: 0, encoding };
+    Buffers[id] = { buffer, length: buffer.length || -1, pos: 0, encoding };
     return id;
 }
 
@@ -90,6 +90,14 @@ class StandardInputStream extends Readable {
 }
 
 /**
+ * Return the underlying content from the stream
+ * @param {StandardInputStream|StandardOutputStream} o The stream to fetch
+ */
+StandardInputStream.get = function (o) {
+    return $(o);
+}
+
+/**
  * Provides a writable stream that in-game methods can interact
  * with.  This content is then flushed once the command is completed
  **/
@@ -98,7 +106,7 @@ class StandardOutputStream extends Writable {
         super(opts = Object.assign(
             {
                 encoding: 'utf8',
-                decodeStrings: true,
+                decodeStrings: false,
                 writableHighWaterMark: 32 * 1024
             }, opts));
 
@@ -109,22 +117,6 @@ class StandardOutputStream extends Writable {
     _destroy(error, callback) {
         delete Buffers[this.id];
         return super._destroy(error, callback);
-    }
-
-    end(chunk, encoding, cb) {
-        return super.end(chunk, encoding, cb);
-    }
-
-    getBuffer(encoding = false) {
-        if (this.id in Buffers === false)
-            throw new Error('The buffer has been destroyed!');
-        return new Buffer($(this).buffer, encoding || $(this).encoding);
-    }
-
-    getContent() {
-        if (this.id in Buffers === false)
-            throw new Error('The buffer has been destroyed!');
-        return this.buffer.toString(this.encoding);
     }
 
     /** @param {string|Buffer} chunk */
@@ -160,8 +152,72 @@ class StandardOutputStream extends Writable {
     }
 
     writeLine(content, encoding = false) {
-        return this._write(content + '\n', encoding);
+        if (!efuns.text.trailingNewline(content))
+            content += '\n';
+        return this._write(content, encoding);
     }
 }
 
-module.exports = { StandardInputStream, StandardOutputStream };
+/**
+ * Create a dummy stream that writes through to the client */
+class StandardPassthruStream extends Writable {
+    /**
+     * @param {any} opts
+     * @param {MUDClient} client THe client
+     */
+    constructor(opts, client) {
+        super(opts = Object.assign(
+            {
+                encoding: 'utf8',
+                decodeStrings: false
+            }, opts));
+
+        this.id = $c(this, client, opts.encoding);
+        Object.freeze(this);
+    }
+
+    _destroy(error, callback) {
+        delete Buffers[this.id];
+        return super._destroy(error, callback);
+    }
+
+    /** @param {string|Buffer} chunk */
+    /** @param {string} encoding */
+    /** @param {function(Error):void} callback */
+    _write(chunk, encoding = false, callback = false) {
+        if (chunk instanceof Buffer) {
+            chunk = chunk.toString(encoding || $(this).encoding);
+        }
+        $(this).buffer.write(chunk);
+    }
+
+    /** @param {{ chunk: string, encoding: string }[]} chunks */
+    /** @param {function(Error):void} callback */
+    _writev(chunks, callback) {
+        try {
+            chunks.forEach(c => {
+                this._write(c.chunk, c.encoding);
+            });
+            callback && callback();
+        }
+        catch (err) {
+            callback && callback(err);
+        }
+    }
+
+    writeLine(content, encoding = false) {
+        if (!efuns.text.trailingNewline(content))
+            content += '\n';
+        return this._write(content, encoding);
+    }
+}
+
+/**
+ * Return the underlying content from the stream
+ * @param {StandardInputStream|StandardOutputStream} o The stream to fetch
+ */
+StandardOutputStream.get = function (o) {
+    return $(o);
+}
+
+module.exports = { StandardInputStream, StandardOutputStream, StandardPassthruStream };

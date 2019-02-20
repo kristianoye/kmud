@@ -9,20 +9,9 @@ const
     ClientEndpoint = require('./ClientEndpoint'),
     ClientCaps = require('./ClientCaps'),
     MUDEventEmitter = require('../MUDEventEmitter'),
-    { StandardInputStream, StandardOutputStream } = require('./StandardIO'),
+    { StandardInputStream, StandardOutputStream, StandardPassthruStream } = require('../StandardIO'),
     GameServer = require('../GameServer'),
     os = require('os');
-
-const
-    MudColorImplementation = require('./impl/MudColorImplementation'),
-    MudSoundImplementation = require('./impl/MudSoundImplementation'),
-    MudVideoImplementation = require('./impl/MudVideoImplementation');
-
-const
-    _body = Symbol('body'),
-    _endpoint = Symbol('endpoint'),
-    _inputstack = Symbol('_inputstack'),
-    _remoteAddress = Symbol('_remoteAddress');
 
 var
     maxCommandExecutionTime = 0,
@@ -123,35 +112,44 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
 
     /**
      * Initialize
-     * @param {MUDObject} body The user's current body
-     * @returns {[MUDObject, ExecutionContext]} The user's body
+     * @param {boolean} skipCallback If true then no onComplete handler is created.
+     * @param {ExecutionContext} ecc The current execution context.
      */
-    populateContext(body, skipCallback = false) {
-        return unwrap(body, thisPlayer => {
-            let ecc = driver.getExecution();
+    populateContext(skipCallback = false, ecc = false, opts = {}) {
+        let thisPlayer = unwrap(this.body);
 
-            ecc.alarmTime = maxCommandExecutionTime ?
-                efuns.ticks + maxCommandExecutionTime :
-                Number.MAX_SAFE_INTEGER;
+        ecc = ecc || driver.getExecution();
 
-            ecc.storage = this.storage;
-            ecc.truePlayer = thisPlayer;
-            ecc.thisPlayer = thisPlayer;
-            ecc.thisClient = this;
+        ecc.alarmTime = maxCommandExecutionTime ?
+            efuns.ticks + maxCommandExecutionTime :
+            Number.MAX_SAFE_INTEGER;
+
+        if (ecc.truePlayer && ecc.truePlayer !== thisPlayer)
+            throw new Error('FATAL: TruePlayer has already been set!');
+
+        ecc.truePlayer = thisPlayer;
+        ecc.thisPlayer = thisPlayer;
+        ecc.thisClient = this;
+        ecc.thisStore = this.storage;
+
+        if (!ecc.startTime) {
             ecc.startTime = efuns.ticks;
 
             try {
-                //  TODO: Make these configurable
-                ecc.stdin = new StandardInputStream({ encoding: 'utf8' }, '');
-                ecc.stderr = new StandardOutputStream({ encoding: 'utf8' });
-                ecc.stdout = new StandardOutputStream({ encoding: 'utf8' });
+                this.stdin = opts.stdin || new StandardInputStream({ encoding: 'utf8' }, '');
+                this.stderr = opts.stderr || new StandardPassthruStream({ encoding: 'utf8' }, this);
+                this.stdout = opts.stdout || new StandardPassthruStream({ encoding: 'utf8' }, this);
             }
             catch (err) {
                 // TODO: Make this fatal for real
                 logger.log('FATAL: Could not allocate streams', err.message);
             }
-            return thisPlayer;
-        });
+        }
+        if (skipCallback === false) {
+            ecc.on('complete', result => {
+
+            });
+        }
     }
 
     /**
@@ -225,6 +223,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
      */
     executeCommand(text) {
         driver.driverCall('executeCommand', ecc => {
+            this.populateContext(false, ecc);
             unwrap(this.body, body => {
                 if (!body) {
                     this.write('You have no body!  Sorry, no ghosts allowed!');
@@ -232,15 +231,12 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                 }
                 try {
                     let isEscaped = false;
-
                     if (text === '!') {
                         if (this.inputStack.length && body.allowInputEscape === true) {
                             text = text.slice(1);
                             isEscaped = true;
                         }
                     }
-                    this.populateContext(this, body);
-
                     if (this.inputStack.length && isEscaped === false) {
                         return ecc.withPlayer(this.storage, player => {
                             let inputFrame = this.inputStack.shift(),
@@ -296,14 +292,9 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                             // TODO: Get rid of this, too
                             cmd.htmlEnabled = false;
 
-                            cmd.stdin = last.stdout || new StandardInputStream({ encoding: 'utf8' }, cmd.text);
-                            cmd.stdout = new StandardOutputStream();
-                            cmd.stderr = new StandardOutputStream();
-
                             setTimeout(() => {
                                 driver.driverCall('executeCommandTree', ecc => {
-                                    this.populateContext(this, body);
-
+                                    this.populateContext(false, ecc);
                                     cmd.complete = result => {
                                         last = {};
 

@@ -394,7 +394,7 @@ class MUDLoader {
     }
 
     write(...str) {
-        return efuns.write(true, ...str);
+        return efuns.writeLine(...str);
     }
 
     writeRaw(str) {

@@ -633,7 +633,7 @@
     <Compile Include="src\network\impl\zmud\ZmudHtmlSupport.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\network\StandardIO.js">
+    <Compile Include="src\StandardIO.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\NetUtil.js">

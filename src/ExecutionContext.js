@@ -9,6 +9,7 @@
  */
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
+    { StandardInputStream, StandardOutputStream } = require('./StandardIO'),
     uuidv1 = require('uuid/v1');
 
 /** @typedef {{ object: MUDObject, method: string, file: string }} ObjectStackItem */

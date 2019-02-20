@@ -1380,13 +1380,12 @@ class EFUNProxy {
 
     /**
      * 
-     * @param {number=} n
+     * @param {number} n The number of objects to go back
      */
-    previousObject(n) {
-        let ctx = driver.getContext(),
-            back = parseInt(n) || 0,
-            prev = ctx ? ctx.objectStack : [];
-        return n === -1 ? prev.slice(1).map(f => f) : prev[n + 1];
+    previousObject(n = 1) {
+        let ctx = driver.getExecution(),
+            prev = ctx.previousObjects;
+        return n === -1 ? prev.slice(0) : prev[n];
     }
 
     /**
@@ -1709,17 +1708,17 @@ class EFUNProxy {
 
     get stderr() {
         let ecc = driver.getExecution();
-        return ecc && ecc.stderr;
+        return ecc.thisClient && ecc.thisClient.stderr;
     }
 
     get stdin() {
         let ecc = driver.getExecution();
-        return ecc && ecc.stdin;
+        return ecc.thisClient && ecc.thisClient.stdin;
     }
 
     get stdout() {
         let ecc = driver.getExecution();
-        return ecc && ecc.stdout;
+        return ecc.thisClient && ecc.thisClient.stdout;
     }
 
     /**
@@ -1852,57 +1851,81 @@ class EFUNProxy {
         return result.join('\n');
     }
 
+    fail(...expr) {
+        this.writeToStream(false, this.stderr, ...expr);
+        return false;
+    }
+
+    failLine(...expr) {
+        this.writeToStream(true, this.stderr, ...expr);
+        return false;
+    }
+
+    write(...expr) {
+        return this.writeToStream(false, this.stdout, ...expr);
+    }
+
+    writeLine(...expr) {
+        return this.writeToStream(true, this.stdout, ...expr);
+    }
+
     /**
      * Write a message to the current player's screen.
      * @param {boolean} appendNewline If true then a newline is automatically appended at the end 
      * @param {...any} expr The expression to display.
      * @returns {true} Always returns true.
      */
-    write(appendNewline = true, ...expr) {
-        return driver.driverCall('write', ecc => {
-            let expandValue = /** @returns {string[]} */ item => {
-                let valType = typeof item;
-                if (valType === 'string')
-                    return [item];
-                else if (valType === 'function') {
-                    item = item();
-                    if (typeof item !== 'string') item = '';
-                    return [item];
-                }
-                else if (valType === 'number')
-                    return [item.toString()];
-                else if (valType === 'boolean')
-                    return [item ? 'true' : 'false'];
-                else if (Array.isArray(item)) {
-                    let r = [];
-                    item.forEach(i => r.push(...expandValue(i)));
-                    return r;
-                }
-                else
-                    return [valType.toUpperCase()];
-            };
-            /** @type {string[]} */
-            let items = [], content = '';
+    writeToStream(appendNewline = true, stream = false, ...expr) {
+        stream = stream || this.stdout;
 
-            expr.map(item => items.push(...expandValue(item)));
-            items.filter(v => v.length > 0).forEach((v, i) => {
-                if (i === 0)
-                    content += v;
-                else if (EndsWithWhitespace.test(v)) {
-                    content += v;
+        if (!stream)
+            return false;
+        else
+            return driver.driverCall('write', ecc => {
+                let expandValue = /** @returns {string[]} */ item => {
+                    let valType = typeof item;
+                    if (valType === 'string')
+                        return [item];
+                    else if (valType === 'function') {
+                        item = item();
+                        if (typeof item !== 'string') item = '';
+                        return [item];
+                    }
+                    else if (valType === 'number')
+                        return [item.toString()];
+                    else if (valType === 'boolean')
+                        return [item ? 'true' : 'false'];
+                    else if (Array.isArray(item)) {
+                        let r = [];
+                        item.forEach(i => r.push(...expandValue(i)));
+                        return r;
+                    }
+                    else
+                        return [valType.toUpperCase()];
+                };
+                /** @type {string[]} */
+                let items = [], content = '';
+
+                expr.map(item => items.push(...expandValue(item)));
+                items.filter(v => v.length > 0).forEach((v, i) => {
+                    if (i === 0)
+                        content += v;
+                    else if (EndsWithWhitespace.test(v)) {
+                        content += v;
+                    }
+                    else
+                        content += ' ' + v;
+                });
+
+                if (appendNewline) {
+                    if (!efuns.text.trailingNewline(content)) content += '\n';
                 }
-                else
-                    content += ' ' + v;
+
+                if (stream)
+                    stream.write(content);
+
+                return true;
             });
-
-            if (appendNewline) {
-                if (efuns.text.trailingNewline(content)) content += '\n';
-            }
-
-            if (ecc.stdout) ecc.stdout.write(content);
-            this.message('write', content, ecc.thisPlayer);
-            return true;
-        });
     }
 
     writeRaw(expr) {

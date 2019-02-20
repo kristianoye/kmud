@@ -711,6 +711,7 @@ class MUDStorage extends MUDEventEmitter {
 
                 //  Connect to the new body
                 driver.driverCall('connect', context => {
+                    client.populateContext(false, context);
                     context.withPlayer(this, player => player.connect(...args), false);
                 });
                 return true;
@@ -719,6 +720,8 @@ class MUDStorage extends MUDEventEmitter {
                 if (this.connected)
                     driver.driverCall('disconnect', context => {
                         this.connected = false;
+                        if (this.client)
+                            this.client.populateContext(client.body, true, context);
                         context.withPlayer(this, player => player.disconnect(...args));
                         this.client && this.client.close();
                     });
