@@ -20,11 +20,11 @@ class MoreCommand extends Command {
                 return fullpath + ' is not a file.';
 
             let content = efuns.readFileSync(fullpath);
-            thisPlayer().writeLine(content);
+            write(content);
             cmdline.complete();
         }
         catch (x) {
-            thisPlayer().writeLine('Error: ' + x);
+            write('Error: ' + x);
         }
         return cmdline.complete;
     }
@@ -32,17 +32,17 @@ class MoreCommand extends Command {
     webcmd(args, cmdline) {
         try {
             if (args.length === 0) {
-                thisPlayer().writeLine('Usage: more <filename>');
+                write('Usage: more <filename>');
             }
             var player = thisPlayer,
                 fullpath = efuns.resolvePath(args[0], player.workingDirectory);
 
             let content = efuns.readFile(fullpath);
-            thisPlayer().writeLine('<pre>' + content + '</pre>');
+            write('<pre>' + content + '</pre>');
             return true;
         }
         catch (x) {
-            thisPlayer().writeLine('Error: ' + x);
+            write('Error: ' + x);
         }
     }
 }

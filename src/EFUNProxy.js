@@ -26,6 +26,7 @@ const
     EnglishHelper = require('./efuns/English'),
     InputHelper = require('./efuns/Inputs'),
     LivingsHelper = require('./efuns/Livings'),
+    TextHelper = require('./efuns/TextHelper'),
     TimeHelper = require('./efuns/Time');
 
 var
@@ -1752,6 +1753,10 @@ class EFUNProxy {
         return content;
     }
 
+    get text() {
+        return TextHelper;
+    }
+
     /**
      * Returns the upper-most object on the stack.
      * @returns {MUDObject|false} The last object to interact with the MUD or false if none.
@@ -1890,11 +1895,12 @@ class EFUNProxy {
                     content += ' ' + v;
             });
 
-            if (appendNewline)
-                content += '\n';
+            if (appendNewline) {
+                if (efuns.text.trailingNewline(content)) content += '\n';
+            }
 
             if (ecc.stdout) ecc.stdout.write(content);
-            this.message('write', content, driver.thisPlayer);
+            this.message('write', content, ecc.thisPlayer);
             return true;
         });
     }

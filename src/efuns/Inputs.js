@@ -115,7 +115,7 @@ class InputHelper {
                             assertValid(token);
                             if (!result.value) {
                                 i = token.pos + token.value.length;
-                                token.end = token.pos + token.length.value;
+                                token.end = token.pos + token.value.length;
                                 return token;
                             }
                             //  We want to return to this token next
@@ -436,8 +436,10 @@ class InputHelper {
                             let ws = eatWhitespace();
                             if (ws) {
                                  // Only trailing whitespace is appended.  Leading whitespace is ignored.
-                                if (result.value)
+                                if (result.value) {
+                                    forHistory += ws;
                                     return result.arg = ws, sendToken();
+                                }
                                 else
                                     i--;
                             }
@@ -470,9 +472,11 @@ class InputHelper {
 
                         case T_OPERATOR:
                             if (result) {
-                                if (typeof result.end === 'undefined')
-                                    result.end = token.pos - 1, i = token.pos;
-                                forHistory += token.value;
+                                if (typeof result.end === 'undefined') {
+                                    result.end = token.pos;
+                                }
+                                result.text = source.slice(result.start, result.end);
+                                forHistory += token.value + eatWhitespace();
                                 return result;
                             }
                             return token;

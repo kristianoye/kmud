@@ -84,7 +84,7 @@ class RanvierTelnetInstance extends ClientInstance {
      * @param {string} text The text to render on the client.
      */
     writeLine(text) {
-        this.write(text + '\n');
+        this.write(!efuns.text.trailingNewline(text) ? text + '\n' : text);
     }
 }
 

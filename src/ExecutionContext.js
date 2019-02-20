@@ -342,23 +342,27 @@ class ExecutionContext extends MUDEventEmitter {
      * Execute an action with an alternate thisPlayer
      * @param {MUDStorage} store The player that should be "thisPlayer"
      * @param {function(MUDObject, ExecutionContext): any} callback The action to execute
+     * @param {boolean} restoreOldPlayer Restore the previous player 
      */
-    withPlayer(store, callback, restoreOldPlayer = true) {
+    withPlayer(store, callback, restoreOldPlayer = true, methodName = false) {
         let player = store.owner;
         return unwrap(player, thisPlayer => {
-            let oldPlayer = this.thisPlayer,
+            let ecc = driver.getExecution(),
+                oldPlayer = this.thisPlayer,
                 oldClient = this.thisClient,
                 oldStore = this.thisStore;
 
+            if (methodName) ecc.push(player, methodName, player.filename);
             try {
                 this.thisPlayer = thisPlayer;
                 this.thisClient = store.client || this.thisClient;
-                this.thisStore = store;
+                this.thisStore = store || this.thisStore;
                 this.truePlayer = this.truePlayer || thisPlayer;
 
                 return callback(thisPlayer, this);
             }
             finally {
+                if (methodName) ecc.pop(methodName);
                 if (restoreOldPlayer) {
                     if (oldPlayer) this.thisPlayer = oldPlayer;
                     if (oldClient) this.thisClient = oldClient;

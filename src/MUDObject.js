@@ -207,13 +207,12 @@ class MUDObject extends MUDEventEmitter {
     }
 
     receiveMessage(msgClass, text) {
-        let client = driver.storage.get(this)
-            .getSymbol('$client');
-        if (client) {
+        let store = driver.storage.get(this);
+        if (store.client) {
             if (msgClass.startsWith('N'))
-                client.write(text);
+                store.client.write(text);
             else
-                client.writeLine(text);
+                store.client.writeLine(text);
         }
     }
 

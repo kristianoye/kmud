@@ -39,6 +39,9 @@ class MUDStorage extends MUDEventEmitter {
         /** @type {MUDObject[]}} All of the inventory contained with the object */
         this.inventory = [];
 
+        /** @type {number|false} */
+        this.heartbeatIndex = false;
+
         /** The time at which this object's client did something */
         this.lastActivity = 0;
 
@@ -258,7 +261,7 @@ class MUDStorage extends MUDEventEmitter {
                 case MUDStorage.PROP_HEARTBEAT:
                     if (setFlag) {
                         if (this.owner instanceof MUDObject && typeof this.owner.heartbeat === 'function') {
-                            if (this.heartbeatIndex)
+                            if (this.heartbeatIndex !== false)
                                 return false;
                             this.heartbeatIndex = driver.heartbeatObjects.add(this);
                             return true;
@@ -266,11 +269,11 @@ class MUDStorage extends MUDEventEmitter {
                         return false;
                     }
                     else {
-                        if (!this.heartbeatIndex)
+                        if (this.heartbeatIndex === false)
                             return false;
                         else {
                             driver.heartbeatObjects.remove(this.heartbeatIndex);
-                            this.heartbeatIndex = 0;
+                            this.heartbeatIndex = false;
                         }
                     }
                     break;

@@ -11,7 +11,7 @@
 class LinkedList {
     constructor() {
         this.length = 0;
-        this.nextId = 1; //  This is 1-based to ensure all entries have a "true" key value
+        this.nextId = 0;
 
         /** @type {Object.<number, LinkedListNode>} */
         this.index = {};

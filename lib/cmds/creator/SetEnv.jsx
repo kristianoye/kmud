@@ -17,10 +17,10 @@ class SetEnv extends Command {
             var env = thisPlayer().getenv(),
                 keys = Object.keys(env).sort();
             if (keys.length === 0) {
-                thisPlayer().writeLine('You have no environmental variables');
+                write('You have no environmental variables');
             } else {
                 keys.forEach(s => {
-                    thisPlayer().writeLine(efuns.sprintf('%-30s%s', s, env[s]));
+                    write(efuns.sprintf('%-30s%s', s, env[s]));
                 });
             }
         }
@@ -28,7 +28,7 @@ class SetEnv extends Command {
             var m = /([^\s\=]+)=*(.+)*/.exec(args.join(' '));
             if (m) {
                 var key = m[1], val = m[2];
-                thisPlayer().writeLine(`key: {key}, val: {val}`);
+                write(`key: {key}, val: {val}`);
                 thisPlayer().setEnv(key, val ? val : undefined);
             }
         }

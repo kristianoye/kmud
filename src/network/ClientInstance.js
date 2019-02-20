@@ -10,7 +10,8 @@ const
     ClientCaps = require('./ClientCaps'),
     MUDEventEmitter = require('../MUDEventEmitter'),
     { StandardInputStream, StandardOutputStream } = require('./StandardIO'),
-    GameServer = require('../GameServer');
+    GameServer = require('../GameServer'),
+    os = require('os');
 
 const
     MudColorImplementation = require('./impl/MudColorImplementation'),
@@ -125,7 +126,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
      * @param {MUDObject} body The user's current body
      * @returns {[MUDObject, ExecutionContext]} The user's body
      */
-    initContext(body, skipCallback = false) {
+    populateContext(body, skipCallback = false) {
         return unwrap(body, thisPlayer => {
             let ecc = driver.getExecution();
 
@@ -148,14 +149,6 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
             catch (err) {
                 // TODO: Make this fatal for real
                 logger.log('FATAL: Could not allocate streams', err.message);
-            }
-
-            if (!skipCallback) {
-                ecc.on('complete', completed => {
-                    let te = efuns.ticks - completed.startTime;
-                    console.log(`Command complete [ellapsed: ${te} ms]`);
-                    this.renderPrompt();
-                });
             }
             return thisPlayer;
         });
@@ -238,14 +231,27 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                     return this.disconnect(false, 'You have no body!  Releasing spirit!');
                 }
                 try {
-                    if (this.inputStack.length) {
-                        ecc.withPlayer(this.storage, player => {
-                            this.initContext(this.body);
-                            let inputFrame = this.inputStack.shift(), result;
+                    let isEscaped = false;
+
+                    if (text === '!') {
+                        if (this.inputStack.length && body.allowInputEscape === true) {
+                            text = text.slice(1);
+                            isEscaped = true;
+                        }
+                    }
+                    this.populateContext(this, body);
+
+                    if (this.inputStack.length && isEscaped === false) {
+                        return ecc.withPlayer(this.storage, player => {
+                            let inputFrame = this.inputStack.shift(),
+                                result = false;
+
+                            ecc.on('complete', () => this.renderPrompt());
+
                             try {
                                 text = text.replace(/[\r\n]+/g, '');
                                 if (!this.client.echoing) {
-                                    this.write('\r\n');
+                                    this.write(os.EOL);
                                     this.client.toggleEcho(true);
                                 }
                                 result = inputFrame.callback.call(player, text);
@@ -296,16 +302,31 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
 
                             setTimeout(() => {
                                 driver.driverCall('executeCommandTree', ecc => {
-                                    this.initContext(body, false);
+                                    this.populateContext(this, body);
+
                                     cmd.complete = result => {
                                         last = {};
 
+                                        //  PowerShell Light
+                                        if (typeof result === 'object') {
+                                            // TODO: Bind intermediate object values to the shell
+                                            // variables to allow for binding in subsequent commands.
+                                            if (result instanceof MUDObject) {
+
+                                            }
+                                            else if (efuns.isPOO(result)) {
+
+                                            }
+                                            result = true;
+                                        }
+
                                         //  Last command succeeded
-                                        if (result && result instanceof Error === false) {
+                                        if (result === true) {
                                             //  cmd1 | cmd2
                                             if (cmd.redirect) {
                                                 prev = prev || cmd;
                                                 last = cmd;
+                                                executeCommand(cmd.redirect, cmd);
                                             }
                                             //  cmd1 && cmd2 
                                             else if (cmd.and) {
@@ -340,13 +361,15 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                                 });
                             }, 0)
                         };
-                        if (cmds.length > 0) executeCommandTree();
-                        else this.renderPrompt();
+                        if (cmds.length > 0)
+                            return executeCommandTree();
+                        else return this.renderPrompt();
                     }
                 }
                 catch (ex) {
                     driver.errorHandler(ex, false);
                 }
+                this.renderPrompt();
             });
         });
     }
