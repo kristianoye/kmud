@@ -296,7 +296,10 @@ class ExecutionContext extends MUDEventEmitter {
      * @type {MUDObject[]}
      */
     get previousObjects() {
-        return this.stack.filter(f => f.object instanceof MUDObject).slice(0);
+        return this.stack
+            .filter(f => f.object instanceof MUDObject)
+            .slice(0)
+            .map(f => f.object);
     }
 
     push(object, method, file, isAsync, lineNumber, callString) {

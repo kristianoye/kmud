@@ -428,9 +428,9 @@ class EFUNProxy {
         newBody = global.wrapper(newBody);
 
         return ecc.guarded(f => driver.validExec(this, oldBody, newBody), () => {
-            let result = unwrap([oldBody, newBody], (o, n) =>
+            let result = unwrap([oldBody, newBody], (obs) =>
                 driver.driverCall('exec', () => {
-                    let oldStorage = driver.storage.get(o),
+                    let [o, n] = obs, oldStorage = driver.storage.get(o),
                         client = oldStorage.client;
 
                     //  The old storage has no client?!

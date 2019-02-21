@@ -13,7 +13,7 @@ const
     /** @type {Object.<string,string>} */
     Buffers = {};
 
-/** @typedef {{ buffer: string|MUDClient, pos: number, length: number, encoding: string }} InternalBuffer */
+/** @typedef {{ buffer: string|function(string): string, pos: number, length: number, encoding: string }} InternalBuffer */
 
 /**
  * Returns a buffer by ID
@@ -163,17 +163,16 @@ class StandardOutputStream extends Writable {
 class StandardPassthruStream extends Writable {
     /**
      * @param {any} opts
-     * @param {MUDClient} client THe client
+     * @param {function(string):void} passThru THe client
      */
-    constructor(opts, client) {
+    constructor(opts, passThru) {
         super(opts = Object.assign(
             {
                 encoding: 'utf8',
                 decodeStrings: false
             }, opts));
 
-        this.id = $c(this, client, opts.encoding);
-        Object.freeze(this);
+        this.id = $c(this, passThru, opts.encoding);
     }
 
     _destroy(error, callback) {
@@ -188,7 +187,7 @@ class StandardPassthruStream extends Writable {
         if (chunk instanceof Buffer) {
             chunk = chunk.toString(encoding || $(this).encoding);
         }
-        $(this).buffer.write(chunk);
+        $(this).buffer(chunk);
     }
 
     /** @param {{ chunk: string, encoding: string }[]} chunks */

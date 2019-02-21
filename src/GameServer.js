@@ -439,7 +439,7 @@ class GameServer extends MUDEventEmitter {
                         return defaultValue || false;
 
                     if (onSuccess)
-                        return onSuccess(...items);
+                        return onSuccess(items);
 
                     return items;
                 }
@@ -755,6 +755,19 @@ class GameServer extends MUDEventEmitter {
      */
     initDriverEfuns(efuns) {
         this.efuns = global.efuns = efuns;
+
+        if (false) {
+            let CommandShell = require('./CommandShell');
+            let shell = new CommandShell({
+                allowAliases: true,
+                allowEnvironment: true,
+                allowEscaping: true,
+                allowFileIO: true,
+                allowHistory: true,
+                allowObjectShell: true
+            });
+            shell.processInput('$user = process.user("test", 42)');
+        }
     }
 
     isVirtualPath(path) {

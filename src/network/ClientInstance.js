@@ -137,8 +137,8 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
 
             try {
                 this.stdin = opts.stdin || new StandardInputStream({ encoding: 'utf8' }, '');
-                this.stderr = opts.stderr || new StandardPassthruStream({ encoding: 'utf8' }, this);
-                this.stdout = opts.stdout || new StandardPassthruStream({ encoding: 'utf8' }, this);
+                this.stderr = opts.stderr || new StandardPassthruStream({ encoding: 'utf8' }, s => this.write(s));
+                this.stdout = opts.stdout || new StandardPassthruStream({ encoding: 'utf8' }, s => this.write(s));
             }
             catch (err) {
                 // TODO: Make this fatal for real
@@ -147,7 +147,9 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
         }
         if (skipCallback === false) {
             ecc.on('complete', result => {
-
+                this.stderr.destroy();
+                this.stdout.destroy();
+                this.stderr.destroy();
             });
         }
     }

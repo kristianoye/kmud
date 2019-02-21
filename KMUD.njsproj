@@ -382,6 +382,9 @@
     <Compile Include="lib\wwwroot\monaco\min\vs\language\typescript\src\mode.js" />
     <Compile Include="lib\wwwroot\monaco\min\vs\language\typescript\src\worker.js" />
     <Compile Include="lib\wwwroot\monaco\min\vs\loader.js" />
+    <Compile Include="src\CommandShell.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\compiler\LPCPreprocessor.js">
       <SubType>Code</SubType>
     </Compile>
