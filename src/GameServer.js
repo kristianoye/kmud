@@ -756,7 +756,7 @@ class GameServer extends MUDEventEmitter {
     initDriverEfuns(efuns) {
         this.efuns = global.efuns = efuns;
 
-        if (false) {
+        if (true) {
             let CommandShell = require('./CommandShell');
             let shell = new CommandShell({
                 allowAliases: true,
@@ -766,7 +766,7 @@ class GameServer extends MUDEventEmitter {
                 allowHistory: true,
                 allowObjectShell: true
             });
-            shell.processInput('$user = process.user("test", 42)');
+            shell.processInput('$mem = process.memoryUsage');
         }
     }
 

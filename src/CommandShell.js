@@ -11,10 +11,24 @@ const
     MUDEventEmitter = require('./MUDEventEmitter');
 
 const
-    Context = {
-        ScriptBody: 1,
-        VariableRef: 2
-    };
+    TT = {
+        Array: 'arrayExpression',
+        Assignment: 'assignment',
+        Boolean: 'boolean',
+        Indexer: 'memberIndexer',
+        MemberGet: 'memberGet',
+        MemberExpression: 'memberExpression',
+        MethodCall: 'methodCall',
+        Number: 'number',
+        Object: 'objectExpression',
+        PList: 'parameterList',
+        String: 'string',
+        Word: 'word',
+        WS: 'whitespace'
+    },
+    ValueTypes = [ TT.Array, TT.Boolean, TT.Number, TT.Object, TT.String, TT.Word ],
+    B_TRUE = 'true',
+    B_FALSE = 'false';
 
 class CommandShell extends MUDEventEmitter {
     constructor(options = {}) {
@@ -69,7 +83,8 @@ class CommandShell extends MUDEventEmitter {
             m = source.length,
             contexts = [],
             isEscaped = false,
-            isString = false;
+            isString = false,
+            inExpr = false;
 
         let take = (n = 1, start = false) => {
             if (typeof n === 'number') {
@@ -95,8 +110,11 @@ class CommandShell extends MUDEventEmitter {
             }
             throw new Error(`Unexpected take() expression: ${typeof n}`);
         };
+        let getContext = () => {
+            return contexts.length > 0 && contexts[0].type;
+        };
         let nextToken = (start = false, expect = false) => {
-            let token = { value: '', type: 'word', start: i = start || i, end: -1 };
+            let token = { value: '', type: TT.Word, start: i = start || i, end: -1 };
             for (let done= false; !done && i < m; i++) {
                 let c = source.charAt(i);
 
@@ -157,6 +175,7 @@ class CommandShell extends MUDEventEmitter {
 
                     case '&':
                         if (take('&')) {
+                            //  Evaluate previous command to see if it succeeded
                             token.type = 'operator';
                             token.value = '&&';
                             done = true;
@@ -164,52 +183,53 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '.':
-                        if (this.options.allowObjectShell) {
-                            token.target = contexts.shift();
-                            token.type = 'propertyAccess';
-                            token.member = nextToken(token.end = ++i, 'word');
+                        if (this.options.allowObjectShell && inExpr) {
+                            token.isExpression = inExpr = true;
+                            if (!(token.target = contexts.shift()))
+                                throw new Error(`Unexpected end of input at position ${i}`);
+                            token.member = nextToken(token.end = ++i, TT.Word);
+                            token.start = token.target.start;
+                            token.type = TT.MemberExpression;
 
-                            if (take('(')) {
-                                token.type = 'methodCall';
-                                token.args = [];
+                            contexts.unshift(token);
 
-                                while (!take(')')) {
-                                    let next = nextToken();
-                                    if (!next)
-                                        throw new Error(`Unexpected end of argument list at position ${i}`);
-                                    token.end = next.end;
-                                    if (next.value === ',') continue;
-                                    else if (next.type === 'whitespace') continue;
-                                    else if (next.type === 'word') {
-                                        if (next.value === 'true' || next.value === 'false') {
-                                            next.value = next.value === 'true';
-                                            next.type = 'boolean';
-                                        }
-                                        else {
-                                            let val = parseFloat(next.value);
-                                            if (!isNaN(val)) {
-                                                next.value = val;
-                                                next.type = 'number';
-                                            }
-                                            else
-                                                next.type = 'string';
-                                        }
-                                        token.args.unshift(next);
-                                    }
-                                    else if (next.type === 'variable') {
-                                        token.args.unshift(next);
-                                    }
-                                    if (take(')')) break;
-                                    next = nextToken();
+                            //  Possible branches:
+                            //  (1) a method call,
+                            //  (2) a property access (get)
+                            let next = nextToken();
+
+                            if (next.type === TT.PList) {
+                                token.type = TT.MethodCall;
+                                token.args = next;
+                                token.end = next.end;
+
+                                let ob = token.target.value;
+                                try {
+                                    token.value = ob[token.member.value].apply(ob, token.args.value);
                                 }
-                                token.end = i;
-                                token.value += `${token.target.value}.${token.member.value}(`;
-                                token.args.forEach((a, i) => {
-                                    token.value += (i > 0 ? ', ' : '') + a.value;
-                                });
-                                token.value += ')';
-                                done = true;
+                                catch (err) {
+                                    token.value = err;
+                                }
                             }
+                            else {
+                                // rewind the stream
+                                if (next) i = next.start;
+                                token.type = TT.MemberGet;
+                                
+                                let ob = token.target.value;
+                                try {
+                                    token.value = ob[token.member.value];
+                                    if (typeof token.value === 'function')
+                                        throw new Error(`Illegal attempt to retrieve function '${token.member.value}' with indexer`);
+                                }
+                                catch (err) {
+                                    token.value = err;
+                                }
+                            }
+
+                            //  We are done with this expression
+                            contexts.shift();
+                            inExpr = contexts[0] && contexts[0].isExpression || false;
                         }
                         else
                             token.value += c;
@@ -228,7 +248,7 @@ class CommandShell extends MUDEventEmitter {
                                 token.type = 'assignment';
                                 token.value = '=';
                                 let next = nextToken(++i);
-                                while (next.type === 'whitespace') {
+                                while (next.type === TT.WS) {
                                     next = nextToken();
                                 }
                                 token.rhs = next;
@@ -252,7 +272,8 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '$':
-                        let name = nextToken(++i, 'word');
+                        let name = nextToken(++i, TT.Word);
+                        token.isExpression = inExpr = true;
                         token.type = 'variable';
                         token.value = name.value;
                         i = token.end = name.end;
@@ -266,10 +287,12 @@ class CommandShell extends MUDEventEmitter {
                             let next = nextToken();
 
                             //  Should be an assignment
-                            while (next.type === 'whitespace') {
+                            while (next.type === TT.WS) {
                                 next = nextToken();
                             }
-                            this.env[token.value] = next;
+                            if (next.type !== TT.Assignment)
+                                throw new Error(`Unexpected token '${next.type}' [expected 'assignment']`);
+                            this.env[next.lhs.value] = next.rhs.value;
                             done = true;
                         }
                         else {
@@ -279,17 +302,118 @@ class CommandShell extends MUDEventEmitter {
                         done = true;
                         break;
 
-                    case '(':
-                    case ')':
-                        if (this.options.allowObjectShell) {
-                            token.type = 'parameters';
+                    case '[': // Array expression or indexer
+                        if (this.options.allowObjectShell && inExpr && getContext() === TT.MemberExpression) {
+                            token.type = TT.Indexer;
+
+                            let key = nextToken();
+                            while (key.type === TT.WS) {
+                                key = nextToken();
+                            }
+                            if (key.type !== TT.Word)
+                                throw new Error(`Unexpected token '${key.type}' at position ${i}`);
+                            token.value = key;
+                            key = nextToken();
+
+                            // Eat whitespace
+                            while (key.type === TT.WS) {
+                                key = nextToken();
+                            }
+                            token.end = i;
+                            break;
+                        }
+                        /** intentionally fall through to array scenario */
+
+                    case '(': // Parameter list
+                        if (this.options.allowObjectShell && inExpr) {
+                            token.type = c === '(' ? TT.PList : TT.Array;
                             token.value = c;
                             token.end = ++i;
+                            token.args = [];
+
+                            contexts.unshift(token);
+
+                            let endsWith = token.type === TT.PList ? ')' : ']';
+                            while (!take(endsWith)) {
+                                let next = nextToken();
+                                if (!next)
+                                    throw new Error(`Unexpected end of ${token.type} at position ${i}`);
+                                token.end = next.end;
+                                if (next.value === ',') continue;
+                                else if (next.type === TT.WS) continue;
+                                else if (next.type === TT.Word) {
+                                    if (next.value === B_TRUE || next.value === B_FALSE) {
+                                        next.value = next.value === B_TRUE;
+                                        next.type = TT.Boolean;
+                                    }
+                                    else {
+                                        let val = parseFloat(next.value);
+                                        if (!isNaN(val)) {
+                                            next.value = val;
+                                            next.type = TT.Number;
+                                        }
+                                        else
+                                            next.type = TT.String;
+                                    }
+                                    token.args.push(next);
+                                }
+                                else 
+                                    token.args.push(next);
+                                if (take(endsWith)) break;
+                                next = nextToken();
+                            }
+                            token.end = i;
+                            token.text = source.slice(token.start, token.end);
+                            token.value = token.args.map(a => a.value);
+
+                            contexts.shift();
+
                             done = true;
                         }
                         else
                             token.value += c;
                         break;
+
+                    case '{': // Object expression (or function body)
+                        if (this.options.allowObjectShell && inExpr) {
+                            token.type = TT.Object;
+                            token.end = ++i;
+                            token.value = {};
+
+                            contexts.push(token);
+
+                            while (!take('}')) {
+                                key = nextToken();
+                                if (!key)
+                                    throw new Error(`Unexpected end of ${token.type} at position ${i}`);
+                                if (key.type === TT.WS) continue;
+                                else if (key.type === TT.Word) {
+                                    let val = parseFloat(key.value);
+                                    if (!isNaN(val)) {
+                                        key.value = val;
+                                        key.type = 'number';
+                                    }
+                                    else
+                                        key.type = 'string';
+                                }
+                                else
+                                    throw new Error(`Unexpected token '${key.type}' at position ${i}`);
+
+                                let value = nextToken();
+                                while (value.type === TT.WS) {
+                                    value = nextToken();
+                                }
+                                token.value[key.value] = value.value;
+                                if (take(endsWith)) break;
+                            }
+                            token.end = i;
+                            token.value = source.slice(token.start, token.end);
+                            done = true;
+                        }
+                        else
+                            token.value += c;
+                        break;
+
 
                     default:
                         if (/\s/.test(c)) {
@@ -298,7 +422,7 @@ class CommandShell extends MUDEventEmitter {
                                 done = true;
                             }
                             else {
-                                token.type = 'whitespace';
+                                token.type = TT.WS;
                                 i += (token.value = take(/^\s+/, i)).length;
                                 token.end = i;
                                 done = true;
@@ -307,17 +431,26 @@ class CommandShell extends MUDEventEmitter {
                         else if (isString) {
                             token.value += c;
                         }
-                        else {
+                        else if (/[a-zA-Z0-9_]/.test(c)) {
                             i += (token.value += take(/^[a-zA-Z0-9_]+/, i)).length;
                             token.end = i;
+
                             if (this.options.allowObjectShell && take('.')) {
                                 //  TODO: Look up in object registry to see if this token exists...
-                                token.type = 'object';
-                                contexts.unshift(token);
-                                return nextToken(--i);
+                                if (token.value === 'process') {
+                                    token.type = 'object';
+                                    token.value = process;
+                                    contexts.unshift(token);
+                                    return nextToken(--i);
+                                }
+
                             }
                             done = true;
                         }
+                        else if (inExpr)
+                            throw new Error(`Unexpected character ${c} at position ${i}`);
+                        else
+                            token.value += c;
                         break;
                 }
 
@@ -333,6 +466,9 @@ class CommandShell extends MUDEventEmitter {
                 if (token.type !== expect) 
                     throw new Error(`Error: Got token type '${token.type}' but expected '${expect}' at position ${token.start}`);
             }
+
+            token.isValueType = ValueTypes.indexOf(token.type) > -1;
+                
             return !!token.value && token;
         };
 
