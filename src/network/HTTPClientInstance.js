@@ -175,6 +175,10 @@ class HTTPClientInstance extends ClientInstance {
         return this;
     }
 
+    toggleEcho(echoOn = true) {
+        // Does not do anything atm
+    }
+
     write(text, opts) {
         var data = Object.assign({
             type: 'text',

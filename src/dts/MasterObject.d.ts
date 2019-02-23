@@ -4,6 +4,18 @@
      * @param body The body object (wrapper)
      */
     setBody(body: MUDEntity): MUDClient;
+
+    /**
+     * Turns echo on or off
+     * @param echoOn
+     */
+    toggleEcho(echoOn: boolean = true): boolean;
+
+    /**
+     * Writes content to the client
+     * @param content A string or buffer to write
+     */
+    write(content: string | Buffer): boolean;
 }
 
 declare class MUDEntity extends MUDObject {

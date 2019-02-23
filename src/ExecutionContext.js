@@ -43,8 +43,8 @@ class ExecutionContext extends MUDEventEmitter {
             this.forkedAt = parent.stack.length;
             this.onComplete = false;
 
-            this.thisClient = parent.thisClient;
-            this.thisPlayer = parent.thisPlayer;
+            this.client = parent.client;
+            this.player = parent.player;
             this.truePlayer = parent.truePlayer;
 
             this.virtualParents = [];
@@ -70,7 +70,7 @@ class ExecutionContext extends MUDEventEmitter {
             this.onComplete = false;
             /** @type {ObjectStackItem} */
             this.originalFrame = false;
-            this.thisPlayer = false;
+            this.player = false;
             this.truePlayer = false;
 
             this.virtualParents = [];
@@ -319,15 +319,6 @@ class ExecutionContext extends MUDEventEmitter {
         return this;
     }
 
-    setThisPlayer(player, truePlayer, verb) {
-        this.thisPlayer = player;
-        this.truePlayer = truePlayer || this.truePlayer;
-        this.currentVerb = verb || '';
-
-        let $storage = driver.storage.get(player);
-        t//his.thisClient = $storage && $storage.getSymbol('$client');
-    }
-
     /**
      * Returns the current object
      * @type {MUDObject}
@@ -344,36 +335,39 @@ class ExecutionContext extends MUDEventEmitter {
 
     /**
      * Execute an action with an alternate thisPlayer
-     * @param {MUDStorage} store The player that should be "thisPlayer"
+     * @param {MUDStorage} storage The player that should be "thisPlayer"
      * @param {function(MUDObject, ExecutionContext): any} callback The action to execute
      * @param {boolean} restoreOldPlayer Restore the previous player 
      */
-    withPlayer(store, callback, restoreOldPlayer = true, methodName = false) {
-        let player = store.owner;
-        return unwrap(player, thisPlayer => {
-            let ecc = driver.getExecution(),
-                oldPlayer = this.thisPlayer,
-                oldClient = this.thisClient,
-                oldStore = this.thisStore;
+    withPlayer(storage, callback, restoreOldPlayer = true, methodName = false) {
+        let player = unwrap(storage.owner);
+        let ecc = driver.getExecution(),
+            oldPlayer = this.player,
+            oldClient = this.client,
+            oldStore = this.storage,
+            oldShell = this.shell;
 
-            if (methodName) ecc.push(player, methodName, player.filename);
-            try {
-                this.thisPlayer = thisPlayer;
-                this.thisClient = store.client || this.thisClient;
-                this.thisStore = store || this.thisStore;
-                this.truePlayer = this.truePlayer || thisPlayer;
+        if (methodName)
+            ecc.push(player, methodName, player.filename);
 
-                return callback(thisPlayer, this);
+        try {
+            this.player = player;
+            this.client = storage.client || this.client;
+            this.shell = storage.shell || this.shell;
+            this.storage = storage || this.storage;
+            this.truePlayer = this.truePlayer || player;
+
+            return callback(player, this);
+        }
+        finally {
+            if (methodName) ecc.pop(methodName);
+            if (restoreOldPlayer) {
+                if (oldPlayer) this.player = oldPlayer;
+                if (oldClient) this.client = oldClient;
+                if (oldStore) this.storage = oldStore;
+                if (oldShell) this.shell = oldShell;
             }
-            finally {
-                if (methodName) ecc.pop(methodName);
-                if (restoreOldPlayer) {
-                    if (oldPlayer) this.thisPlayer = oldPlayer;
-                    if (oldClient) this.thisClient = oldClient;
-                    if (oldStore) this.thisStore = oldStore;
-                }
-            }
-        });
+        }
     }
 }
 

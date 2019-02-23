@@ -10,27 +10,109 @@ const
     uuidv1 = require('uuid/v1');
 
 const
-    /** @type {Object.<string,string>} */
     Buffers = {};
 
-/** @typedef {{ buffer: string|function(string): string, pos: number, length: number, encoding: string }} InternalBuffer */
+class InternalBuffer {
+    constructor(client, shell, encoding='utf8') {
+        this.buffer = '';
+        this.client = client;
+        this.encoding = encoding;
+        this.id = uuidv1();
+        this.shell = shell;
+        Buffers[this.id] = this;
+    }
+
+    /**
+     * Destroy the stream 
+     */
+    destroy() {
+        this.buffer = this.shell = this.client = false;
+        delete Buffers[this.id];
+    }
+
+    /**
+     * Write all content to the client 
+     */
+    flush() {
+        let chunk = this.read(4096);
+        if (chunk) {
+            this.client.write(chunk);
+            if (chunk.length === 4096) // there might be more
+                setTimeout(() => this.flush(), 0);
+        }
+    }
+
+    get length() {
+        return this.buffer.length;
+    }
+
+    peek(count = 1) {
+        return this.buffer.slice(0, count);
+    }
+
+    /**
+     * Takes n number of characters out of the buffer.
+     * @param {number} count The number of characters to read
+     */
+    read(count = 1) {
+        let result = this.buffer.slice(0, count);
+        this.buffer = this.buffer.slice(count);
+        return result;
+    }
+
+    /**
+     * Read an entire line from the buffer
+     * @returns {string} Returns one or more characters or undefined if the buffer is empty.
+     */
+    readLine() {
+        for (let i = 0, r = '', max = this.length; i < max; i++) {
+            r += this.buffer.charAt(i);
+            if (efuns.text.trailingNewline(r) || i + 1 === max) {
+                this.buffer = this.buffer.slice(r.length);
+                return r;
+            }
+        }
+        return '';
+    }
+
+    /**
+     * Write a block of content to the buffer
+     * @param {Buffer|string} bufferOrString The content to write
+     */
+    write(bufferOrString, encoding = false) {
+        encoding = encoding || this.encoding;
+        if (bufferOrString instanceof Buffer) {
+            bufferOrString = bufferOrString.toString(this.encoding);
+        }
+        else if (encoding !== this.encoding) {
+            bufferOrString = new Buffer(bufferOrString, encoding).toString(this.encoding);
+        }
+        this.buffer += bufferOrString;
+    }
+}
 
 /**
- * Returns a buffer by ID
- * @param {StandardInputStream|StandardOutputStream} o The stream to fetch a buffer for
- * @returns {InternalBuffer} The current buffer
+ * Create a new internal buffer
+ * @param {MUDClient} client The client tied to this stream.
+ * @param {any} shell The shell tied to this stream.
+ * @returns {InternalBuffer} The newly created internal buffer.
  */
-function $(o) { return Buffers[o.id]; }
+InternalBuffer.create = function (client, shell, encoding = 'utf8') {
+    return new InternalBuffer(client, shell, encoding);
+};
 
 /**
- * Creates a simple buffer and returns the new ID
- * @param {any} o
- * @param {any} buffer
+ * Get an internal buffer object.
+ * @param {string|StandardInputStream|StandardOutputStream} uuid The ID of the buffer to fetch.
+ * @returns {InternalBuffer} The internal buffer if it has not been destroyed.
  */
-function $c(o, buffer = '', encoding = 'utf8') {
-    let id = uuidv1();
-    Buffers[id] = { buffer, length: buffer.length || -1, pos: 0, encoding };
-    return id;
+InternalBuffer.get = function (uuid) {
+    if (typeof uuid === 'object') {
+        return InternalBuffer.get(uuid.id);
+    }
+    if (uuid in Buffers)
+        return Buffers[uuid];
+    throw new Error(`Stream ID ${uuid} has been destroyed!`);
 }
 
 class StandardInputStream extends Readable {
@@ -39,32 +121,40 @@ class StandardInputStream extends Readable {
      * @param {ReadableOptions} opts Options passed to parent interface
      * @param {string} buffer The buffer available
      */
-    constructor(opts, buffer) {
+    constructor(opts, client, shell) {
         super(opts = Object.assign(
             {
                 encoding: 'utf8'
             }, opts));
+        let buffer = InternalBuffer.create(client, shell, opts.encoding);
 
-        this.id = $c(this, buffer);
-        Object.freeze(this);
+        Object.defineProperty(this, 'id', {
+            value: buffer.id,
+            writable: false
+        });
+
+        client.on('data', line => {
+            buffer.write(line);
+            this.emit('readable');
+        });
     }
 
-    get length() { return $(this).length; }
+    get length() {
+        return InternalBuffer.get(this).length;
+    }
 
     _destroy(error, callback) {
-        delete Buffers[this.id];
+        InternalBuffer.get(this).destroy();
         super._destroy(error, callback);
     }
 
     /**
      * Read a set number of bytes from the stream.
-     * @param {number} size The number of bytes to read.
-     * @returns {}
+     * @param {number} count The number of bytes to read.
+     * @returns {string} The chunk to read.
      */
-    _read(size) {
-        let b = $(this), result = b.buffer.slice(b.pos, b.pos + size);
-        if ((b.pos += size) > b.length) b.pos = b.length;
-        return result;
+    _read(count) {
+        return InternalBuffer.get(this).read(count);
     }
 
     /**
@@ -73,19 +163,14 @@ class StandardInputStream extends Readable {
      * @returns {string} The next N characters if available.
      */
     peek(count = 1) {
-        let b = $(this); return b.buffer.slice(b.pos, b.pos + count);
+        return InternalBuffer.get(this).peek(count);
     }
 
     /**
      * Read the next line from standard input
      */
     readLine() {
-        let line = '', re = /\n/, b = $(this);
-        for (; b.pos < b.len; b.pos++) {
-            line += b.buffer.charAt(b.pos);
-            if (efuns.text.trailingNewline(line)) break;
-        }
-        return line.trim();
+        return InternalBuffer.get(this).readLine();
     }
 }
 
@@ -94,7 +179,7 @@ class StandardInputStream extends Readable {
  * @param {StandardInputStream|StandardOutputStream} o The stream to fetch
  */
 StandardInputStream.get = function (o) {
-    return $(o);
+    return InternalBuffer.get(o);
 }
 
 /**
@@ -102,7 +187,7 @@ StandardInputStream.get = function (o) {
  * with.  This content is then flushed once the command is completed
  **/
 class StandardOutputStream extends Writable {
-    constructor(opts) {
+    constructor(opts, client, shell) {
         super(opts = Object.assign(
             {
                 encoding: 'utf8',
@@ -110,30 +195,30 @@ class StandardOutputStream extends Writable {
                 writableHighWaterMark: 32 * 1024
             }, opts));
 
-        this.id = $c(this, '', opts.encoding);
-        Object.freeze(this);
+        let buffer = InternalBuffer.create(client, shell, opts.encoding);
+
+        Object.defineProperty(this, 'id', {
+            value: buffer.id,
+            writable: false
+        });
     }
 
     _destroy(error, callback) {
-        delete Buffers[this.id];
+        InternalBuffer.get(this).destroy();
         return super._destroy(error, callback);
     }
 
     /** @param {string|Buffer} chunk */
     /** @param {string} encoding */
-    /** @param {function(Error):void} callback */
-    _write(chunk, encoding = false, callback = false) {
+    /** @param {function(Error=false):void} callback */
+    _write(chunk, encoding, callback) {
         try {
-            if (encoding && encoding !== this.encoding) {
-                let buffer = new Buffer(chunk, encoding);
-                chunk = buffer.toString(this.encoding);
-            }
-            $(this).buffer += chunk;
-            $(this).length += chunk.length;
-            callback && callback();
+            let buffer = InternalBuffer.get(this);
+            buffer.write(chunk, encoding);
+            callback();
         }
         catch (err) {
-            callback && callback(err);
+            callback(err);
         }
     }
 
@@ -149,6 +234,10 @@ class StandardOutputStream extends Writable {
         catch (err) {
             callback && callback(err);
         }
+    }
+
+    flush() {
+        return InternalBuffer.get(this).flush();
     }
 
     writeLine(content, encoding = false) {
@@ -163,51 +252,64 @@ class StandardOutputStream extends Writable {
 class StandardPassthruStream extends Writable {
     /**
      * @param {any} opts
-     * @param {function(string):void} passThru THe client
      */
-    constructor(opts, passThru) {
+    constructor(opts, client, shell) {
         super(opts = Object.assign(
             {
                 encoding: 'utf8',
                 decodeStrings: false
             }, opts));
 
-        this.id = $c(this, passThru, opts.encoding);
+        let buffer = InternalBuffer.create(client, shell, opts.encoding);
+        Object.defineProperty(this, 'id', {
+            value: buffer.id,
+            writable: false
+        });
     }
 
     _destroy(error, callback) {
-        delete Buffers[this.id];
+        InternalBuffer.get(this).destroy();
         return super._destroy(error, callback);
     }
 
     /** @param {string|Buffer} chunk */
     /** @param {string} encoding */
     /** @param {function(Error):void} callback */
-    _write(chunk, encoding = false, callback = false) {
-        if (chunk instanceof Buffer) {
-            chunk = chunk.toString(encoding || $(this).encoding);
+    _write(chunk, encoding, callback) {
+        try {
+            let buffer = InternalBuffer.get(this);
+
+            if (chunk instanceof Buffer) {
+                chunk = chunk.toString(encoding || buffer.encoding);
+            }
+            if (buffer && buffer.client) {
+                if (buffer.client.writable) {
+                    buffer.client.write(chunk);
+                }
+            }
+            callback();
         }
-        $(this).buffer(chunk);
+        catch (err) {
+            callback(err);
+        }
+
     }
 
     /** @param {{ chunk: string, encoding: string }[]} chunks */
     /** @param {function(Error):void} callback */
     _writev(chunks, callback) {
         try {
-            chunks.forEach(c => {
-                this._write(c.chunk, c.encoding);
-            });
-            callback && callback();
+            chunks.forEach(c => this._write(c.chunk, c.encoding));
+            callback();
         }
         catch (err) {
-            callback && callback(err);
+            callback(err);
         }
     }
 
     writeLine(content, encoding = false) {
-        if (!efuns.text.trailingNewline(content))
-            content += '\n';
-        return this._write(content, encoding);
+        if (!efuns.text.trailingNewline(content)) content += '\n';
+        return this.write(content, encoding);
     }
 }
 
@@ -216,7 +318,16 @@ class StandardPassthruStream extends Writable {
  * @param {StandardInputStream|StandardOutputStream} o The stream to fetch
  */
 StandardOutputStream.get = function (o) {
-    return $(o);
+    return InternalBuffer.get(o);
 }
 
-module.exports = { StandardInputStream, StandardOutputStream, StandardPassthruStream };
+//  The /dev/null stream
+const
+    NullOutputStream = new StandardPassthruStream();
+
+module.exports = {
+    StandardInputStream,
+    StandardOutputStream,
+    StandardPassthruStream,
+    NullOutputStream
+};

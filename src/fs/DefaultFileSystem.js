@@ -69,27 +69,6 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
-     * Appends content to a file asyncronously.
-     * @param {FileSystemRequest} req The file to write to.
-     * @param {string|Buffer} content The content to write to file.
-     * @param {function(boolean,Error):void} callback Callback that fires to indicate success or failure.
-     * @returns {string} Returns the absolute path of the file that was written to.
-     */
-    appendFileAsync(req, content, callback) {
-        return this.translatePath(req.relativePath, fullPath => {
-            return fs.writeFile(filepath, content, {
-                encoding: this.encoding || 'utf8',
-                flag: 'a'
-            }, MXC.awaiter(err => {
-                let ctx = driver.getContext();
-                return ctx.aborted ?
-                    callback(false, new Error('Aborted')) :
-                    callback(!err, err);
-            }));
-        });
-    }
-
-    /**
      * Appends content to a file syncronously.
      * @param {FileSystemRequest} req The filesystem request.
      * @param {string|Buffer} content The content to write to file.
@@ -156,26 +135,6 @@ class DefaultFileSystem extends FileSystem {
      */
     containsWildcards(req) {
         return req.fileName && req.fileName.match(/[\*\?]+/);
-    }
-
-    /**
-     * Create a directory asyncronously.
-     * @param {FileSystemRequest} req The directory to create.
-     * @param {MkDirOptions} opts Options used to create directory (recursive, case, etc)
-     * @param {function(boolean, Error):void=} callback Optional callback
-     * @returns {string} The full path to the directory.
-     */
-    createDirectoryAsync(req, opts, callback) {
-        return this.translatePath(req.relativePath, fullPath => {
-            if (req.resolved)
-                callback(false, new Error(`Directory already exists: ${req.fullPath}`));
-
-            return fs.mkdir(fullPath, MXC.awaiter(err => {
-                let ctx = driver.currentContext;
-                if (ctx.aborted) return callback(false, new Error('Aborted'));
-                callback(!err, err);
-            }));
-        });
     }
 
     /**
@@ -248,25 +207,6 @@ class DefaultFileSystem extends FileSystem {
                 size: -3
             }));
         }
-    }
-
-    /**
-     * Remove a directory from the filesystem.
-     * @param {FileSystemRequest} req
-     * @param {any} options
-     * @param {function(boolean, Error):void} callback The callback that receives the result.
-     */
-    deleteDirectoryAsync(req, options, callback) {
-        return this.translatePath(req.relativePath, absPath => {
-            if (!req.resolved)
-                return callback(false, new Error(`Directory does not exist: ${req.fullPath}`));
-
-            return fs.rmdir(absPath, MXC.awaiter(err => {
-                let ctx = driver.currentContext;
-                if (ctx.aborted) return callback(false, new Error('Aborted'));
-                callback(!err, err);
-            }));
-        });
     }
 
     /**
@@ -372,57 +312,6 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Reads a directory listing from the disk.
-     * @param {FileSystemRequest} req The directory part of the request.
-     * @param {function(string[], Error):void} callback Optional callback for async mode.
-     */
-    readDirectoryAsync(req, callback) {
-        return this.translatePath(req.pathRel, fullPath => {
-            let pattern = req.fileName ? new RegExp('^' + req.fileName.replace(/\./g, '\\.').replace(/\?/g, '.').replace(/\*/g, '.+') + '$') : false;
-            if (req.flags & MUDFS.GetDirFlags.ImplicitDirs && !fullPath.endsWith('/')) fullPath += path.sep;
-
-            fs.readdir(fullPath, { encoding: this.encoding }, MXC.awaiter((/** @type {Error} */ err, /** @type {string[]} */ files) => {
-                if (req.flags === 0)
-                    return callback(files, err);
-
-                let results = [], ctx = driver.getContext();
-                if (ctx.aborted) return callback(false, 'Aborted');
-                let mxc = driver.getContext().clone(false, `readDirectory:${req.fullPath}`).restore();
-
-                async.forEachOfLimit(files, this.asyncReaderLimit, (fn, i, itr) => {
-                    if (ctx.aborted) return itr();
-                    let fd = this.createStat({ exists: true, name: fn, parent: req.pathFull, path: req.pathFull + fn });
-
-                    //  Does it match the pattern?
-                    if (pattern && !pattern.test(fn)) return itr();
-
-                    //  Is the file hidden?
-                    if ((req.flags & MUDFS.GetDirFlags.Hidden) === 0 && fn.startsWith('.')) return itr();
-
-                    // Do we need to stat?
-                    if ((req.flags & MUDFS.GetDirFlags.Files) > 0 || (req.flags & MUDFS.GetDirFlags.Dirs) > 0) {
-                        return fs.stat(fullPath + '/' + fn, (err, stat) => {
-                            if (ctx.aborted) return itr(new Error('Aborted'));
-                            if ((fd.isDirectory = stat.isDirectory()) && (req.flags & MUDFS.GetDirFlags.Dirs) === 0) return itr();
-                            if ((fd.isFile = stat.isFile()) && (req.flags & MUDFS.GetDirFlags.Files) === 0) return itr();
-                            results.push(fd.merge(stat));
-                            return itr(err);
-                        });
-                    }
-                    return itr();
-                }, err => {
-                    try {
-                        ctx.aborted ? callback(false, 'Aborted') : callback(results, err);
-                    }
-                    finally {
-                        mxc.release();
-                    }
-                });
-            }, `readDirectoryAsync:${req}`));
-        });
-    }
-
-    /**
-     * Reads a directory listing from the disk.
      * @param {string} relativePath The local path to read.
      * @param {string} fileName THe filename part of the path expression.
      * @param {number} flags Flags the control the read operation
@@ -483,20 +372,6 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
-     * Read a file asyncronously from the filesystem.
-     * @param {FileSystemRequest} req The request to read a file.
-     * @param {function(string,Error):void} callback The callback to fire once the file is read.
-     * @returns {void} Nothing for async.
-     */
-    readFileAsync(req, callback) {
-        this.translatePath(req.relativePath, fullPath => {
-            return fs.readFile(fullPath, { encoding: this.encoding }, MXC.awaiter((err, str) => {
-                return callback(!err && this.stripBOM(str), err);
-            }, `readFileAsync:${req}`));
-        });
-    }
-
-    /**
      * Read a file syncronously from the filesystem.
      * @param {FileSystemRequest} req The file request.
      * @returns {string} The contents of the file.
@@ -505,24 +380,6 @@ class DefaultFileSystem extends FileSystem {
        let fullPath = this.translatePath(req),
             result = this.stripBOM(fs.readFileSync(fullPath, { encoding: this.encoding || 'utf8' }));
         return result;
-    }
-
-    /**
-     * Read JSON/structured data from a file asyncronously.
-     * @param {FileSystemRequest} req The path to read from.
-     * @param {function(any,Error):void} callback The callback to fire when the data is loaded.
-     * @returns {void} Nothing for async.
-     */
-    readJsonFileAsync(req, callback) {
-        return this.readFileAsync(req, MXC.awaiter((content, err) => {
-            try {
-                return callback(!err && JSON.parse(content), err);
-            }
-            catch (e) {
-                driver.cleanError(e);
-                callback(false, e);
-            }
-        }, `readJsonFileAsync:${req}`));
     }
 
     /**

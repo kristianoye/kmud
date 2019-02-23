@@ -6,7 +6,8 @@
  * Helper methods for user input interactions
  */
 const
-    semver = require('semver');
+    semver = require('semver'),
+    BaseInput = require('../inputs/BaseInput');
 
 const
     OP_AND = '&&',
@@ -24,6 +25,20 @@ const
     T_WORD = 'WORD';
 
 class InputHelper {
+    /**
+     * Add a prompt to the current user's input stack.
+     * @param {string} The type of input to create
+     * @param {Object.<string,any>} opts Optional parameters to construct the prompt
+     * @param {function(string):void} callback The callback that fires when the user has entered text.
+     */
+    static addPrompt(type, opts = {}, callback = false) {
+        let ecc = driver.getExecution();
+        if (ecc && ecc.shell) {
+            let input = BaseInput.create(type, opts, callback);
+            ecc.shell.addPrompt(input);
+        }
+    }
+
     /**
      * @typedef {Object} SplitCommandOptions
      * @property {Object.<string,string>} [aliases] The user's aliases
@@ -613,6 +628,13 @@ class InputHelper {
         let text = input.trim(), i = 0, m = text.length;
         while (i < m && !/\s/.test(text.charAt(i))) i++;
         return [text.slice(0, i), text.slice(i).trim()];
+    }
+
+    static prompt(type, opts = {}) {
+        let prompt = BaseInput.create(type, opts),
+            ecc = driver.getExecution();
+
+        ecc.shell && ecc.shell.addPrompt(prompt);
     }
 
     /**

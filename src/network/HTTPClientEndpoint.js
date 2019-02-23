@@ -1,9 +1,9 @@
-﻿/**
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  *
- * Description: This module contains core game functionality.
+ * Description: Creates an endpoint that may be used by web-enabled clients (browsers)
  */
 const ClientEndpoint = require('./ClientEndpoint'),
     fs = require('fs'),

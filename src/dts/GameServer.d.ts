@@ -224,14 +224,6 @@ declare class GameServer {
      */
     restoreContext(context: MXC): MXC;
 
-    /**
-     * Sets the active player.
-     * @param player The player returned by thisPlayer
-     */
-    setThisPlayer(player: MUDObject): MXC;
-    setThisPlayer(player: MUDObject, truePlayer: MUDObject): MXC;
-    setThisPlayer(player: MUDObject, truePlayer: MUDObject, verb: string): MXC;
-
     /** The server address that is used for outgoing TCP connections */
     serverAddress: string;
 

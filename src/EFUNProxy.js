@@ -72,16 +72,6 @@ class EFUNProxy {
     }
 
     /**
-     * Add a prompt to the current user's input stack.
-     * @param {string|MUDPrompt} opts The prompt options.
-     * @param {function(string):void} callback The callback that fires when the user has entered text.
-     */
-    addPrompt(opts, callback) {
-        let ecc = driver.getExecution();
-        ecc && ecc.thisClient && ecc.thisClient.addPrompt(opts, callback);
-    }
-
-    /**
      * Determine if an object is an admin.
      * @param {MUDObject} target The target object to check.
      * @returns {boolean} True if the target is an administrator.
@@ -245,7 +235,7 @@ class EFUNProxy {
             list = list.split(/\s+/);
         }
 
-        width = (width || this.clientCaps(driver.thisPlayer).clientWidth || 80);
+        width = (width || this.clientCaps(this.thisPlayer()).clientWidth || 80);
 
         list.forEach(i => {
             let n = this.stripColor(i).length;
@@ -501,7 +491,7 @@ class EFUNProxy {
      * @returns {boolean} True if the exits were sent.
      */
     clientExits(prefix, exits, target) {
-        let player = target || driver.thisPlayer;
+        let player = target || this.thisPlayer();
         if (player) {
             let $storage = driver.storage.get(player),
                 caps = $storage.getClientCaps();
@@ -1540,8 +1530,8 @@ class EFUNProxy {
                 expr = '/realms/' + m[2] + expr.slice(m[2].length + 1);
             }
             else if (expr[1] === '/' || expr === '~') {
-                expr = driver.thisPlayer ?
-                    '/realms/' + driver.thisPlayer.getName() + expr.slice(1) :
+                expr = this.thisPlayer() ?
+                    '/realms/' + this.thisPlayer().getName() + expr.slice(1) :
                     self.homeDirectory + expr.slice(1);
             }
             else if (m.length === 3 && !m[1]) {
@@ -1708,17 +1698,17 @@ class EFUNProxy {
 
     get stderr() {
         let ecc = driver.getExecution();
-        return ecc.thisClient && ecc.thisClient.stderr;
+        return ecc.shell && ecc.shell.stderr;
     }
 
     get stdin() {
         let ecc = driver.getExecution();
-        return ecc.thisClient && ecc.thisClient.stdin;
+        return ecc.shell && ecc.shell.stdin;
     }
 
     get stdout() {
         let ecc = driver.getExecution();
-        return ecc.thisClient && ecc.thisClient.stdout;
+        return ecc.shell && ecc.shell.stdout;
     }
 
     /**
@@ -1761,13 +1751,13 @@ class EFUNProxy {
      * @returns {MUDObject|false} The last object to interact with the MUD or false if none.
      */
     thisObject() {
-        let mec = driver.getExecution();
-        return mec && mec.thisObject;
+        let ecc = driver.getExecution();
+        return ecc && ecc.previousObjects[0];
     }
 
     thisPlayer(flag) {
         let mec = driver.getExecution();
-        return flag === true ? mec.truePlayer : mec.thisPlayer;
+        return flag === true ? mec.truePlayer : mec.player;
     }
 
     /**
@@ -1931,7 +1921,7 @@ class EFUNProxy {
     writeRaw(expr) {
         return driver.driverCall('write', ecc => {
             ecc.stdout.write(expr);
-            this.message('write', expr, driver.thisPlayer);
+            this.message('write', expr, this.thisPlayer());
             return true;
         });
     }

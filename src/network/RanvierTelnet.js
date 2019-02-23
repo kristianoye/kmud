@@ -105,12 +105,11 @@ class TelnetSocket extends EventEmitter {
     transmit(data) {
         if (!this.socket.ended && !this.socket.finished) {
             if (this.mccp) {
-                let foo = zlib.deflateSync(data);
-                let bar = zlib.inflateSync(foo).toString('utf8');
-                this.socket.write(foo);
+                let compressedData = zlib.deflateSync(data);
+                return this.socket.write(compressedData);
             }
             else {
-                this.socket.write(data);
+                return this.socket.write(data);
             }
         }
     }
@@ -139,10 +138,11 @@ class TelnetSocket extends EventEmitter {
         }
 
         try {
-            this.transmit(data);
+            return this.transmit(data);
         } catch (e) {
             this.emit('error', e);
         }
+        return false;
     }
 
     setEncoding(encoding) {

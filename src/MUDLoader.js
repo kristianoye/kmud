@@ -20,6 +20,7 @@ const
         'receiveMessage', // Called when an object receives a message
         'reset'           // Called periodically to reset the object state
     ],
+    BaseInput = require('./inputs/BaseInput'),
     vm = require('vm'),
     loopsPerAssert = 10000;
 
@@ -314,19 +315,27 @@ class MUDLoader {
         }
     }
 
-    prompt(optsIn, callback) {
-        if (typeof optsIn === 'string') {
-            optsIn = { text: optsIn };
+    /**
+     * Capture the next line of user input
+     * @param {string} type The type of control to create
+     * @param {Object.<string,string>} options Additional options used to render the prompt
+     * @param {function(string):void} callback A callback that will receive the user's input
+     */
+    prompt(type, options = {}, callback = false) {
+        if (typeof options === 'string') {
+            options = { text: options };
         }
-        if (typeof callback !== 'function') {
-            throw new Error(`Bad argument 2 to prompt: Expected function but got ${typeof callback}`);
+        if (typeof type === 'string') {
+            if (!BaseInput.knownType(type)) {
+                options = Object.assign({ text: type }, options);
+                type = 'text';
+            }
         }
-        let opts = Object.assign({
+        efuns.input.addPrompt(type, Object.assign({
             default: false,
             text: 'Prompt: ',
             type: 'text'
-        }, optsIn), ecc = driver.getExecution();
-        ecc.thisClient && ecc.thisClient.addPrompt(opts, callback);
+        }, options), callback);
     }
 
     get(usingType, file, key, defaultValue = undefined, access = 2) {
@@ -377,7 +386,7 @@ class MUDLoader {
         let ecc = driver.getExecution();
 
         return ecc ?
-            flag ? ecc.truePlayer : ecc.thisPlayer :
+            flag ? ecc.truePlayer : ecc.player :
             false;
     }
 

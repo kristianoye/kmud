@@ -490,19 +490,24 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
-     * Create a context frame that includes the driver.
+     * Create a context frame that includes the master/driver.
      * @param {string} method The method being called.
      * @param {function(ExecutionContext):any} callback The callback that executes when the context is ready.
      * @param {string} fileName The optional filename
      * @returns {any} The result of the callback
      */
     driverCall(method, callback, fileName, rethrow = false) {
-        let ecc = this.getExecution(this, method, fileName || '(driver)', false, 0), result = undefined;
+        let result, ecc = this.getExecution(
+            this.masterObject || this,
+            method,
+            fileName || this.masterFilename,
+            false, 0);
+
         try {
             result = callback(ecc);
         }
         catch (err) {
-            console.log(`Error in method '${method}': ${err.message}`);
+            logger.log(`Error in method '${method}': ${err.message}`);
             if (rethrow) throw err;
             else result = err;
         }
@@ -626,7 +631,7 @@ class GameServer extends MUDEventEmitter {
                     this.driverCall('heartbeat', ecc => {
                         try {
                             ecc.alarmTime = efuns.ticks + heartbeatInterval;
-                            ecc.truePlayer = ecc.thisPlayer = obj.owner;
+                            ecc.truePlayer = ecc.player = obj.owner;
                             obj.eventHeartbeat(this.heartbeatInterval, this.heartbeatCounter);
                         }
                         catch (err) {
@@ -755,19 +760,6 @@ class GameServer extends MUDEventEmitter {
      */
     initDriverEfuns(efuns) {
         this.efuns = global.efuns = efuns;
-
-        if (true) {
-            let CommandShell = require('./CommandShell');
-            let shell = new CommandShell({
-                allowAliases: true,
-                allowEnvironment: true,
-                allowEscaping: true,
-                allowFileIO: true,
-                allowHistory: true,
-                allowObjectShell: true
-            });
-            shell.processInput('$mem = process.memoryUsage');
-        }
     }
 
     isVirtualPath(path) {
@@ -1105,21 +1097,6 @@ class GameServer extends MUDEventEmitter {
             'os build': os.type(),
             'os uptime': os.uptime()
         };
-    }
-
-    setThisPlayer(body, truePlayer, verb, methodName) {
-        return unwrap(body, player => {
-            let ecc = driver.getExecution(body, methodName, body.filename, false);
-            try {
-                ecc.thisPlayer = player;
-                if (truePlayer === true)
-                    ecc.truePlayer = player;
-                ecc.currentVerb = verb || '';
-            }
-            finally {
-                ecc.pop(methodName);
-            }
-        });
     }
 
     validExec(frame, oldBody, newBody) {

@@ -8,13 +8,16 @@
 
 const
     IO = require('./StandardIO'),
-    MUDEventEmitter = require('./MUDEventEmitter');
+    LinkedList = require('./LinkedList'),
+    MUDEventEmitter = require('./MUDEventEmitter'),
+    { BaseInput } = require('./inputs/BaseInput');
 
 const
     TT = {
         Array: 'arrayExpression',
         Assignment: 'assignment',
         Boolean: 'boolean',
+        FileExpression: 'fileExpression',
         Indexer: 'memberIndexer',
         MemberGet: 'memberGet',
         MemberExpression: 'memberExpression',
@@ -30,31 +33,54 @@ const
     B_TRUE = 'true',
     B_FALSE = 'false';
 
+/** 
+ * @typedef {Object} CommandShellOptions
+ * @property {boolean} [allowAliases=false] Indicates the user can use command/verb aliasing.
+ * @property {boolean} [allowChaining=false] Indicates the user can chain multiple commnads together.
+ * @property {boolean} [allowEnvironment=false] Indicates the user has environmental variables.
+ * @property {boolean} [allowEscaping=false] Indicates the user can escape input of the input stack.
+ * @property {boolean} [allowFileExpressions=false] Indicates wildcards are expanded to file matches.
+ * @property {boolean} [allowFileIO=false] Indicates the user can perform I/O redirects.
+ * @property {boolean} [allowHistory=false] Indicates the shell should track command history
+ * @property {boolean} [allowLineSpanning=false] The user can use an escape character to span multiple lines of input.
+ * @property {boolean} [allowObjectShell=false] Indicates the advanced object shell functionality is enabled.
+ * @property {number} [maxHistorySize=0] The maximum number of history entries to retain. 0 is infinite.
+ */
 class CommandShell extends MUDEventEmitter {
-    constructor(options = {}) {
+    /**
+     * Construct a new command shell object.
+     * @param {any} options
+     * @param {any} storage
+     */
+    constructor(options = {}, storage) {
         super();
 
+        /** @type {CommandShellOptions} */
         this.options = Object.assign({
             allowAliases: false,
+            allowChaining: false,
             allowEnvironment: false,
+            allowFileExpressions: false,
+            allowLineSpanning: true,
             allowEscaping: false,
             allowFileIO: false,
             allowHistory: false,
             allowObjectShell: false
         }, options);
 
-        this.stdin = new IO.StandardInputStream({ encoding: 'utf8' });
-        this.stdout = new IO.StandardPassthruStream({ encoding: 'utf8' }, s => console.log(s));
-        this.stderr = new IO.StandardPassthruStream({ encoding: 'utf8' }, s => console.log(s));
-        this.stdnull = new IO.StandardPassthruStream({ encoding: 'utf8' }, s => s);
+        this.storage = storage;
+        this.client = storage.client;
+        this.player = storage.owner;
 
-        this.source = '';
+        this.stdin = new IO.StandardInputStream({ encoding: 'utf8' }, storage.client, this);
+        this.stdout = new IO.StandardOutputStream({ encoding: 'utf8' }, storage.client, this);
+        this.stderr = new IO.StandardOutputStream({ encoding: 'utf8' }, storage.client, this);
+        this.console = new IO.StandardPassthruStream({ encoding: 'utf8' }, storage.client, this);
 
         if (this.options.allowAliases) {
             this.aliases = this.options.aliases || [];
             delete this.options.aliases;
         }
-
         if (this.options.allowEnvironment) {
             this.env = Object.assign({
                 HOME: '/',
@@ -65,12 +91,237 @@ class CommandShell extends MUDEventEmitter {
             }, this.options.env);
             delete this.options.env;
         }
+        if (this.options.allowHistory) {
+            this.history = new LinkedList(options.history || []);
+        }
+
+        //  Is there already a command executing?
+        this.executing = false;
+
+        //  LIFO stack for modal inputs
+        this.inputStack = [];
+
+        /** @type {BaseInput} */
+        this.inputTo = undefined;
+
+        let commandBuffer = '';
+
+        this.stdin.on('readable', () => {
+            try {
+                if (!this.executing) {
+                    commandBuffer = (commandBuffer || '') + this.stdin.readLine();
+
+                    let incomplete = efuns.text.endsWithUnescaped(commandBuffer, '|') ||
+                        efuns.text.endsWithUnescaped(commandBuffer, '&&') ||
+                        commandBuffer.trim().endsWith('\\');
+
+                    if (this.options.allowLineSpanning) {
+                        if (commandBuffer.endsWith('\\')) {
+                            commandBuffer = commandBuffer.slice(0, commandBuffer.lastIndexOf('/'));
+                        }
+                    }
+                    else
+                        incomplete = false;
+
+                    if (incomplete) {
+                        return this.renderPrompt('> ');
+                    }
+                    else {
+                        this.executing = true;
+                        this.processInput(commandBuffer);
+                        commandBuffer = '';
+                    }
+                }
+            }
+            catch (err) {
+                console.log('error reading STDIN', err);
+            }
+        });
     }
 
     /**
-     * Start reading input from the shell's owner
+     * Adds a prompt to the user's input stack.
+     * @param {BaseInput} prompt Info on how to render the prompt.
+     * @param {function(string): void} callback A callback to execute once the user enters text.
      */
-    enter() {
+    addPrompt(prompt) {
+        if (prompt instanceof BaseInput === false)
+            throw new Error('Illegal call to addPrompt(); Must be a valid input type');
+        this.inputStack.unshift(prompt);
+        setTimeout(() => this.renderPrompt(), 0);
+    }
+
+    /**
+     * Expand any history expressions
+     * @param {string} source The text to expand
+     * @returns {string} The string with any history occurences replaced.
+     */
+    expandHistory(source) {
+        let i = -1,
+            m = source.length,
+            n = i = source.indexOf('!');
+
+        let take = (f, t) => {
+            let ret = '';
+            if (f instanceof RegExp) {
+                let ret = f.exec(source.slice(i));
+                if (Array.isArray(ret)) {
+                    i += (ret[1] || ret[0]).length;
+                    return ret[1] || ret[0];
+                }
+                return '';
+            }
+            else if (typeof f === 'string') {
+                let check = source.slice(i, i + f.length);
+                if (check !== f) return false;
+                i += check.length;
+                return check;
+            }
+            ret = source.slice(f = f || i, t = t || f + 1);
+            i = t;
+            return ret;
+        };
+
+        while (n > -1) {
+            let lc = source.charAt(i++ - 1);
+            if (lc === '\\') {
+                //  This one is escaped, find the next
+                n = source.slice(n + 1).indexOf('!');
+            }
+            else {
+                //  Not escaped
+                let found = '',
+                    start = n,
+                    search = '!',
+                    index = -1,
+                    history = this.history,
+                    end = n + 1;
+
+                if (take('!')) found = history[history.max];
+                else if (take('%')) found = history.keyword || '';
+                else {
+                    let contains = take('?'),
+                        searchBack = take('-');
+
+                    search = take(/[^\s\:]+/);
+                    index = parseInt(search), found = false;
+
+                    if (isNaN(index)) {
+                        if (contains)
+                            for (let ptr = history.first; !found && ptr; ptr = history.next(ptr)) {
+                                let n = ptr.value.indexOf(search)
+                                if (n > -1) {
+                                    let args = efuns.input.splitArgs(found = ptr.value, true);
+                                    for (let x = 0; x < args.length; x++) {
+                                        if (args[x].indexOf(search) > -1) {
+                                            history.keyword = args[x];
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        else
+                            for (let ptr = history.last; !found && ptr; ptr = ptr.prev(ptr)) {
+                                if (ptr.value.startsWith(search)) {
+                                    found = ptr.value;
+                                    break;
+                                }
+                            }
+                    }
+                    else if (index > 0) {
+                        if (searchBack) {
+                            let hist = history.toArray();
+                            found = hist[hist.length - index];
+                        }
+                        else
+                            found = history.at(index);
+                    }
+                }
+                if (!found)
+                    throw Error(`${search}: event not found`);
+
+                if (take(':')) {
+                    let nc = take(), args = found.split(/\s+/);
+                    if (nc === '^') found = args[1];
+                    else if (nc === '*') found = args.slice(1).join(' ');
+                    else if (nc === '$') found = args[args.length - 1];
+                    else if (/\d/.test(nc)) {
+                        nc += take(/^\d+/);
+                        if (take('-')) {
+                            let endRange = take(/^\d+/);
+                            if (endRange)
+                                found = args.slice(parseInt(nc), parseInt(endRange) + 1).join(' ');
+                            else
+                                found = args.slice(parseInt(nc)).join(' ');
+                        }
+                        else {
+                            let foo = parseInt(nc);
+                            if (foo < args.length)
+                                found = args[foo];
+                            else
+                                throw new Error(`:${nc}: bad word specifier`);
+                        }
+                    }
+                    else if (nc === 's' || nc === 'g') {
+                        if (semver.lt(process.version, '9.0.0')) {
+                            throw new Error('Search and replace is only available in Node v9+');
+                        }
+                        else if (take('&')) {
+                            if (!history.lastReplace)
+                                throw new Error(':g&: no previous substitution');
+                        }
+                        else {
+                            if (!take('/'))
+                                throw new Error(`Expected symbol / at position ${i}`);
+
+                            let searchFor = take(/^(?<!\\)([^\/]+)/);
+
+                            if (!take('/'))
+                                throw new Error(`Expected symbol / at position ${i}`);
+
+                            let replaceWith = take(/^(?<!\\)([^\/]+)/);
+
+                            if (take() !== '/')
+                                throw new Error(`Expected symbol / at position ${i}`);
+
+                            let flags = take(/[gimu]+/) || undefined;
+                            history.lastReplace = new RegExp(`/${searchFor}/${replaceWith}/`, flags);
+                        }
+                        found = found.replace(history.lastReplace);
+                    }
+
+                    while (take(':')) {
+                        nc = take();
+                        //  remove trailing path
+                        if (nc === 'h') {
+                            let n = found.lastIndexOf('/');
+                            if (n > -1) found = found.slice(0, n);
+                        }
+                        else if (nc === 'p') {
+                            printOnly = true;
+                        }
+                        //  remove the suffix
+                        else if (nc === 'r') {
+                            let n = found.lastIndexOf('.');
+                            if (n > -1) found = found.slice(0, n);
+                        }
+                        //  removing leading path
+                        else if (nc === 't') {
+                            let n = found.lastIndexOf('/');
+                            if (n > -1) found = found.slice(n + 1);
+                        }
+                        else
+                            throw Error(`Unrecognized expression starting at position ${i - 1}`);
+                    }
+                    arg.end = i;
+                }
+                source = source.slice(0, start) + found + source.slice(i);
+                n = source.indexOf('!', i + found.length);
+                m = source.length; 
+            }
+        }
+
+        return source;
     }
 
     /**
@@ -146,9 +397,12 @@ class CommandShell extends MUDEventEmitter {
                             token.value += c;
                         break;
 
-                    case '!':
-                        if (this.options.allowHistory) {
 
+                    case '*':
+                    case '?':
+                        if (this.options.expandFileExpressions) {
+                            token.value += c;
+                            token.type = TT.FileExpression;
                         }
                         else
                             token.value += c;
@@ -478,12 +732,112 @@ class CommandShell extends MUDEventEmitter {
         }
     }
 
+    /**
+     * Process a single line of user input.
+     * @param {string} input The user's line of input.
+     */
     processInput(input) {
-        return this.process(input);
+        try {
+            if (this.inputTo) {
+                let inputTrapped = driver.driverCall('input', ecc => {
+                    return ecc.withPlayer(this.storage, () => {
+                        let inputTo = this.inputTo;
+                        
+                        //  Indicate that stdin can be read by the shell again
+                        this.inputTo = this.executing = false;
+
+                        //  Hmm somehow the frame has gone away?
+                        if (!inputTo) {
+                            if (this.inputStack.length) {
+                                this.renderPrompt();
+                                return true;
+                            }
+                            return false;
+                        }
+
+                        if (this.options.allowEscaping && input.charAt(0) === '!') {
+                            input = input.slice(1);
+                            return false;
+                        }
+                        else {
+                            input = inputTo.normalize(input);
+                            if (inputTo.type === 'password' && this.client.clientType === 'text') {
+                                this.client.write('\r\n');
+                            }
+                            if (typeof input === 'undefined') {
+                                //  The input did not agree with the input type; Re-prompt
+                                this.renderPrompt();
+                                return true;
+                            }
+                            else if (input instanceof Error) {
+                                this.stderr.write(`\n${input.message}\n\n`);
+                                this.renderPrompt();
+                            }
+                            else if (inputTo.callback(input) !== true) {
+                                //  The modal frame did not recapture the user input
+                                let index = this.inputStack.indexOf(inputTo);
+                                if (index > -1) {
+                                    this.inputStack.splice(index, 1);
+                                }
+                                return true;
+                            }
+                        }
+                        this.renderPrompt();
+                        return true;
+                    });
+                });
+
+                this.executing = false;
+                this.inputTo = false;
+
+                if (inputTrapped)
+                    return;
+            }
+            if (this.options.allowHistory) {
+                input = this.expandHistory(input);
+            }
+            return this.process(input);
+        }
+        catch (err) {
+            efuns.failLine(`-kmsh: ${err.message}`);
+        }
     }
 
+    /**
+     * Get the default prompt to display if the input stack is empty
+     * @returns {string}
+     */
     get prompt() {
         return this.env.PROMPT || '> ';
+    }
+
+    /**
+     * The actual displaying of the prompt is dependent on the client.
+     * The shell just tells the client what to render...
+     * @param {{ type: string, text: string, callback: function(string): void }} [inputTo] The frame to render
+     */
+    renderPrompt(inputTo) {
+        this.stdout.flush();
+        if (!inputTo && this.inputStack.length)
+            inputTo = this.inputTo = this.inputStack[0];
+        else if (typeof inputTo === 'string')
+            inputTo = { type: 'text', text: inputTo };
+
+        if (inputTo) {
+            this.client.renderPrompt(inputTo);
+        }
+        else {
+            this.client.renderPrompt({ type: 'text', text: this.prompt });
+        }
+        this.stdout.flush();
+    }
+
+    /**
+     * Update settings.
+     * @param {CommandShellOptions} options An updaed set of shell options.
+     */
+    update(options) {
+        this.options = Object.assign(this.options, options);
     }
 }
 

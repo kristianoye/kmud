@@ -8,7 +8,8 @@
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
     MUDCreationContext = require('./MUDCreationContext'),
-    ClientCaps = require('./network/ClientCaps');
+    ClientCaps = require('./network/ClientCaps'),
+    CommandShell = require('./CommandShell');
 
 /**
  * Storage for MUD Objects.  In-game objects do not hold their data directly.
@@ -707,12 +708,21 @@ class MUDStorage extends MUDEventEmitter {
                 this.clientCaps = client.caps;
 
                 //  Linkdeath
-                client.once('disconnected', () => this.setClient(false));
+                client.once('disconnected', () => {
+                    driver.driverCall('disconnect', ecc => {
+                        ecc.withPlayer(this, player => {
+                            player.disconnect()
+                        });
+                    });
+                });
 
                 //  Connect to the new body
                 driver.driverCall('connect', context => {
-                    client.populateContext(false, context);
-                    context.withPlayer(this, player => player.connect(...args), false);
+                    if (!this.shell) {
+                        this.shell = new CommandShell({}, this);
+                    }
+                    let shellSettings = context.withPlayer(this, player => player.connect(...args), false);
+                    this.shell.update(shellSettings);
                 });
                 return true;
             }
@@ -721,7 +731,7 @@ class MUDStorage extends MUDEventEmitter {
                     driver.driverCall('disconnect', context => {
                         this.connected = false;
                         if (this.client)
-                            this.client.populateContext(client.body, true, context);
+                            this.client.populateContext(true, context);
                         context.withPlayer(this, player => player.disconnect(...args));
                         this.client && this.client.close();
                     });

@@ -208,6 +208,9 @@
     <Compile Include="lib\sys\include\Flags.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\sys\include\InputTypes.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\sys\include\Lib.js">
       <SubType>Code</SubType>
     </Compile>
@@ -289,6 +292,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\world\sarta\obj\weapon\sword.js" />
+    <Compile Include="lib\wwwroot\controller\DocController.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\wwwroot\js\BootstrapMenu.js" />
     <Compile Include="lib\wwwroot\js\goldenlayout.js" />
     <Compile Include="lib\wwwroot\js\ion.sound.js" />
@@ -511,6 +517,18 @@
     <Compile Include="src\GameServer.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\inputs\BaseInput.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\inputs\PickOne.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\inputs\TextInput.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\inputs\YesNoInput.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\LinkedList.js">
       <SubType>Code</SubType>
     </Compile>
@@ -583,6 +601,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\HTTPClientEndpoint.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\HTTPServer.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\impl\ansi\TerminalColorAnsi.js">
@@ -961,6 +982,7 @@
     <Folder Include="lib\wwwroot\monaco\min\vs\language\typescript\" />
     <Folder Include="lib\wwwroot\monaco\min\vs\language\typescript\lib\" />
     <Folder Include="lib\wwwroot\monaco\min\vs\language\typescript\src\" />
+    <Folder Include="lib\wwwroot\controller\" />
     <Folder Include="lib\wwwroot\sound\" />
     <Folder Include="lib\wwwroot\sound\ogg\" />
     <Folder Include="lib\wwwroot\sound\ogg\animals\" />
@@ -982,6 +1004,7 @@
     <Folder Include="src\dts\" />
     <Folder Include="src\db\" />
     <Folder Include="src\efuns\" />
+    <Folder Include="src\inputs\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
   </ItemGroup>

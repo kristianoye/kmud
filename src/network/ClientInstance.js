@@ -9,7 +9,7 @@ const
     ClientEndpoint = require('./ClientEndpoint'),
     ClientCaps = require('./ClientCaps'),
     MUDEventEmitter = require('../MUDEventEmitter'),
-    { StandardInputStream, StandardOutputStream, StandardPassthruStream } = require('../StandardIO'),
+    { BaseInput } = require('../inputs/BaseInput'),
     GameServer = require('../GameServer'),
     os = require('os');
 
@@ -128,28 +128,13 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
             throw new Error('FATAL: TruePlayer has already been set!');
 
         ecc.truePlayer = thisPlayer;
-        ecc.thisPlayer = thisPlayer;
-        ecc.thisClient = this;
-        ecc.thisStore = this.storage;
+        ecc.player = thisPlayer;
+        ecc.client = this;
+        ecc.store = this.storage;
+        ecc.shell = ecc.client.shell;
 
-        if (!ecc.startTime) {
-            ecc.startTime = efuns.ticks;
-
-            try {
-                this.stdin = opts.stdin || new StandardInputStream({ encoding: 'utf8' }, '');
-                this.stderr = opts.stderr || new StandardPassthruStream({ encoding: 'utf8' }, s => this.write(s));
-                this.stdout = opts.stdout || new StandardPassthruStream({ encoding: 'utf8' }, s => this.write(s));
-            }
-            catch (err) {
-                // TODO: Make this fatal for real
-                logger.log('FATAL: Could not allocate streams', err.message);
-            }
-        }
         if (skipCallback === false) {
             ecc.on('complete', result => {
-                this.stderr.destroy();
-                this.stdout.destroy();
-                this.stderr.destroy();
             });
         }
     }
@@ -175,9 +160,9 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
      * @param {string} protocol The client protocol (should be endpoint?)
      * @param {string} msg The reason for the disconnect.
      */
-    disconnect(protocol, msg) {
+    disconnect(protocol, msg, emitDisconnect = true) {
         this.emit('kmud.connection.closed', this, protocol);
-        this.emit('disconnected', this);
+        if (emitDisconnect) this.emit('disconnected', this);
     }
 
     /**
@@ -225,6 +210,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
      */
     executeCommand(text) {
         driver.driverCall('executeCommand', ecc => {
+            return false;
             this.populateContext(false, ecc);
             unwrap(this.body, body => {
                 if (!body) {
@@ -371,8 +357,15 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
         return this.store && this.store.idleTime;
     }
 
-    renderPrompt() {
-        throw new Error('Not implemented');
+    renderPrompt(input) {
+        if (input instanceof BaseInput) {
+            return input.render(this);
+        }
+        else if (input.type === 'text' || input.type === 'password') {
+            this.toggleEcho(input.type !== 'password');
+            return this.write(input.text);
+        }
+        return false;
     }
 
     setBody(body, oldBodyValue = false) {
@@ -393,6 +386,14 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                 return true;
             });
         });
+    }
+
+    toggleEcho(echoOn = true) {
+        if (echoOn !== this.echoEnabled) {
+            this.echoEnabled = echoOn;
+            this.client.toggleEcho(echoOn);
+        }
+        return this.echoEnabled;
     }
 }
 

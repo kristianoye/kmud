@@ -45,7 +45,7 @@ class MoveCommand extends Command {
                         case 'i': case '--prompt':
                             op.flags |= MUDFS.MoveFlags.Interactive;
                             op.prompt = (/** @type {string} */ file) => {
-                                efuns.addPrompt({ text: `mv: overwrite '${file}? '` }, resp => {
+                                prompt('text', `mv: overwrite '${file}? '`, resp => {
                                     return resp.charAt(0) === 'y' || resp.charAt(0) === 'Y';
                                 });
                             };

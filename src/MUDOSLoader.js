@@ -253,7 +253,9 @@ class MUDOSLoader extends MUDLoader {
         }
     }
 
-    this_player(flag) { return flag ? driver.truePlayer : driver.thisPlayer; }
+    this_player(flag) {
+        return efuns.thisPlayer(flag);
+    }
 
     throw(msg) {
         throw new Error(msg);

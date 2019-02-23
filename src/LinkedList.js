@@ -9,7 +9,7 @@
 /** @typedef {{ index: number, value: any, next: LinkedListNode, prev: LinkedListNode }} LinkedListNode */
 
 class LinkedList {
-    constructor() {
+    constructor(initialValue = []) {
         this.length = 0;
         this.nextId = 0;
 
@@ -21,6 +21,10 @@ class LinkedList {
 
         /** @type {LinkedListNode} */
         this.tail = false;
+
+        if (Array.isArray(initialValue) && initialValue.length > 0) {
+            initialValue.forEach(v => this.add(v));
+        }
     }
 
     /**
@@ -63,6 +67,47 @@ class LinkedList {
         return this.index[pos];
     }
 
+    /** Returns the first element */
+    first() {
+        return this.head ? this.head : false;
+    }
+
+    get last() {
+        return this.tail ? this.tail : false;
+    }
+
+    get max() {
+        return this.tail ? this.tail.index : -1;
+    }
+
+    get min() {
+        return this.head ? this.head.index : -1;
+    }
+
+    /**
+     * Get the node after the specified ID/node
+     * @param {LinkedListNode|number} id The ID
+     * @returns {LinkedListNode|false} Returns the next node or false if its the end
+     */
+    next(id) {
+        let node = typeof id === 'number' ? this.index[id] : this.index[id.index];
+        if (!node)
+            throw new Error(`Null exception; Index ${id} does not exist`);
+        return node.next ? node.next : false;
+    }
+
+    /**
+     * Get the node before the specified ID/node
+     * @param {LinkedListNode|number} id The ID or node
+     * @returns {LinkedListNode|false} Returns the previous node or false if its the end
+     */
+    prev(id) {
+        let node = typeof id === 'number' ? this.index[id] : this.index[id.index];
+        if (!node)
+            throw new Error(`Null exception; Index ${id} does not exist`);
+        return node.prev ? node.prev : false;
+    }
+
     /**
      * Remove one or more items from the collection.
      * @param {any} index The position at which to start removing.
@@ -92,12 +137,37 @@ class LinkedList {
     }
 
     /**
+     * Fetch a linked list in reverse order.
+     * Note: Order is lost.
+     * @returns {LinkedList}
+     */
+    reverse() {
+        return new LinkedList(this.toArray().reverse());
+    }
+
+    /**
+     * Returns a subset of the items
+     * @param {number} index The index to start taking elements from
+     * @param {any} count THe number of items to retrieve.
+     */
+    slice(index = -1, count = 1) {
+        let result = [], start = this.index[index = index > -1 ? index : this.min];
+
+        if (!start)
+            return [];
+
+        while (count--) {
+            result.push(start.value);
+        }
+        return result;
+    }
+
+    /**
      * Convert the items in the collection to an array 
+     * @returns {any[]} The items in the list as an array
      */
     toArray() {
-        let result = [];
-        this.forEach(val => result.push(val));
-        return result;
+        return this.slice();
     }
 }
 
