@@ -615,7 +615,7 @@ class InputHelper {
                 throw new Error(`Unexpected token ${cmd.type} at position ${cmd.pos}`);
         }
         typeof settings.onWriteHistory === 'function' && settings.onWriteHistory(forHistory.trim());
-        if (fromHistory) write(forHistory.trim());
+        if (fromHistory) this.writeLine(forHistory.trim());
         return cmds;
     }
 

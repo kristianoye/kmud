@@ -411,7 +411,13 @@ class MUDLoader {
     }
 
     write(...str) {
-        return efuns.writeLine(...str);
+        efuns.writeToStream(false, efuns.stdout, ...str);
+        return true;
+    }
+
+    writeLine(...str) {
+        efuns.writeToStream(true, efuns.stdout, ...str);
+        return true;
     }
 
     writeRaw(str) {
