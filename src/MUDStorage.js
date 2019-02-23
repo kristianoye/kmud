@@ -9,7 +9,8 @@ const
     MUDEventEmitter = require('./MUDEventEmitter'),
     MUDCreationContext = require('./MUDCreationContext'),
     ClientCaps = require('./network/ClientCaps'),
-    CommandShell = require('./CommandShell');
+    CommandShell = require('./CommandShell'),
+    StandardIO = require('./StandardIO');
 
 /**
  * Storage for MUD Objects.  In-game objects do not hold their data directly.
@@ -338,6 +339,18 @@ class MUDStorage extends MUDEventEmitter {
 
     set destroyed(value) {
         if (value) this.flag(MUDStorage.PROP_DESTRUCTED, true);
+    }
+
+
+    executeCommand(rawcmd) {
+        driver.driverCall('executeCommand', context => {
+            let cmd = {
+                verb: rawcmd.verb.value,
+                args: rawcmd.args.map(a => a.value),
+                text: rawcmd.text
+            };
+            return context.withPlayer(this, player => player.executeCommand(cmd), false);
+        }, this.filename, true);
     }
 
     /**
@@ -682,6 +695,8 @@ class MUDStorage extends MUDEventEmitter {
     setClient(client, ...args) {
         try {
             if (client) {
+                let streams;
+
                 //  If the client has an old body, the client needs to be dissassociated with it
                 if (client.body) {
                     let store = driver.storage.get(client.body);
@@ -691,6 +706,10 @@ class MUDStorage extends MUDEventEmitter {
                             store.interactive = false;
                             store.connected = false;
                             store.lastActivity = 0;
+                            if (store.shell) {
+                                //  Take the I/O streams from the old shell
+                                streams = store.shell.releaseStreams();
+                            }
                             context.withPlayer(store, player => player.disconnect());
                             store.client = false;
                             store.clientCaps = ClientCaps.DefaultCaps;
@@ -722,7 +741,7 @@ class MUDStorage extends MUDEventEmitter {
                 //  Connect to the new body
                 driver.driverCall('connect', context => {
                     if (!this.shell) {
-                        this.shell = new CommandShell({}, this);
+                        this.shell = new CommandShell({}, this, streams);
                     }
                     let shellSettings = context.withPlayer(this, player => player.connect(...args), false);
                     this.shell.update(shellSettings);

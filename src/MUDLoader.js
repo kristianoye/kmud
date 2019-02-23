@@ -316,6 +316,14 @@ class MUDLoader {
     }
 
     /**
+     * Write to standard error
+     * @param {...any} args
+     */
+    error(...args) {
+        return efuns.failLine(...args);
+    }
+
+    /**
      * Capture the next line of user input
      * @param {string} type The type of control to create
      * @param {Object.<string,string>} options Additional options used to render the prompt

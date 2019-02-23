@@ -23,11 +23,30 @@ class InternalBuffer {
     }
 
     /**
+     * Assign new stream ownership
+     * @param {any} client
+     * @param {any} shell
+     */
+    attach(client, shell) {
+        this.client = client;
+        this.shell = shell;
+    }
+
+    /**
      * Destroy the stream 
      */
     destroy() {
         this.buffer = this.shell = this.client = false;
         delete Buffers[this.id];
+    }
+
+    /**
+     * Detach from the current owner
+     */
+    detach() {
+        this.client = false;
+        this.shell = false;
+        return this;
     }
 
     /**
@@ -102,6 +121,30 @@ InternalBuffer.create = function (client, shell, encoding = 'utf8') {
 };
 
 /**
+ * Attaches a new owner to a set of streams
+ * @param {Object.<string,StandardInputStream|StandardOutputStream|StandardPassthruStream>} streams The streams to reconnect
+ * @param {object} newOwner The new shell attached to this the streams.
+ */
+InternalBuffer.attach = function (streams, client, shell) {
+    Object.keys(streams).forEach(name => {
+        let stream = streams[name],
+            buffer = InternalBuffer.get(stream.id);
+        buffer.attach(client, shell);
+    });
+};
+
+/**
+ * Detaches a buffer from its current owner and returns the 
+ * public interface referecne (e.g. StandardOutputStream, etc)
+ * @param {StandardInputStream|StandardOutputStream|StandardPassthruStream} stream
+ */
+InternalBuffer.detach = function (stream) {
+    let buffer = InternalBuffer.get(stream.id);
+    buffer.detach();
+    return stream;
+};
+
+/**
  * Get an internal buffer object.
  * @param {string|StandardInputStream|StandardOutputStream} uuid The ID of the buffer to fetch.
  * @returns {InternalBuffer} The internal buffer if it has not been destroyed.
@@ -132,10 +175,10 @@ class StandardInputStream extends Readable {
             value: buffer.id,
             writable: false
         });
-
-        client.on('data', line => {
+        
+        client.on('data', buffer.onData = (line) => {
             buffer.write(line);
-            this.emit('readable');
+            buffer.shell && buffer.shell.receiveInput(this);
         });
     }
 
@@ -144,7 +187,13 @@ class StandardInputStream extends Readable {
     }
 
     _destroy(error, callback) {
-        InternalBuffer.get(this).destroy();
+        let buffer = InternalBuffer.get(this);
+        if (buffer) {
+            // We need stdin to stop listening for data
+            if (buffer.listener) 
+                buffer.client.off('data', buffer.listener);
+            buffer.destroy();
+        }
         super._destroy(error, callback);
     }
 
@@ -326,6 +375,7 @@ const
     NullOutputStream = new StandardPassthruStream();
 
 module.exports = {
+    InternalBuffer,
     StandardInputStream,
     StandardOutputStream,
     StandardPassthruStream,

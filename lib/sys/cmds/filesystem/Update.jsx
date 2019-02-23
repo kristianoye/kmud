@@ -8,12 +8,17 @@ const
     Command = require(Base.Command);
 
 class UpdateCommand extends Command {
-    cmd(args, cmdline) {
-        if (args.length === 0 || !args[0])
-            args[0] = thisPlayer().environment.filename;
-
-        var path = efuns.resolvePath(args[0], thisPlayer().workingDirectory);
-        write(`Update ${path}: ${(efuns.reloadObjectSync(path) ? '[OK]' : '[Failure]')}`);
+    cmd(text, input) {
+        if (!input.args.length === 0) {
+            let env = unwrap(thisPlayer().environment);
+            if (!env)
+                return error('You do not have an environment!');
+            input.args.shift(env.filename);
+        }
+        input.args.forEach(fn => {
+            let path = efuns.resolvePath(fn, thisPlayer().workingDirectory);
+            write(`Update ${path}: ${(efuns.reloadObjectSync(path) ? '[OK]' : '[Failure]')}`);
+        })
         return true;
     }
 }

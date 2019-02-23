@@ -72,6 +72,12 @@ declare class ExecutionContext {
      */
     whenCompleted(onComplete: (ecc: ExecutionContext) => void): ExecutionContext;
 
+    /**
+     * Executes some code with specified storage as thisPlayer
+     * @param storage
+     */
+    withPlayer(storage: MUDStorage, callback: (player: MUDObject) => any, restorePrevious: boolean=false, methodName: string=null): any;
+
     /** Creates a new child context to be associated with an async call */
     fork(): ExecutionContext;
 

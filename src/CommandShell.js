@@ -6,6 +6,7 @@
  * Description: Command interpreter for MUD objects.
  */
 
+/// <reference path="./StandardIO.js" />
 const
     IO = require('./StandardIO'),
     LinkedList = require('./LinkedList'),
@@ -17,6 +18,7 @@ const
         Array: 'arrayExpression',
         Assignment: 'assignment',
         Boolean: 'boolean',
+        Command: 'command',
         FileExpression: 'fileExpression',
         Indexer: 'memberIndexer',
         MemberGet: 'memberGet',
@@ -52,7 +54,7 @@ class CommandShell extends MUDEventEmitter {
      * @param {any} options
      * @param {any} storage
      */
-    constructor(options = {}, storage) {
+    constructor(options, storage, streams = false) {
         super();
 
         /** @type {CommandShellOptions} */
@@ -72,10 +74,14 @@ class CommandShell extends MUDEventEmitter {
         this.client = storage.client;
         this.player = storage.owner;
 
-        this.stdin = new IO.StandardInputStream({ encoding: 'utf8' }, storage.client, this);
-        this.stdout = new IO.StandardOutputStream({ encoding: 'utf8' }, storage.client, this);
-        this.stderr = new IO.StandardOutputStream({ encoding: 'utf8' }, storage.client, this);
-        this.console = new IO.StandardPassthruStream({ encoding: 'utf8' }, storage.client, this);
+        if (streams) {
+            IO.InternalBuffer.attach(streams, storage.client, this);
+        }
+
+        this.stdin = streams.stdin || new IO.StandardInputStream({ encoding: 'utf8' }, storage.client, this);
+        this.stdout = streams.stdout || new IO.StandardOutputStream({ encoding: 'utf8' }, storage.client, this);
+        this.stderr = streams.stderr || new IO.StandardOutputStream({ encoding: 'utf8' }, storage.client, this);
+        this.console = streams.console || new IO.StandardPassthruStream({ encoding: 'utf8' }, storage.client, this);
 
         if (this.options.allowAliases) {
             this.aliases = this.options.aliases || [];
@@ -103,40 +109,6 @@ class CommandShell extends MUDEventEmitter {
 
         /** @type {BaseInput} */
         this.inputTo = undefined;
-
-        let commandBuffer = '';
-
-        this.stdin.on('readable', () => {
-            try {
-                if (!this.executing) {
-                    commandBuffer = (commandBuffer || '') + this.stdin.readLine();
-
-                    let incomplete = efuns.text.endsWithUnescaped(commandBuffer, '|') ||
-                        efuns.text.endsWithUnescaped(commandBuffer, '&&') ||
-                        commandBuffer.trim().endsWith('\\');
-
-                    if (this.options.allowLineSpanning) {
-                        if (commandBuffer.endsWith('\\')) {
-                            commandBuffer = commandBuffer.slice(0, commandBuffer.lastIndexOf('/'));
-                        }
-                    }
-                    else
-                        incomplete = false;
-
-                    if (incomplete) {
-                        return this.renderPrompt('> ');
-                    }
-                    else {
-                        this.executing = true;
-                        this.processInput(commandBuffer);
-                        commandBuffer = '';
-                    }
-                }
-            }
-            catch (err) {
-                console.log('error reading STDIN', err);
-            }
-        });
     }
 
     /**
@@ -156,10 +128,10 @@ class CommandShell extends MUDEventEmitter {
      */
     destroy() {
         try {
-            this.stdout.destroy();
-            this.stderr.destroy();
-            this.stdin.destroy();
-            this.console.destroy();
+            this.stdout && this.stdout.destroy();
+            this.stderr && this.stderr.destroy();
+            this.stdin && this.stdin.destroy();
+            this.console && this.console.destroy();
         }
         catch (err) {
             logger.log(`Error in CommandShell.destroy(): ${err.message}`);
@@ -341,11 +313,41 @@ class CommandShell extends MUDEventEmitter {
     }
 
     /**
+     * Send the command to the body to be executed (via its storage object)
+     * @param {any} cmd
+     */
+    executeCommand(cmd) {
+        return this.storage.executeCommand(cmd);
+    }
+
+    expandVariable(key, defaultValue = false) {
+        if (this.env) {
+            if (key in this.env === false)
+                return defaultValue;
+
+            let val = this.env[key];
+            if (typeof val === 'function')
+                return val() || defaultValue;
+            return val || defaultValue;;
+        }
+        return defaultValue;
+    }
+
+    /**
+     * Flush out the display streams 
+     */
+    flushAll() {
+        this.stdout && this.stdout.flush();
+        this.stderr && this.stderr.flush();
+    }
+
+    /**
      * Process command source
      * @param {string} input The source to process
      */
     process(input) {
         let i = 0,
+            command = false,
             source = input.slice(0),
             m = source.length,
             contexts = [],
@@ -738,13 +740,38 @@ class CommandShell extends MUDEventEmitter {
             }
 
             token.isValueType = ValueTypes.indexOf(token.type) > -1;
+
+            if (!command && token.type === TT.Word) {
+                command = { type: TT.Command, verb: token, start: token.start, end: token.end, args: [] };
+                let arg = nextToken();
+                while (arg) {
+                    if (arg.type !== TT.WS) command.args.push(arg);
+                    arg = nextToken();
+                }
+                command.end = i;
+                command.source = source.slice(command.start, command.end);
+                command.text = source.slice(command.verb.end, command.end).trim();
+                return command;
+            }
                 
             return !!token.value && token;
         };
 
-        for (; i < m;) {
+        for (let lastResult = false; i < m;) {
             let tok = nextToken();
-            console.log(tok);
+            switch (tok.type) {
+                case TT.Command:
+                    try {
+                        lastResult = this.executeCommand(tok);
+                    }
+                    catch (err) {
+                        lastResult = err;
+                    }
+                    break;
+
+                default:
+                    throw new Error(`Unexpected token: ${tok.type} starting at position ${tok.start}`);
+            }
         }
     }
 
@@ -797,8 +824,7 @@ class CommandShell extends MUDEventEmitter {
                     });
 
                     if (inputTrapped) {
-                        this.stderr.flush();
-                        this.stdout.flush();
+                        this.flushAll();
                         return true;
                     }
                 }
@@ -821,17 +847,56 @@ class CommandShell extends MUDEventEmitter {
         return this.expandVariable('PROMPT', '> ');
     }
 
-    expandVariable(key, defaultValue = false) {
-        if (this.env) {
-            if (key in this.env === false)
-                return defaultValue;
+    /**
+     * Receive input from stdin
+     * @param {StandardInputStream} stream The STDIN stream
+     */
+    receiveInput(stream) {
+        try {
+            if (!this.executing) {
+                let commandBuffer = this.commandBuffer = (this.commandBuffer || '') + stream.readLine();
 
-            let val = this.env[key];
-            if (typeof val === 'function')
-                return val() || defaultValue;
-            return val || defaultValue;;
+                let incomplete = efuns.text.endsWithUnescaped(commandBuffer, '|') ||
+                    efuns.text.endsWithUnescaped(commandBuffer, '&&') ||
+                    commandBuffer.trim().endsWith('\\');
+
+                if (this.options.allowLineSpanning) {
+                    if (commandBuffer.endsWith('\\')) {
+                        commandBuffer = commandBuffer.slice(0, commandBuffer.lastIndexOf('/'));
+                    }
+                }
+                else
+                    incomplete = false;
+
+                if (incomplete) {
+                    return this.renderPrompt('> ');
+                }
+                else {
+                    this.executing = true;
+                    this.processInput(commandBuffer);
+                    this.commandBuffer = '';
+                }
+            }
         }
-        return defaultValue;
+        catch (err) {
+            console.log('error reading STDIN', err);
+        }
+    }
+
+    /**
+     * This shell is scheduled to be released/destroyed, but the streams 
+     * will live on in a new body... */
+    releaseStreams() {
+        let result = {
+            stdin: IO.InternalBuffer.detach(this.stdin),
+            stdout: IO.InternalBuffer.detach(this.stdout),
+            stderr: IO.InternalBuffer.detach(this.stderr),
+            console: IO.InternalBuffer.detach(this.console)
+        };
+
+        this.stdin = this.stdout = this.stderr = this.console = false;
+
+        return result;
     }
 
     /**
@@ -842,8 +907,7 @@ class CommandShell extends MUDEventEmitter {
     renderPrompt(inputTo) {
         if (this.storage && this.storage.connected) {
             try {
-                this.stderr.flush();
-                this.stdout.flush();
+                this.flushAll();
 
                 if (!this.inputTo) {
                     if (!inputTo && this.inputStack.length)
@@ -865,8 +929,7 @@ class CommandShell extends MUDEventEmitter {
                 this.client && this.client.write('> ');
             }
             finally {
-                this.stderr.flush();
-                this.stdout.flush();
+                this.flushAll();
             }
         }
     }
