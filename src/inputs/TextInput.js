@@ -9,7 +9,11 @@ const
     BaseInput = require('./BaseInput');
 
 class TextInput extends BaseInput.BaseInput {
-    _normalize(text) {
+    _normalize(text, client) {
+        if (this.type === 'password' && client.clientType === 'text') {
+            client.toggleEcho(true);
+            client.write(efuns.eol);
+        }
         if (this.minLength && text.length < this.minLength)
             return Error(this.minLengthError || `Value '${text}' is too short (${text.length} < ${this.minLength})`);
         else if (this.maxLength && text.length > this.maxLength)

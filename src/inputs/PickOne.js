@@ -39,7 +39,7 @@ class PickOneInput extends Base.BaseInput {
             else if (values.length === 1)
                 return values[0];
             else
-                return Error(`\nPlease select an item from the list (${disp}).\n\n`);
+                return Error(`Please select an item from the list (${disp}).`);
             return text;
         }
         else {
@@ -62,12 +62,12 @@ class PickOneInput extends Base.BaseInput {
      * @param {MUDClient} client The client to render for
      */
     renderText(client) {
-        let prompt = `\n${this.text || 'Please choose from the following:'}:\n\n`;
+        let prompt = efuns.eol + `${this.text || 'Please choose from the following:'}:` + efuns.eol + efuns.eol;
         let list = [];
 
         if (Array.isArray(this.options)) {
             this.options.forEach((o, i) => {
-                prompt += `\t${i + 1}) $o\n`;
+                prompt += `\t${i + 1}) $o` + efuns.eol;
                 list.push(`${i + 1}`);
             });
             if (list.length > 9) list = [];
@@ -80,13 +80,13 @@ class PickOneInput extends Base.BaseInput {
                     val = val.slice(0, pos) + '[' + key.toUpperCase() + ']' + val.slice(pos + key.length);
                     list.push(key);
                 }
-                prompt += `\t${val}\r\n`;
+                prompt += `\t${val}` + efuns.eol;
             });
         }
         else {
             throw new Error(`Bad argument for input type pickOne; Requires options to be object or array`);
         }
-        prompt += `\r\n${this.prompt || 'Your choice'} `;
+        prompt += efuns.eol + `${this.prompt || 'Your choice'} `;
         if ('summary' in this && list.length > 0) {
             switch (this.summary) {
                 case '':
@@ -97,7 +97,7 @@ class PickOneInput extends Base.BaseInput {
                     break;
             }
         }
-        prompt += ':';
+        prompt += ': ';
         client.write(prompt);
     }
 

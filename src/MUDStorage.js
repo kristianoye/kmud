@@ -320,11 +320,14 @@ class MUDStorage extends MUDEventEmitter {
 
             this.player = false;
 
-            this.owner.removeAllListeners();
+            this.owner.removeAllListeners && this.owner.removeAllListeners();
             driver.storage.delete(this.owner);
 
             this.owner = false;
             this.destroyed = true;
+
+            if (this.shell)
+                this.shell.destroy();
 
             return this.destroyed = module.destroyInstance(parts);
         }
@@ -723,6 +726,9 @@ class MUDStorage extends MUDEventEmitter {
                     }
                     let shellSettings = context.withPlayer(this, player => player.connect(...args), false);
                     this.shell.update(shellSettings);
+                    context.whenCompleted(() => {
+                        this.shell.renderPrompt();
+                    });
                 });
                 return true;
             }

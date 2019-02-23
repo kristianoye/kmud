@@ -152,6 +152,22 @@ class CommandShell extends MUDEventEmitter {
     }
 
     /**
+     * Destroy the shell and free its contents.
+     */
+    destroy() {
+        try {
+            this.stdout.destroy();
+            this.stderr.destroy();
+            this.stdin.destroy();
+            this.console.destroy();
+        }
+        catch (err) {
+            logger.log(`Error in CommandShell.destroy(): ${err.message}`);
+        }
+        return false;
+    }
+
+    /**
      * Expand any history expressions
      * @param {string} source The text to expand
      * @returns {string} The string with any history occurences replaced.
@@ -737,70 +753,64 @@ class CommandShell extends MUDEventEmitter {
      * @param {string} input The user's line of input.
      */
     processInput(input) {
-        try {
-            if (this.inputTo) {
-                let inputTrapped = driver.driverCall('input', ecc => {
-                    return ecc.withPlayer(this.storage, () => {
-                        let inputTo = this.inputTo;
-                        
-                        //  Indicate that stdin can be read by the shell again
-                        this.inputTo = this.executing = false;
+        driver.driverCall('input', ecc => {
 
-                        //  Hmm somehow the frame has gone away?
+            //  Set up for the next command
+            ecc.whenCompleted(() => {
+                this.executing = false;
+                this.inputTo = false;
+                setTimeout(() => this.renderPrompt(), 1);
+            });
+
+            try {
+                if (this.inputTo) {
+                    let inputTo = this.inputTo;
+
+                    let inputTrapped = ecc.withPlayer(this.storage, () => {
+                        //  This should not happen, but just in case the current input dissappears...
                         if (!inputTo) {
-                            if (this.inputStack.length) {
-                                this.renderPrompt();
-                                return true;
-                            }
+                            this.stderr.writeLine(`-kmsh: WARNING: Input frame dissappeared unexpectedly!`);
                             return false;
                         }
-
                         if (this.options.allowEscaping && input.charAt(0) === '!') {
                             input = input.slice(1);
                             return false;
                         }
                         else {
-                            input = inputTo.normalize(input);
-                            if (inputTo.type === 'password' && this.client.clientType === 'text') {
-                                this.client.write('\r\n');
-                            }
-                            if (typeof input === 'undefined') {
-                                //  The input did not agree with the input type; Re-prompt
-                                this.renderPrompt();
-                                return true;
+                            //  Allow input control to alter the content per internal logic
+                            input = inputTo.normalize(input, this.client);
+
+                            if (typeof input === 'string') {
+                                if (inputTo.callback(input) !== true) {
+                                    //  The modal frame did not recapture the user input
+                                    let index = this.inputStack.indexOf(inputTo);
+                                    if (index > -1) {
+                                        this.inputStack.splice(index, 1);
+                                    }
+                                }
                             }
                             else if (input instanceof Error) {
                                 this.stderr.write(`\n${input.message}\n\n`);
-                                this.renderPrompt();
                             }
-                            else if (inputTo.callback(input) !== true) {
-                                //  The modal frame did not recapture the user input
-                                let index = this.inputStack.indexOf(inputTo);
-                                if (index > -1) {
-                                    this.inputStack.splice(index, 1);
-                                }
-                                return true;
-                            }
+                            return true;
                         }
-                        this.renderPrompt();
-                        return true;
                     });
-                });
 
-                this.executing = false;
-                this.inputTo = false;
-
-                if (inputTrapped)
-                    return;
+                    if (inputTrapped) {
+                        this.stderr.flush();
+                        this.stdout.flush();
+                        return true;
+                    }
+                }
+                if (this.options.allowHistory) {
+                    input = this.expandHistory(input);
+                }
+                return this.process(input);
             }
-            if (this.options.allowHistory) {
-                input = this.expandHistory(input);
+            catch (err) {
+                efuns.failLine(`-kmsh: ${err.message}`);
             }
-            return this.process(input);
-        }
-        catch (err) {
-            efuns.failLine(`-kmsh: ${err.message}`);
-        }
+        });
     }
 
     /**
@@ -808,28 +818,57 @@ class CommandShell extends MUDEventEmitter {
      * @returns {string}
      */
     get prompt() {
-        return this.env.PROMPT || '> ';
+        return this.expandVariable('PROMPT', '> ');
+    }
+
+    expandVariable(key, defaultValue = false) {
+        if (this.env) {
+            if (key in this.env === false)
+                return defaultValue;
+
+            let val = this.env[key];
+            if (typeof val === 'function')
+                return val() || defaultValue;
+            return val || defaultValue;;
+        }
+        return defaultValue;
     }
 
     /**
      * The actual displaying of the prompt is dependent on the client.
      * The shell just tells the client what to render...
-     * @param {{ type: string, text: string, callback: function(string): void }} [inputTo] The frame to render
+     * @param {BaseInput} [inputTo] The frame to render
      */
     renderPrompt(inputTo) {
-        this.stdout.flush();
-        if (!inputTo && this.inputStack.length)
-            inputTo = this.inputTo = this.inputStack[0];
-        else if (typeof inputTo === 'string')
-            inputTo = { type: 'text', text: inputTo };
+        if (this.storage && this.storage.connected) {
+            try {
+                this.stderr.flush();
+                this.stdout.flush();
 
-        if (inputTo) {
-            this.client.renderPrompt(inputTo);
+                if (!this.inputTo) {
+                    if (!inputTo && this.inputStack.length)
+                        inputTo = this.inputTo = this.inputStack[0];
+
+                    else if (typeof inputTo === 'string')
+                        throw new Error('Invalid input');
+
+                    if (inputTo) {
+                        this.client.renderPrompt(inputTo);
+                    }
+                    else {
+                        this.client.renderPrompt({ type: 'text', text: this.prompt });
+                    }
+                }
+            }
+            catch (err) {
+                this.client && this.client.writeLine(`CRITICAL: ${err.message}`);
+                this.client && this.client.write('> ');
+            }
+            finally {
+                this.stderr.flush();
+                this.stdout.flush();
+            }
         }
-        else {
-            this.client.renderPrompt({ type: 'text', text: this.prompt });
-        }
-        this.stdout.flush();
     }
 
     /**

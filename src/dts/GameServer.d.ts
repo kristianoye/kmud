@@ -66,6 +66,12 @@ declare class ExecutionContext {
     /** Indicate the current execution context has completed */
     complete(): ExecutionContext;
 
+    /**
+     * Register a callback that fires when the context is complete
+     * @param onComplete
+     */
+    whenCompleted(onComplete: (ecc: ExecutionContext) => void): ExecutionContext;
+
     /** Creates a new child context to be associated with an async call */
     fork(): ExecutionContext;
 

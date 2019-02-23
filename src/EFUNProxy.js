@@ -380,18 +380,20 @@ class EFUNProxy {
      * @param {MUDObject} target The object to destruct.
      */
     destruct(target, ...args) {
-        return unwrap(target, ob => {
+        let ob = unwrap(target);
+        if (ob) {
             let ecc = driver.getExecution(),
                 store = driver.storage.get(ob);
-
             if (store) {
                 if (ecc.guarded(frame => driver.validDestruct(ob, frame))) {
                     return driver.driverCall('destruct', () => {
                         return store.eventDestroy(...args);
                     });
                 }
+                else
+                    throw Error(`Permission denied: Could not destruct object ${ob.filename}`);
             }
-        });
+        }
         return false;
     }
 
@@ -406,58 +408,55 @@ class EFUNProxy {
 
     /**
      * Switch an interactive object's body instance.
-     * @param {MUDObject} oldBody The body that is being left behind.
-     * @param {MUDObject} newBody The body that the user is switching into.
+     * @param {MUDObject} ptrOld The body that is being left behind.
+     * @param {MUDObject} ptrNew The body that the user is switching into.
      * @param {function(MUDObject,MUDObject):any} callback The callback to execute when the switch is complete.
      * @returns {boolean} True if the 
      */
-    exec(oldBody, newBody, callback) {
+    exec(ptrOld, ptrNew, callback) {
         let ecc = driver.getExecution();
 
-        oldBody = global.wrapper(oldBody);
-        newBody = global.wrapper(newBody);
+        ptrOld = global.wrapper(ptrOld);
+        ptrNew = global.wrapper(ptrNew);
 
-        return ecc.guarded(f => driver.validExec(this, oldBody, newBody), () => {
-            let result = unwrap([oldBody, newBody], (obs) =>
-                driver.driverCall('exec', () => {
-                    let [o, n] = obs, oldStorage = driver.storage.get(o),
-                        client = oldStorage.client;
+        let [oldBody, newBody] = unwrap([ptrOld, ptrNew]);
 
-                    //  The old storage has no client?!
-                    if (!client)
-                        return false;
+        if (!ecc.guarded(f => driver.validExec(this, oldBody, newBody)))
+            throw new Error('Permission denied to efuns.exec()');
 
-                    let newStorage = driver.storage.get(n);
+        return driver.driverCall('exec', () => {
+            let oldStorage = driver.storage.get(oldBody),
+                client = oldStorage.client;
 
-                    //  New body is invalid due to storage
-                    if (!newStorage)
-                        return false;
+            //  The old storage has no client?!
+            if (!client)
+                return false;
 
-                    try {
-                        client.setBody(newBody, oldBody);
-                        let result = callback ? callback(o, n) || true : true;
-                        return result;
-                    }
-                    catch (e) {
-                        /* ack... try and roll back */
-                        console.log(`Error during exec(): ${e.message}; Rolling back.`);
-                        try {
-                            client.setBody(o);
-                        }
-                        catch (ee) {
-                            /* rollback failed, too... destroy them all */
-                            this.write('Sorry things did not work out.');
-                            client.disconnect();
-                        }
-                        throw e;
-                    }
-                }, this.fileName, true));
+            let newStorage = driver.storage.get(newBody);
 
-            if (!result) // TODO: Add config-based error string message here ... or driver apply
-                this.write('You twitch, but nothing happens.');
+            //  New body is invalid due to storage
+            if (!newStorage)
+                return false;
 
-            return result;
-        });
+            try {
+                client.setBody(ptrNew, ptrOld);
+                let result = callback ? callback(oldBody, newBody) || true : true;
+                return result;
+            }
+            catch (e) {
+                /* ack... try and roll back */
+                console.log(`Error during exec(): ${e.message}; Rolling back.`);
+                try {
+                    client.setBody(oldBody);
+                }
+                catch (ee) {
+                    /* rollback failed, too... destroy them all */
+                    this.write('Sorry things did not work out.');
+                    client.disconnect();
+                }
+                throw e;
+            }
+        }, this.fileName, true);
     }
 
     /**
@@ -529,6 +528,10 @@ class EFUNProxy {
 
     get english() {
         return EnglishHelper;
+    }
+
+    get eol() {
+        return '\r\n';
     }
 
     get exports() {
@@ -1696,17 +1699,17 @@ class EFUNProxy {
         return driver.fileManager.statSync(this, this.join(this.directory, filepath), flags);
     }
 
-    get stderr() {
+    get err() {
         let ecc = driver.getExecution();
         return ecc.shell && ecc.shell.stderr;
     }
 
-    get stdin() {
+    get in() {
         let ecc = driver.getExecution();
         return ecc.shell && ecc.shell.stdin;
     }
 
-    get stdout() {
+    get out() {
         let ecc = driver.getExecution();
         return ecc.shell && ecc.shell.stdout;
     }
@@ -1842,21 +1845,21 @@ class EFUNProxy {
     }
 
     fail(...expr) {
-        this.writeToStream(false, this.stderr, ...expr);
+        this.writeToStream(false, this.err, ...expr);
         return false;
     }
 
     failLine(...expr) {
-        this.writeToStream(true, this.stderr, ...expr);
+        this.writeToStream(true, this.err, ...expr);
         return false;
     }
 
     write(...expr) {
-        return this.writeToStream(false, this.stdout, ...expr);
+        return this.writeToStream(false, this.out, ...expr);
     }
 
     writeLine(...expr) {
-        return this.writeToStream(true, this.stdout, ...expr);
+        return this.writeToStream(true, this.out, ...expr);
     }
 
     /**
@@ -1866,7 +1869,7 @@ class EFUNProxy {
      * @returns {true} Always returns true.
      */
     writeToStream(appendNewline = true, stream = false, ...expr) {
-        stream = stream || this.stdout;
+        stream = stream || this.out;
 
         if (!stream)
             return false;

@@ -24,10 +24,11 @@ class BaseInput {
     /**
      * Normalize the user's input
      * @param {string} input The user's original input text
+     * @param {MUDClient} client The client 
      * @returns {string} The normalized input to be used
      */
-    normalize(input) {
-        let result = this._normalize(input);
+    normalize(input, client) {
+        let result = this._normalize(input, client);
         if (result instanceof Error) {
             if (this.onError && this.onError(input))
                 return undefined;

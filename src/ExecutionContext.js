@@ -41,7 +41,7 @@ class ExecutionContext extends MUDEventEmitter {
             /** @type {ExecutionContext} */
             this.parent = parent;
             this.forkedAt = parent.stack.length;
-            this.onComplete = false;
+            this.onComplete = parent.onComplete;
 
             this.client = parent.client;
             this.player = parent.player;
@@ -67,7 +67,7 @@ class ExecutionContext extends MUDEventEmitter {
             /** @type {ExecutionContext} */
             this.parent = false;
             this.forkedAt = 0;
-            this.onComplete = false;
+            this.onComplete = [];
             /** @type {ObjectStackItem} */
             this.originalFrame = false;
             this.player = false;
@@ -180,8 +180,14 @@ class ExecutionContext extends MUDEventEmitter {
                 //  Make sure not to call completion twice
                 if (!this.completed) {
                     this.completed = true;
-                    if (typeof this.onComplete === 'function')
-                        this.onComplete(this);
+                    this.onComplete.forEach(cb => {
+                        try {
+                            cb(this);
+                        }
+                        catch (err) {
+                            /* do nothing? */
+                        }
+                    });
                     this.emit('complete', this);
                 }
             }
@@ -331,6 +337,15 @@ class ExecutionContext extends MUDEventEmitter {
             if (ob === driver) return driver.masterObject;
         }
         return false;
+    }
+
+    /**
+     * Adds a listener to the complete queue
+     * @param {function(ExecutionContext):void} callback The callback to fire when execution is complete.
+     */
+    whenCompleted(callback) {
+        this.onComplete.push(callback);
+        return this;
     }
 
     /**
