@@ -121,7 +121,7 @@ class MoveCommand extends Command {
             files.forEach(fi => {
                 efuns.movePath(fi.path, op.targetDirectory, op);
                 if (op.flags & MUDFS.MoveFlags.Verbose) {
-                    write(`mv: ${fi.path} -> ${fi.targetDirectory}`);
+                    writeLine(`mv: ${fi.path} -> ${fi.targetDirectory}`);
                 }
             });
         });

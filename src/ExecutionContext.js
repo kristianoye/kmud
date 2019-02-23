@@ -138,7 +138,9 @@ class ExecutionContext extends MUDEventEmitter {
             else {
                 let child = this.asyncChildren[promiseLike.handleId];
                 if (child) child.frame = frame;
+                this.inAsyncCall = true;
                 ret = await promiseLike;
+                delete this.inAsyncCall;
             }
             if (type === 'ArrayPattern')
                 return [ret.result, ret.error];
@@ -398,10 +400,12 @@ class ExecutionContext extends MUDEventEmitter {
 ExecutionContext.asyncWrapper = function (asyncCode, timeout = 5000, callback = false) {
     let ecc = driver.getExecution(),    // Get current execution context
         child = ecc.fork(),             // Spawn child context to monitor this call
-//        frame = ecc.stack[0],
         finalValue = undefined,
-//        prevFrame = frame && ecc.pop(frame.method),
         timerId = false;                // Timer to ensure prompt resolution
+
+    if (!ecc.inAsyncCall) {
+        console.log('Call to async method in non-async context');
+    }
 
     let promise = new Promise(
         (resolve, reject) => {

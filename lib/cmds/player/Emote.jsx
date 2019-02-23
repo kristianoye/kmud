@@ -9,7 +9,7 @@ const
 
 class Emote extends Command {
     cmd(args, cmdline) {
-        write(`You emote: ${thisPlayer().displayName} ${cmdline.input}`);
+        writeLine(`You emote: ${thisPlayer().displayName} ${cmdline.input}`);
         thisPlayer().tellEnvironment(`${thisPlayer().displayName} ${cmdline.input}`);
         return true;
     }

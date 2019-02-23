@@ -24,6 +24,7 @@ const
 const
     ArrayHelper = require('./efuns/Arrays'),
     EnglishHelper = require('./efuns/English'),
+    FileSystemHelper = require('./efuns/FileSystem'),
     InputHelper = require('./efuns/Inputs'),
     LivingsHelper = require('./efuns/Livings'),
     TextHelper = require('./efuns/TextHelper'),
@@ -51,7 +52,7 @@ class EFUNProxy {
 
     /**
      * Return an absolute value
-     * @param {number} n The signed value to get an ansolute value for.
+     * @param {number} n The signed value an ansolute value for.
      * @returns {number} The unsigned absolute value.
      */
     abs(n) {
@@ -587,6 +588,13 @@ class EFUNProxy {
                     return pn === search || partial && pn.slice(0, len) === search;
                 });
         return matches.length === 1 ? matches[0] : false;
+    }
+
+    /**
+     * Filesystem-related efuns
+     */
+    get fs() {
+        return FileSystemHelper;
     }
 
     /**

@@ -69,7 +69,7 @@ class RmDir extends Command {
 
         efuns.rmdir(dir, flags, (success, error) => {
             if (options & RMDIR_VERBOSE)
-                write('Rmdir: ' + (success ? `Removed ${dir}` : `Failed: ${error.message}`));
+                writeLine('Rmdir: ' + (success ? `Removed ${dir}` : `Failed: ${error.message}`));
             if (dirList.length === 0) return cmdline.complete();
             else this.removeDirectories(dirList, flags, options, cmdline);
         });

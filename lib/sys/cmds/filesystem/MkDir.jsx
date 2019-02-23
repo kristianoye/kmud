@@ -75,7 +75,7 @@ class MkDirCommand extends Command {
 
         efuns.mkdir(dir, flags, (success, error) => {
             if (options & MKDIR_VERBOSE)
-                write('Mkdir: ' + (success ? `Created ${dir}` : `Failed: ${error.message}`));
+                writeLine('Mkdir: ' + (success ? `Created ${dir}` : `Failed: ${error.message}`));
             if (dirList.length === 0) return cmdline.complete();
             else this.createDirectories(dirList, flags, options, cmdline);
         });

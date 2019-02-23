@@ -17,7 +17,7 @@ class UpdateCommand extends Command {
         }
         input.args.forEach(fn => {
             let path = efuns.resolvePath(fn, thisPlayer().workingDirectory);
-            write(`Update ${path}: ${(efuns.reloadObjectSync(path) ? '[OK]' : '[Failure]')}`);
+            writeLine(`Update ${path}: ${(efuns.reloadObjectSync(path) ? '[OK]' : '[Failure]')}`);
         })
         return true;
     }

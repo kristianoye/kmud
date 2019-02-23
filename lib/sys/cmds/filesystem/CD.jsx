@@ -14,10 +14,10 @@ class CDCommand extends Command {
 
         if (efuns.isDirectorySync(path)) {
             player.workingDirectory = path;
-            write('Directory changed');
+            writeLine('Directory changed');
         }
         else {
-            write('No such file or directory: ' + path);
+            writeLine('No such file or directory: ' + path);
         }
         return true;
     }

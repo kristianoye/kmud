@@ -320,7 +320,11 @@ class MUDLoader {
      * @param {...any} args
      */
     error(...args) {
-        return efuns.failLine(...args);
+        return efuns.writeToStream(false, this.err, ...args);
+    }
+
+    errorLine(...args) {
+        return efuns.writeToStream(true, this.err, ...args);
     }
 
     /**

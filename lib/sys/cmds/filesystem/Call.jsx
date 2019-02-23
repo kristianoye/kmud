@@ -16,17 +16,17 @@ class CallCommand extends Command {
                 call = endOfTarget > 0 ? input.slice(endOfTarget + 1) : false,
                 resolved = this.resolveTarget(target),
                 source = `(function() { var o = efuns.loadObjectSync("${resolved}"); return unwrap(o, ob => ob.${call}  ); })()`;
-            write(source);
+            writeLine(source);
 
             var
                 result = eval(source);
 
-            write("result = " + efuns.identify(result));
+            writeLine("result = " + efuns.identify(result));
             return true;
         }
         catch (e) {
-            write('Error: ' + e);
-            write(e.stack);
+            writeLine('Error: ' + e);
+            writeLine(e.stack);
         }
         return true;
     }
@@ -39,7 +39,7 @@ class CallCommand extends Command {
         var pl = efuns.findPlayer(spec);
         if (pl) return unwrap(pl).filename;
         var fn = efuns.resolvePath(spec, thisPlayer().workingDirectory);
-        write('Trying to call ' + fn);
+        writeLine('Trying to call ' + fn);
         return fn;
     }
 }

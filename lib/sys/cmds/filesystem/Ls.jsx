@@ -157,7 +157,7 @@ class ListCommand extends Command {
                 return result;
             }));
         }
-        write(buffer);
+        writeLine(buffer);
     }
 
     /**
@@ -179,7 +179,7 @@ class ListCommand extends Command {
                 fi.mtime.toISOString().slice(0, 16))
                 + this.displayColumnName(fi, displayFlags) + '\n';
         });
-        write(buffer);
+        writeLine(buffer);
     }
 
     /**
@@ -229,7 +229,7 @@ class ListCommand extends Command {
                 return result;
             }).join('\n');
         }
-        write(buffer);
+        writeLine(buffer);
     }
 
     webListing(path, tp) {

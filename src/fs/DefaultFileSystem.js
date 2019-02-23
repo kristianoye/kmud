@@ -227,16 +227,23 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Check to see if the expression is a directory.
-     * @param {FileSystemRequest} req The filesystem request.
-     * @param {function(boolean,Error):void} callback
+     * @param {string} relativePath The filesystem request.
      * @returns {void} Nothing for async
      */
-    isDirectoryAsync(req, callback) {
-        if (req.resolved) return callback(true, false);
-        return this.translatePath(req.relativePath, fullPath => {
-            return this.statAsync(fullPath, (stat, err) => {
-                return callback(stat.isDirectory, err);
-            });
+    isDirectoryAsync(relativePath) {
+        let fullPath = this.translatePath(relativePath);
+        return new Promise((resolve, reject) => {
+            try {
+                fs.stat(fullPath, (err, stat) => {
+                    if (err)
+                        reject(err);
+                    else
+                        resolve(stat.isDirectory());
+                });
+            }
+            catch (err) {
+                resolve(false);
+            }
         });
     }
 

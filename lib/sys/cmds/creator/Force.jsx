@@ -28,7 +28,7 @@ class ForceCommand extends Verb {
     }
 
     doForceLivingToString(liv, cmd) {
-        write(`You force ${liv.displayName} to ${cmd}`);
+        writeLine(`You force ${liv.displayName} to ${cmd}`);
         liv.eventForce(cmd);
         return true;
     }

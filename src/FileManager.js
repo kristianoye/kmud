@@ -7,6 +7,7 @@
  * filesystems.
  */
 const
+    ExecutionContext = require('./ExecutionContext'),
     MUDEventEmitter = require('./MUDEventEmitter'),
     { MudlibFileMount } = require('./config/MudlibFileSystem'),
     FileSystem = require('./FileSystem').FileSystem,
@@ -353,6 +354,19 @@ class FileManager extends MUDEventEmitter {
     eachFileSystem(callback) {
         return Object.keys(this.fileSystems)
             .map(id => callback(this.fileSystems[id], id));
+    }
+
+
+    isDirectoryAsync(efuns, expr) {
+        let req = this.createFileRequest('isDirectory', expr, true, 0, null, efuns);
+
+        return ExecutionContext.asyncWrapper(async (resolve, reject) => {
+            let ecc = driver.getExecution();
+            if (!req.valid('validReadDirectory'))
+                reject(req.deny());
+            else
+                resolve(await req.fileSystem.isDirectoryAsync(req.relativePath));
+        });
     }
 
     /**

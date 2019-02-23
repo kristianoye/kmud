@@ -29,7 +29,7 @@ class EditFileCommand extends Command {
             return 'You are already in edit mode!';
         }
         options.mode = efuns.isFile(fullPath) ? /* command mode */ 2 : /* insert mode */ 1;
-        write('Starting editor.');
+        writeLine('Starting editor.');
         efuns.editorStart(fullPath, !efuns.wizardp(thisPlayer), options);
         evt.prompt.text = efuns.thisPlayer().getEditorPrompt();
         return true;

@@ -470,6 +470,9 @@
     <Compile Include="src\efuns\English.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\efuns\FileSystem.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\efuns\Inputs.js">
       <SubType>Code</SubType>
     </Compile>

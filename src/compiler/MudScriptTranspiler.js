@@ -305,7 +305,9 @@ function parseElement(op, e, depth) {
 
             case 'ArrowFunctionExpression':
                 {
-                    let funcName = `${op.getCallerId() || '(anonymous)'}(() => {})`;
+                    let funcName = e.async ?
+                        `async ${op.getCallerId() || '(anonymous)'}(() => {})` :
+                        `${op.getCallerId() || '(anonymous)'}(() => {})`;
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
                     ret += op.readUntil(e.body.start);
                     if (e.body.type === 'BlockStatement') {
