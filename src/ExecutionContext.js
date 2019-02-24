@@ -187,7 +187,7 @@ class ExecutionContext extends MUDEventEmitter {
                             cb(this);
                         }
                         catch (err) {
-                            /* do nothing? */
+                            logger.log('Error in onComplete handler:', err.message);
                         }
                     });
                     this.emit('complete', this);

@@ -16,6 +16,7 @@ const
         'heartbeat',      // Called periodically in "living" objects
         'init',           // Called when objects interact with one another
         'moveObject',     // Called to move the object from one location to another
+        'prepareCommand', // Called while parsing command to override shell settings
         'processInput',   // Called to process user input
         'receiveMessage', // Called when an object receives a message
         'reset'           // Called periodically to reset the object state
@@ -264,6 +265,10 @@ class MUDLoader {
             },
             Object: {
                 value: global.Object,
+                writable: false
+            },
+            Promise: {
+                value: global.Promise,
                 writable: false
             },
             pluralize: {

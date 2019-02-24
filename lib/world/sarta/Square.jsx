@@ -20,8 +20,8 @@ class Square extends Room {
             business.</p>;
 
         this.addExit('out', '/realms/kriton/Workroom');
-        this.addExit('north', './northMain1');
-        this.addExit('south', './southmain1');
+        this.addExit('north', 'northMain1');
+        this.addExit('south', 'southmain1');
     }
 
     reset() {

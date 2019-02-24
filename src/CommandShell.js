@@ -3,7 +3,7 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: February 20, 2019
  *
- * Description: Command interpreter for MUD objects.
+ * Description: Command interpreter for interactive MUD users.
  */
 
 /// <reference path="./StandardIO.js" />
@@ -11,7 +11,8 @@ const
     IO = require('./StandardIO'),
     LinkedList = require('./LinkedList'),
     MUDEventEmitter = require('./MUDEventEmitter'),
-    { BaseInput } = require('./inputs/BaseInput');
+    { BaseInput } = require('./inputs/BaseInput'),
+    CommandInterval = 5;
 
 const
     TT = {
@@ -38,9 +39,20 @@ const
         Word: 'word',
         WS: 'whitespace'
     },
-    ValueTypes = [ TT.Array, TT.Boolean, TT.Number, TT.Object, TT.String, TT.Word ],
+    ValueTypes = [TT.Array, TT.Boolean, TT.Number, TT.Object, TT.String, TT.Word, TT.VariableValue],
     B_TRUE = 'true',
     B_FALSE = 'false';
+
+/**
+ * @typedef {Object} ParsedCommand 
+ * @property {ParsedCommand} [conditional] The next command to execute if the current command succeeded 
+ * @property {ParsedCommand} [alternate] The command to execute if the current command failed 
+ * @property {ParsedCommand} [pipeline] The next command to feed into once this command finished 
+ * @property {string} verb The name of the command to execute
+ * @property {any[]} args The arguments to pass to the command
+ * @property {string} original The original, raw text from the user
+ * @property {string} text The original text from the user but excluding the verb
+ * */
 
 /** 
  * @typedef {Object} CommandShellOptions
@@ -79,7 +91,7 @@ class CommandShell extends MUDEventEmitter {
 
         this.storage = storage;
         this.client = storage.client;
-        this.player = storage.owner;
+        this.playerRef = storage.owner;
 
         if (streams) {
             IO.InternalBuffer.attach(streams, storage.client, this);
@@ -127,7 +139,7 @@ class CommandShell extends MUDEventEmitter {
         if (prompt instanceof BaseInput === false)
             throw new Error('Illegal call to addPrompt(); Must be a valid input type');
         this.inputStack.unshift(prompt);
-        setTimeout(() => this.renderPrompt(), 0);
+        this.renderPrompt();
     }
 
     /**
@@ -321,20 +333,117 @@ class CommandShell extends MUDEventEmitter {
 
     /**
      * Send the command to the body to be executed (via its storage object)
-     * @param {any} cmd
+     * @param {ParsedCommand[]} cmds The command chunks to execute.
      */
-    executeCommand(cmd) {
-        return this.storage.executeCommand(cmd);
+    executeCommands(cmds) {
+        if (cmds.length) {
+            setTimeout(async () => {
+                try {
+                    let cmd = cmds[0], result, err;
+                    if (cmd) {
+                        if (cmd.subType === TT.Assignment) {
+                            return this.executeResult(this.env[cmd.lhs.value] = cmd.value, cmds);
+                        }
+                        result = this.storage.executeCommand(cmd);
+                        if (result instanceof Promise) {
+                            let actualResult = await result.catch(e => { err = e });
+                            return this.executeResult(actualResult || err, cmds);
+                        }
+                        else if (typeof result === 'object' && result.constructor.name === 'Promise') {
+                            let actualResult = await result.catch(e => { err = e });
+                            return this.executeResult(actualResult || err, cmds);
+                        }
+                        return this.executeResult(result, cmds);
+                    }
+                    else
+                        return this.renderPrompt(false);
+                }
+                catch (err) {
+                    this.executeResult(err, cmds);
+                }
+            }, CommandInterval);
+        }
+        else {
+            return this.renderPrompt(false);
+        }
     }
 
-    expandVariable(key, defaultValue = false) {
+    /**
+     * 
+     * @param {any} result The result of the last command
+     * @param {ParsedCommand[]} cmds The commands that are executing.
+     */
+    executeResult(result, cmds) {
+        try {
+            let cmd = cmds.shift(),
+                success = result !== false && result instanceof Error === false;
+
+            if (this.env) {
+                this.env["$?"] = success;
+                this.env["$??"] = result;
+            }
+
+            if (success) {
+                if (cmd.pipeline) {
+                    cmds.unshift(cmd.pipeline);
+                    return setTimeout(() => this.executeCommands(cmds), CommandInterval);
+                }
+                else if (cmd.conditional) {
+                    cmds.unshift(cmd.conditional);
+                    return setTimeout(() => this.executeCommands(cmds), CommandInterval);
+                }
+            }
+            else {
+                if (cmd.pipeline) {
+                    cmds.unshift(cmd.pipeline);
+                    return setTimeout(() => this.executeCommands(cmds), CommandInterval);
+                }
+                else if (cmd.alternate) {
+                    cmds.unshift(cmd.alternate);
+                    return setTimeout(() => this.executeCommands(cmds), CommandInterval);
+                }
+                else if (cmd.conditional) {
+                    while (cmd = cmd.conditional) {
+                        if (cmd.alternate) {
+                            cmds.unshift(cmd.alternate);
+                            return setTimeout(() => this.executeCommands(cmds), CommandInterval);
+                        }
+                    }
+                }
+            }
+            return setTimeout(() => this.executeCommands(cmds), CommandInterval);
+        }
+        catch (err) {
+            this.handleError(err);
+            if (cmds && cmds.length)
+                setTimeout(() => this.executeCommands(cmds), CommandInterval);
+            else
+                this.renderPrompt();
+        }
+    }
+
+    /**
+     * Expands a shell variable
+     * @param {string} key The variable to search for
+     * @param {any} defaultValue The default value to use if the variable is not set.
+     * @returns {any} The value or default if not found
+     */
+    expandVariable(key, defaultValue = '') {
         if (this.env) {
             if (key in this.env === false)
                 return defaultValue;
 
             let val = this.env[key];
-            if (typeof val === 'function')
-                return val() || defaultValue;
+            if (typeof val === 'function') {
+                let result = '';
+                try {
+                    result = val.apply(this.player) || defaultValue;
+                }
+                catch (err) {
+                    result = `[ERROR:${key}:${err.message}]`;
+                }
+                return result;
+            }
             return val || defaultValue;;
         }
         return defaultValue;
@@ -349,12 +458,34 @@ class CommandShell extends MUDEventEmitter {
     }
 
     /**
+     * Let the mudlib handle the error
+     * @param {string|Error} err The error that occurred
+     */
+    handleError(err) {
+        try {
+            if (this.player) {
+                if (this.player.shellError && this.player.shellError(err)) return;
+            }
+            this.stderr.writeLine(`-kmsh: Error: ${err.message || err}`);
+        }
+        catch(err) {
+            logger.log('Error in handleError!', err);
+        }
+    }
+
+    /**
+     * Returns the unwrapped reference to the player
+     */
+    get player() {
+        return unwrap(this.playerRef);
+    }
+
+    /**
      * Process command source
      * @param {string} input The source to process
      */
     process(input) {
         let i = 0,
-            command = false,
             commandIndex = 0,
             options = this.options,
             source = input.slice(0),
@@ -362,18 +493,21 @@ class CommandShell extends MUDEventEmitter {
             contexts = [],
             isEscaped = false,
             isString = false,
-            inExpr = false;
+            inExpr = false,
+            command = false,
+            lastCommand = false,
+            cmds = [];
 
-        let take = (n = 1, start = false) => {
+        let take = (n = 1, start = false, consume = true) => {
             if (typeof n === 'number') {
                 let ret = source.slice(i, i + n);
-                i += n;
+                if (consume) i += n;
                 return ret;
             }
             else if (n instanceof RegExp) {
                 let ret = n.exec(source.slice(start || i));
                 if (ret) {
-                    i = (start ? start : i) + ret[0].length ;
+                    if (consume) i = (start ? start : i) + ret[0].length ;
                     return ret.length > 1 ? ret : ret[0];
                 }
                 return false;
@@ -381,7 +515,7 @@ class CommandShell extends MUDEventEmitter {
             else if (typeof n === 'string') {
                 let s = start || i, test = source.slice(s, s + n.length);
                 if (test === n) {
-                    i += n.length;
+                    if (consume) i += n.length;
                     return n;
                 }
                 return false;
@@ -391,7 +525,13 @@ class CommandShell extends MUDEventEmitter {
         let getContext = () => {
             return contexts.length > 0 && contexts[0].type;
         };
-        let nextToken = (start = false, expect = false) => {
+        /**
+         * 
+         * @param {number} [start=false] The position to start reading from
+         * @param {string} expect The type of token to expect
+         * @returns {{ type: string, subType: string, start: number, end: number, value: any }} The token
+         */
+        let nextToken = (start = false, expect = false, ignore = []) => {
             let token = { value: '', type: TT.Word, start: i = start || i, end: -1 };
             for (let done= false; !done && i < m; i++) {
                 let c = source.charAt(i);
@@ -427,7 +567,7 @@ class CommandShell extends MUDEventEmitter {
 
                     case '*':
                     case '?':
-                        if (this.options.expandFileExpressions) {
+                        if (options.expandFileExpressions) {
                             token.value += c;
                             token.type = TT.FileExpression;
                         }
@@ -436,7 +576,7 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case ';':
-                        if (this.options.allowChaining) {
+                        if (options.allowChaining) {
                             token = { type: TT.Operator, subType: TT.CmdSeperator, start: i, end: ++i };
                             done = true;
                         }
@@ -445,7 +585,7 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '|':
-                        if (this.options.allowChaining) {
+                        if (options.allowChaining) {
                             if (take('|')) {
                                 //  Evaluate previous command to see if it succeeded
                                 token = {
@@ -473,7 +613,7 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '&':
-                        if (this.options.allowChaining) {
+                        if (options.allowChaining) {
                             if (take('&')) {
                                 //  Evaluate previous command to see if it succeeded
                                 token = {
@@ -491,7 +631,7 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '.':
-                        if (this.options.allowObjectShell && inExpr) {
+                        if (options.allowObjectShell && inExpr) {
                             token.isExpression = inExpr = true;
                             if (!(token.target = contexts.shift()))
                                 throw new Error(`Unexpected end of input at position ${i}`);
@@ -544,7 +684,7 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '=':
-                        if (this.options.allowObjectShell) {
+                        if (options.allowObjectShell) {
                             if (take('==')) {
                                 //  Equality operator
                             }
@@ -553,15 +693,25 @@ class CommandShell extends MUDEventEmitter {
                                 if (!token.lhs || token.lhs.type !== 'variable') {
                                     throw new Error(`Unexpected token '=' at position ${i}`);
                                 }
-                                token.type = 'assignment';
-                                token.value = '=';
-                                let next = nextToken(++i);
-                                while (next.type === TT.WS) {
-                                    next = nextToken();
+                                contexts.unshift(command = token);
+                                token.type = TT.Command;
+                                token.subType = TT.Assignment;
+                                token.begin = token.lhs.start;
+                                token.rhs = nextToken(++i, false, [TT.WS]);
+                                if (token.rhs.type === TT.Word) {
+                                    let v = token.rhs.value, asNumber = parseFloat(v);
+                                    if (!isNaN(asNumber))
+                                        token.value = asNumber;
+                                    else if (/(true|false)/i.test(v))
+                                        token.value = v === 'true';
+                                    else
+                                        token.value = v;
                                 }
-                                token.rhs = next;
-                                token.end = next.end;
-                                done = true;
+                                else
+                                    token.value = token.rhs.value;
+                                token.end = i;
+                                contexts.shift();
+                                return token;
                             }
                         }
                         else
@@ -569,7 +719,7 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case ',':
-                        if (this.options.allowObjectShell) {
+                        if (options.allowObjectShell) {
                             token.type = 'operator';
                             token.value = ',';
                             token.end = ++i;
@@ -580,24 +730,58 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '$':
-                        if (this.options.allowEnvironment) {
+                        if (options.allowEnvironment) {
                             let name = nextToken(++i, TT.Word);
                             token.isExpression = inExpr = true;
                             token.type = TT.Variable;
                             token.value = name.value;
                             i = token.end = name.end;
 
-                            if (this.options.allowObjectShell) {
+                            if (options.allowObjectShell) {
                                 //  Member expression
                                 if (take('.')) {
                                     token.type = TT.MemberExpression;
                                     contexts.unshift(token);Krit
                                     return nextToken(--i);
                                 }
+                                //  Does it look like variable assignment?
+                                else if (!command && take(/\s*=/, false, false)) {
+                                    contexts.push(token);
+                                    token = nextToken(false, TT.Assignment, [TT.WS]);
+                                    done = true;
+                                }
                                 // Member expansion
                                 else {
                                     token.type = TT.VariableValue;
                                     token.value = this.expandVariable(name.value);
+
+                                    let convertValue = (value) => {
+                                        let valueType = typeof value;
+                                        if (['number', 'boolean', 'string'].indexOf(valueType) > -1)
+                                            return `${value}`;
+                                        else if (Array.isArray(value))
+                                            return '[ ' + value.map(v => convertValue(v)).join(', ') + ' ] ';
+                                        else if (typeof value === 'object') {
+                                            let result = '{ ';
+                                            Object.keys(value).forEach((key, index) => {
+                                                if (index > 0)
+                                                    result += ', ';
+                                                result += convertValue(key);
+                                                result += ':';
+                                                result += convertValue(value[key]);
+                                            });
+                                            result += ' }';
+                                            return result;
+                                        }
+                                        else
+                                            return valueType.toUpperCase();
+                                    };
+                                    let textVersion = convertValue(token.value);
+                                    source = source.slice(0, token.start) + textVersion + source.slice(token.end);
+                                    i = token.start + textVersion.length;
+                                    token.end = token.start + textVersion.length;
+                                    m = source.length;
+                                    done = true;
                                 }
                             }
                             else {
@@ -625,10 +809,10 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '[': // Array expression or indexer
-                        if (this.options.allowObjectShell && inExpr && getContext() === TT.MemberExpression) {
+                        if (options.allowObjectShell && inExpr && getContext() === TT.MemberExpression) {
                             token.type = TT.Indexer;
 
-                            let key = nextToken();
+                            let key = nextToken(++i, TT.Word, [TT.WS]);
                             while (key.type === TT.WS) {
                                 key = nextToken();
                             }
@@ -647,7 +831,7 @@ class CommandShell extends MUDEventEmitter {
                         /** intentionally fall through to array scenario */
 
                     case '(': // Parameter list
-                        if (this.options.allowObjectShell && inExpr) {
+                        if (options.allowObjectShell && inExpr) {
                             token.type = c === '(' ? TT.PList : TT.Array;
                             token.value = c;
                             token.end = ++i;
@@ -657,7 +841,7 @@ class CommandShell extends MUDEventEmitter {
 
                             let endsWith = token.type === TT.PList ? ')' : ']';
                             while (!take(endsWith)) {
-                                let next = nextToken();
+                                let next = nextToken(false, false, [TT.WS]);
                                 if (!next)
                                     throw new Error(`Unexpected end of ${token.type} at position ${i}`);
                                 token.end = next.end;
@@ -697,7 +881,7 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '{': // Object expression (or function body)
-                        if (this.options.allowObjectShell && inExpr) {
+                        if (options.allowObjectShell && inExpr) {
                             token.type = TT.Object;
                             token.end = ++i;
                             token.value = {};
@@ -757,7 +941,7 @@ class CommandShell extends MUDEventEmitter {
                             i += (token.value += take(/^[a-zA-Z0-9_]+/, i)).length;
                             token.end = i;
 
-                            if (this.options.allowObjectShell && take('.')) {
+                            if (options.allowObjectShell && take('.')) {
                                 //  TODO: Look up in object registry to see if this token exists...
                                 if (token.value === 'process') {
                                     token.type = 'object';
@@ -782,17 +966,24 @@ class CommandShell extends MUDEventEmitter {
                     break;
                 }
             }
-            if (expect) {
+            token.isValueType = ValueTypes.indexOf(token.type) > -1;
+            if (ignore.length > 0 && ignore.indexOf(token.type) > -1)
+                return nextToken(false, expect, ignore);
+            else if (expect) {
                 if (Array.isArray(expect) && expect.indexOf(token.type) === -1)
                     throw new Error(`Error: Got token type '${token.type}' but expected '${expect.join(', ')}' at position ${token.start}`);
                 if (token.type !== expect) 
                     throw new Error(`Error: Got token type '${token.type}' but expected '${expect}' at position ${token.start}`);
+                return token;
             }
-
-            token.isValueType = ValueTypes.indexOf(token.type) > -1;
-
             if (!command && token.type === TT.Word) {
                 command = {
+                    // Flow control
+                    conditional: false,
+                    alternate: false,
+                    then: false,
+                    pipeline: false,
+
                     type: TT.Command,
                     verb: token,
                     index: commandIndex++,
@@ -800,6 +991,18 @@ class CommandShell extends MUDEventEmitter {
                     end: token.end,
                     args: []
                 };
+                if (command.index === 0) {
+                    let overrides = this.player && driver.driverCall('prepareCommand', () => {
+                        try {
+                            return this.player.prepareCommand(command.verb);
+                        }
+                        catch (err) {
+
+                        }
+                        return {};
+                    });
+                    options = Object.assign(options, overrides);
+                }
                 let arg = nextToken();
                 while (arg) {
                     if (arg.isValueType) {
@@ -811,52 +1014,75 @@ class CommandShell extends MUDEventEmitter {
                     }
                     arg = nextToken();
                 }
-                command.end = i;
-                command.source = source.slice(command.start, command.end);
+                if (arg && arg.type !== TT.Operator)
+                    throw new Error(`Unexpected token ${arg.type} found starting at position ${i}`);
+                command.source = source.slice(command.start, command.end = i);
                 command.text = source.slice(command.verb.end, command.end).trim();
                 return command;
             }
+            else if (token.type === TT.Operator && !lastCommand && !command)
+                throw new Error(`Unexpected operator ${token.value} found at position ${token.start}`);
                 
             return !!token.value && token;
         };
 
-        for (let lastResult = false; i < m;) {
+        for (; i < m;) {
             let tok = nextToken();
 
             switch (tok.type) {
                 case TT.Command:
-                    try {
-                        lastResult = this.executeCommand(tok);
-                    }
-                    catch (err) {
-                        lastResult = err;
-                    }
+                    if (lastCommand)
+                        throw new Error(`Unexpected command found starting at position ${i}`);
+                    cmds.push(lastCommand = tok);
+                    command = false;
                     break;
 
                 case TT.Operator:
                     {
+                        let nextCmd = nextToken();
+                        while (nextCmd && nextCmd.type !== TT.Command) {
+                            nextCmd = nextToken();
+                        }
+                        if (nextCmd.type !== TT.Command)
+                            throw new Error(`Could not find next command expression after ${token.start}`)
+
+                        tok.value = nextCmd;
+
                         switch (tok.subType) {
                             case TT.CmdSeperator:
+                                cmds.push(lastCommand = tok.value);
                                 break;
 
                             case TT.LogicalAND:
+                                lastCommand.conditional = tok.value;
+                                lastCommand = tok.value;
                                 break;
 
                             case TT.LogicalOR:
+                                lastCommand.alternate = tok.value;
+                                lastCommand = tok.value;
                                 break;
 
                             case TT.Pipeline:
+                                lastCommand.pipeline = tok.value;
+                                lastCommand = tok.value;
                                 break;
 
                             default:
                                 throw new Error(`Unrecognized command operator `);
                         }
+                        command = false;
                     }
+
+                case TT.WS:
+                    break;
 
                 default:
                     throw new Error(`Unexpected token: ${tok.type} starting at position ${tok.start}`);
             }
         }
+
+        return cmds;
     }
 
     /**
@@ -868,9 +1094,8 @@ class CommandShell extends MUDEventEmitter {
 
             //  Set up for the next command
             ecc.whenCompleted(() => {
-                this.executing = false;
                 this.inputTo = false;
-                setTimeout(() => this.renderPrompt(), 1);
+                !this.executing && this.renderPrompt();
             });
 
             try {
@@ -890,7 +1115,6 @@ class CommandShell extends MUDEventEmitter {
                         else {
                             //  Allow input control to alter the content per internal logic
                             input = inputTo.normalize(input, this.client);
-
                             if (typeof input === 'string') {
                                 if (inputTo.callback(input) !== true) {
                                     //  The modal frame did not recapture the user input
@@ -908,17 +1132,30 @@ class CommandShell extends MUDEventEmitter {
                     });
 
                     if (inputTrapped) {
+                        this.executing = false;
                         this.flushAll();
                         return true;
                     }
                 }
-                if (this.options.allowHistory) {
-                    input = this.expandHistory(input);
+                try {
+                    if (this.options.allowHistory) {
+                        let newInput = this.expandHistory(input);
+                        if (newInput !== input)
+                            this.stdout.writeLine(newInput);
+                        this.history && this.history.push(newInput);
+                        input = newInput;
+                    }
+
+                    let cmds = this.process(input);
+                    return this.executeCommands(cmds);
                 }
-                return this.process(input);
+                catch (err) {
+                    this.handleError(err);
+                    this.renderPrompt(false);
+                }
             }
             catch (err) {
-                efuns.failLine(`-kmsh: ${err.message}`);
+                efuns.failLine(`CRITICAL: ${err.message}`);
             }
         });
     }
@@ -989,33 +1226,39 @@ class CommandShell extends MUDEventEmitter {
      * @param {BaseInput} [inputTo] The frame to render
      */
     renderPrompt(inputTo) {
-        if (this.storage && this.storage.connected) {
-            try {
-                this.flushAll();
+        if (inputTo === false) {
+            inputTo = undefined;
+            this.executing = false;
+        }
+        setTimeout(() => {
+            if (this.storage && this.storage.connected && !this.executing) {
+                try {
+                    this.flushAll();
 
-                if (!this.inputTo) {
-                    if (!inputTo && this.inputStack.length)
-                        inputTo = this.inputTo = this.inputStack[0];
+                    if (!this.inputTo) {
+                        if (!inputTo && this.inputStack.length)
+                            inputTo = this.inputTo = this.inputStack[0];
 
-                    else if (typeof inputTo === 'string')
-                        throw new Error('Invalid input');
+                        else if (typeof inputTo === 'string')
+                            throw new Error('Invalid input');
 
-                    if (inputTo) {
-                        this.client.renderPrompt(inputTo);
-                    }
-                    else {
-                        this.client.renderPrompt({ type: 'text', text: this.prompt });
+                        if (inputTo) {
+                            this.client.renderPrompt(inputTo);
+                        }
+                        else {
+                            this.client.renderPrompt({ type: 'text', text: this.prompt });
+                        }
                     }
                 }
+                catch (err) {
+                    this.client && this.client.writeLine(`CRITICAL: ${err.message}`);
+                    this.client && this.client.write('> ');
+                }
+                finally {
+                    this.flushAll();
+                }
             }
-            catch (err) {
-                this.client && this.client.writeLine(`CRITICAL: ${err.message}`);
-                this.client && this.client.write('> ');
-            }
-            finally {
-                this.flushAll();
-            }
-        }
+        }, CommandInterval);
     }
 
     /**
