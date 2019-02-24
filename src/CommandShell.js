@@ -342,7 +342,14 @@ class CommandShell extends MUDEventEmitter {
                     let cmd = cmds[0], result, err;
                     if (cmd) {
                         if (cmd.subType === TT.Assignment) {
-                            return this.executeResult(this.env[cmd.lhs.value] = cmd.value, cmds);
+                            let result;
+                            if (typeof cmd.value === 'undefined') {
+                                result = cmd.lhs.value in this.env;
+                                delete this.env[cmd.lhs.value];
+                            }
+                            else
+                                result = this.env[cmd.lhs.value] = cmd.value, cmds;
+                            return this.executeResult(result, cmds);
                         }
                         result = this.storage.executeCommand(cmd);
                         if (result instanceof Promise) {
@@ -379,8 +386,8 @@ class CommandShell extends MUDEventEmitter {
                 success = result !== false && result instanceof Error === false;
 
             if (this.env) {
-                this.env["$?"] = success;
-                this.env["$??"] = result;
+                this.env["?"] = success;
+                this.env["??"] = result;
             }
 
             if (success) {
@@ -493,7 +500,11 @@ class CommandShell extends MUDEventEmitter {
             contexts = [],
             isEscaped = false,
             isString = false,
-            inExpr = false,
+            inExpr = () => {
+                for (let n = 0; n < contexts.length; n++)
+                    if (contexts[n].isExpression) return true;
+                return false;
+            },
             command = false,
             lastCommand = false,
             cmds = [];
@@ -631,8 +642,8 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '.':
-                        if (options.allowObjectShell && inExpr) {
-                            token.isExpression = inExpr = true;
+                        if (options.allowObjectShell && inExpr()) {
+                            token.isExpression = true;
                             if (!(token.target = contexts.shift()))
                                 throw new Error(`Unexpected end of input at position ${i}`);
                             token.member = nextToken(token.end = ++i, TT.Word);
@@ -647,7 +658,7 @@ class CommandShell extends MUDEventEmitter {
                             let next = nextToken();
 
                             if (next.type === TT.PList) {
-                                token.type = TT.MethodCall;
+                                token.subType = TT.MethodCall;
                                 token.args = next;
                                 token.end = next.end;
 
@@ -662,7 +673,8 @@ class CommandShell extends MUDEventEmitter {
                             else {
                                 // rewind the stream
                                 if (next) i = next.start;
-                                token.type = TT.MemberGet;
+                                token.subType = TT.MemberGet;
+                                token.isExpression = true;
                                 
                                 let ob = token.target.value;
                                 try {
@@ -674,10 +686,8 @@ class CommandShell extends MUDEventEmitter {
                                     token.value = err;
                                 }
                             }
-
                             //  We are done with this expression
                             contexts.shift();
-                            inExpr = contexts[0] && contexts[0].isExpression || false;
                         }
                         else
                             token.value += c;
@@ -719,8 +729,9 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case ',':
-                        if (options.allowObjectShell) {
-                            token.type = 'operator';
+                        if (options.allowObjectShell && inExpr()) {
+                            token.type = TT.Operator;
+                            token.subType = ',';
                             token.value = ',';
                             token.end = ++i;
                             done = true;
@@ -730,78 +741,88 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '$':
-                        if (options.allowEnvironment) {
-                            let name = nextToken(++i, TT.Word);
-                            token.isExpression = inExpr = true;
-                            token.type = TT.Variable;
-                            token.value = name.value;
-                            i = token.end = name.end;
-
-                            if (options.allowObjectShell) {
-                                //  Member expression
-                                if (take('.')) {
-                                    token.type = TT.MemberExpression;
-                                    contexts.unshift(token);Krit
-                                    return nextToken(--i);
-                                }
-                                //  Does it look like variable assignment?
-                                else if (!command && take(/\s*=/, false, false)) {
-                                    contexts.push(token);
-                                    token = nextToken(false, TT.Assignment, [TT.WS]);
-                                    done = true;
-                                }
-                                // Member expansion
-                                else {
-                                    token.type = TT.VariableValue;
-                                    token.value = this.expandVariable(name.value);
-
-                                    let convertValue = (value) => {
-                                        let valueType = typeof value;
-                                        if (['number', 'boolean', 'string'].indexOf(valueType) > -1)
-                                            return `${value}`;
-                                        else if (Array.isArray(value))
-                                            return '[ ' + value.map(v => convertValue(v)).join(', ') + ' ] ';
-                                        else if (typeof value === 'object') {
-                                            let result = '{ ';
-                                            Object.keys(value).forEach((key, index) => {
-                                                if (index > 0)
-                                                    result += ', ';
-                                                result += convertValue(key);
-                                                result += ':';
-                                                result += convertValue(value[key]);
-                                            });
-                                            result += ' }';
-                                            return result;
-                                        }
-                                        else
-                                            return valueType.toUpperCase();
-                                    };
-                                    let textVersion = convertValue(token.value);
-                                    source = source.slice(0, token.start) + textVersion + source.slice(token.end);
-                                    i = token.start + textVersion.length;
-                                    token.end = token.start + textVersion.length;
-                                    m = source.length;
-                                    done = true;
-                                }
+                        if (options.allowEnvironment && ++i < m) {
+                            // Special case variables
+                            if (take(/\?{1,2}/)) {
+                                let varName = source.slice(token.start, i).slice(1);
+                                token.type = TT.VariableValue;
+                                token.value = this.env[varName];
+                                token.end = i;
+                                done = true;
                             }
                             else {
-                                //  Variable looks only/expands input
-                                let value = {
-                                    type: TT.Word,
-                                    rawValue: this.expandVariable(token.value),
-                                    $var: source.slice(token.start, token.end),
-                                    start: i,
-                                    end: -1
-                                };
+                                let name = nextToken(i, TT.Word);
+                                token.type = TT.Variable;
+                                token.value = name.value;
+                                i = token.end = name.end;
 
-                                value.value = `${value.rawValue}`;
-                                source = source.slice(0, token.start) + value.value + source.slice(token.end);
-                                i = token.start + value.value.length;
-                                value.start = token.start;
-                                m = source.length;
-                                value.end = i;
-                                token = value;
-                                done = true;
+                                if (options.allowObjectShell) {
+                                    //  Member expression
+                                    if (take('.')) {
+                                        token.type = TT.MemberExpression;
+                                        contexts.unshift(token); Krit
+                                        return nextToken(--i);
+                                    }
+                                    //  Does it look like variable assignment?
+                                    else if (!command && take(/\s*=/, false, false)) {
+                                        contexts.push(token);
+                                        token = nextToken(false, TT.Assignment, [TT.WS]);
+                                        done = true;
+                                        break;
+                                    }
+                                    // Member expansion
+                                    else {
+                                        token.type = TT.VariableValue;
+                                        token.value = this.expandVariable(name.value);
+
+                                        let convertValue = (value) => {
+                                            let valueType = typeof value;
+                                            if (['number', 'boolean', 'string'].indexOf(valueType) > -1)
+                                                return `${value}`;
+                                            else if (Array.isArray(value))
+                                                return '[ ' + value.map(v => convertValue(v)).join(', ') + ' ] ';
+                                            else if (typeof value === 'object') {
+                                                let result = '{ ';
+                                                Object.keys(value).forEach((key, index) => {
+                                                    if (index > 0)
+                                                        result += ', ';
+                                                    result += convertValue(key);
+                                                    result += ':';
+                                                    result += convertValue(value[key]);
+                                                });
+                                                result += ' }';
+                                                return result;
+                                            }
+                                            else
+                                                return valueType.toUpperCase();
+                                        };
+                                        let textVersion = convertValue(token.value);
+                                        source = source.slice(0, token.start) + textVersion + source.slice(token.end);
+                                        i = token.start + textVersion.length;
+                                        token.end = token.start + textVersion.length;
+                                        m = source.length;
+                                        done = true;
+                                    }
+                                }
+                                else {
+                                    //  Variable looks only/expands input
+                                    let value = {
+                                        type: TT.Word,
+                                        rawValue: this.expandVariable(token.value),
+                                        $var: source.slice(token.start, token.end),
+                                        start: i,
+                                        end: -1
+                                    };
+
+                                    value.value = `${value.rawValue}`;
+                                    source = source.slice(0, token.start) + value.value + source.slice(token.end);
+                                    i = token.start + value.value.length;
+                                    value.start = token.start;
+                                    m = source.length;
+                                    value.end = i;
+                                    token = value;
+                                    done = true;
+                                }
                             }
                         }
                         else
@@ -809,7 +830,7 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '[': // Array expression or indexer
-                        if (options.allowObjectShell && inExpr && getContext() === TT.MemberExpression) {
+                        if (options.allowObjectShell && inExpr() && getContext() === TT.MemberExpression) {
                             token.type = TT.Indexer;
 
                             let key = nextToken(++i, TT.Word, [TT.WS]);
@@ -831,7 +852,7 @@ class CommandShell extends MUDEventEmitter {
                         /** intentionally fall through to array scenario */
 
                     case '(': // Parameter list
-                        if (options.allowObjectShell && inExpr) {
+                        if (options.allowObjectShell && inExpr()) {
                             token.type = c === '(' ? TT.PList : TT.Array;
                             token.value = c;
                             token.end = ++i;
@@ -881,7 +902,7 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '{': // Object expression (or function body)
-                        if (options.allowObjectShell && inExpr) {
+                        if (options.allowObjectShell && inExpr()) {
                             token.type = TT.Object;
                             token.end = ++i;
                             token.value = {};
@@ -942,18 +963,25 @@ class CommandShell extends MUDEventEmitter {
                             token.end = i;
 
                             if (options.allowObjectShell && take('.')) {
-                                //  TODO: Look up in object registry to see if this token exists...
                                 if (token.value === 'process') {
                                     token.type = 'object';
                                     token.value = process;
+                                    token.isExpression = true;
                                     contexts.unshift(token);
-                                    return nextToken(--i);
+                                    return nextToken(--i, TT.MemberExpression);
                                 }
-
+                                else if (token.value === 'me' || token.value === 'myself') {
+                                    token.type = 'object';
+                                    token.value = this.player;
+                                    contexts.unshift(token);
+                                    token.isExpression = true;
+                                    return nextToken(--i, TT.MemberExpression);
+                                }
+                                else --i;
                             }
                             done = true;
                         }
-                        else if (inExpr)
+                        else if (inExpr())
                             throw new Error(`Unexpected character ${c} at position ${i}`);
                         else
                             token.value += c;
@@ -1022,7 +1050,8 @@ class CommandShell extends MUDEventEmitter {
             }
             else if (token.type === TT.Operator && !lastCommand && !command)
                 throw new Error(`Unexpected operator ${token.value} found at position ${token.start}`);
-                
+            else if (token.type === TT.Command)
+                return token;
             return !!token.value && token;
         };
 
