@@ -1612,17 +1612,18 @@ class EFUNProxy {
 
     /**
      * 
-     * @param {string} path The path to save to.
+     * @param {string} expr The path to save to.
      */
-    saveObject(path) {
+    saveObject(expr) {
         try {
-            let ctx = driver.getContext();
-            let prev = ctx.thisObject;
+            let ctx = driver.getExecution(), prev = ctx.thisObject,
+                parts = this.parsePath(prev.filename);
+
+            expr = expr || parts.file;
 
             if (prev) {
-                if (!path.endsWith(SaveExtension))
-                    path += SaveExtension;
-                this.writeJsonFile(path, prev.serializeObject());
+                if (!expr.endsWith(SaveExtension)) expr += SaveExtension;
+                this.writeJsonFile(expr, this.serialize(prev));
                 return true;
             }
         }

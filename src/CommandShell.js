@@ -86,7 +86,9 @@ class CommandShell extends MUDEventEmitter {
             allowEscaping: false,
             allowFileIO: false,
             allowHistory: false,
-            allowObjectShell: false
+            allowObjectShell: false,
+            env: {},
+            history: []
         }, options);
 
         this.storage = storage;
@@ -107,13 +109,7 @@ class CommandShell extends MUDEventEmitter {
             delete this.options.aliases;
         }
         if (this.options.allowEnvironment) {
-            this.env = Object.assign({
-                HOME: '/',
-                MAXHISTORY: 10,
-                PROMPT: '> ',
-                SHLVL: 1,
-                USER: 'guest'
-            }, this.options.env);
+            this.env = Object.assign({}, this.options.env);
             delete this.options.env;
         }
         if (this.options.allowHistory) {
@@ -353,12 +349,15 @@ class CommandShell extends MUDEventEmitter {
                         }
                         result = this.storage.executeCommand(cmd);
                         if (result instanceof Promise) {
-                            let actualResult = await result.catch(e => { err = e });
-                            return this.executeResult(actualResult || err, cmds);
+                            return await result
+                                .then(r => this.executeResult(r, cmds))
+                                .catch(e => this.executeResult(e, cmds));
                         }
+                        // It came back from the VM so it might not be a promise, but a promise is a promise...
                         else if (typeof result === 'object' && result.constructor.name === 'Promise') {
-                            let actualResult = await result.catch(e => { err = e });
-                            return this.executeResult(actualResult || err, cmds);
+                            return await result
+                                .then(r => this.executeResult(r, cmds))
+                                .catch(e => this.executeResult(e, cmds));
                         }
                         return this.executeResult(result, cmds);
                     }
@@ -470,13 +469,16 @@ class CommandShell extends MUDEventEmitter {
      */
     handleError(err) {
         try {
-            if (this.player) {
-                if (this.player.shellError && this.player.shellError(err)) return;
+            if (this.player && typeof this.player.shellError === 'function') {
+                if (driver.driverCall('handleError', ecc => {
+                    let cleanError = driver.cleanError(err);
+                    return this.player.shellError(cleanError);
+                })) return; // The mudlib handled the error
             }
             this.stderr.writeLine(`-kmsh: Error: ${err.message || err}`);
         }
         catch(err) {
-            logger.log('Error in handleError!', err);
+            logger.log('CRITICAL: Error in handleError!', err);
         }
     }
 
@@ -489,6 +491,7 @@ class CommandShell extends MUDEventEmitter {
 
     /**
      * Process command source
+     * TODO: Add support for parsing multiple lines (e.g. a script)
      * @param {string} input The source to process
      */
     process(input) {
@@ -550,6 +553,18 @@ class CommandShell extends MUDEventEmitter {
                 if (isEscaped) {
                     token.value += c;
                     continue;
+                }
+
+                // Built-in ObjectShell commands
+                if (!command && options.allowObjectShell) {
+                    let cmd = take(/\w+\-\w+/);
+                    if (cmd) {
+                        switch (cmd.toLowerCase()) {
+                            default:
+                                logger.log(`Running ${cmd}`);
+                                break;
+                        }
+                    }
                 }
 
                 switch (c) {
