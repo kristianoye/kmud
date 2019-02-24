@@ -187,7 +187,8 @@ class EFUNProxy {
         let store = false;
 
         if (!target) {
-            store = driver.currentContext && driver.currentContext.$storage;
+            let ecc = driver.getExecution();
+            store = ecc.store;
         }
         else {
             store = unwrap(target, ob => driver.storage.get(ob));

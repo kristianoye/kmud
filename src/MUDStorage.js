@@ -128,7 +128,7 @@ class MUDStorage extends MUDEventEmitter {
             Object.keys(value).forEach(subkey => {
                 this.set(thisObject, definingType, file, key + '/' + subkey, value[subkey], access, initMode);
             });
-            return;
+            return this.owner;
         }
         else if (!initMode)
             ptr[keyName] = inc ? (ptr[keyName] || 0) + value : value;
@@ -343,7 +343,7 @@ class MUDStorage extends MUDEventEmitter {
 
 
     executeCommand(rawcmd) {
-        driver.driverCall('executeCommand', context => {
+        return driver.driverCall('executeCommand', context => {
             let cmd = {
                 verb: rawcmd.verb.value,
                 args: rawcmd.args.map(a => a.value),

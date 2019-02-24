@@ -19,15 +19,22 @@ const
         Assignment: 'assignment',
         Boolean: 'boolean',
         Command: 'command',
+        CmdSeperator: 'commandSeparator',
         FileExpression: 'fileExpression',
         Indexer: 'memberIndexer',
+        LogicalAND: 'andCommand',
+        LogicalOR: 'orCommand',
         MemberGet: 'memberGet',
         MemberExpression: 'memberExpression',
         MethodCall: 'methodCall',
         Number: 'number',
         Object: 'objectExpression',
+        Operator: 'operator',
+        Pipeline: 'pipeline',
         PList: 'parameterList',
         String: 'string',
+        Variable: 'variable',
+        VariableValue: 'variableValue',
         Word: 'word',
         WS: 'whitespace'
     },
@@ -348,6 +355,8 @@ class CommandShell extends MUDEventEmitter {
     process(input) {
         let i = 0,
             command = false,
+            commandIndex = 0,
+            options = this.options,
             source = input.slice(0),
             m = source.length,
             contexts = [],
@@ -357,12 +366,12 @@ class CommandShell extends MUDEventEmitter {
 
         let take = (n = 1, start = false) => {
             if (typeof n === 'number') {
-                let ret = input.slice(i, i + n);
+                let ret = source.slice(i, i + n);
                 i += n;
                 return ret;
             }
             else if (n instanceof RegExp) {
-                let ret = n.exec(input.slice(start || i));
+                let ret = n.exec(source.slice(start || i));
                 if (ret) {
                     i = (start ? start : i) + ret[0].length ;
                     return ret.length > 1 ? ret : ret[0];
@@ -427,31 +436,58 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case ';':
-                        token.type = 'operator';
-                        token.value = ';';
-                        done = true;
+                        if (this.options.allowChaining) {
+                            token = { type: TT.Operator, subType: TT.CmdSeperator, start: i, end: ++i };
+                            done = true;
+                        }
+                        else
+                            token.value += c;
                         break;
 
                     case '|':
-                        if (source.charAt(i + 1) === '|') {
-                            token.type = 'operator';
-                            token.value = '||';
-                            done = true;
+                        if (this.options.allowChaining) {
+                            if (take('|')) {
+                                //  Evaluate previous command to see if it succeeded
+                                token = {
+                                    type: TT.Operator,
+                                    subType: TT.LogicalOR,
+                                    value: '||',
+                                    start: i - 1,
+                                    end: ++i
+                                };
+                                done = true;
+                            }
+                            else {
+                                token = {
+                                    type: TT.Operator,
+                                    subType: TT.Pipeline,
+                                    value: '|',
+                                    start: i,
+                                    end: ++i
+                                };
+                                done = true;
+                            }
                         }
-                        else {
-                            token.type = 'operator';
-                            token.value = '|';
-                            done = true;
-                        }
+                        else
+                            token.value += c;
                         break;
 
                     case '&':
-                        if (take('&')) {
-                            //  Evaluate previous command to see if it succeeded
-                            token.type = 'operator';
-                            token.value = '&&';
-                            done = true;
+                        if (this.options.allowChaining) {
+                            if (take('&')) {
+                                //  Evaluate previous command to see if it succeeded
+                                token = {
+                                    type: TT.Operator,
+                                    subType: TT.LogicalAND,
+                                    value: '&&',
+                                    start: i - 1,
+                                    end: ++i
+                                };
+                                done = true;
+                            }
                         }
+                        else
+                            token.value += c;
                         break;
 
                     case '.':
@@ -544,34 +580,48 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '$':
-                        let name = nextToken(++i, TT.Word);
-                        token.isExpression = inExpr = true;
-                        token.type = 'variable';
-                        token.value = name.value;
-                        i = token.end = name.end;
+                        if (this.options.allowEnvironment) {
+                            let name = nextToken(++i, TT.Word);
+                            token.isExpression = inExpr = true;
+                            token.type = TT.Variable;
+                            token.value = name.value;
+                            i = token.end = name.end;
 
-                        if (this.options.allowObjectShell && take('.')) {
-                            contexts.unshift(token);
-                            return nextToken(--i);
-                        }
-                        else if (contexts.length === 0) {
-                            contexts.unshift(token);
-                            let next = nextToken();
-
-                            //  Should be an assignment
-                            while (next.type === TT.WS) {
-                                next = nextToken();
+                            if (this.options.allowObjectShell) {
+                                //  Member expression
+                                if (take('.')) {
+                                    token.type = TT.MemberExpression;
+                                    contexts.unshift(token);Krit
+                                    return nextToken(--i);
+                                }
+                                // Member expansion
+                                else {
+                                    token.type = TT.VariableValue;
+                                    token.value = this.expandVariable(name.value);
+                                }
                             }
-                            if (next.type !== TT.Assignment)
-                                throw new Error(`Unexpected token '${next.type}' [expected 'assignment']`);
-                            this.env[next.lhs.value] = next.rhs.value;
-                            done = true;
+                            else {
+                                //  Variable looks only/expands input
+                                let value = {
+                                    type: TT.Word,
+                                    rawValue: this.expandVariable(token.value),
+                                    $var: source.slice(token.start, token.end),
+                                    start: i,
+                                    end: -1
+                                };
+
+                                value.value = `${value.rawValue}`;
+                                source = source.slice(0, token.start) + value.value + source.slice(token.end);
+                                i = token.start + value.value.length;
+                                value.start = token.start;
+                                m = source.length;
+                                value.end = i;
+                                token = value;
+                                done = true;
+                            }
                         }
-                        else {
-                            //  Variable expansion
-                            let val = this.env[token.value] || '';
-                        }
-                        done = true;
+                        else
+                            token.value += c;
                         break;
 
                     case '[': // Array expression or indexer
@@ -742,10 +792,23 @@ class CommandShell extends MUDEventEmitter {
             token.isValueType = ValueTypes.indexOf(token.type) > -1;
 
             if (!command && token.type === TT.Word) {
-                command = { type: TT.Command, verb: token, start: token.start, end: token.end, args: [] };
+                command = {
+                    type: TT.Command,
+                    verb: token,
+                    index: commandIndex++,
+                    start: token.start,
+                    end: token.end,
+                    args: []
+                };
                 let arg = nextToken();
                 while (arg) {
-                    if (arg.type !== TT.WS) command.args.push(arg);
+                    if (arg.isValueType) {
+                        command.args.push(arg);
+                    }
+                    else if (arg.type !== TT.WS) {
+                        i = arg.start;
+                        break;
+                    }
                     arg = nextToken();
                 }
                 command.end = i;
@@ -759,6 +822,7 @@ class CommandShell extends MUDEventEmitter {
 
         for (let lastResult = false; i < m;) {
             let tok = nextToken();
+
             switch (tok.type) {
                 case TT.Command:
                     try {
@@ -768,6 +832,26 @@ class CommandShell extends MUDEventEmitter {
                         lastResult = err;
                     }
                     break;
+
+                case TT.Operator:
+                    {
+                        switch (tok.subType) {
+                            case TT.CmdSeperator:
+                                break;
+
+                            case TT.LogicalAND:
+                                break;
+
+                            case TT.LogicalOR:
+                                break;
+
+                            case TT.Pipeline:
+                                break;
+
+                            default:
+                                throw new Error(`Unrecognized command operator `);
+                        }
+                    }
 
                 default:
                     throw new Error(`Unexpected token: ${tok.type} starting at position ${tok.start}`);
@@ -940,6 +1024,7 @@ class CommandShell extends MUDEventEmitter {
      */
     update(options) {
         this.options = Object.assign(this.options, options);
+        this.env = options.env;
     }
 }
 
