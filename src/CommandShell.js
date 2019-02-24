@@ -742,6 +742,7 @@ class CommandShell extends MUDEventEmitter {
 
                     case '$':
                         if (options.allowEnvironment && ++i < m) {
+                            let expandVariable = true;
                             // Special case variables
                             if (take(/\?{1,2}/)) {
                                 let varName = source.slice(token.start, i).slice(1);
@@ -767,6 +768,7 @@ class CommandShell extends MUDEventEmitter {
                                     else if (!command && take(/\s*=/, false, false)) {
                                         contexts.push(token);
                                         token = nextToken(false, TT.Assignment, [TT.WS]);
+                                        expandVariable = false;
                                         done = true;
                                         break;
                                     }
@@ -774,55 +776,37 @@ class CommandShell extends MUDEventEmitter {
                                     else {
                                         token.type = TT.VariableValue;
                                         token.value = this.expandVariable(name.value);
-
-                                        let convertValue = (value) => {
-                                            let valueType = typeof value;
-                                            if (['number', 'boolean', 'string'].indexOf(valueType) > -1)
-                                                return `${value}`;
-                                            else if (Array.isArray(value))
-                                                return '[ ' + value.map(v => convertValue(v)).join(', ') + ' ] ';
-                                            else if (typeof value === 'object') {
-                                                let result = '{ ';
-                                                Object.keys(value).forEach((key, index) => {
-                                                    if (index > 0)
-                                                        result += ', ';
-                                                    result += convertValue(key);
-                                                    result += ':';
-                                                    result += convertValue(value[key]);
-                                                });
-                                                result += ' }';
-                                                return result;
-                                            }
-                                            else
-                                                return valueType.toUpperCase();
-                                        };
-                                        let textVersion = convertValue(token.value);
-                                        source = source.slice(0, token.start) + textVersion + source.slice(token.end);
-                                        i = token.start + textVersion.length;
-                                        token.end = token.start + textVersion.length;
-                                        m = source.length;
-                                        done = true;
                                     }
                                 }
-                                else {
-                                    //  Variable looks only/expands input
-                                    let value = {
-                                        type: TT.Word,
-                                        rawValue: this.expandVariable(token.value),
-                                        $var: source.slice(token.start, token.end),
-                                        start: i,
-                                        end: -1
-                                    };
-
-                                    value.value = `${value.rawValue}`;
-                                    source = source.slice(0, token.start) + value.value + source.slice(token.end);
-                                    i = token.start + value.value.length;
-                                    value.start = token.start;
-                                    m = source.length;
-                                    value.end = i;
-                                    token = value;
-                                    done = true;
-                                }
+                            }
+                            if (expandVariable) {
+                                let convertValue = (value) => {
+                                    let valueType = typeof value;
+                                    if (['number', 'boolean', 'string'].indexOf(valueType) > -1)
+                                        return `${value}`;
+                                    else if (Array.isArray(value))
+                                        return '[ ' + value.map(v => convertValue(v)).join(', ') + ' ] ';
+                                    else if (typeof value === 'object') {
+                                        let result = '{ ';
+                                        Object.keys(value).forEach((key, index) => {
+                                            if (index > 0)
+                                                result += ', ';
+                                            result += convertValue(key);
+                                            result += ':';
+                                            result += convertValue(value[key]);
+                                        });
+                                        result += ' }';
+                                        return result;
+                                    }
+                                    else
+                                        return valueType.toUpperCase();
+                                };
+                                let textVersion = convertValue(token.value);
+                                source = source.slice(0, token.start) + textVersion + source.slice(token.end);
+                                i = token.start + textVersion.length;
+                                token.end = token.start + textVersion.length;
+                                m = source.length;
+                                done = true;
                             }
                         }
                         else
