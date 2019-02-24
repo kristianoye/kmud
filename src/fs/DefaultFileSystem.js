@@ -6,7 +6,7 @@
 const
     { FileSystem, FileSystemStat } = require('../FileSystem'),
     FileManager = require('../FileManager'),
-    async = require('async'),
+    ExecutionContext = require('../ExecutionContext'),
     MXC = require('../MXC'),
     path = require('path'),
     fs = require('fs');
@@ -387,6 +387,25 @@ class DefaultFileSystem extends FileSystem {
        let fullPath = this.translatePath(req),
             result = this.stripBOM(fs.readFileSync(fullPath, { encoding: this.encoding || 'utf8' }));
         return result;
+    }
+
+    readJsonFileAsync(expr) {
+        let fullPath = this.translatePath(expr);
+        return new Promise((resolve, reject) => {
+            try {
+                fs.readFile(fullPath, (err, content) => {
+                    if (err)
+                        reject(err);
+                    else {
+                        let ob = JSON.parse(content);
+                        resolve(ob);
+                    }
+                });
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
     }
 
     /**

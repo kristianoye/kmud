@@ -315,7 +315,7 @@ class ExecutionContext extends MUDEventEmitter {
             object,
             method,
             file,
-            isAsync: isAsync === true,
+            isAsync: isAsync === true || method.startsWith('async '),
             lineNumber,
             callString: callString || method
         });

@@ -459,7 +459,21 @@ class FileManager extends MUDEventEmitter {
      * @param {string} expr The JSON file being read.
      * @param {function=} callback An optional callback for async mode.
      */
-    readJsonFile(efuns, expr, callback) {
+    readJsonFileAsync(efuns, expr) {
+        let req = this.createFileRequest('readJsonFile', expr, false, 0, null, efuns);
+        if (!req.valid('validReadFile'))
+            return req.deny();
+        else
+            return req.fileSystem.readJsonFileAsync(req.fullPath);
+    }
+
+    /**
+     * Read structured data from the specified location.
+     * @param {EFUNProxy} efuns The efuns instance making the call.
+     * @param {string} expr The JSON file being read.
+     * @param {function=} callback An optional callback for async mode.
+     */
+    readJsonFile(efuns, expr) {
         let req = this.createFileRequest('readJsonFile', expr, false, 0, null, efuns);
         if (!req.valid('validReadFile'))
             return req.deny();

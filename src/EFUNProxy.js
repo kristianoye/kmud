@@ -1448,6 +1448,15 @@ class EFUNProxy {
     }
 
     /**
+     * Attempt to read JSON data from a file.
+     * @param {string} filename The file to try and read.
+     * @returns {object}
+     */
+    readJsonFileAsync(filename) {
+        return driver.fileManager.readJsonFileAsync(this, this.resolvePath(filename));
+    }
+
+    /**
      * Attempts to reload an object
      * @param {string} expr The object to reload.
      * @returns {boolean} Returns true if the object recompiled successfully.

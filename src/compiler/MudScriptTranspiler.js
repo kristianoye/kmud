@@ -343,9 +343,10 @@ function parseElement(op, e, depth) {
                     // Step 1: Suspend context,
                     // Step 2: Make the async call,
                     // Step 3: Restore the context and continue... sounds simple enough...
-                    ret += `await __mec.awaitAsync('${e.idType || ''}', `;
-                    ret += parseElement(op, e.argument, depth + 1).slice(5);
-                    ret += ')';
+                    // ret += `await __mec.awaitAsync('${e.idType || ''}', `;
+                    // ret += parseElement(op, e.argument, depth + 1).slice(5);
+                    // ret += ')';
+                    ret += parseElement(op, e.argument, depth + 1);
                 }
                 break;
 
