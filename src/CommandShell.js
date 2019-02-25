@@ -1144,13 +1144,39 @@ class CommandShell extends MUDEventEmitter {
                             //  Allow input control to alter the content per internal logic
                             input = inputTo.normalize(input, this.client);
                             if (typeof input === 'string') {
-                                if (inputTo.callback(input) !== true) {
+                                let ecc = driver.getExecution().fork();
+                                if (inputTo.callback.constructor.name === 'AsyncFunction') {
+                                    setTimeout(async () => {
+                                        let result, error;
+                                        try {
+                                            ecc.restore();
+                                            result = await ecc.withPlayerAsync(this.storage, async () => {
+                                                return await inputTo.callback(input);
+                                            }).catch(e => { error = e; });
+                                        }
+                                        catch (err) {
+                                            logger.log('Error in async callback: ', err);
+                                        }
+                                        finally {
+                                            if (result !== true) {
+                                                let index = this.inputStack.indexOf(inputTo);
+                                                if (index > -1) {
+                                                    this.inputStack.splice(index, 1);
+                                                }
+                                                return this.renderPrompt(this.inputTo = false);
+                                            }
+                                        }
+                                    }, CommandInterval);
+                                    return undefined;
+                                }
+                                else if (inputTo.callback(input) !== true) {
                                     //  The modal frame did not recapture the user input
                                     let index = this.inputStack.indexOf(inputTo);
                                     if (index > -1) {
                                         this.inputStack.splice(index, 1);
                                     }
                                 }
+
                             }
                             else if (input instanceof Error) {
                                 this.stderr.write(`\n${input.message}\n\n`);
@@ -1159,8 +1185,13 @@ class CommandShell extends MUDEventEmitter {
                         }
                     });
 
-                    if (inputTrapped) {
+                    if (inputTrapped === true) {
                         this.executing = false;
+                        this.flushAll();
+                        return true;
+                    }
+                    else if (typeof inputTrapped === 'undefined') {
+                        //  Async call
                         this.flushAll();
                         return true;
                     }

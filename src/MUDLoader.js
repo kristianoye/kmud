@@ -117,12 +117,6 @@ class MUDLoader {
                 enumerable: false,
                 writable: false
             },
-            DEBUG: {
-                value: Object.freeze({
-                    LineNumberInTrace: false
-                }),
-                writable: false
-            },
             __LINE__: {
                 get: function () {
                     let foo = new Error('').stack.split('\n'), re = /((\d+):(\d+))/;
@@ -210,6 +204,12 @@ class MUDLoader {
             },
             Buffer: {
                 value: global.Buffer,
+                writable: false
+            },
+            DEBUG: {
+                value: Object.freeze({
+                    LineNumberInTrace: false
+                }),
                 writable: false
             },
             eval: {
@@ -434,6 +434,16 @@ class MUDLoader {
     }
 }
 
+MUDLoader.getInitialization = function () {
+    return `
+    Promise.prototype.always = function (onResolveOrReject) {
+        return this.then(onResolveOrReject, reason => {
+            onResolveOrReject(reason);
+            throw reason;
+        });
+    };
+    `.trim();
+}
 /**
  * Configure the loader for runtime.
  * @param {GameServer} driver A reference to the game driver.

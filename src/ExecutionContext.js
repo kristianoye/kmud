@@ -9,7 +9,6 @@
  */
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
-    { StandardInputStream, StandardOutputStream } = require('./StandardIO'),
     uuidv1 = require('uuid/v1');
 
 /** @typedef {{ object: MUDObject, method: string, file: string }} ObjectStackItem */
@@ -127,6 +126,29 @@ class ExecutionContext extends MUDEventEmitter {
             }
         }
         return true;
+    }
+
+
+    asyncBegin() {
+        let child = this.fork();
+        child.lostFrame = this.stack.shift();
+        return child;
+    }
+
+    asyncCall(awaitExpr) {
+        return this.asyncResult = awaitExpr;
+    }
+
+    get asyncResult() {
+        return this._asyncResult;
+    }
+
+    set asyncResult(val) {
+        this._asyncResult = val;
+    }
+
+    asyncRestore() {
+        driver.restoreContext(this);
     }
 
     async awaitAsync(type, promiseLike) {
@@ -375,6 +397,43 @@ class ExecutionContext extends MUDEventEmitter {
             this.truePlayer = this.truePlayer || player;
 
             return callback(player, this);
+        }
+        finally {
+            if (methodName) ecc.pop(methodName);
+            if (restoreOldPlayer) {
+                if (oldPlayer) this.player = oldPlayer;
+                if (oldClient) this.client = oldClient;
+                if (oldStore) this.storage = oldStore;
+                if (oldShell) this.shell = oldShell;
+            }
+        }
+    }
+
+    /**
+ * Execute an action with an alternate thisPlayer
+ * @param {MUDStorage} storage The player that should be "thisPlayer"
+ * @param {function(MUDObject, ExecutionContext): any} callback The action to execute
+ * @param {boolean} restoreOldPlayer Restore the previous player 
+ */
+    async withPlayerAsync(storage, callback, restoreOldPlayer = true, methodName = false) {
+        let player = unwrap(storage.owner);
+        let ecc = driver.getExecution(),
+            oldPlayer = this.player,
+            oldClient = this.client,
+            oldStore = this.storage,
+            oldShell = this.shell;
+
+        if (methodName)
+            ecc.push(player, methodName, player.filename);
+
+        try {
+            this.player = player;
+            this.client = storage.client || this.client;
+            this.shell = storage.shell || this.shell;
+            this.storage = storage || this.storage;
+            this.truePlayer = this.truePlayer || player;
+
+            return await callback(player, this);
         }
         finally {
             if (methodName) ecc.pop(methodName);
