@@ -7,7 +7,7 @@ const
     MUDConfig = require('./MUDConfig'),
     ExecutionContext = require('./ExecutionContext'),
     { NetUtil, NetworkInterface } = require('./network/NetUtil'),
-    LinkedList = require('./LinkedList'),
+    { LinkedList, LinkedListWithID, LinkedListWithLookup } = require('./LinkedList'),
     async = require('async'),
     MXC = require('./MXC');
 
@@ -70,9 +70,17 @@ class GameServer extends MUDEventEmitter {
         this.fileManager = null;
         this.heartbeatCounter = 0;
         this.heartbeatInterval = config.mudlib.heartbeatInterval;
-        /** @type {LinkedList} */
+
+        /************************************************************
+         *  Important collections maintained by the driver
+         ***********************************************************/
         this.heartbeatObjects = new LinkedList();
-        this.heartbeatStorage = {};
+        this.interactiveObjects = new LinkedList();
+        this.livingObjects = new LinkedListWithLookup('livingName');
+        this.playerObjects = new LinkedListWithID('playerName');
+        this.wizardObjects = new LinkedList();
+
+        //  Locations where $include and require look for unqualified files
         this.includePath = config.mudlib.includePath || [];
 
         /** @type {MUDObject[]} */
@@ -163,30 +171,54 @@ class GameServer extends MUDEventEmitter {
         });
     }
 
-    addLiving(body) {
-        return unwrap(body, living => {
-            let w = living.wrapper,
-                n = this.livings.indexOf(w);
-            if (n === -1) {
-                this.livings.push(w);
-                return true;
-            }
-            return false;
-        });
+    /**
+     * 
+     * @param {LinkedList} collection The collection to maintain
+     * @param {string} prop The storage property used to track index
+     * @param {MUDStorageContainer} store  The MUD storage object
+     * @param {boolean} enabled The desired state of object (true it is added, false it is removed)
+     */
+    maintainCollection(collection, prop, store, enabled) {
+        let id = store[prop],
+            isSet = id !== false && collection.hasKey(id),
+            hashKey = false;
+
+        if (!enabled && !isSet) // No harm, no foul
+            return true;
+        else if (collection instanceof LinkedListWithID) {
+            hashKey = store[collection.hashKey];
+            if (!hashKey) throw new Error(`Object could not be added to collection [Missing required key '${collection.hashKey}']`);
+        }
+
+        if (enabled && !isSet) {
+            store[prop] = collection.add(store);
+            return true;
+        }
+        else if (!enabled && isSet) {
+            collection.remove(id);
+            store[prop] = false;
+            return true;
+        }
     }
 
-    addPlayer(body) {
-        return unwrap(body, player => {
-            if (typeof player.save === 'function') {
-                let w = player.wrapper,
-                    n = this.players.indexOf(w);
-                if (n === -1) {
-                    this.players.push(w);
-                    return true;
-                }
-                return false;
-            }
-        });
+    setHeartbeat(store, enabled) {
+        return this.maintainCollection(this.heartbeatObjects, 'heartbeatIndex', store, enabled);
+    }
+
+    setInteractive(store, enabled) {
+        return this.maintainCollection(this.interactiveObjects, 'interactiveIndex', store, enabled);
+    }
+
+    setLiving(store, enabled = false) {
+        return this.maintainCollection(this.livingObjects, 'livingIndex', store, enabled);
+    }
+
+    setPlayer(store, enabled = false) {
+        return this.maintainCollection(this.playerObjects, 'playerIndex', store, enabled);
+    }
+
+    setWizard(store, enabled = false) {
+        return this.maintainCollection(this.wizardObjects, 'wizardIndex', store, enabled);
     }
 
     /**
@@ -682,15 +714,7 @@ class GameServer extends MUDEventEmitter {
      * @returns {MXC} Returns the current execution context.
      */
     getContext(createNew, init, note) {
-        if (typeof createNew === 'boolean') {
-            if (createNew || !this.currentContext) {
-                return this.currentContext = new MXC(false, [], init, note);
-            }
-            else {
-                return this.currentContext = this.currentContext.clone(init, note);
-            }
-        }
-        return this.currentContext;
+        throw new Error('obsolete');
     }
 
     /**
@@ -893,7 +917,7 @@ class GameServer extends MUDEventEmitter {
      * Restores context after an async call has completed.
      * @param {ExecutionContext} ecc The context to restore
      */
-    restoreContext(ecc) {
+    restoreContext(ecc = false) {
         if (this.executionContext && ecc && this.executionContext !== ecc)
             throw new Error(`There is already an execution context that appears to be running!`); // FATAL
         this.executionContext = ecc || false;

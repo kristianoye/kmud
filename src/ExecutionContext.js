@@ -22,7 +22,7 @@ class ExecutionContext extends MUDEventEmitter {
      * @param {ExecutionContext} parent The parent context (if one exists)
      * @param {string} handleId The child UUID that identifies child to parent
      */
-    constructor(parent = false, handleId = false) {
+    constructor(parent = false, handleId = false, detached = false) {
         super();
 
         if (parent) {
@@ -38,9 +38,13 @@ class ExecutionContext extends MUDEventEmitter {
             this.handleId = handleId || uuidv1();
 
             /** @type {ExecutionContext} */
-            this.parent = parent;
+            if (!detached) {
+                this.parent = parent;
+                this.onComplete = parent.onComplete;
+            }
+            else
+                this.onComplete = [];
             this.forkedAt = parent.stack.length;
-            this.onComplete = parent.onComplete;
 
             this.client = parent.client;
             this.player = parent.player;
@@ -48,7 +52,9 @@ class ExecutionContext extends MUDEventEmitter {
 
             this.virtualParents = [];
 
-            parent.asyncChildren[this.handleId] = this;
+            if (!detached) {
+                parent.asyncChildren[this.handleId] = this;
+            }
         }
         else {
             /** @type {ObjectStackItem[]} */
@@ -78,7 +84,9 @@ class ExecutionContext extends MUDEventEmitter {
 
     alarm() {
         if (this.alarmTime && efuns.ticks > this.alarmTime) {
-            throw new Error(`Maxiumum execution time exceeded`);
+            let err = new Error(`Maxiumum execution time exceeded`);
+            err.code = 'MAXECT';
+            throw err;
         }
         return this;
     }
@@ -196,7 +204,7 @@ class ExecutionContext extends MUDEventEmitter {
             this.completed = true;
             return parent.complete();
         }
-        if (this.stack.length === 0) {
+        if (this.stack.length === this.forkedAt) {
             if (this.asyncChildren.length === 0) {
                 if (this.parent) {
                     this.parent.complete(this);
@@ -238,9 +246,9 @@ class ExecutionContext extends MUDEventEmitter {
      * Registers a new async call on this execution context.
      * @returns {ExecutionContext} Returns a child context to be used once the async code continues.
      */
-    fork() {
-        this.asyncChildren.length++;
-        return new ExecutionContext(this);
+    fork(detached=false) {
+        if (!detached) this.asyncChildren.length++;
+        return new ExecutionContext(this, false, detached);
     }
 
     getFrame(index) {
@@ -346,6 +354,11 @@ class ExecutionContext extends MUDEventEmitter {
 
     restore() {
         driver.restoreContext(this);
+        return this;
+    }
+
+    suspend() {
+        driver.restoreContext();
         return this;
     }
 
@@ -497,7 +510,7 @@ ExecutionContext.asyncWrapper = function (asyncCode, timeout = 5000, callback = 
             }
         })
         .always(result => {
-            let cec = driver.getContext();
+            let cec = driver.getExecution();
 
             //  Call finished syncronously
             if (!cec || cec === ecc) {

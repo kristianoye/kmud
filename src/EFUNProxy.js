@@ -694,6 +694,20 @@ class EFUNProxy {
     get input() { return InputHelper; }
 
     /**
+     * Determine if the expression is an async function.
+     * @param {any} expr The expression to evaluate
+     * @returns {boolean} True if the expression is an async function
+     */
+    isAsyncCallback(expr) {
+        if (typeof expr !== 'function')
+            return false;
+        else if (!expr.constructor)
+            return false;
+        else
+            return expr.constructor.name === 'AsyncFunction';
+    }
+
+    /**
      * Determines whether the specified path expression is a directory.
      * @param {string} expr The path expression to check.
      * @returns {boolean} True if the path resolves to a directory.
@@ -718,6 +732,20 @@ class EFUNProxy {
      */
     isClone(o) {
         return unwrap(o, (ob) => ob.instanceId > 0);
+    }
+
+    /**
+     * Determine if the target is an error object.
+     * @param {any} item The item to check
+     * @returns {boolean} Returns true if the item looks like an error object.
+     */
+    isError(item) {
+        if (typeof item === 'object') {
+            if (item.constructor.name === 'Error') {
+                return ('message' in item) && ('stack' in item);
+            }
+        }
+        return false;
     }
 
     /**
@@ -760,6 +788,20 @@ class EFUNProxy {
             target.constructor.name === 'Object' &&
             target.constructor.constructor &&
             target.constructor.constructor.name === 'Function';
+    }
+
+    /**
+     * Determine if the target is a promise object.
+     * @param {any} item The item to check
+     * @returns {boolean} Returns true if the item looks like an Promise object.
+     */
+    isPromise(item) {
+        if (typeof item === 'object') {
+            if (item.constructor.name === 'Promise') {
+                return ('then' in item) && ('catch' in item);
+            }
+        }
+        return false;
     }
 
     /**

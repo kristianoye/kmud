@@ -9,7 +9,7 @@
 /// <reference path="./StandardIO.js" />
 const
     IO = require('./StandardIO'),
-    LinkedList = require('./LinkedList'),
+    { LinkedList } = require('./LinkedList'),
     MUDEventEmitter = require('./MUDEventEmitter'),
     { BaseInput } = require('./inputs/BaseInput'),
     CommandInterval = 5;
@@ -348,13 +348,7 @@ class CommandShell extends MUDEventEmitter {
                             return this.executeResult(result, cmds);
                         }
                         result = this.storage.executeCommand(cmd);
-                        if (result instanceof Promise) {
-                            return await result
-                                .then(r => this.executeResult(r, cmds))
-                                .catch(e => this.executeResult(e, cmds));
-                        }
-                        // It came back from the VM so it might not be a promise, but a promise is a promise...
-                        else if (typeof result === 'object' && result.constructor.name === 'Promise') {
+                        if (efuns.isPromise(result)) {
                             return await result
                                 .then(r => this.executeResult(r, cmds))
                                 .catch(e => this.executeResult(e, cmds));
@@ -1144,15 +1138,45 @@ class CommandShell extends MUDEventEmitter {
                             //  Allow input control to alter the content per internal logic
                             input = inputTo.normalize(input, this.client);
                             if (typeof input === 'string') {
-                                let ecc = driver.getExecution().fork();
-                                if (inputTo.callback.constructor.name === 'AsyncFunction') {
+                                let ecc = driver.getExecution();
+
+                                if (!ecc)
+                                    throw new Error('FATAL: Execution stack has gone away!');
+
+                                ecc = ecc && ecc.fork();
+                                if (efuns.isAsyncCallback(inputTo.callback)) {
                                     setTimeout(async () => {
-                                        let result, error;
+                                        let currentContext = driver.getExecution(), result, error;
                                         try {
-                                            ecc.restore();
-                                            result = await ecc.withPlayerAsync(this.storage, async () => {
-                                                return await inputTo.callback(input);
-                                            }).catch(e => { error = e; });
+                                            if (!currentContext)
+                                                ecc.restore();
+
+                                            result = await ecc.withPlayerAsync(this.storage,
+                                                async () => {
+                                                    return await inputTo.callback(input);
+                                                })
+                                                .catch(e => { error = e; });
+
+                                            if (error) {
+                                                this.stdout.writeLine('\nOops something bad happened.\n\n');
+
+                                                logger.log('processInput error', error);
+
+                                                // Whatever user was doing did not work.  Do not allow
+                                                // the previous entry to recapture user input.  Let the
+                                                // player body decide what to do.
+                                                result = driver.driverCall('applyInputError', ecc => {
+                                                    if (this.player && this.player.applyInputError) {
+                                                        ecc.restore();
+                                                        ecc.withPlayer(this.storage, player => {
+                                                            return player.applyInputError(error);
+                                                        });
+                                                    }
+                                                });
+
+                                                if (result === false)
+                                                    return;  // Do not recapture... do nothing
+                                            }
                                         }
                                         catch (err) {
                                             logger.log('Error in async callback: ', err);
@@ -1165,16 +1189,50 @@ class CommandShell extends MUDEventEmitter {
                                                 }
                                                 return this.renderPrompt(this.inputTo = false);
                                             }
+                                            else // recapture
+                                                this.renderPrompt();
                                         }
                                     }, CommandInterval);
                                     return undefined;
                                 }
-                                else if (inputTo.callback(input) !== true) {
-                                    //  The modal frame did not recapture the user input
-                                    let index = this.inputStack.indexOf(inputTo);
-                                    if (index > -1) {
-                                        this.inputStack.splice(index, 1);
+                                else {
+                                    try {
+                                        let result = inputTo.callback(input);
+                                        if (efuns.isPromise(result)) {
+                                            let  ecc = driver.getExecution(), child = ecc.fork(true);
+                                            setTimeout(async () => {
+                                                try {
+                                                    child.whenCompleted(() => {
+                                                        this.renderPrompt(this.inputTo = false);
+                                                    });
+                                                    child.restore();
+                                                    child.push(this.player, 'processInput', this.player.filename);
+                                                    let foo = await result;
+                                                    console.log('async code complete', foo);
+                                                }
+                                                catch (e) {
+                                                    logger.log('error in async processing', e);
+                                                }
+                                                finally {
+                                                    child.pop('processInput');
+                                                    child.suspend();
+                                                }
+                                            }, CommandInterval);
+                                            return undefined;
+                                        }
+                                        if (result !== true) {
+                                            //  The modal frame did not recapture the user input
+                                            let index = this.inputStack.indexOf(inputTo);
+                                            if (index > -1) {
+                                                this.inputStack.splice(index, 1);
+                                            }
+                                        }
+                                        return true;
                                     }
+                                    catch (err) {
+                                        logger.log('error in sync.input.callback', err);
+                                    }
+                                    return false;
                                 }
 
                             }

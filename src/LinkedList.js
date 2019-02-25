@@ -72,6 +72,14 @@ class LinkedList {
         return this.head ? this.head : false;
     }
 
+    /**
+     * Determine if the key is in the collection.
+     * @param {any} id
+     */
+    hasKey(id) {
+        return id in this.index;
+    }
+
     get last() {
         return this.tail ? this.tail : false;
     }
@@ -171,5 +179,190 @@ class LinkedList {
     }
 }
 
-module.exports = LinkedList;
+class LinkedListWithID extends LinkedList {
+    constructor(initialValue = [], hashKey = '') {
+        super(Array.isArray(initialValue) ? initialValue : []);
 
+        if (typeof initialValue === 'string')
+            hashKey = initialValue;
+
+        if (typeof (this.hashKey = hashKey) !== 'string')
+            throw new Error(`Hash key should be a string`);
+        else if (hashKey.length === 0)
+            throw new Error(`Hash key cannot be zero bytes`);
+        this.hashLookup = {};
+    }
+
+    add(value) {
+        let hashKey = value[this.hashKey];
+
+        if (typeof hashKey === 'undefined')
+            throw new Error(`Item cannot be added to collection; It is missing required property ${this.hashKey}`);
+
+        if (hashKey in this.hashLookup)
+            throw new Error(`Collection already contains a value with '${this.hashKey}' of '${hashKey}'`);
+
+        let index = super.add(value);
+        thish.index[index].hashKey = hashKey;
+        this.hashLookup[hashKey] = index;
+
+        return index;
+    }
+
+    /**
+     * Returns the element at a particular numeric index
+     * @param {number|string} pos The position to try and retrieve from.
+     */
+    at(pos) {
+        if (typeof pos === 'string') {
+            if (pos in this.hashLookup)
+                pos = this.hashLookup[pos];
+            else
+                return false;
+        }
+        return super.at(pos);
+    }
+
+    /**
+     * Look for an element using its hash key
+     * @param {string} hashKey The value to look for
+     * @param {boolean} allowPartial Allow lookup based on partial id
+     */
+    find(hashKey, allowPartial = false) {
+        if (allowPartial) {
+            let keys = Object.keys(this.hashLookup)
+                .filter(k => k.slice(0, hashKey.length) === hashKey);
+            if (keys.length === 1)
+                return this.at(keys[0]);
+            else if (keys.length === 0)
+                return undefined;
+            else
+                return keys.map(key => this.at(key));
+        }
+        else
+            return this.at(hashKey);
+    }
+
+    hasKey(id) {
+        return (id in this.hashLookup) || super.hasKey(id);
+    }
+
+    remove(index, count = 1) {
+        if (index in this.hashLookup) {
+            return this.remove(this.hashLookup[index]);
+        }
+        else {
+            let entry = this.index[index];
+            if (entry) {
+                if (entry.hashKey)
+                    delete this.hashlook[entry.hashKey];
+                return super.remove(index, count);
+            }
+        }
+    }
+}
+
+class LinkedListWithLookup extends LinkedList {
+    constructor(initialValue = [], hashKey = '') {
+        super(Array.isArray(initialValue) ? initialValue : []);
+
+        if (typeof initialValue === 'string')
+            hashKey = initialValue;
+
+        if (typeof (this.hashKey = hashKey) !== 'string')
+            throw new Error(`Hash key should be a string`);
+        else if (hashKey.length === 0)
+            throw new Error(`Hash key cannot be zero bytes`);
+
+        /** @type {Object.<string,number[]> */
+        this.hashLookup = {};
+    }
+
+    add(value) {
+        let hashKey = value[this.hashKey];
+
+        if (typeof hashKey === 'undefined')
+            throw new Error(`Item cannot be added to collection; It is missing required property ${this.hashKey}`);
+
+        if (hashKey in this.hashLookup === false) {
+            this.hashLookup[hashKey] = [];
+        }
+        let index = super.add(value);
+
+        thish.index[index].hashKey = hashKey;
+        this.hashLookup[hashKey].push(index);
+
+        return index;
+    }
+
+    /**
+     * Returns the element at a particular numeric index
+     * @param {number|string} pos The position to try and retrieve from.
+     */
+    at(pos) {
+        if (typeof pos === 'string') {
+            if (pos in this.hashLookup)
+                pos = this.hashLookup[pos];
+            else
+                return false;
+        }
+        return super.at(pos);
+    }
+
+    /**
+     * Look for an element using its hash key
+     * @param {string} hashKey The value to look for
+     * @param {boolean} allowPartial Allow lookup based on partial id
+     */
+    find(hashKey, allowPartial = false) {
+        if (allowPartial) {
+            let keys = Object.keys(this.hashLookup)
+                .filter(k => k.slice(0, hashKey.length) === hashKey);
+
+            if (keys.length === 0)
+                return undefined;
+            else if (keys.length === 1) {
+                let result = this.this.hashLookup[keys[0]];
+                return result.length === 1 ? result[0] : result;
+            }
+            else {
+                let result = [];
+                keys.forEach(key => {
+                    let result = this.this.hashLookup[key];
+                    result.push(...result);
+                });
+                return result;
+            }
+        }
+        else {
+            let result = this.at(hashKey);
+            if (!result)
+                return undefined;
+            else
+                return result.length === 1 ? result[0] : result;
+        }
+    }
+
+    hasKey(id) {
+        return (id in this.hashLookup) || super.hasKey(id);
+    }
+
+    remove(index, count = 1) {
+        if (typeof index === 'string') {
+            throw new Error('Items cannot be removed from collection by ID');
+        }
+        let entry = this.index[index];
+        if (entry) {
+            let hashKey = entry.hashKey;
+            if (hashKey in this.hashLookup) {
+                let pos = this.hashLookup[hashKey].indexOf(index);
+                this.hashLookup[hashKey].splice(pos, 1);
+                if (this.hashLookup[hashKey].length === 0)
+                    delete this.hashLookup[hashKey];
+            }
+            return super.remove(index, count);
+        }
+    }
+}
+
+module.exports = { LinkedList, LinkedListWithID, LinkedListWithLookup };

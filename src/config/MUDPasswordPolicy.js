@@ -99,7 +99,7 @@ class MUDPasswordPolicy {
     }
 
     hashPasswordAsync(str) {
-        return new ExecutionContext.asyncWrapper((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             let checks = this.validPassword(str);
             if (checks === true) {
                 bcrypt.hash(str, this.saltRounds, (err, enc) => {

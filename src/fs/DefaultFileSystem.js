@@ -394,8 +394,16 @@ class DefaultFileSystem extends FileSystem {
         return new Promise((resolve, reject) => {
             try {
                 fs.readFile(fullPath, (err, content) => {
-                    if (err)
-                        reject(err);
+                    if (err) {
+                        switch (err.code) {
+                            case 'ENOENT': // File does not exist
+                            case 'EISDIR': // File is a directory
+                                return resolve(err);
+
+                            default:
+                                return reject(err);
+                        }
+                    }
                     else {
                         let ob = JSON.parse(content);
                         resolve(ob);

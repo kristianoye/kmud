@@ -399,6 +399,38 @@ class MUDLoader {
         store.set(this, usingType, file, key, val, access, false);
     }
 
+    clearInterval(ident) {
+        return global.clearInterval(ident);
+    }
+
+    setInterval(callback, timer) {
+        if (timer < 1000)
+            throw new Error('Interval cannot be less than 1000ms');
+
+        //  Create a detached child
+        let ecc = driver.getExecution(),
+            child = !!ecc && ecc.fork(true),
+            thisObject = ecc.thisObject;
+
+        let ident = global.setInterval(function (callback, childContext) {
+            try {
+                childContext.restore();
+                childContext.push(thisObject, 'setInterval', thisObject.filename);
+                callback();
+            }
+            catch (err) {
+                logger.log('Error in setInterval() callback; Disabling.');
+                global.clearInterval(ident);
+            }
+            finally {
+                childContext.pop('setInterval');
+                childContext.suspend();
+            }
+        }, timer, callback, child);
+
+        return ident;
+    }
+
     thisPlayer(flag) {
         let ecc = driver.getExecution();
 

@@ -43,6 +43,10 @@ class MUDStorage extends MUDEventEmitter {
 
         /** @type {number|false} */
         this.heartbeatIndex = false;
+        this.interactiveIndex = false;
+        this.livingIndex = false;
+        this.playerIndex = false;
+        this.wizardIndex = false;
 
         /** The time at which this object's client did something */
         this.lastActivity = 0;
@@ -179,12 +183,26 @@ class MUDStorage extends MUDEventEmitter {
         return this.owner && this.owner.maxIdleTime || 0;
     }
 
+    get living() {
+        return this.hashFlag(MUDStorage.PROP_LIVING);
+    }
+
+    set living(flag) {
+        if (typeof flag === 'string') {
+            this.livingName = flag;
+        }
+        this.flag(MUDStorage.PROP_LIVING, flag !== false);
+    }
+
     get player() {
         return this.hasFlag(MUDStorage.PROP_ISPLAYER);
     }
 
     set player(flag) {
-        this.flag(MUDStorage.PROP_ISPLAYER, flag);
+        if (typeof flag === 'string') {
+            this.playerName = flag;
+        }
+        this.flag(MUDStorage.PROP_ISPLAYER, flag !== false);
     }
 
     /**
@@ -253,31 +271,29 @@ class MUDStorage extends MUDEventEmitter {
                 case MUDStorage.PROP_EDITING:
                 case MUDStorage.PROP_IDLE:
                 case MUDStorage.PROP_INPUT:
-                case MUDStorage.PROP_INTERACTIVE:
-                case MUDStorage.PROP_ISPLAYER:
-                case MUDStorage.PROP_LIVING:
-                case MUDStorage.PROP_WIZARD:
                 case MUDStorage.PROP_DESTRUCTED:
                     break;
 
                 case MUDStorage.PROP_HEARTBEAT:
-                    if (setFlag) {
-                        if (this.owner instanceof MUDObject && typeof this.owner.heartbeat === 'function') {
-                            if (this.heartbeatIndex !== false)
-                                return false;
-                            this.heartbeatIndex = driver.heartbeatObjects.add(this);
-                            return true;
-                        }
-                        return false;
+                    if (this.owner && typeof this.owner.heartbeat === 'function') {
+                        driver.setHeartbeat(this, setFlag);
                     }
-                    else {
-                        if (this.heartbeatIndex === false)
-                            return false;
-                        else {
-                            driver.heartbeatObjects.remove(this.heartbeatIndex);
-                            this.heartbeatIndex = false;
-                        }
-                    }
+                    break;
+
+                case MUDStorage.PROP_INTERACTIVE:
+                    driver.setInteractive(this, setFlag);
+                    break;
+
+                case MUDStorage.PROP_LIVING:
+                    driver.setLiving(this, setFlag);
+                    break;
+
+                case MUDStorage.PROP_ISPLAYER:
+                    driver.setPlayer(this, setFlag);
+                    break;
+
+                case MUDStorage.PROP_WIZARD:
+                    driver.setWizard(this, setFlag);
                     break;
 
                 default:
@@ -319,7 +335,7 @@ class MUDStorage extends MUDEventEmitter {
             if (this.environment)
                 this.owner.emit('kmud.item.removed', this.environment);
 
-            this.player = false;
+            if (this.player) this.player = false;
 
             this.owner.removeAllListeners && this.owner.removeAllListeners();
             driver.storage.delete(this.owner);
@@ -327,8 +343,10 @@ class MUDStorage extends MUDEventEmitter {
             this.owner = false;
             this.destroyed = true;
 
-            if (this.shell)
+            if (this.shell) {
                 this.shell.destroy();
+                this.shell = undefined;
+            }
 
             return this.destroyed = module.destroyInstance(parts);
         }
@@ -754,11 +772,18 @@ class MUDStorage extends MUDEventEmitter {
             else {
                 if (this.connected)
                     driver.driverCall('disconnect', context => {
+                        if (this.shell) this.shell.flushAll();
+                        let client = this.client;
                         this.connected = false;
+
                         if (this.client)
                             this.client.populateContext(true, context);
-                        context.withPlayer(this, player => player.disconnect(...args));
-                        this.client && this.client.close();
+                        try {
+                            context.withPlayer(this, player => player.disconnect(...args));
+                        }
+                        finally {
+                            client && client.close();
+                        }
                     });
                 if (this.client) this.client.body = false;
                 this.client = false;

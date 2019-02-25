@@ -7,7 +7,8 @@
  */
 const
     { Writable, Readable } = require('stream'),
-    uuidv1 = require('uuid/v1');
+    uuidv1 = require('uuid/v1'),
+    os = require('os');
 
 const
     Buffers = {};
@@ -292,7 +293,7 @@ class StandardOutputStream extends Writable {
     writeLine(content, encoding = false) {
         if (!efuns.text.trailingNewline(content))
             content += '\n';
-        return this._write(content, encoding);
+        return this.write(content, encoding);
     }
 }
 
@@ -357,7 +358,7 @@ class StandardPassthruStream extends Writable {
     }
 
     writeLine(content, encoding = false) {
-        if (!efuns.text.trailingNewline(content)) content += '\n';
+        if (!efuns.text.trailingNewline(content)) content += os.EOL;
         return this.write(content, encoding);
     }
 }
