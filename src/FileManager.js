@@ -360,12 +360,13 @@ class FileManager extends MUDEventEmitter {
     isDirectoryAsync(efuns, expr) {
         let req = this.createFileRequest('isDirectory', expr, true, 0, null, efuns);
 
-        return ExecutionContext.asyncWrapper(async (resolve, reject) => {
-            let ecc = driver.getExecution();
+        return new Promise((resolve, reject) => {
             if (!req.valid('validReadDirectory'))
                 reject(req.deny());
             else
-                resolve(await req.fileSystem.isDirectoryAsync(req.relativePath));
+                req.fileSystem.isDirectoryAsync(req.relativePath)
+                    .then(r => resolve(r))
+                    .catch(e => reject(e));
         });
     }
 

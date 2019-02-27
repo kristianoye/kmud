@@ -475,10 +475,6 @@ ExecutionContext.asyncWrapper = function (asyncCode, timeout = 5000, callback = 
         finalValue = undefined,
         timerId = false;                // Timer to ensure prompt resolution
 
-    if (!ecc.inAsyncCall) {
-        console.log('Call to async method in non-async context');
-    }
-
     let promise = new Promise(
         (resolve, reject) => {
             try {

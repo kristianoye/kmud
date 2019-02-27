@@ -1916,12 +1916,12 @@ class EFUNProxy {
         return result.join('\n');
     }
 
-    fail(...expr) {
+    error(...expr) {
         this.writeToStream(false, this.err, ...expr);
         return false;
     }
 
-    failLine(...expr) {
+    errorLine(...expr) {
         this.writeToStream(true, this.err, ...expr);
         return false;
     }

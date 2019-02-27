@@ -355,6 +355,12 @@ class MUDStorage extends MUDEventEmitter {
         return false;
     }
 
+    eventSend(eventData) {
+        if (this.shell)
+            return this.shell.eventSend(eventData, this.connected);
+        return false;
+    }
+
     get destroyed() { return this.hasFlag(MUDStorage.PROP_DESTRUCTED); }
 
     set destroyed(value) {

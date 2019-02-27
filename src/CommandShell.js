@@ -449,6 +449,16 @@ class CommandShell extends MUDEventEmitter {
         return defaultValue;
     }
 
+    eventSend(eventData, connected) {
+        //  TODO: Add handling of shell-specific events
+
+        if (connected === true) {
+            if (this.client)
+                return this.client.eventSend(eventData);
+        }
+        return false;
+    }
+
     /**
      * Flush out the display streams 
      */
@@ -951,8 +961,8 @@ class CommandShell extends MUDEventEmitter {
                         else if (isString) {
                             token.value += c;
                         }
-                        else if (/[a-zA-Z0-9_]/.test(c)) {
-                            i += (token.value += take(/^[a-zA-Z0-9_]+/, i)).length;
+                        else if (/[a-zA-Z0-9_\/\.]/.test(c)) {
+                            i += (token.value += take(/^[a-zA-Z0-9_\/\.]+/, i)).length;
                             token.end = i;
 
                             if (options.allowObjectShell && take('.')) {
@@ -983,7 +993,7 @@ class CommandShell extends MUDEventEmitter {
 
                 if (done || i + 1 === m) {
                     if (token.end === -1)
-                        throw new Error(`Error: Token ${this.type} did not send an end position`);
+                        throw new Error(`Error: Token ${token.type} did not send an end position`);
                     break;
                 }
             }
@@ -1272,7 +1282,7 @@ class CommandShell extends MUDEventEmitter {
                 }
             }
             catch (err) {
-                efuns.failLine(`CRITICAL: ${err.message}`);
+                errorLine(`CRITICAL: ${err.message}`);
             }
         });
     }

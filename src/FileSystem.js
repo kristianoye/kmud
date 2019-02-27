@@ -361,9 +361,9 @@ class FileSystem extends MUDEventEmitter {
 
     /**
      * @param {FileSystemRequest} req
-     * @param {function(boolean,Error):void} callback
+     * @returns {Promise<boolean>}
      */
-    isDirectoryAsync(req, callback) {
+    isDirectoryAsync(req) {
         throw new NotImplementedError('isDirectoryAsync');
     }
 

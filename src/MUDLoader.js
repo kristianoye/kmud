@@ -332,6 +332,17 @@ class MUDLoader {
         return efuns.writeToStream(true, efuns.err, ...args);
     }
 
+    eventSend(event, target = false) {
+        let ecc = driver.getExecution(),
+            thisObject = target || ecc.player,
+            store = !!thisObject && driver.storage.get(thisObject);
+
+        if (store) {
+            return store.eventSend(event);
+        }
+        return false;
+    }
+
     /**
      * Capture the next line of user input
      * @param {string} type The type of control to create
