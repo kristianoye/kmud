@@ -111,13 +111,15 @@ class MUDStorage extends MUDEventEmitter {
         while(--keySize) {
             let subkey = keyPath.shift();
 
-            if (subkey in ptr === false) 
-                ptr = ptr[subkey] = keySize ? {} : value;
-            else
+            if (subkey in ptr === false)
+                ptr = ptr[subkey] = {};
+            else if (!efuns.isPOO(ptr[subkey])) {
+                ptr['(default)'] = ptr[subkey];
+                ptr[subkey] = {};
+            }
+            else  
                 ptr = ptr[subkey];
-
             keyName.push(subkey);
-
             if (!efuns.isPOO(ptr)) {
                 throw new Error(`Illegal value key ${key}; ${keyName.join('/')} already exists as value.`);
             }
@@ -494,216 +496,91 @@ class MUDStorage extends MUDEventEmitter {
 
     /**
      * Restore the storage object.  Is this used?
+     * TODO: Make all this async... sigh
      * @param {any} data
      */
-    restore(data) {
-        let backRefs = [this.owner];
+    eventRestore(data) {
+        if (data) {
+            let owner = unwrap(this.owner);
 
-        this.properties = data.props || {};
-        this.protected = this.restoreObject(data.protected || {}, backRefs);
-        this.private = data.private || {};
-        this.emit('kmud.restored', this);
-    }
-
-    restoreX(item, backRefs) {
-        if (Array.isArray(item)) {
-            return this.restoreArray(item, backRefs);
-        }
-        else if (typeof item === 'object') {
-            return this.restoreObject(item, backRefs);
-        }
-        else if (typeof item === 'string' && item.startsWith('OBJREF:')) {
-            let refId = parseInt(item.slice(7));
-            if (refId > backRefs.length)
-                throw new Error(`restore() failure; Reference ${item} does not exist.`);
-            return backRefs[refId];
-        }
-        else {
-            return item;
-        }
-    }
-    /**
-     * Restore an array.
-     * @param {any[]} data
-     * @param {object[]} backrefs
-     */
-    restoreArray(data, backRefs) {
-        return data.map((item, index) => this.restoreX(item, backRefs));
-    }
-
-    /**
-     * Restore an object.
-     * @param {Object.<string,any>} data An object being restored.
-     * @param {object[]} backrefs Reference to objects already created.
-     */
-    restoreObject(data, backRefs) {
-        let r = {};
-        if (data.$$type && data.$$file) {
-            let ttype = driver.cache.getType(data.$$file, data.$$type);
-
-            if (ttype && typeof ttype.restore === 'function') {
-                r = ttype.restore(data);
-            }
-            else if (ttype) {
-                r = new ttype(data);
-                delete data['$$type'];
-                delete data['$$file'];
-                Object.keys(data).forEach((key, index) => {
-                    r[key] = this.restoreX(data[key], backRefs);
-                });
-            }
-            if (typeof r !== 'object' || r === null)
-                throw new Error(`restore() failure; Could not create type '${data.$$type}'`);
-            backRefs.push(r);
-        }
-        else {
-            Object.keys(data).forEach((key, index) => { r[key] = this.restoreX(data[key], backRefs); });
-        }
-        return r;
-    }
-
-    /**
-     * Serialize the MUD object state into a format that can be stored
-     * and reconstituted later.
-     */
-    serialize(flag, backrefs) {
-        let result = {
-            private: {},
-            props: {},
-            protected: {}
-        }, propsOnly = flag || false;
-
-        if (!backrefs) backrefs = [this.owner];
-
-        Object.keys(this.properties).forEach((prop, index) => {
-            // Values starting with $ are considered volatile and not serialized.
-            if (typeof prop === 'string' && !prop.startsWith('$')) {
-                let value = this.properties[prop],  uw = unwrap(value);
-                if (Array.isArray(value)) result.props[prop] = this.serializeArray(value, backrefs);
-                else if (uw) result.props[prop] = this.serializeMudObject(uw, backrefs);
-                else if (typeof value === 'object') result.props[prop] = this.serializeOtherObject(value, backrefs);
-                else {
-                    let s = this.serializeScalar(value);
-                    if (s) result.props[prop] = s;
+            return driver.driverCall('restoreObject', () => {
+                //  Restore inventory
+                data.inventory = data.inventory || [];
+                for (let i = 0; i < data.inventory.length; i++) {
+                    try {
+                        let item = efuns.restoreObject(data.inventory[i]);
+                        item.moveObject(owner);
+                    }
+                    catch (e) {
+                        this.shell.stderr.writeLine(`* Failed to load object ${data.inventory[i].$type}`);
+                    }
                 }
-            }
-        });
 
-        Object.keys(this.protected).forEach((prop, index) => {
-            // Values starting with $ are considered volatile and not serialized.
-            if (typeof prop === 'string' && !prop.startsWith('$')) {
-                let value = this.protected[prop], uw = unwrap(value);
-                if (Array.isArray(value)) result.protected[prop] = this.serializeArray(value, backrefs);
-                else if (uw) result.protected[prop] = this.serializeMudObject(uw, backrefs);
-                else if (typeof value === 'object') result.protected[prop] = this.serializeOtherObject(value, backrefs);
-                else {
-                    let s = this.serializeScalar(value);
-                    if (s) result.protected[prop] = s;
-                }
-            }
-        });
+                let restoreData = (hive, key, value) => {
+                    try {
+                        let type = typeof value;
 
-        Object.keys(this.private).forEach((prop, index) => {
-            // Values starting with $ are considered volatile and not serialized.
-            if (typeof prop === 'string' && !prop.startsWith('$')) {
-                let data = this.private[prop],
-                    priv = result.private[prop] = {};
+                        if (['string', 'boolean', 'number'].indexOf(type) > -1) {
+                            return hive ? hive[key] = value : value; 
+                        }
+                        else if (Array.isArray(value)) {
+                            if (hive)
+                                return hive[key] = value.map(v => restoreData(false, false, v));
+                            else
+                                return value.map(v => restoreData(false, false, v));
+                        }
+                        else if (type === 'object') {
+                            let $type = value['$type'];
+                            if ($type) {
+                                try {
+                                    if (hive)
+                                        return hive[key] = efuns.restoreObject(value);
+                                    else
+                                        return efuns.restoreObject(value);
+                                }
+                                catch (err) {
+                                }
+                            }
+                            else if (!hive) {
+                                hive = {};
+                                Object.keys(value).forEach(key => {
+                                    restoreData(hive, key, value);
+                                });
+                                return hive;
+                            }
+                            else {
+                                if (key in hive === false)
+                                    hive = hive[key] = {};
+                                else
+                                    hive = hive[key];
 
-                Object.keys(data).forEach((innerProp, index2) => {
-                    if (typeof innerProp === 'string' && !innerProp.startsWith('$')) {
-                        let value = data[innerProp], uw = unwrap(value);
-                        if (Array.isArray(value)) priv[innerProp] = this.serializeArray(value, backrefs);
-                        else if (uw) priv[innerProp] = this.serializeMudObject(uw, backrefs);
-                        else if (typeof value === 'object') priv[innerProp] = this.serializeOtherObject(value, backrefs);
-                        else {
-                            let s = this.serializeScalar(value);
-                            if (s) priv[innerProp] = s;
+                                Object.keys(value).forEach(key => {
+                                    restoreData(hive, key, value[key])
+                                });
+                                return hive;
+                            }
                         }
                     }
-                });
-            }
-        });
-
-        if (!propsOnly) {
-            result.$environment = unwrap(this.environment, (env) => env.filename);
-            result.$inventory = this.inventory.map(item => {
-                let $storage = driver.storage.get(item);
-                return $storage ? $storage.serialize() : false;
-            }).filter(s => s !== false);
-        }
-
-        result.$filename = this.filename;
-
-        return result;
-    }
-
-    /**
-     * Serialize an array for storage
-     * @param {Array<any>} a
-     */
-    serializeArray(a, backrefs) {
-        return a.map((el, i) => {
-            var uw = unwrap(el);
-            if (Array.isArray(el)) return this.serializeArray(el, backrefs);
-            else if (uw) return this.serializeMudObject(uw, backrefs);
-            else if (typeof el === 'object') return this.serializeOtherObject(el, backrefs);
-            else return this.serializeScalar(el, backrefs);
-        });
-    }
-
-    /**
-     * Serialize an object for storage.
-     * @param {MUDObject} o The object to serialize
-     */
-    serializeMudObject(o, backrefs) {
-        let index = backrefs.indexOf(o);
-        if (index > -1) return `OBJREF:${index}`;
-        let $storage = driver.storage.get(o);
-        if ($storage) {
-            let data = $storage.serialize(false, backrefs);
-            data.$$type = o.filename;
-            return data;
-        }
-        return null;
-    }
-
-    serializeOtherObject(o, backrefs) {
-        if (o === null)
-            return null;
-
-        let index = backrefs.indexOf(o);
-        if (index > -1)
-            return `OBJREF:${index}`;
-
-        let result = {},
-            type = o.constructor ? o.constructor.name : '$anonymous',
-            file = o.constructor ? o.constructor.filename : false;
-
-        Object.keys(o).forEach((prop, index) => {
-            if (typeof prop === 'string' && !prop.startsWith('$')) {
-                let value = o[prop], uw = unwrap(value);
-
-                if (Array.isArray(value)) result[prop] = this.serializeArray(value, backrefs);
-                else if (uw) result[prop] = this.serializeMudObject(uw, backrefs);
-                else if (typeof value === 'object') result[prop] = this.serializeOtherObject(value, backrefs);
-                else {
-                    let s = this.serializeScalar(value);
-                    if (s) result[prop] = s;
+                    catch (err) {
+                        logger.log('error in eventRestore(): ', err);
+                    }
                 }
-            }
-        });
-        if (type && file && type !== 'Object') {
-            result.$$type = type;
-            result.$$file = file;
-        }
-        return result;
-    }
 
-    serializeScalar(v) {
-        let vt = typeof v;
-        if (['string', 'boolean', 'number'].indexOf(vt) === -1)
-            return null;
-        else return v;
+                Object.keys(data.protected).forEach(key => {
+                    this.data[key] = restoreData(data.protected, key, data.protected[key]);
+                });
+
+                Object.keys(data.private).forEach(key => {
+                    this.privateData[key] = restoreData(data.private, key, data.private[key]);
+                })
+
+                if (typeof this.owner.applyRestore === 'function') {
+                    this.owner.applyRestore();
+                }
+                return owner;
+            });
+        }
+        return false;
     }
 
     /**
@@ -793,6 +670,16 @@ class MUDStorage extends MUDEventEmitter {
         }
         catch (err) {
             logger.log('Error in setClient: ', err);
+        }
+        finally {
+            setTimeout(() => {
+                driver.driverCall('setClient', ecc => {
+                    ecc.whenCompleted(() => {
+                        if (this.shell)
+                            this.shell.renderPrompt(false);
+                    });
+                });
+            }, 100);
         }
         return false;
     }

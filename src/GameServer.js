@@ -152,12 +152,13 @@ class GameServer extends MUDEventEmitter {
         //this.serverAddress = determineDefaultAddress.call(this);
 
         this.endpoints = config.mud.portBindings.map(binding => {
-            logger.logIf(LOGGER_DEBUG, () => `Adding ${binding.type} ${binding.address} port ${binding.port}`);
-            var endpointConfig = config.driver.networking.endpoints.getEndpointConfig(binding.type),
-                handlerConfig = endpointConfig.getHandler(binding.handlerType || false),
-                handlerModule = require(handlerConfig.file),
-                handlerType = handlerConfig.type ? handlerModule[handlerConfig.type] : handlerModule,
-                endpoint = new handlerType(this, binding.mergeOptions(handlerConfig.options));
+            if (binding.wizardsOnly)
+                logger.logIf(LOGGER_DEBUG, () => `Adding ${binding.type} ${binding.address} port ${binding.port} [WIZARD ONLY; max: ${binding.maxConnections}]`);
+            else
+                logger.logIf(LOGGER_DEBUG, () => `Adding ${binding.type} ${binding.address} port ${binding.port} [open port; max: ${binding.maxConnections}]`);
+
+            let handlerModule = require(binding.server),
+                endpoint = new handlerModule(this, binding);
 
             endpoint.on('error', (error, failedEndpoint) => {
                 if (error.code === 'EADDRINUSE') {
@@ -468,7 +469,7 @@ class GameServer extends MUDEventEmitter {
                         .filter(o => o instanceof MUDObject);
 
                     if (items.length !== target.length)
-                        return defaultValue || false;
+                        return onSuccess ? onSuccess() : undefined;
 
                     if (onSuccess)
                         return onSuccess(items);
@@ -1186,11 +1187,7 @@ class GameServer extends MUDEventEmitter {
         //  No master object yet; We have no way of validating reads.
         if (!this.masterObject)
             return true;
-        else if (frame.object === driver)
-            return true;
-        else if (frame.object === driver.masterObject)
-            return true;
-        else if (path === `${frame.object.filename}.${efuns.saveExtension}`)
+        else if (frame.object === driver.masterObject || frame.object === driver)
             return true;
         else
             return this.applyValidRead(path, frame.object || frame.file, frame.method);
@@ -1217,17 +1214,17 @@ class GameServer extends MUDEventEmitter {
      * Check to see if a write operation should be permitted.
      * @param {EFUNProxy} efuns Contains the filename of the originating call
      * @param {ExecutionFrame} frame Contains a single frame to validate
-     * @param {string} expr The file that is to be written to.
+     * @param {string} writePath The file that is to be written to.
      */
-    validWrite(efuns, frame, expr) {
+    validWrite(efuns, frame, writePath) {
         if (this.gameState < GAMESTATE_INITIALIZING)
             return true;
         else if (efuns.filename === '/')
             return true;
-        else if (efuns.filename === this.masterFilename)
+        else if (frame.object === this || frame.object === this.masterObject)
             return true;
         else
-            return this.applyValidWrite(expr, frame.object || frame.file, frame.method);
+            return this.applyValidWrite(writePath, frame.object || frame.file, frame.method);
     }
 }
 

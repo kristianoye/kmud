@@ -103,7 +103,7 @@ class DefaultFileSystem extends FileSystem {
      * @param {any[]} args Constructor args to pass to the new object.
      * @returns {MUDObject} The newly cloned object.
      */
-    cloneObjectSync(req, ...args) {
+    cloneObjectSync(req, args) {
         if (!this.assert(FileSystem.FS_SYNC))
             return false;
         let fullPath = path.posix.join(this.mountPoint, '/',  req),
@@ -116,11 +116,14 @@ class DefaultFileSystem extends FileSystem {
         let ecc = driver.getExecution();
         try {
             if (!module || !module.loaded) {
-                module = driver.compiler.compileObject({ file: file });
+                module = driver.compiler.compileObject({ file, args });
             }
             if (module) {
                 return module.createInstance(file, type, args);
             }
+        }
+        catch (err) {
+            logger.log('cloneObjectSync() error:', err.message);
         }
         finally {
             delete ecc.newContext;

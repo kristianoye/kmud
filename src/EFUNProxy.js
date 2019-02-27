@@ -1606,21 +1606,32 @@ class EFUNProxy {
 
     /**
      * Restores the state of an object from file.
-     * @param {string} path The file to read properties from.
+     * @param {string} pathOrObject The file to read properties from.
      */
-    restoreObject(path) {
+    restoreObject(pathOrObject) {
         try {
-            let ctx = driver.getExecution(),
-                thisOb = ctx.thisObject;
+            if (this.isPOO(pathOrObject) && '$type' in pathOrObject) {
+                let $type = pathOrObject.$type,
+                    ecc = driver.getExecution();
 
-            if (thisOb) {
-                if (!path.endsWith(SaveExtension))
-                    path += SaveExtension;
-                let data = this.readJsonFile(path);
-                if (data) {
-                    let store = driver.storage.get(thisOb);
-                    store && store.restore(data);
-                    return true;
+                if (ecc.guarded(f => driver.validWrite(this, f, $type))) {
+                    let clone = this.cloneObject($type),
+                        store = driver.storage.get(clone);
+                    return !!store && store.eventRestore(pathOrObject);
+                }
+                return false;
+            }
+            else {
+                let etc = driver.getExecution(),
+                    thisOb = etc.thisObject;
+                if (thisOb) {
+                    if (!pathOrObject.endsWith(SaveExtension))
+                        pathOrObject += SaveExtension;
+                    let data = this.readJsonFile(pathOrObject);
+                    if (data) {
+                        let store = driver.storage.get(thisOb);
+                        return store ? store.eventRestore(data) : false;
+                    }
                 }
             }
         }

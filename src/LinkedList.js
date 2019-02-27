@@ -203,7 +203,7 @@ class LinkedListWithID extends LinkedList {
             throw new Error(`Collection already contains a value with '${this.hashKey}' of '${hashKey}'`);
 
         let index = super.add(value);
-        thish.index[index].hashKey = hashKey;
+        this.index[index].hashKey = hashKey;
         this.hashLookup[hashKey] = index;
 
         return index;
@@ -289,7 +289,7 @@ class LinkedListWithLookup extends LinkedList {
         }
         let index = super.add(value);
 
-        thish.index[index].hashKey = hashKey;
+        this.index[index].hashKey = hashKey;
         this.hashLookup[hashKey].push(index);
 
         return index;

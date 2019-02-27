@@ -30,9 +30,7 @@
 const
     net = require('net'),
     zlib = require('zlib'),
-    EventEmitter = require('events'),
-    MUDEventEmitter = require('../MUDEventEmitter');
-
+    EventEmitter = require('events');
 
 // see: arpa/telnet.h
 const Seq = {

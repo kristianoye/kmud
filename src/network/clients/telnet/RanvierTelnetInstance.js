@@ -7,15 +7,13 @@
  */
 
 const
-    ClientInstance = require('./ClientInstance');
+    ClientInstance = require('../../ClientInstance');
 
 class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, client) {
         super(endpoint, client, client.remoteAddress);
         this.client.on('data', (buffer) => {
-            let line = buffer.toString('utf8');
-            this.emit('data', line);
-            this.enqueueCommand(line);
+            this.emit('data', buffer.toString('utf8'));
         });
         this.client.on('close', msg => {
             this.disconnect('telnet', msg || 'not specified');
@@ -34,9 +32,15 @@ class RanvierTelnetInstance extends ClientInstance {
         }
     }
 
-    get isBrowser() { return false; }
+    get isBrowser() {
+        return false;
+    }
 
+    /*
+     *  Programatically disconnect the client from the server.
+     */
     close() {
+        this.writeLine('Good-bye!');
         this.closed = true;
         this.client.end();
     }
@@ -57,54 +61,10 @@ class RanvierTelnetInstance extends ClientInstance {
         let frame = Object.assign({ type: 'text', text: '> ', callback }, opts);
 
         if (frame.error) {
-            this.writeLine('\n' + frame.error.trim() + '\n');
+            this.write(efuns.eol + frame.error.trim() + efuns.eol);
         }
         this.inputStack.unshift(frame);
         return opts.drawPrompt === true ? this.renderPrompt(frame) : this;
-    }
-
-    /**
-     * Called to allow standardization of input based on the type of "dialog"
-     * @param {{ type: string }} input The modal input settings from the input frame.
-     * @param {string} text The raw user input
-     * @returns {any} The 
-     */
-    normalizeInput(input, text) {
-        if (input.type === 'text')
-            return text;
-
-        else if (input.type === 'password') {
-            this.toggleEcho(true);
-            this.write('\r\n');
-            return text;
-        }
-
-        else if (input.type === 'yesno') {
-            let resp = text.toLowerCase().trim();
-            if (resp.length === 0 && input.default)
-                return input.default;
-            else if (['yes', 'no', 'y', 'n'].indexOf(resp) === -1) {
-                this.writeLine(input.error || '\nPlease respond with "yes" or "no"\n\n');
-                return undefined;
-            }
-            else
-                return resp.charAt(0) === 'y' ? 'yes' : 'no';
-        }
-        else if (input.type === 'pickOne') {
-            let opts = Object.keys(input.options);
-            let disp = opts.slice(0, -1).join(', ') + ' or ' + opts.pop();
-            let values = opts.map(key => input.options[key])
-                .filter(val => text.length > 0 && val.slice(0, text.length) === text);
-
-            if (input.options[text])
-                return input.options[text];
-            else if (values.length === 1)
-                return values[0];
-            else {
-                this.writeLine(input.error || `\nPlease select an item from the list (${disp}).\n\n`);
-                return undefined;
-            }
-        }
     }
 
     transmit(buffer) {
@@ -129,7 +89,8 @@ class RanvierTelnetInstance extends ClientInstance {
      * @param {string} text The text to render on the client.
      */
     writeLine(text) {
-        this.write(!efuns.text.trailingNewline(text) ? text + '\n' : text);
+        this.write(!efuns.text.trailingNewline(text) ?
+            text + efuns.eol : text);
     }
 }
 

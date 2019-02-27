@@ -3,13 +3,15 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  *
- * Description: This module contains core game functionality.
+ * Description: Provides basic telnet connectivity for text-based clients
+ * (also potentially provides MSP, compression, etc, depending on client)
  */
-const ClientEndpoint = require('./ClientEndpoint'),
+const
+    ClientEndpoint = require('../../ClientEndpoint'),
     Telnet = require('./RanvierTelnet'),
     TelnetServer = Telnet.TelnetServer,
     TelnetSocket = Telnet.TelnetSocket,
-    MudPort = require('../config/MudPort'),
+    MudPort = require('../../../config/MudPort'),
     RanvierTelnetInstance = require('./RanvierTelnetInstance');
 
 class RanvierTelnetEndpoint extends ClientEndpoint {

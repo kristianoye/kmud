@@ -600,10 +600,10 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="server.js" />
-    <Compile Include="src\network\HTTPClientInstance.js">
+    <Compile Include="src\network\clients\http\HTTPClientInstance.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\network\HTTPClientEndpoint.js">
+    <Compile Include="src\network\clients\http\HTTPClientEndpoint.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\HTTPServer.js">
@@ -666,13 +666,13 @@
     <Compile Include="src\network\NetUtil.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\network\RanvierTelnet.js">
+    <Compile Include="src\network\clients\telnet\RanvierTelnet.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\network\RanvierTelnetEndpoint.js">
+    <Compile Include="src\network\clients\telnet\RanvierTelnetEndpoint.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\network\RanvierTelnetInstance.js">
+    <Compile Include="src\network\clients\telnet\RanvierTelnetInstance.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\compiler\CompilerPipeline.js">
@@ -998,6 +998,9 @@
     <Folder Include="src\compiler\" />
     <Folder Include="src\config\" />
     <Folder Include="src\features\" />
+    <Folder Include="src\network\clients\http\" />
+    <Folder Include="src\network\clients\telnet\" />
+    <Folder Include="src\network\clients\wizdesk\" />
     <Folder Include="src\network\impl\" />
     <Folder Include="src\network\impl\ansi\" />
     <Folder Include="src\network\impl\kmud\" />
@@ -1008,6 +1011,8 @@
     <Folder Include="src\db\" />
     <Folder Include="src\efuns\" />
     <Folder Include="src\inputs\" />
+    <Folder Include="src\network\clients\" />
+    <Folder Include="src\network\servers\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
   </ItemGroup>

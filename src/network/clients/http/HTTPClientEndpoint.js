@@ -5,11 +5,12 @@
  *
  * Description: Creates an endpoint that may be used by web-enabled clients (browsers)
  */
-const ClientEndpoint = require('./ClientEndpoint'),
+const
+    ClientEndpoint = require('../../ClientEndpoint'),
+    HTTPClientInstance = require('./HTTPClientInstance'),
+    MudPort = require('../../../config/MudPort'),
     fs = require('fs'),
     HTTP = require('http'),
-    HTTPClientInstance = require('./HTTPClientInstance'),
-    MudPort = require('../config/MudPort'),
     URL = require('url'),
     Path = require('path');
 

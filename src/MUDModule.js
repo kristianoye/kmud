@@ -192,6 +192,8 @@ class MUDModule extends MUDEventEmitter {
             if (this.typeNames.length === 1) {
                 typeName = this.typeNames[0];
             }
+            else if (this.defaultExport instanceof MUDObject)
+                return this.defaultExport;
             else return false;
         }
         //  The module exported an instance of this type; This indicates the item cannot be cloned

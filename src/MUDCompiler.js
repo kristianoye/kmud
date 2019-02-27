@@ -205,6 +205,7 @@ class MUDCompiler {
                             isVirtual: true,
                             filename: context.filename
                         };
+                        delete ecc.restoreContext;
                         return driver.compileVirtualObject(ecc.newContext.filename, args);
                     }
                     finally {

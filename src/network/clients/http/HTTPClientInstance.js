@@ -5,8 +5,8 @@
  *
  * Description: This module contains core game functionality.
  */
-const ClientInstance = require('./ClientInstance'),
-    ClientEndpoint = require('./ClientEndpoint');
+const ClientInstance = require('../../ClientInstance'),
+    ClientEndpoint = require('../../ClientEndpoint');
 
 const
     _callbacks = Symbol('callbacks');

@@ -1,4 +1,7 @@
 ﻿
+const
+    path = require('path');
+
 class MudPort {
     constructor(data) {
         /** @type {string} */
@@ -21,6 +24,19 @@ class MudPort {
 
         /** @type {number} */
         this.maxConnections = parseInt(data.maxConnections) || -1; // default to unlimited
+
+
+        let defaultClient = this.type === 'http' ?
+                './src/network/clients/http/HTTPClientInstance' :
+                './src/network/clients/telnet/RanvierTelnetInstance';
+        /** @type {string} */
+        this.client = path.resolve(data.client || defaultClient);
+
+        /** @type {string} */
+        let defaultServer = this.type === 'http' ?
+                './src/network/clients/http/HTTPClientEndpoint' :
+                './src/network/clients/telnet/RanvierTelnetEndpoint';
+        this.server = path.resolve(data.server || defaultServer);
     }
 
     assertValid(index) {

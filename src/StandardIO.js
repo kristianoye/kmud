@@ -292,7 +292,7 @@ class StandardOutputStream extends Writable {
 
     writeLine(content, encoding = false) {
         if (!efuns.text.trailingNewline(content))
-            content += '\n';
+            content += os.EOL;
         return this.write(content, encoding);
     }
 }
