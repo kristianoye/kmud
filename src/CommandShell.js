@@ -115,6 +115,9 @@ class CommandShell extends MUDEventEmitter {
         if (this.options.allowHistory) {
             this.history = new LinkedList(options.history || []);
         }
+        else {
+            this.history = new LinkedList([]);
+        }
 
         //  Is there already a command executing?
         this.executing = false;
@@ -194,165 +197,167 @@ class CommandShell extends MUDEventEmitter {
     expandHistory(source) {
         let i = -1,
             m = source.length,
-            n = i = source.indexOf('!');
+            n = i = source.indexOf('!'),
+            hist = this.history;
 
-        let take = (f, t) => {
-            let ret = '';
-            if (f instanceof RegExp) {
-                let ret = f.exec(source.slice(i));
-                if (Array.isArray(ret)) {
-                    i += (ret[1] || ret[0]).length;
-                    return ret[1] || ret[0];
+        if (hist && n > -1) {
+            let take = (f, t) => {
+                let ret = '';
+                if (f instanceof RegExp) {
+                    let ret = f.exec(source.slice(i));
+                    if (Array.isArray(ret)) {
+                        i += (ret[1] || ret[0]).length;
+                        return ret[1] || ret[0];
+                    }
+                    return '';
                 }
-                return '';
-            }
-            else if (typeof f === 'string') {
-                let check = source.slice(i, i + f.length);
-                if (check !== f) return false;
-                i += check.length;
-                return check;
-            }
-            ret = source.slice(f = f || i, t = t || f + 1);
-            i = t;
-            return ret;
-        };
+                else if (typeof f === 'string') {
+                    let check = source.slice(i, i + f.length);
+                    if (check !== f) return false;
+                    i += check.length;
+                    return check;
+                }
+                ret = source.slice(f = f || i, t = t || f + 1);
+                i = t;
+                return ret;
+            };
 
-        while (n > -1) {
-            let lc = source.charAt(i++ - 1);
-            if (lc === '\\') {
-                //  This one is escaped, find the next
-                n = source.slice(n + 1).indexOf('!');
-            }
-            else {
-                //  Not escaped
-                let found = '',
-                    start = n,
-                    search = '!',
-                    index = -1,
-                    history = this.history,
-                    end = n + 1;
-
-                if (take('!')) found = history[history.max];
-                else if (take('%')) found = history.keyword || '';
+            while (n > -1) {
+                let lc = source.charAt(i++ - 1);
+                if (lc === '\\') {
+                    //  This one is escaped, find the next
+                    n = source.slice(n + 1).indexOf('!');
+                }
                 else {
-                    let contains = take('?'),
-                        searchBack = take('-');
+                    //  Not escaped
+                    let found = '',
+                        start = n,
+                        search = '!',
+                        index = -1,
+                        history = this.history,
+                        end = n + 1;
 
-                    search = take(/[^\s\:]+/);
-                    index = parseInt(search), found = false;
+                    if (take('!')) found = history[history.max];
+                    else if (take('%')) found = history.keyword || '';
+                    else {
+                        let contains = take('?'),
+                            searchBack = take('-');
 
-                    if (isNaN(index)) {
-                        if (contains)
-                            for (let ptr = history.first; !found && ptr; ptr = history.next(ptr)) {
-                                let n = ptr.value.indexOf(search)
-                                if (n > -1) {
-                                    let args = efuns.input.splitArgs(found = ptr.value, true);
-                                    for (let x = 0; x < args.length; x++) {
-                                        if (args[x].indexOf(search) > -1) {
-                                            history.keyword = args[x];
-                                            break;
+                        search = take(/[^\s\:]+/);
+                        index = parseInt(search), found = false;
+
+                        if (isNaN(index)) {
+                            if (contains)
+                                for (let ptr = history.first; !found && ptr; ptr = history.next(ptr)) {
+                                    let n = ptr.value.indexOf(search)
+                                    if (n > -1) {
+                                        let args = efuns.input.splitArgs(found = ptr.value, true);
+                                        for (let x = 0; x < args.length; x++) {
+                                            if (args[x].indexOf(search) > -1) {
+                                                history.keyword = args[x];
+                                                break;
+                                            }
                                         }
                                     }
                                 }
-                            }
-                        else
-                            for (let ptr = history.last; !found && ptr; ptr = ptr.prev(ptr)) {
-                                if (ptr.value.startsWith(search)) {
-                                    found = ptr.value;
-                                    break;
+                            else
+                                for (let ptr = history.last; !found && ptr; ptr = ptr.prev(ptr)) {
+                                    if (ptr.value.startsWith(search)) {
+                                        found = ptr.value;
+                                        break;
+                                    }
                                 }
+                        }
+                        else if (index > 0) {
+                            if (searchBack) {
+                                let hist = history.toArray();
+                                found = hist[hist.length - index];
                             }
-                    }
-                    else if (index > 0) {
-                        if (searchBack) {
-                            let hist = history.toArray();
-                            found = hist[hist.length - index];
-                        }
-                        else
-                            found = history.at(index);
-                    }
-                }
-                if (!found)
-                    throw Error(`${search}: event not found`);
-
-                if (take(':')) {
-                    let nc = take(), args = found.split(/\s+/);
-                    if (nc === '^') found = args[1];
-                    else if (nc === '*') found = args.slice(1).join(' ');
-                    else if (nc === '$') found = args[args.length - 1];
-                    else if (/\d/.test(nc)) {
-                        nc += take(/^\d+/);
-                        if (take('-')) {
-                            let endRange = take(/^\d+/);
-                            if (endRange)
-                                found = args.slice(parseInt(nc), parseInt(endRange) + 1).join(' ');
                             else
-                                found = args.slice(parseInt(nc)).join(' ');
+                                found = history.at(index);
                         }
-                        else {
-                            let foo = parseInt(nc);
-                            if (foo < args.length)
-                                found = args[foo];
+                    }
+                    if (!found)
+                        throw Error(`${search}: event not found`);
+
+                    if (take(':')) {
+                        let nc = take(), args = found.split(/\s+/);
+                        if (nc === '^') found = args[1];
+                        else if (nc === '*') found = args.slice(1).join(' ');
+                        else if (nc === '$') found = args[args.length - 1];
+                        else if (/\d/.test(nc)) {
+                            nc += take(/^\d+/);
+                            if (take('-')) {
+                                let endRange = take(/^\d+/);
+                                if (endRange)
+                                    found = args.slice(parseInt(nc), parseInt(endRange) + 1).join(' ');
+                                else
+                                    found = args.slice(parseInt(nc)).join(' ');
+                            }
+                            else {
+                                let foo = parseInt(nc);
+                                if (foo < args.length)
+                                    found = args[foo];
+                                else
+                                    throw new Error(`:${nc}: bad word specifier`);
+                            }
+                        }
+                        else if (nc === 's' || nc === 'g') {
+                            if (semver.lt(process.version, '9.0.0')) {
+                                throw new Error('Search and replace is only available in Node v9+');
+                            }
+                            else if (take('&')) {
+                                if (!history.lastReplace)
+                                    throw new Error(':g&: no previous substitution');
+                            }
+                            else {
+                                if (!take('/'))
+                                    throw new Error(`Expected symbol / at position ${i}`);
+
+                                let searchFor = take(/^(?<!\\)([^\/]+)/);
+
+                                if (!take('/'))
+                                    throw new Error(`Expected symbol / at position ${i}`);
+
+                                let replaceWith = take(/^(?<!\\)([^\/]+)/);
+
+                                if (take() !== '/')
+                                    throw new Error(`Expected symbol / at position ${i}`);
+
+                                let flags = take(/[gimu]+/) || undefined;
+                                history.lastReplace = new RegExp(`/${searchFor}/${replaceWith}/`, flags);
+                            }
+                            found = found.replace(history.lastReplace);
+                        }
+
+                        while (take(':')) {
+                            nc = take();
+                            //  remove trailing path
+                            if (nc === 'h') {
+                                let n = found.lastIndexOf('/');
+                                if (n > -1) found = found.slice(0, n);
+                            }
+                            else if (nc === 'p') {
+                                printOnly = true;
+                            }
+                            //  remove the suffix
+                            else if (nc === 'r') {
+                                let n = found.lastIndexOf('.');
+                                if (n > -1) found = found.slice(0, n);
+                            }
+                            //  removing leading path
+                            else if (nc === 't') {
+                                let n = found.lastIndexOf('/');
+                                if (n > -1) found = found.slice(n + 1);
+                            }
                             else
-                                throw new Error(`:${nc}: bad word specifier`);
+                                throw Error(`Unrecognized expression starting at position ${i - 1}`);
                         }
                     }
-                    else if (nc === 's' || nc === 'g') {
-                        if (semver.lt(process.version, '9.0.0')) {
-                            throw new Error('Search and replace is only available in Node v9+');
-                        }
-                        else if (take('&')) {
-                            if (!history.lastReplace)
-                                throw new Error(':g&: no previous substitution');
-                        }
-                        else {
-                            if (!take('/'))
-                                throw new Error(`Expected symbol / at position ${i}`);
-
-                            let searchFor = take(/^(?<!\\)([^\/]+)/);
-
-                            if (!take('/'))
-                                throw new Error(`Expected symbol / at position ${i}`);
-
-                            let replaceWith = take(/^(?<!\\)([^\/]+)/);
-
-                            if (take() !== '/')
-                                throw new Error(`Expected symbol / at position ${i}`);
-
-                            let flags = take(/[gimu]+/) || undefined;
-                            history.lastReplace = new RegExp(`/${searchFor}/${replaceWith}/`, flags);
-                        }
-                        found = found.replace(history.lastReplace);
-                    }
-
-                    while (take(':')) {
-                        nc = take();
-                        //  remove trailing path
-                        if (nc === 'h') {
-                            let n = found.lastIndexOf('/');
-                            if (n > -1) found = found.slice(0, n);
-                        }
-                        else if (nc === 'p') {
-                            printOnly = true;
-                        }
-                        //  remove the suffix
-                        else if (nc === 'r') {
-                            let n = found.lastIndexOf('.');
-                            if (n > -1) found = found.slice(0, n);
-                        }
-                        //  removing leading path
-                        else if (nc === 't') {
-                            let n = found.lastIndexOf('/');
-                            if (n > -1) found = found.slice(n + 1);
-                        }
-                        else
-                            throw Error(`Unrecognized expression starting at position ${i - 1}`);
-                    }
-                    arg.end = i;
+                    source = source.slice(0, start) + found + source.slice(i);
+                    n = source.indexOf('!', i + found.length);
+                    m = source.length;
                 }
-                source = source.slice(0, start) + found + source.slice(i);
-                n = source.indexOf('!', i + found.length);
-                m = source.length; 
             }
         }
 

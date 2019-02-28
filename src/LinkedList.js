@@ -69,7 +69,7 @@ class LinkedList {
 
     /** Returns the first element */
     first() {
-        return this.head ? this.head : false;
+        return this.head;
     }
 
     /**
@@ -80,8 +80,9 @@ class LinkedList {
         return id in this.index;
     }
 
+    /** @type {LinkedListNode} */
     get last() {
-        return this.tail ? this.tail : false;
+        return this.tail;
     }
 
     get max() {
@@ -95,7 +96,7 @@ class LinkedList {
     /**
      * Get the node after the specified ID/node
      * @param {LinkedListNode|number} id The ID
-     * @returns {LinkedListNode|false} Returns the next node or false if its the end
+     * @returns {LinkedListNode} Returns the next node or false if its the end
      */
     next(id) {
         let node = typeof id === 'number' ? this.index[id] : this.index[id.index];
@@ -107,13 +108,28 @@ class LinkedList {
     /**
      * Get the node before the specified ID/node
      * @param {LinkedListNode|number} id The ID or node
-     * @returns {LinkedListNode|false} Returns the previous node or false if its the end
+     * @returns {LinkedListNode} Returns the previous node or false if its the end
      */
     prev(id) {
         let node = typeof id === 'number' ? this.index[id] : this.index[id.index];
         if (!node)
             throw new Error(`Null exception; Index ${id} does not exist`);
         return node.prev ? node.prev : false;
+    }
+
+    pop() {
+        let node = this.last();
+        if (node) {
+            this.tail = node.prev;
+            delete this.index[node.index];
+            this.length--;
+            return node;
+        }
+        return undefined;
+    }
+
+    push(item) {
+        return this.add(item);
     }
 
     /**
@@ -153,6 +169,16 @@ class LinkedList {
         return new LinkedList(this.toArray().reverse());
     }
 
+    shift() {
+        let node = this.first();
+        if (node) {
+            this.head = node.next;
+            delete this.index[node.index];
+            this.length--;
+            return node;
+        }
+    }
+
     /**
      * Returns a subset of the items
      * @param {number} index The index to start taking elements from
@@ -176,6 +202,19 @@ class LinkedList {
      */
     toArray() {
         return this.slice();
+    }
+
+    unshift(value) {
+        let item = {
+            next: this.head ? this.head : false,
+            prev: false,
+            index: this.head ? this.head.index - 1 : 0,
+            value
+        };
+        if (item.index in this.index)
+            throw new Error(`Index ${item.index} already exists in collection!  Oops!`);
+        this.head = item;
+        this.length++;
     }
 }
 
