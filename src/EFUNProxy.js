@@ -103,7 +103,7 @@ class EFUNProxy {
 
         list = list.map(function (o) {
             var uw = unwrap(o);
-            return uw ? uw.brief : o.toString();
+            return uw ? uw.shortDesc : o.toString();
         });
 
         if (consolidate) {
@@ -188,7 +188,7 @@ class EFUNProxy {
 
         if (!target) {
             let ecc = driver.getExecution();
-            store = ecc.store;
+            store = driver.storage.get(ecc.player);
         }
         else {
             store = unwrap(target, ob => driver.storage.get(ob));

@@ -30,7 +30,8 @@ const MudColorImplementation = require('../MudColorImplementation'),
         'ORANGE': ANSI(33),
         'YELLOW': ANSI(1) + ANSI(33),
         'GREEN': ANSI(32),
-        'WHITE': ANSI(37)
+        'WHITE': ANSI(37),
+        'INITTERM': ESC("[H") + ESC("[2J")
     };
 
 class TerminalColorXterm extends MudColorImplementation {

@@ -21,7 +21,7 @@ class DriverFeature {
         this.name = data.name;
 
         /** @type {string} */
-        this.description = data.description || '[No Description Available]';
+        this.longDesc = data.longDesc || '[No Description Available]';
 
         /** @type {string} */
         this.module = data.module;

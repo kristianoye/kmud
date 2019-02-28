@@ -13,15 +13,19 @@ const
 class Square extends Room {
     private create() {
         this.keyId = 'Square';
-        this.brief = 'The Central Square of Sarta';
-        this.description =
+        this.shortDesc = 'The Central Square of Sarta';
+        this.longDesc = <div>
             <p>This is the heart of the main city in Sarta.  There are many tall buildings
             surrounding the square and hundreds of people mill about the street conducting
-            business.</p>;
+                business.</p>
+
+            <p>To the south is the city port of entry for the large ships that dock here
+                every day to supply the city with food and other vital supplies.</p>
+        </div>;
 
         this.addExit('out', '/realms/kriton/Workroom');
-        this.addExit('north', 'northMain1');
-        this.addExit('south', 'southmain1');
+        this.addExit('north', 'streets/northMain01');
+        this.addExit('south', 'streets/southmain01');
     }
 
     reset() {

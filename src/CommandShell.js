@@ -154,6 +154,38 @@ class CommandShell extends MUDEventEmitter {
         return false;
     }
 
+    expandAliases(cmd) {
+        if (this.options.aliases) {
+            let alias = this.options.aliases[cmd.verb] || false;
+            if (alias && alias.indexOf('$')) {
+                let newArgs = [], parts = alias.split(/\s+/)
+                    .forEach(tok => {
+                        if (!tok.startsWith('$'))
+                            newArgs.push(tok);
+                        let expr = tok.slice(1);
+                        if (expr === '*')
+                            newArgs.push(...cmd.args);
+                        else {
+                            let index = parseInt(expr);
+                            if (isNaN(index) === false) {
+                                if (index > -1 && index < cmd.args.length) {
+                                    newArgs.push(cmd.args[index]);
+                                }
+                            }
+                        }
+                    });
+                cmd.verb = newArgs.shift();
+                cmd.args = newArgs;
+                cmd.text = cmd.args.map(a => {
+                    if (['boolean', 'string', 'number'].indexOf(typeof a) === -1)
+                        return '';
+                    else
+                        return `${a}`;
+                }).join(' ');
+            }
+        }
+    }
+
     /**
      * Expand any history expressions
      * @param {string} source The text to expand
@@ -347,7 +379,12 @@ class CommandShell extends MUDEventEmitter {
                                 result = this.env[cmd.lhs.value] = cmd.value, cmds;
                             return this.executeResult(result, cmds);
                         }
-                        result = this.storage.executeCommand(cmd);
+
+                        if (this.options.allowAliases) {
+                            this.expandAliases(cmd);
+                        }
+                        result = this.storage.eventCommand(cmd);
+
                         if (efuns.isPromise(result)) {
                             return await result
                                 .then(r => this.executeResult(r, cmds))
@@ -505,6 +542,7 @@ class CommandShell extends MUDEventEmitter {
             source = input.slice(0),
             m = source.length,
             contexts = [],
+            inAlias = false,
             isEscaped = false,
             isString = false,
             inExpr = () => {
@@ -850,6 +888,7 @@ class CommandShell extends MUDEventEmitter {
                                 key = nextToken();
                             }
                             token.end = i;
+                            done = true;
                             break;
                         }
                         /** intentionally fall through to array scenario */
@@ -895,9 +934,7 @@ class CommandShell extends MUDEventEmitter {
                             token.end = i;
                             token.text = source.slice(token.start, token.end);
                             token.value = token.args.map(a => a.value);
-
                             contexts.shift();
-
                             done = true;
                         }
                         else
@@ -992,12 +1029,17 @@ class CommandShell extends MUDEventEmitter {
                 }
 
                 if (done || i + 1 === m) {
+                    if (token.end === -1 && i + 1 === m && token.type === TT.Word) {
+                        token.end = m;
+                        if (!token.value.endsWith(c)) token.value += c;
+                    }
                     if (token.end === -1)
                         throw new Error(`Error: Token ${token.type} did not send an end position`);
                     break;
                 }
             }
             token.isValueType = ValueTypes.indexOf(token.type) > -1;
+
             if (ignore.length > 0 && ignore.indexOf(token.type) > -1)
                 return nextToken(false, expect, ignore);
             else if (expect) {
@@ -1008,6 +1050,20 @@ class CommandShell extends MUDEventEmitter {
                 return token;
             }
             if (!command && token.type === TT.Word) {
+                if (this.options.allowAliases) {
+                    let alias = this.options.aliases[token.value] || false;
+                    if (alias !== false && inAlias === false) {
+                        let hasBackefs = alias && alias.indexOf('$') > -1;
+                        if (hasBackefs === false) {
+                            source = source.slice(0, token.start) + alias + source.slice(token.end);
+                            m = source.length;
+                            i = token.start;
+                            inAlias = true; // Prevent infinite loop in alias expansion
+                            return nextToken();
+                        }
+                    }
+                }
+                inAlias = false;
                 command = {
                     // Flow control
                     conditional: false,
@@ -1357,33 +1413,41 @@ class CommandShell extends MUDEventEmitter {
             inputTo = undefined;
             this.executing = false;
         }
-        setTimeout(() => {
-            if (this.storage && this.storage.connected && !this.executing) {
-                try {
-                    this.flushAll();
+        //  We are already waiting for the prompt to be rendered
+        if (this.promptTimer)
+            return;
+        this.promptTimer = setTimeout(() => {
+            try {
+                if (this.storage && this.storage.connected && !this.executing) {
+                    try {
+                        this.flushAll();
 
-                    if (!this.inputTo) {
-                        if (!inputTo && this.inputStack.length)
-                            inputTo = this.inputTo = this.inputStack[0];
+                        if (!this.inputTo) {
+                            if (!inputTo && this.inputStack.length)
+                                inputTo = this.inputTo = this.inputStack[0];
 
-                        else if (typeof inputTo === 'string')
-                            throw new Error('Invalid input');
+                            else if (typeof inputTo === 'string')
+                                throw new Error('Invalid input');
 
-                        if (inputTo) {
-                            this.client.renderPrompt(inputTo);
-                        }
-                        else {
-                            this.client.renderPrompt({ type: 'text', text: this.prompt });
+                            if (inputTo) {
+                                this.client.renderPrompt(inputTo);
+                            }
+                            else {
+                                this.client.renderPrompt({ type: 'text', text: this.prompt });
+                            }
                         }
                     }
+                    catch (err) {
+                        this.client && this.client.writeLine(`CRITICAL: ${err.message}`);
+                        this.client && this.client.write('> ');
+                    }
+                    finally {
+                        this.flushAll();
+                    }
                 }
-                catch (err) {
-                    this.client && this.client.writeLine(`CRITICAL: ${err.message}`);
-                    this.client && this.client.write('> ');
-                }
-                finally {
-                    this.flushAll();
-                }
+            }
+            finally {
+                this.promptTimer = false;
             }
         }, CommandInterval);
     }

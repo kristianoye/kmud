@@ -143,6 +143,21 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     /**
+     * Execute a command from the shell.
+     * @param {any} rawcmd
+     */
+    eventCommand(rawcmd) {
+        return driver.driverCall('executeCommand', context => {
+            let cmd = {
+                verb: rawcmd.verb.value,
+                args: rawcmd.args.map(a => a.value),
+                text: rawcmd.text
+            };
+            return context.withPlayer(this, player => player.executeCommand(cmd), false);
+        }, this.filename, true);
+    }
+
+    /**
      * Pass the heartbeat on to the in-game object.
      * @param {number} total
      * @param {number} ticks
@@ -365,18 +380,6 @@ class MUDStorage extends MUDEventEmitter {
 
     set destroyed(value) {
         if (value) this.flag(MUDStorage.PROP_DESTRUCTED, true);
-    }
-
-
-    executeCommand(rawcmd) {
-        return driver.driverCall('executeCommand', context => {
-            let cmd = {
-                verb: rawcmd.verb.value,
-                args: rawcmd.args.map(a => a.value),
-                text: rawcmd.text
-            };
-            return context.withPlayer(this, player => player.executeCommand(cmd), false);
-        }, this.filename, true);
     }
 
     /**

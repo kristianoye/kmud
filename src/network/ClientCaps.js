@@ -14,9 +14,7 @@ const
 class ClientCaps extends MUDEventEmitter {
     constructor(clientInstance) {
         super();
-        let
-            self = this,
-            flags = { },
+        let flags = { },
             client = clientInstance,
             interfaces = [],
             methods = {},
@@ -57,7 +55,7 @@ class ClientCaps extends MUDEventEmitter {
                     if (n === -1) terminalTypes.push(tty);
                     setTerminalType(tty);
 
-                    self.emit('kmud', {
+                    this.emit('kmud', {
                         eventType: 'terminalType',
                         eventData: tty
                     });
@@ -67,7 +65,7 @@ class ClientCaps extends MUDEventEmitter {
                 height = term.height;
                 width = term.width;
 
-                self.emit('kmud', {
+                this.emit('kmud', {
                     eventType: 'windowSize',
                     eventData: term
                 });

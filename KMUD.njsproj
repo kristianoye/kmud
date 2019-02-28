@@ -292,6 +292,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\world\sarta\obj\weapon\sword.js" />
+    <Compile Include="lib\world\sarta\streets\northMain01.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\wwwroot\controller\DocController.js">
       <SubType>Code</SubType>
     </Compile>
@@ -949,6 +952,7 @@
     <Folder Include="lib\world\" />
     <Folder Include="lib\world\sarta\" />
     <Folder Include="lib\world\sarta\mob\" />
+    <Folder Include="lib\world\sarta\streets\" />
     <Folder Include="lib\world\sarta\obj\" />
     <Folder Include="lib\world\sarta\obj\weapon\" />
     <Folder Include="lib\wwwroot\" />

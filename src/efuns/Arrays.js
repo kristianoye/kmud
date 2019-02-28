@@ -31,7 +31,7 @@ class ArrayHelper {
      */
     static consolidateArray(arr) {
         let shorts = {};
-        arr.map(s => typeof s === 'string' && s || unwrap(uw => uw.brief) || false)
+        arr.map(s => typeof s === 'string' && s || unwrap(uw => uw.shortDesc) || false)
             .filter(s => s !== false)
             .forEach(s => shorts[s] = (shorts[s] || 0) + 1);
         return Object.keys(shorts).map(s => driver.efuns.consolidate(shorts[s], s).ucfirst());

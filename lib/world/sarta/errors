@@ -1,11 +1,8 @@
 
-[2019-2-10 08:33:00]
-instances is not defined
-E:\KLF\KMUD\src\MUDCompiler.js:306
-            throw err;
-            ^
-
-ReferenceError: instances is not defined
-    at require (/base/Container.js:1:190)
-    at require (/base/Room.js:1:185)
-    at require (/world/sarta/Square.jsx:1:201)
+[2019-2-27 17:19:48]
+Could not load /world/sarta/streets/northMain01 [JSX is not enabled for .js files]
+Error: Could not load /world/sarta/streets/northMain01 [JSX is not enabled for .js files]
+    at Creator.movePlayer (/base/Interactive.js:460:22)
+    at Creator.eventMove (/base/Living.js:169:19)
+    at Go.cmd (/cmds/common/Go.js:25:25)
+    at Creator.executeCommand (/base/Interactive.js:271:21)
