@@ -9,16 +9,20 @@ const
 
 class WhoCommand extends Command {
     cmd(args, cmdline) {
-        var players = efuns.players(),
+        var players = efuns.living.players(),
             count = players.length,
             tp = thisPlayer;
+
         if (args[0] && args[0] === 'html') {
             return this.webcmd(args, cmdline);
         }
-        tp.writeLine(`There are ${count} player(s) on-line:`);
+
+        writeLine(`There are ${count} player(s) on-line:`);
+
         players.forEach((player, i) => {
-            tp.writeLine(player.getTitle());
+            writeLine(player.getTitle());
         });
+
         return true;
     }
 

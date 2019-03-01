@@ -574,21 +574,13 @@ class EFUNProxy {
     /**
      * Find a player in the game.
      * @param {string} name The name of the character to find.
-     * @param {bool} partial If true then partial name matches are permitted (default: false)
-     * @returns {MUDObject|false} Attempts to return the specified player.
+     * @param {boolean} usePartial If true then partial name matches are permitted (default: false)
+     * @returns {MUDObject} Attempts to return the specified player.
      */
-    findPlayer(name, partial) {
+    findPlayer(name, usePartial = false) {
         if (typeof name !== 'string')
             throw new Error(`Bad argument 1 to findPlayer; Expects string got ${(typeof name)}`);
-
-        let search = name.toLowerCase().replace(/[^a-zA-Z0-9]+/g, ''),
-            len = search.length,
-            matches = driver.players
-                .filter(p => {
-                    let pn = unwrap(p, u => u.name);
-                    return pn === search || partial && pn.slice(0, len) === search;
-                });
-        return matches.length === 1 ? matches[0] : false;
+        return driver.playerObjects.find(name, usePartial);
     }
 
     /**

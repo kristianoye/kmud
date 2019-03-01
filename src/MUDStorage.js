@@ -222,6 +222,14 @@ class MUDStorage extends MUDEventEmitter {
         this.flag(MUDStorage.PROP_ISPLAYER, flag !== false);
     }
 
+    get wizard() {
+        return this.hasFlag(MUDStorage.PROP_WIZARD);
+    }
+
+    set wizard(flag) {
+        this.flag(MUDStorage.PROP_WIZARD, flag === true);
+    }
+
     /**
      * Check to see if the object has a certain flag enabled.
      * @param {number} flag One or more flags to check.

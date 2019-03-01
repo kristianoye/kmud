@@ -56,6 +56,22 @@ class LivingsHelper {
     }
 
     /**
+     * Makes the thisObject a wizard.
+     * @param {boolean|string} [flag=true] Disables the player flag if set to false
+     * @returns {boolean} True if the flag state changed.
+     */
+    static enableWizard(flag = false) {
+        let ecc = driver.getExecution(),
+            thisObject = ecc.thisObject,
+            store = driver.storage.get(thisObject);
+
+        if (store) {
+            return (store.player = flag);
+        }
+        return false;
+    }
+
+    /**
      * Attempt to find a living object by name
      * @param {any} name
      * @param {any} allowPartial
@@ -78,9 +94,9 @@ class LivingsHelper {
         let result = driver.playerObjects
             .find(efuns.normalizeName(name), allowPartial);
 
-        return Array.isArray(result) ?
+        return Array.isArray(result) && allowPartial === true ?
             result.map(s => unwrap(s.owner)) :
-            unwrap(result);
+            !Array.isArray(result) && unwrap(result.owner);
     }
 
     /**
@@ -98,12 +114,25 @@ class LivingsHelper {
     }
 
     /**
+     * Determine if an object is a living object.
+     * @param {any} target
+     */
+    static isAlive(target) {
+        let ob = unwrap(target);
+        if (ob) {
+            let store = driver.storage.get(ob);
+            return !!store && store.living;
+        }
+        return false;
+    }
+
+    /**
      * Determines if an object is connected to an active client
      * @param {MUDObject|MUDWrapper} target The item to check
      * @returns {boolean} Returns true if the object has an active client
      */
     static isConnected(target) {
-        let ob = unwrap(target);
+        let ob = typeof target === 'object' ? target : unwrap(target);
         if (ob) {
             let store = driver.storage.get(ob);
             return !!store && store.interactive;
@@ -117,12 +146,29 @@ class LivingsHelper {
      * @returns {boolean} Returns true if the object is interactive
      */
     static isInteractive(target) {
-        let ob = unwrap(target);
-        if (ob) {
-            let store = driver.storage.get(ob);
-            return !!store && store.interactive;
-        }
-        return false;
+        let store = driver.storage.get(target);
+        return !!store && store.interactive;
+    }
+
+    static isWizard(target) {
+        let store = driver.storage.get(target);
+        return !!store && store.wizard;
+    }
+
+    /**
+     * Returns a list of players on the MUD.  
+     * @param {boolean} showAll If true then linkdead players are shown as well
+     * @returns {MUDObject[]} The list of players.
+     */
+    static players(showAll = false) {
+        return driver.playerObjects
+            .toArray()
+            .filter(o => {
+                if (showAll)
+                    return typeof o === 'object' ? o : unwrap(o);
+                else if (LivingsHelper.isConnected(o))
+                    return typeof o === 'object' ? o : unwrap(o);
+            });
     }
 }
 

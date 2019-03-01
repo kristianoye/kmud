@@ -64,7 +64,8 @@ class LinkedList {
      * @param {number} pos The position to try and retrieve from.
      */
     at(pos) {
-        return this.index[pos];
+        let result = this.index[pos];
+        return !!result && result.value;
     }
 
     /** Returns the first element */

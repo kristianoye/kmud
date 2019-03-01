@@ -36,9 +36,9 @@ class CallCommand extends Command {
             return thisPlayer().environment.filename;
         else if (spec === 'me' || spec === 'self')
             return thisPlayer().filename;
-        var pl = efuns.findPlayer(spec);
-        if (pl) return unwrap(pl).filename;
-        var fn = efuns.resolvePath(spec, thisPlayer().workingDirectory);
+        let player = efuns.living.findPlayer(spec);
+        if (player) return unwrap(player).filename;
+        let fn = efuns.resolvePath(spec, thisPlayer().workingDirectory);
         writeLine('Trying to call ' + fn);
         return fn;
     }

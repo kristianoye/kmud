@@ -1315,9 +1315,8 @@ class CommandShell extends MUDEventEmitter {
                     });
 
                     if (inputTrapped === true) {
-                        this.executing = false;
                         this.flushAll();
-                        return true;
+                        return this.renderPrompt(this.inputTo = false);
                     }
                     else if (typeof inputTrapped === 'undefined') {
                         //  Async call

@@ -83,15 +83,11 @@ class GameServer extends MUDEventEmitter {
         //  Locations where $include and require look for unqualified files
         this.includePath = config.mudlib.includePath || [];
 
-        /** @type {MUDObject[]} */
-        this.livings = [];
         this.logDirectory = config.mudlib.logDirectory;
         this.masterFilename = config.mudlib.master.path;
         this.mudName = config.mud.name;
         this.nextResetTime = 0;
 
-        /** @type {MUDObject} */
-        this.players = [];
         this.preCompilers = [];
         this.preloads = [];
         this.resetStack = [];
@@ -880,38 +876,6 @@ class GameServer extends MUDEventEmitter {
                 list.push(ob);
             }
         }
-    }
-
-    /**
-     * Removes a living object from the list of living objects.
-     * @param {MUDObject} body Remove a living object from the list maintained by the game.
-     * @returns {boolean} Returns true if the living item existed in the list and was removed.
-     */
-    removeLiving(body) {
-        return unwrap(body, living => {
-            let index = this.livings.indexOf(living);
-            if (index > -1) {
-                this.players = this.livings.splice(index, 1);
-                return true;
-            }
-            return false;
-        });
-    }
-
-    /**
-     * Remove a player from the list of active players.
-     * @param {MUDObject} body The player to remove.
-     * @returns {boolean} True if the player was removed successfully.
-     */
-    removePlayer(body) {
-        return unwrap(body, player => {
-            let index = this.players.indexOf(player);
-            if (index > -1) {
-                this.players = this.players.splice(index, 1);
-                return true;
-            }
-            return false;
-        });
     }
 
     /**
