@@ -474,6 +474,10 @@ MUDLoader.getInitialization = function () {
             throw reason;
         });
     };
+
+    String.notEmpty = function(s) {
+        return typeof s === 'string' && /\\w+/.test(s);
+    };
     `.trim();
 }
 /**
