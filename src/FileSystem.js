@@ -18,10 +18,7 @@ const
     FS_OBJECTS = 1 << 7,    // The filesystem supports objects loading via the compiler.
     FT_UNKNOWN = 0,         // Symbolic links, Windows Junctions, file sockets, and other currently unsuppported types.
     FT_FILE = 1 << 0,       // The target is a regular file.
-    FT_DIRECTORY = 1 << 1,  // The target is a directory.
-    fs = require('fs'),
-    path = require('path'),
-    MXC = require('./MXC');
+    FT_DIRECTORY = 1 << 1;  // The target is a directory.
 
 class FileSystemStat {
     /**

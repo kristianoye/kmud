@@ -12,8 +12,13 @@ const
     MKDIR_PARENTS = 1 << 1;
 
 class MkDirCommand extends Command {
-    create(ctx) {
-        this.FileIndex = efuns.loadObjectSync('/sys/daemon/FileIndex');
+
+    private get FileIndex() {
+        return unwrap(get(efuns.loadObjectSync(Daemon.FileIndex)));
+    }
+
+    private set FileIndex(value) {
+        set(value);
     }
 
     /**

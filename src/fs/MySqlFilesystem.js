@@ -2,7 +2,6 @@
     { FileSystem, FileSystemStat } = require('../FileSystem'),
     FileManager = require('../FileManager'),
     mysql = require('mysql'),
-    MXC = require('../MXC'),
     path = require('path'),
     fs = require('fs');
 

@@ -159,9 +159,6 @@ declare class GameServer {
     /** Current runtime configuration */
     config: MUDConfig;
 
-    /** The current execution context */
-    currentContext: MXC;
-
     /** The current verb */
     currentVerb: string;
 
@@ -229,12 +226,6 @@ declare class GameServer {
      * @param player
      */
     removePlayer(player: MUDObject): boolean;
-
-    /**
-     * Restore another context.
-     * @param context The context that was previously executing.
-     */
-    restoreContext(context: MXC): MXC;
 
     /** The server address that is used for outgoing TCP connections */
     serverAddress: string;

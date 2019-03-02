@@ -7,7 +7,6 @@ const
     { FileSystem, FileSystemStat } = require('../FileSystem'),
     FileManager = require('../FileManager'),
     ExecutionContext = require('../ExecutionContext'),
-    MXC = require('../MXC'),
     path = require('path'),
     fs = require('fs');
 
@@ -504,17 +503,7 @@ class DefaultFileSystem extends FileSystem {
      * @returns {void} Returns nothing for async.
      */
     writeFileAsync(req, content, callback) {
-        return this.translatePath(req.relativePath, fullPath => {
-            try {
-                return fs.writeFile(fullPath, content, {
-                    encoding: this.encoding || 'utf8',
-                    flag: 'w'
-                }, MXC.awaiter(err => callback(!err, err), `fs.writeFile:${req}`));
-            }
-            catch (err) {
-                return callback(false, err);
-            }
-        });
+        throw new Error('Not implemented');
     }
 
     /**

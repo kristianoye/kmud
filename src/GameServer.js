@@ -8,8 +8,7 @@ const
     ExecutionContext = require('./ExecutionContext'),
     { NetUtil, NetworkInterface } = require('./network/NetUtil'),
     { LinkedList, LinkedListWithID, LinkedListWithLookup } = require('./LinkedList'),
-    async = require('async'),
-    MXC = require('./MXC');
+    async = require('async');
 
 const
     fs = require('fs'),
@@ -701,17 +700,6 @@ class GameServer extends MUDEventEmitter {
 
     getAddress() {
         return this.serverAddress;
-    }
-
-    /**
-     * Returns the currently executing context.
-     * @param {boolean} createNew Force the creation of a new context.
-     * @param {function(MXC):void} init A context initializing callback.
-     * @param {string} note An optional note to include in the execution context.
-     * @returns {MXC} Returns the current execution context.
-     */
-    getContext(createNew, init, note) {
-        throw new Error('obsolete');
     }
 
     /**

@@ -15,6 +15,14 @@ class RmDir extends Command {
         this.FileIndex = efuns.loadObjectSync(Daemon.FileIndex);
     }
 
+    private get FileIndex() {
+        return unwrap(get(efuns.loadObjectSync(Daemon.FileIndex)));
+    }
+
+    private set FileIndex(value) {
+        set(value);
+    }
+
     cmd(args, cmdline) {
         let player = thisPlayer,
             dirList = [],
