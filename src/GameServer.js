@@ -536,7 +536,7 @@ class GameServer extends MUDEventEmitter {
             result = callback(ecc);
         }
         catch (err) {
-            logger.log(`Error in method '${method}': ${err.message}`);
+            logger.log(`Error in method '${method}': ${err.message}\r\n${err.stack}`);
             if (rethrow) throw err;
             else result = err;
         }

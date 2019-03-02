@@ -236,8 +236,6 @@ class MUDModule extends MUDEventEmitter {
             driver.storage.delete(instanceData.filename);
             throw err;
         }
-        finally {
-        }
     }
 
     createInstances(isReload) {

@@ -263,47 +263,7 @@ class EFUNProxy {
      * @param {string} input The complete command to execute.
      */
     command(input) {
-        let ctx = driver.getContext();
-        let _thisObject = ctx.thisObject;
-        if (_thisObject) {
-            let $storage = driver.storage.get(_thisObject),
-                client = $storage.getProtected('$client'),
-                evt = client ? client.createCommandEvent(_thisObject) : false,
-                mxc = ctx.clone(init => {
-                    init.note = 'command';
-                    init.thisPlayer = _thisObject;
-                    init.truePlayer = ctx.truePlayer;
-                });
-            try {
-                if (!evt) {
-                    let words = input.trim().split(/\s+/g),
-                        verb = words.shift();
-
-                    evt = {
-                        verb: verb.trim(),
-                        args: words,
-                        callback: function () { },
-                        client: client || null,
-                        error: 'What?',
-                        fromHistory: false,
-                        input: input.slice(verb.length).trim(),
-                        original: input,
-                        preferHtml: false,
-                        prompt: {
-                            type: 'text',
-                            text: '> ',
-                            recapture: false
-                        }
-                    };
-                }
-                mxc.input = evt;
-                mxc.restore();
-                $storage.emit('kmud.command', evt);
-            }
-            finally {
-                mxc.release();
-            }
-        }
+        throw new Error('Not implemented');
     }
 
     /**
@@ -1713,23 +1673,15 @@ class EFUNProxy {
                             environment: unwrap(store.environment, e => e.filename),
                             flags: store.flags,
                             inventory: store.inventory.map(i => unwrap(i, item => serializeMudObject(item))),
-                            private: {},
-                            protected: {}
+                            properties: {}
                         };
 
-                    Object.keys(store.privateData).forEach(key => {
-                        let val = store.privateData[key];
+                    Object.keys(store.properties).forEach(key => {
+                        let val = store.properties[key];
                         if (!key.startsWith(':')) {
-                            serializeValue(result.private, key, val);
+                            serializeValue(result.properties, key, val);
                         }
                     });
-                    Object.keys(store.data).forEach(key => {
-                        let val = store.data[key];
-                        if (!key.startsWith(':')) {
-                            serializeValue(result.protected, key, val);
-                        }
-                    });
-
                     return result;
                 });
             };

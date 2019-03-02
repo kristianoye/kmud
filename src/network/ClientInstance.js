@@ -37,7 +37,6 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
         this.commandTimer = false;
         this.endpoint = endpoint;
         this.inputStack = [];
-        this.lastCommand = new Date();
         this.port = endpoint.port;
         this.remoteAddress = remoteAddress;
         this.storage = false;

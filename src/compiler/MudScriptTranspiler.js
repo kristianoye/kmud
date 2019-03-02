@@ -7,9 +7,9 @@ const
     PipelineComponent = require('./PipelineComponent'),
     PipeContext = require('./PipelineContext'),
     SettersGetters = [
+        'del',          // Delete a value
         'get',          // Get a value
         'inc',          // Increment a value
-        'register',     // Initialize but do not overwrite
         'set'           // Sets a value
     ],
     acorn = require('acorn'),
@@ -390,23 +390,24 @@ function parseElement(op, e, depth) {
                     else if (e.callee.type === 'Identifier') {
                         propName = callee = parseElement(op, e.callee, depth + 1);
                         if (SettersGetters.indexOf(propName) > -1) {
+                            let parts = (op.thisMethod || '').split(/\s+/), prop = parts.pop();
+
                             if (!op.thisClass)
                                 throw new Error(`The ${propName} operator can only be used inside a class.`);
 
+                            else if (parts.indexOf('get') === -1 && parts.indexOf('set') === -1)
+                                throw new Error(`The ${propName} operator cannot be used within non getter/setter '${op.thismethod || op.method || 'unknown'}'`);
+
                             // set.call(this, ... args)
                             ret += propName;
-                            if (op.thisClass && op.thisMethod === 'constructor') {
-                                //  No need to check... use this' type if setting/getting private data
-                                ret += `.call(this, ${op.thisClass}, __FILE__, `
-                            }
-                            else {
-                                ret += `.call(this, ${op.thisClass}, __FILE__, `
-                            };
+                            ret += `.call(this, ${op.thisClass}, '${prop}'`
                             if (e.arguments.length > 0) {
+                                ret += ', ';
                                 op.readUntil(e.arguments[0].start);
+                                e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
                             }
-                            e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
-                            ret += op.readUntil(e.end);
+                            op.readUntil(e.end);
+                            ret += ')';
                             isCallout = true;
                             writeCallee = false;
                         }

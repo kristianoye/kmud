@@ -4,36 +4,10 @@
  * Date: October 1, 2017
  */
 const
-    MUDCreationContext = require('./MUDCreationContext'),
-    MUDEventEmitter = require('./MUDEventEmitter'),
-    $heartbeat = Symbol('_heartbeat'),
-    callsite = require('callsite');
-
-const
-    GameServer = require('./GameServer');
+    MUDEventEmitter = require('./MUDEventEmitter');
 
 var
     UseLazyResets = false;
-
-function validIdentifier(s) {
-    return typeof s === 'string' && s.length > 0 && s.indexOf(/\s+/) === -1;
-}
-
-function parseIdentifierList(args, mn) {
-    var list = [];
-    args.forEach(a => {
-        if (Array.isArray(a)) {
-            var b = a.filter(_ => validIdentifier(_));
-            list.push(...b);
-        }
-        else if (validIdentifier(a))
-            list.push(a);
-    });
-    if (list.length === 0) {
-        throw new Error(`${mn}(): Zero valid entries found in parameter list.`);
-    }
-    return list;
-}
 
 /**
  * Base type for all MUD objects.
@@ -91,75 +65,24 @@ class MUDObject extends MUDEventEmitter {
             return true;
     }
 
-    evaluateProperty(key) {
-        var prop = this.getProperty(key);
-        if (typeof prop === 'function')
-            return prop.call(this, key);
-        else
-            return prop;
-    }
-
     get inventory() {
         return driver.storage.get(this).inventory.map(o => unwrap(o));
     }
 
-    isLiving() { return false; }
+    init() {}
 
-    isPlayer() { return false; }
+    move(target) {}
 
-    getPrivate(key, defaultValue) {
-        let $storage = driver.storage.get(this);
-        return $storage.getPrivate(this.filename, key, defaultValue);
-    }
+    moveAsync(target) {}
 
-    getProperty(key, defaultValue, evalFunctions = false) {
-        let value = driver.storage.get(this).getProperty(key, defaultValue, evalFunctions);
-        if (evalFunctions && typeof value === 'function') return value();
-        return value;
-    }
+    moveSync(target) {}
 
-    /**
-     * Set a protected value in the storage layer.
-     * @param {string} key The name of the property to fetch.
-     * @param {any} defaultValue The default value if the property does not exist.
-     * @returns {any} The property value or default if not set.
-     */
-    getProtected(key, defaultValue) {
-        let $storage = driver.storage.get(this);
-        return $storage.getProtected(key, defaultValue);
-    }
-
-    init() {
-    }
-
-    isLiving() {
-        var callback = this.getSymbol($heartbeat);
-        return typeof callback === 'function';
-    }
-
-    isPlayer() {
-        return false;
-    }
-
-    move(target) {
-
-    }
-
-    moveAsync(target) {
-
-    }
-
-    moveSync(target) {
-
-    }
-
-    moveObject(destination, callback) {
+    moveObject(destination) {
         let store = driver.storage.get(this),
             env = unwrap(store.environment);
         
             let target = wrapper(destination) ||
-                efuns.loadObjectSync(destination),
-                myWrapper = wrapper(this);
+                efuns.loadObjectSync(destination);
 
         if (!env || env.canReleaseItem(this)) {
             return unwrap(target, dest => {
@@ -236,50 +159,6 @@ class MUDObject extends MUDEventEmitter {
         if (typeof cb === 'function') {
             cb.call(self, newEnv, env);
         }
-        return this;
-    }
-
-    /**
-     * Private properties may only be set by this type or related-types
-     * and they can only set/get data from their level in the inheritance
-     * hierarchy.
-     *
-     * @param {string} key The name of the key to store.
-     * @param {any} value Any associated value.
-     * @returns {MUDObject} A reference to the object itself.
-     */
-    setPrivate(key, value) {
-        let s = driver.storage.get(this), fileName = this.filename;
-        if (typeof key === 'object')
-            Object.keys(key).forEach(name => s.setPrivate(fileName, name, key[name]));
-        else
-            s.setPrivate(fileName, key, value);
-        return this;
-    }
-
-    setProperty(key, value) {
-        let s = driver.storage.get(this);
-        if (typeof key === 'object') 
-            Object.keys(key).forEach(name => s.setProperty(name, key[name]));
-        else
-            s.setProperty(key, value);
-        return this;
-    }
-
-    setProtected(key, value) {
-        let $storage = driver.storage.get(this);
-        $storage.setProtected(key, value);
-        return this;
-    }
-
-    getSymbol(key, defaultValue) {
-        let store = driver.storage.get(this);
-        return store ? store.getSymbol(key, defaultValue) : undefined;
-    }
-
-    setSymbol(key, value) {
-        let storage = driver.storage.get(this);
-        storage && storage.setSymbol(key, value);
         return this;
     }
 

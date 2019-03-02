@@ -41,9 +41,6 @@
     <Compile Include="lib\base\Armor.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\base\BaseShell.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="lib\base\Command.js">
       <SubType>Code</SubType>
     </Compile>
@@ -266,17 +263,7 @@
     <Compile Include="lib\base\include\Object.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\lib\BaseShell.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="lib\sys\lib\CommandShell.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="lib\sys\lib\CreatorShell.js" />
     <Compile Include="lib\sys\lib\Login.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="lib\sys\lib\PlayerShell.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\lib\SimulEfuns.js">

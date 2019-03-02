@@ -366,10 +366,16 @@ class MUDLoader {
         }, options), callback);
     }
 
-    get(usingType, file, key, defaultValue = undefined, access = 2) {
-        let store = driver.storage.get(this),
-            result = store.get(this, usingType, file, key, defaultValue, access);
-        return typeof result === 'undefined' ? defaultValue : result;
+    /**
+     * Sets a value (and creates if needed).
+     * @param {any} definingType The class reference attempting to set the value
+     * @param {propertyName} value The name of the variable to create
+     * @param {any} initialValue The initial value if the property is not defined
+     * @returns {any} Returns the value on success
+     */
+    get(definingType, propertyName, initialValue) {
+        let store = driver.storage.get(this);
+        return !!store && store.get(definingType, propertyName, initialValue);
     }
 
     inc(usingType, file, key, value = 0, access = 2) {
@@ -377,37 +383,20 @@ class MUDLoader {
         store.set(this, usingType, file, key, value, access | 128, false);
     }
 
-    /**
-     * Registers a new value but only if not already defined.
-     * @param {any} usingType The module attempting to set the value
-     * @param {any} key The name of the variable to create
-     * @param {any} val The initial value of the variable
-     * @param {any} access The level access required to set/read the key
-     * @returns {MUDObject} A reference to this object.
-     */
     register(usingType, file, key, val, access = 2) {
-        let store = driver.storage.get(this);
-        if (efuns.isPOO(key)) {
-            Object.keys(key).forEach(prop => {
-                store.set(this, usingType, file, prop, key[prop], access, true);
-            });
-            return;
-        }
-        store.set(this, usingType, file, key, val, access, true);
-
+        // TODO: Remove this entirely
     }
 
     /**
      * Sets a value (and creates if needed).
-     * @param {any} usingType The module attempting to set the value
-     * @param {any} key The name of the variable to create
-     * @param {any} val The initial value of the variable
-     * @param {any} access The level access required to set/read the key
-     * @returns {MUDObject} A reference to this object.
+     * @param {any} definingType The class reference attempting to set the value
+     * @param {propertyName} value The name of the variable to create
+     * @param {any} value The actual value of the property
+     * @returns {boolean} Returns true on success.
      */
-    set(usingType, file, key, val, access = 2) {
+    set(definingType, propertyName, value) {
         let store = driver.storage.get(this);
-        store.set(this, usingType, file, key, val, access, false);
+        return store.set(definingType, propertyName, value);
     }
 
     clearInterval(ident) {

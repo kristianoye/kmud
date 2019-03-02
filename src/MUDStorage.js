@@ -9,8 +9,7 @@ const
     MUDEventEmitter = require('./MUDEventEmitter'),
     MUDCreationContext = require('./MUDCreationContext'),
     ClientCaps = require('./network/ClientCaps'),
-    CommandShell = require('./CommandShell'),
-    StandardIO = require('./StandardIO');
+    CommandShell = require('./CommandShell');
 
 /**
  * Storage for MUD Objects.  In-game objects do not hold their data directly.
@@ -58,88 +57,24 @@ class MUDStorage extends MUDEventEmitter {
         this.owner = owner;
 
         /** @type {Object.<string,any>} */
-        this.private = {};
-
-        /** @type {Object.<string,any>} */
         this.properties = {};
-
-        /** @type {Object.<string,any>} */
-        this.protected = {};
-
-        /** @type {Object.<Symbol,any>} */
-        this.symbols = {};
-
-        /** @type {Object.<string,{value:any, definer:string, access:number}>} */
-        this.data = {};
-
-        /** @type {Object.<string,{value:any, definer:string, access:number}>} */
-        this.privateData = {};
     }
 
     /**
-     * 
-     * @param {MUDObject} thisObject The object to associate data with
-     * @param {function} definingType
-     * @param {string} key The key to set/create
-     * @param {any} value The value (or undef to delete)
-     * @param {any} access
-     * @param {any} initMode
+     * Set a property value within an object.
      */
-    set(thisObject, definingType, file, key, value, access = 2, initMode = false) {
-        let inc = access & 128;
-        access &= ~128;
-        let ptr = access === 3 ? this.privateData : this.data,
-            definer = definingType.type ?
-                definingType.type.prototype.baseName :
-                definingType.prototype.baseName,
-
-            //  This set/get/register is taking place in a constructor of definer type
-            thisBase = definingType.type ? definer : 
-                thisObject.constructor.prototype.baseName,
-            keyPath = key.split('/').filter(s => s.length),
-            keyName = [],
-            keySize = keyPath.length;
-
-        if (access === 3) {
-            if (thisBase !== definer && definer !== file)
-                throw new Error(`Illegal attempt to access private data.`);
-
-            if (definer in ptr === false) {
-                ptr = ptr[definer] = {};
-            }
+    set(definingType, propertyName, value) {
+        let baseName = definingType.prototype.baseName;
+        let collection = this.properties[baseName];
+        if (!collection) {
+            collection = this.properties[baseName] = {};
         }
-        while(--keySize) {
-            let subkey = keyPath.shift();
-
-            if (subkey in ptr === false)
-                ptr = ptr[subkey] = {};
-            else if (!efuns.isPOO(ptr[subkey])) {
-                ptr['(default)'] = ptr[subkey];
-                ptr[subkey] = {};
-            }
-            else  
-                ptr = ptr[subkey];
-            keyName.push(subkey);
-            if (!efuns.isPOO(ptr)) {
-                throw new Error(`Illegal value key ${key}; ${keyName.join('/')} already exists as value.`);
-            }
+        //  Do not store direct references to objects.
+        if (value instanceof MUDObject) {
+            value = wrap(value);
         }
-
-        keyName = keyPath[0];
-
-        if (keyName in ptr === false) {
-            ptr[keyName] = value;
-        }
-        else if (efuns.isPOO(value)) {
-            Object.keys(value).forEach(subkey => {
-                this.set(thisObject, definingType, file, key + '/' + subkey, value[subkey], access, initMode);
-            });
-            return this.owner;
-        }
-        else if (!initMode)
-            ptr[keyName] = inc ? (ptr[keyName] || 0) + value : value;
-
-        return this.owner;
+        collection[propertyName] = value;
+        return true;
     }
 
     /**
@@ -158,6 +93,40 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     /**
+     * Destroys the object.
+     */
+    eventDestroy(...args) {
+        if (!this.destroyed) {
+            let parts = efuns.parsePath(this.owner.filename),
+                module = driver.cache.get(parts.file);
+
+            this.heartbeat = false;
+
+            if (this.client)
+                this.setClient(false, ...args);
+
+            if (this.environment)
+                this.owner.emit('kmud.item.removed', this.environment);
+
+            if (this.player) this.player = false;
+
+            this.owner.removeAllListeners && this.owner.removeAllListeners();
+            driver.storage.delete(this.owner);
+
+            this.owner = false;
+            this.destroyed = true;
+
+            if (this.shell) {
+                this.shell.destroy();
+                this.shell = undefined;
+            }
+
+            return this.destroyed = module.destroyInstance(parts);
+        }
+        return false;
+    }
+
+    /**
      * Pass the heartbeat on to the in-game object.
      * @param {number} total
      * @param {number} ticks
@@ -170,6 +139,12 @@ class MUDStorage extends MUDEventEmitter {
             }
         }
         this.owner.heartbeat(total, ticks);
+    }
+
+    eventSend(eventData) {
+        if (this.shell)
+            return this.shell.eventSend(eventData, this.connected);
+        return false;
     }
 
     get connected() {
@@ -250,41 +225,21 @@ class MUDStorage extends MUDEventEmitter {
             return 0;
     }
 
-    get(thisObject, definingType, file, key, defaultValue, access = 2) {
-        let ptr = access === 3 ? this.privateData : this.data,
-            definer = definingType.type ?
-                definingType.type.prototype.baseName :
-                definingType.prototype.baseName,
-
-            //  This set/get/register is taking place in a constructor of definer type
-            thisBase = definingType.type ? definer :
-                thisObject.constructor.prototype.baseName,
-            keyPath = key.split('/').filter(s => s.length),
-            keySize = keyPath.length;
-
-        if (access === 3) {
-            if (thisBase !== definer && definer !== file)
-                throw new Error(`Illegal attempt to access private data.`);
-
-            if (definer in ptr === false) {
-                ptr = ptr[definer] = {};
-            }
-            else {
-                ptr = ptr[definer];
-            }
+    get(definingType, propertyName, initialValue) {
+        let baseName = definingType.prototype.baseName;
+        let collection = this.properties[baseName];
+        if (!collection) {
+            collection = this.properties[baseName] = {};
         }
-        while (--keySize) {
-            let subkey = keyPath.shift();
-
-            if (subkey in ptr === false)
-                return defaultValue;
-            else
-                ptr = ptr[subkey];
+        if (propertyName in collection === false) {
+            if (typeof initialValue === 'undefined')
+                return initialValue;
+            collection[propertyName] = initialValue;
         }
-        if (keyPath[0] in ptr === false && defaultValue) {
-            return ptr[keyPath[0]] = defaultValue;
-        }
-        return ptr[keyPath[0]] || defaultValue;
+        let result = collection[propertyName];
+        if (typeof result === 'function')
+            return unwrap(result) || result;
+        return result;
     }
 
     flag(flag, setFlag = true) {
@@ -344,46 +299,6 @@ class MUDStorage extends MUDEventEmitter {
         });
     }
 
-    /**
-     * Destroys the object.
-     */
-    eventDestroy(...args) {
-        if (!this.destroyed) {
-            let parts = efuns.parsePath(this.owner.filename),
-                module = driver.cache.get(parts.file);
-
-            this.heartbeat = false;
-
-            if (this.client)
-                this.setClient(false, ...args);
-
-            if (this.environment)
-                this.owner.emit('kmud.item.removed', this.environment);
-
-            if (this.player) this.player = false;
-
-            this.owner.removeAllListeners && this.owner.removeAllListeners();
-            driver.storage.delete(this.owner);
-
-            this.owner = false;
-            this.destroyed = true;
-
-            if (this.shell) {
-                this.shell.destroy();
-                this.shell = undefined;
-            }
-
-            return this.destroyed = module.destroyInstance(parts);
-        }
-        return false;
-    }
-
-    eventSend(eventData) {
-        if (this.shell)
-            return this.shell.eventSend(eventData, this.connected);
-        return false;
-    }
-
     get destroyed() { return this.hasFlag(MUDStorage.PROP_DESTRUCTED); }
 
     set destroyed(value) {
@@ -395,63 +310,6 @@ class MUDStorage extends MUDEventEmitter {
      */
     getClientCaps() {
         return this.protected['$clientCaps'] || false;
-    }
-
-    /**
-     * Returns a private property from the collection.
-     * @param {string} fileName The name of the file getting private data.
-     * @param {string} prop The name of the property to fetch.
-     * @param {any=} defaultValue An optional default value if property is not set.
-     */
-    getPrivate(fileName, prop, defaultValue) {
-        let exists = fileName in this.private;
-        if (!exists) {
-            if (typeof defaultValue === 'undefined')
-                return defaultValue;
-            this.private[fileName] = {};
-        }
-        return this.private[fileName][prop] || (this.private[fileName][prop] = defaultValue);
-    }
-
-    /**
-     * Returns a property from the collection.
-     * @param {string} propName The name of the property to return.
-     * @param {any} defaultValue The default value
-     */
-    getProperty(propName, defaultValue = undefined, evalFunctions = false) {
-        let result = this.properties[propName];
-
-        if (typeof result === 'undefined' && typeof defaultValue !== 'undefined') {
-            if (evalFunctions && typeof defaultValue === 'function') {
-                return this.properties[propName] = defaultValue();
-            }
-            return this.properties[propName] = defaultValue;
-        }
-        return result;
-    }
-
-    /**
-     * Returns a protected/volatile property.
-     * @param {string} prop
-     * @param {any} defaultValue
-     */
-    getProtected(prop, defaultValue) {
-        if (prop in this.protected)
-            return this.protected[prop];
-        else if (typeof defaultValue !== 'undefined')
-            return this.protected[prop] = defaultValue;
-    }
-
-    /**
-     * Retun the value stored for the given symbol.
-     * @param {Symbol} prop
-     * @param {any} defaultValue
-     */
-    getSymbol(prop, defaultValue) {
-        if (prop in this.symbols)
-            return this.symbols[prop];
-        else if (typeof defaultValue !== 'undefined')
-            return this.symbols[prop] = defaultValue;
     }
 
     /**
@@ -520,6 +378,11 @@ class MUDStorage extends MUDEventEmitter {
         if (data) {
             let owner = unwrap(this.owner);
 
+            if (typeof owner.migrateData === 'function') {
+                owner.migrateData(data);
+                return owner;
+            }
+
             return driver.driverCall('restoreObject', () => {
                 //  Restore inventory
                 data.inventory = data.inventory || [];
@@ -582,14 +445,6 @@ class MUDStorage extends MUDEventEmitter {
                         logger.log('error in eventRestore(): ', err);
                     }
                 }
-
-                Object.keys(data.protected).forEach(key => {
-                    this.data[key] = restoreData(data.protected, key, data.protected[key]);
-                });
-
-                Object.keys(data.private).forEach(key => {
-                    this.privateData[key] = restoreData(data.private, key, data.private[key]);
-                })
 
                 if (typeof this.owner.applyRestore === 'function') {
                     this.owner.applyRestore();
@@ -699,56 +554,6 @@ class MUDStorage extends MUDEventEmitter {
             }, 100);
         }
         return false;
-    }
-
-    /**
-     * Set a "private" value.  Private values should only be accessed by the
-     * module that defines them.
-     * @param {string} file The module defining the value (must be ancestor)
-     * @param {string} key The property name to store.
-     * @param {any} val Any associated value
-     * @returns {MUDStorage} The storage object.
-     */
-    setPrivate(file, key, val) {
-        let exists = file in this.private;
-        if (!exists)
-            this.private[file] = {};
-        this.private[file][key] = val;
-        return this;
-    }
-
-    /**
-     * Set a property in the storage object.
-     * @param {string} prop
-     * @param {any} value
-     * @returns {MUDStorage}
-     */
-    setProperty(prop, value) {
-        this.properties[prop] = value;
-        return this;
-    }
-
-    /**
-     * Set a property in the storage object.
-     * @param {string} prop The protected property to set.
-     * @param {any} value The value to be stored
-     * @param {function=} callback A callback that fires once the value is set.
-     * @returns {MUDStorage}
-     */
-    setProtected(prop, value, callback) {
-        this.protected[prop] = value;
-        if (callback) callback(this, value, prop);
-        return this;
-    }
-
-    /**
-     * Set a symbol-based property in the storage object.
-     * @param {Symbol} prop The symbol to set a value for
-     * @param {any} value The associated value
-     */
-    setSymbol(prop, value) {
-        this.symbols[prop] = value;
-        return this.owner;
     }
 }
 

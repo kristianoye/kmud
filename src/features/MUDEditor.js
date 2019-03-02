@@ -676,8 +676,8 @@ class EditorInstance {
  * @returns {EditorInstance} The editor instance.
  */
 EditorInstance.get = function (ob) {
-    let $storage = driver.storage.get(ob);
-    return $storage && $storage.getProtected('$editor');
+    let store = driver.storage.get(ob);
+    return !!store && store.$editor;
 };
 
 class MUDEditorFeature extends FeatureBase {
@@ -738,8 +738,8 @@ class MUDEditorFeature extends FeatureBase {
                 let editorState = this[feature.efunNameQueryEdMode].call(this);
                 if (editorState === -1) {
                     let thisEditor = this.thisPlayer(),
-                        $storage = driver.storage.get(thisEditor),
-                        caps = $storage.getClientCaps(),
+                        store = driver.storage.get(thisEditor),
+                        caps = store.getClientCaps(),
                         options = optionsIn || {};
 
                     options.caps = caps;
@@ -763,9 +763,9 @@ class MUDEditorFeature extends FeatureBase {
                         else 
                             $editor.append(options.content);
                     }
-                    $storage.setProtected('$editor', $editor);
+                    store.$editor = $editor;
                     $editor.start(() => {
-                        $storage.setProtected('$editor', false);
+                        store.$editor = false;
                     });
                 }
                 return false;
