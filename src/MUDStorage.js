@@ -29,7 +29,7 @@ class MUDStorage extends MUDEventEmitter {
         this.clientCaps = ClientCaps.DefaultCaps;
 
         /** @type {MUDObject} The current environment */
-        this.environment = null;
+        this.$environment = null;
 
         this.filename = typeof owner === 'object' ?
             owner.filename :
@@ -38,7 +38,7 @@ class MUDStorage extends MUDEventEmitter {
         this.flags = 0;
 
         /** @type {MUDObject[]}} All of the inventory contained with the object */
-        this.inventory = [];
+        this.$inventory = [];
 
         /** @type {number|false} */
         this.heartbeatIndex = false;
@@ -155,6 +155,14 @@ class MUDStorage extends MUDEventEmitter {
         return this.flag(MUDStorage.PROP_CONNECTED, flag);
     }
 
+    get environment() {
+        return unwrap(this.$environment);
+    }
+
+    set environment(value) {
+        this.$environment = wrapper(value);
+    }
+
     get heartbeat() {
         return this.hasFlag(MUDStorage.PROP_HEARTBEAT);
     }
@@ -171,12 +179,25 @@ class MUDStorage extends MUDEventEmitter {
         return this.flag(MUDStorage.PROP_INTERACTIVE, flag);
     }
 
+    get inventory() {
+        return this.$inventory
+            .map(i => unwrap(i))
+            .filter(o => o instanceof MUDObject);
+    }
+
+    /** @param {MUDObject[]} list */
+    set inventory(list) {
+        this.$inventory = list
+            .filter(o => o instanceof MUDObject)
+            .map(o => wrapper(o));
+    }
+
     get maxIdleTime() {
         return this.owner && this.owner.maxIdleTime || 0;
     }
 
     get living() {
-        return this.hashFlag(MUDStorage.PROP_LIVING);
+        return this.hasFlag(MUDStorage.PROP_LIVING);
     }
 
     set living(flag) {
@@ -335,7 +356,7 @@ class MUDStorage extends MUDEventEmitter {
         //  Just in case...
         itemStore.leaveEnvironment();
         this.inventory.push(wrapped);
-        itemStore.environment = this.owner;
+        itemStore.environment = wrapper(this.owner);
 
         return true;
     }

@@ -54,7 +54,8 @@ class MUDObject extends MUDEventEmitter {
     }
 
     get environment() {
-        return unwrap(driver.storage.get(this).environment);
+        let store = driver.storage.get(this);
+        return !!store && store.environment;
     }
 
     get destructed() {
@@ -66,7 +67,8 @@ class MUDObject extends MUDEventEmitter {
     }
 
     get inventory() {
-        return driver.storage.get(this).inventory.map(o => unwrap(o));
+        let store = driver.storage.get(this);
+        return !!store && store.inventory;
     }
 
     init() {}
@@ -77,50 +79,51 @@ class MUDObject extends MUDEventEmitter {
 
     moveSync(target) {}
 
+    /**
+     * Move this object to a new environment
+     * @param {string|MUDObject|MUDWrapper} destination The destination
+     * @returns {boolean} True on a successful move
+     */
     moveObject(destination) {
-        let store = driver.storage.get(this),
-            env = unwrap(store.environment);
+        let myStore = driver.storage.get(this),
+            oldEnvironment = myStore.environment;
         
-            let target = wrapper(destination) ||
-                efuns.loadObjectSync(destination);
+        let target = efuns.loadObjectSync(destination),
+            newEnvironment = unwrap(target);
 
-        if (!env || env.canReleaseItem(this)) {
-            return unwrap(target, dest => {
-                let targetStore = driver.storage.get(target);
+        if (!oldEnvironment || oldEnvironment.canReleaseItem(this) && newEnvironment) {
+            let targetStore = driver.storage.get(newEnvironment);
+            //  Can the destination accept this object?
+            if (targetStore && newEnvironment.canAcceptItem(this)) {
 
-                //  Can the destination accept the obejct?
-                if (dest.canAcceptItem(this)) {
-
-                    //  Do lazy reset if it's time
-                    if (UseLazyResets) {
-                        if (typeof dest.reset === 'function') {
-                            if (targetStore.nextReset < efuns.ticks) {
-                                driver.driverCall('reset', () => dest.reset(), dest.filename);
-                            }
+                //  Do lazy reset if it's time
+                if (UseLazyResets) {
+                    if (typeof newEnvironment.reset === 'function') {
+                        if (targetStore.nextReset < efuns.ticks) {
+                            driver.driverCall('reset',
+                                () => newEnvironment.reset(),
+                                newEnvironment.filename);
                         }
-                    }
-
-                    if (targetStore.addInventory(this)) {
-                        if (this.isLiving()) {
-                            let stats = targetStore.stats;
-                            if (stats) stats.moves++;
-                        }
-                        if (this.isLiving()) {
-                            target().init.call(this);
-                        }
-                        dest.inventory.forEach(p => {
-                            if (p !== this && unwrap(p, (o) => o.isLiving())) {
-                                this.init.call(p);
-                            }
-                            if (this.isLiving() && p !== this) {
-                                p.init.call(this);
-                            }
-                        });
-                        return true;
                     }
                 }
-                return false;
-            });
+
+                if (targetStore.addInventory(this)) {
+                    if (myStore.living) {
+                        let stats = targetStore.stats;
+                        if (stats) stats.moves++;
+                        target().init.call(this);
+                    }
+                    newEnvironment.inventory.forEach(item => {
+                        if (item !== this && efuns.living.isAlive(item)) {
+                            this.init.call(item);
+                        }
+                        if (myStore.living && item !== this) {
+                            item.init.call(this);
+                        }
+                    });
+                    return true;
+                }
+            }
         }
         return false;
     }

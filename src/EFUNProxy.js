@@ -776,6 +776,9 @@ class EFUNProxy {
      * @returns {MUDObject} The object (or false if object failed to load)
      */
     loadObjectSync(expr, ...args) {
+        if (expr instanceof MUDObject)
+            return expr;
+
         if (typeof expr !== 'string') {
             if (typeof expr === 'function' && expr.isWrapper)
                 return expr;

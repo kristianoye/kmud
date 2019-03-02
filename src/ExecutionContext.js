@@ -448,6 +448,9 @@ class ExecutionContext extends MUDEventEmitter {
 
             return await callback(player, this);
         }
+        catch (err) {
+            throw err;
+        }
         finally {
             if (methodName) ecc.pop(methodName);
             if (restoreOldPlayer) {
