@@ -587,13 +587,17 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="server.js" />
+    <Compile Include="src\network\clients\desktop\client\js\client.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\clients\desktop\client\js\ventus.js" />
+    <Compile Include="src\network\clients\desktop\client\js\ventus.min.js" />
+    <Compile Include="src\network\clients\desktop\DesktopClient.js" />
+    <Compile Include="src\network\clients\desktop\DesktopServer.js" />
     <Compile Include="src\network\clients\http\HTTPClientInstance.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\clients\http\HTTPClientEndpoint.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\HTTPServer.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\impl\ansi\TerminalColorAnsi.js">
@@ -645,6 +649,16 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\impl\zmud\ZmudHtmlSupport.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\servers\HTTPServer\HTTPContext.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\servers\HTTPServer\HTTPUri.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\servers\HTTPServer\index.js" />
+    <Compile Include="src\network\servers\HTTPServer\KnownMimeTypes.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\StandardIO.js">
@@ -705,6 +719,32 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="mudconfig.json" />
+    <Content Include="src\network\clients\desktop\client\css\client.css" />
+    <Content Include="src\network\clients\desktop\client\css\client.min.css" />
+    <Content Include="src\network\clients\desktop\client\css\client.scss">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="src\network\clients\desktop\client\css\ventus.css" />
+    <Content Include="src\network\clients\desktop\client\img\desktop-bg-1.jpg" />
+    <Content Include="src\network\clients\desktop\client\img\desktop-bg-2.jpg" />
+    <Content Include="src\network\clients\desktop\client\img\desktop-bg-3.jpg" />
+    <Content Include="src\network\clients\desktop\client\img\desktop-bg-4.jpg" />
+    <Content Include="src\network\clients\desktop\client\index.html">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="src\network\clients\desktop\client\js\ventus.js.map" />
+    <Content Include="src\network\servers\HTTPServer\errors\200.html">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="src\network\servers\HTTPServer\errors\403.html">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="src\network\servers\HTTPServer\errors\404.html">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="src\network\servers\HTTPServer\errors\500.html">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\setup\BaseConfig.json">
       <SubType>Code</SubType>
     </Content>
@@ -986,9 +1026,13 @@
     <Folder Include="src\compiler\" />
     <Folder Include="src\config\" />
     <Folder Include="src\features\" />
+    <Folder Include="src\network\clients\desktop\" />
+    <Folder Include="src\network\clients\desktop\client\" />
+    <Folder Include="src\network\clients\desktop\client\img\" />
+    <Folder Include="src\network\clients\desktop\client\js\" />
+    <Folder Include="src\network\clients\desktop\client\css\" />
     <Folder Include="src\network\clients\http\" />
     <Folder Include="src\network\clients\telnet\" />
-    <Folder Include="src\network\clients\wizdesk\" />
     <Folder Include="src\network\impl\" />
     <Folder Include="src\network\impl\ansi\" />
     <Folder Include="src\network\impl\kmud\" />
@@ -1001,6 +1045,8 @@
     <Folder Include="src\inputs\" />
     <Folder Include="src\network\clients\" />
     <Folder Include="src\network\servers\" />
+    <Folder Include="src\network\servers\HTTPServer\" />
+    <Folder Include="src\network\servers\HTTPServer\errors\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
   </ItemGroup>

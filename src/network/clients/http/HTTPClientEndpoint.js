@@ -51,7 +51,8 @@ function createHttpServer() {
             });
         }
 
-        var wwwroot = Path.resolve('./lib/wwwroot/'), ubase = URL.parse(req.url),
+        var wwwroot = Path.resolve('./lib/wwwroot/'),
+            ubase = URL.parse(req.url),
             reqpath = Path.resolve(wwwroot, ubase.pathname === '/' ? 'index.html' : ubase.pathname.slice(1));
 
         if (reqpath.indexOf(wwwroot) !== 0) {

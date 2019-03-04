@@ -2,5 +2,9 @@
   {
     "outputFile": "lib/wwwroot/css/client.css",
     "inputFile": "lib/wwwroot/css/client.less"
+  },
+  {
+    "outputFile": "src/network/clients/desktop/client/css/client.css",
+    "inputFile": "src/network/clients/desktop/client/css/client.scss"
   }
 ]
