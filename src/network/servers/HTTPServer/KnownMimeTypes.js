@@ -5,6 +5,8 @@
  *
  * Description: New and improved? HTTP daemon for KMUD
  */
+
+/** @typedef {{ extension: string, type: string, text: string }} MIMESpec */
 const
     KnownMimeTypes = {
         ".aac": {
@@ -110,6 +112,10 @@ const
         ".json": {
             "type": "application/json",
             "text": "JSON format"
+        },
+        ".mhtm": {
+            "type": "text/mud-html",
+            "text": "MUD HyperText Markup"
         },
         ".midi": {
             "type": "audio/midi audio/x-midi",
@@ -282,6 +288,43 @@ const
         ".7z": {
             "type": "application/x-7z-compressed",
             "text": "7-zip archive"
+        },
+        /**
+         * Search for a MIME entry
+         * @param {string} spec Any accepted search criteria
+         * @returns {MIMESpec|MIMESpec[]} Information about the MIME type
+         */
+        resolve: function (spec) {
+            let searchFor = spec.trim().toLowerCase();
+
+            if (!spec)
+                return undefined;
+
+            if (searchFor.charAt(0) !== '.') {
+                let key = `.${searchFor}`;
+                if (key in KnownMimeTypes) {
+                    return Object.assign({ extension: key }, KnownMimeTypes[key]);
+                }
+            }
+            if (searchFor in KnownMimeTypes) {
+                return Object.assign({ extension: searchFor }, KnownMimeTypes[searchFor]);
+            }
+            let mtypes = Object.keys(KnownMimeTypes)
+                .filter(ext => {
+                    let mtype = KnownMimeTypes[ext];
+                    return mtype.text.toLowerCase().contains(searchFor) ||
+                        mtype.type.toLowerCase().contains(searchFor);
+                })
+                .map(ext => {
+                    return Object.assign({ extension: ext }, KnownMimeTypes[ext]);
+                });
+
+            if (mtypes.length === 1)
+                return mtypes[0];
+            else if (mtypes.length > 1)
+                return mtypes;
+            else
+                return undefined;
         }
     };
 

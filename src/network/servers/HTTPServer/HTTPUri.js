@@ -28,6 +28,7 @@ class HTTPUri {
             mtimeMs: new Date().getTime()
         };
         this.exists = false;
+        this.resolved = false;
         this.validLocation = false;
 
         if (url) {
@@ -61,19 +62,13 @@ class HTTPUri {
             }
             this.segments = this.absolutePath.split('/').filter(s => s.length);
             this.localPath = this.absolutePath;
-
-
-            this.localPath = staticRoot ? path.join(staticRoot, this.absolutePath) : this.absolutePath;
-
-            try {
-                this.stat = fs.statSync(this.localPath);
-                this.exists = true;
-            }
-            catch (err) {
-                this.stat = {};
-                this.exists = false;
-            }
         }
+    }
+
+    /** @type {string} */
+    get extension() {
+        let n = this.localPath.lastIndexOf('.');
+        return n > -1 ? this.localPath.slice(n) : '';
     }
 }
 

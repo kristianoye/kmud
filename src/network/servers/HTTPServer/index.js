@@ -17,6 +17,11 @@ const
     KnownMimeTypes = Object.assign({}, require('./KnownMimeTypes')),
     { HTTPRequest, HTTPResponse, HTTPContext } = require('./HTTPContext');
 
+const
+    BaseContentHandler = require('./handlers/BaseContentHandler'),
+    HandlerDefault = 'default',
+    HandlerMVC = 'MVC';
+
 class HTTPServer extends events.EventEmitter {
     /**
      * Construct an HTTP Server instance.
@@ -27,6 +32,8 @@ class HTTPServer extends events.EventEmitter {
         /** @type {Object.<string,string>} */
         this.fileMappings = {};
         this.fileMappingNames = Object.keys(this.fileMappings);
+        this.handlers = {};
+        this.indexFiles = ['index.html', 'index.htm', 'index.mhtm'];
         this.mimeTypes = Object.assign({}, KnownMimeTypes);
         this.port = config.port || 8088;
         this.portOptions = Object.assign(
@@ -38,6 +45,45 @@ class HTTPServer extends events.EventEmitter {
         this.securePort = config.securePort || false;
         this.secureOptions = config.secureOptions;
         this.staticRoot = config.staticRoot || path.join(__dirname, '../../../../lib/wwwroot');
+
+        this.addHandler(HandlerDefault, './handlers/StaticContentHandler')
+            .addHandler(HandlerMVC, './handlers/MVCHandler')
+            .addHandler('mhtm', './handlers/KMTemplateHandler');
+    }
+
+    /**
+     * Adds a MIME handler
+     * @param {string} mimeSpec The MIME type to handle
+     * @param {string} modulePath The path to the module that will handle requests of this type.
+     * @returns {HTTPServer}
+     */
+    addHandler(mimeSpec, modulePath) {
+        let fullModulePath = path.join(__dirname, modulePath),
+            handler = require(fullModulePath);
+
+        if (handler instanceof BaseContentHandler === false &&
+            handler.constructor instanceof BaseContentHandler.constructor === false)
+            throw new Error(`No suitable handler for MIME spec '${mimeSpec}' found in module ${fullModulePath}`);
+
+        if (typeof mimeSpec === 'string') {
+            if (mimeSpec === HandlerDefault || mimeSpec === HandlerMVC) {
+                this.handlers[mimeSpec] = handler;
+            }
+            else {
+                let type = KnownMimeTypes.resolve(mimeSpec);
+
+                if (Array.isArray(type)) {
+                    type.forEach(m => {
+                        this.handlers[m.extension] = handler;
+                    });
+                }
+                else if (!type)
+                    throw new Error(`Could not determine MIME type from '${$mimeSpec}'`);
+                else
+                    this.handlers[type.extension] = handler;
+            }
+        }
+        return this;
     }
 
     /**
@@ -68,9 +114,39 @@ class HTTPServer extends events.EventEmitter {
     }
 
     /**
+     * Get a handler based on the request
+     * @param {HTTPContext} context The request to create a handler for
+     * @returns {BaseContentHandler} The handler to execute the request.
+     */
+    getHandler(context) {
+        let request = context.request,
+            urlParsed = request.urlParsed,
+            handler = false;
+
+        if (urlParsed.exists) {
+            context.response.mimeType = KnownMimeTypes.resolve(urlParsed.extension);
+            handler = this.handlers[urlParsed.extension] || this.handlers[HandlerDefault] || false;
+        }
+        else
+            handler = this.handlers[HandlerMVC] || false;
+
+        if (handler !== false) {
+            //  Reusable handler
+            if (typeof handler === 'object')
+                return handler;
+
+            //  One-time use handler
+            else if (typeof handler === 'function')
+                return new handler(this, context);
+
+        }
+        return false;
+    }
+
+    /**
      * Bind ports and listen for clients
      */
-    bind() {
+    start() {
         if (typeof this.port === 'number' && this.port > 79 && this.port < 65000) {
             this.standardServer = http.createServer(
                 this.portOptions,
@@ -95,50 +171,6 @@ class HTTPServer extends events.EventEmitter {
     }
 
     /**
-     * Render a static request.
-     * @param {HTTPRequest} request
-     * @param {HTTPResponse} response The server response
-     */
-    handleStaticRequest(request, response) {
-        let url = request.urlParsed,
-            localPath = url.localPath,
-            stat = url.stat;
-
-        if (!url.validLocation) {
-            return this.sendErrorFile(response, 403);
-        }
-
-        let ext = !!localPath && localPath.slice(localPath.lastIndexOf('.')),
-            mimeType = KnownMimeTypes[ext || 'unknown'] || false;
-
-        if (!mimeType) {
-            return this.sendErrorFile(response, 400);
-        }
-
-        let lastModified = request.headers["if-modified-since"];
-        if (lastModified) {
-            let lm = new Date(lastModified);
-            if (lm && lm.getTime() >= parseInt(stat.mtimeMs)) {
-                response.writeHead(304, 'Not Modified');
-                return response.end();
-            }
-        }
-
-        fs.readFile(localPath, (err, buff) => {
-            if (!err) {
-                response.writeHead(200, 'OK', {
-                    'Content-Type': mimeType.type,
-                    'Last-Modified': stat.mtime.toISOString()
-                });
-                response.write(buff);
-                response.end();
-            }
-            else
-                this.sendErrorFile(response, 500);
-        });
-    }
-
-    /**
      * Maps the requested location to a physical location (if requesting static content)
      * @param {HTTPRequest} request The client request.
      */
@@ -149,9 +181,7 @@ class HTTPServer extends events.EventEmitter {
 
         urlParsed.validLocation = physicalPath.startsWith(this.staticRoot);
 
-        /*
-         * Is this location mapped to a virtual location?
-         */
+        //  Is this location mapped to a virtual location?
         for (let i = 0, mapped = this.fileMappingNames, m = mapped.length; i < m; i++) {
             if (url.startsWith(mapped[i])) {
                 let rightPart = url.slice(mapped[i].length);
@@ -164,6 +194,19 @@ class HTTPServer extends events.EventEmitter {
         let stat = await this.statFile(urlParsed.localPath = physicalPath);
         urlParsed.stat = stat;
         urlParsed.exists = stat.exists;
+
+        //  If this is a directory then we will look for an index file
+        //  TODO: Allow server option to render custom index view?
+        if (urlParsed.exists && urlParsed.stat.isDirectory()) {
+            let indexPath = this.indexFiles
+                .map(s => path.join(url.localPath, s))
+                .filter(fn => fs.existsSync(fn));
+
+            if (indexPath.length === 0) {
+                return this.sendErrorFile(response, 403);
+            }
+            url.stat = await this.statFile(url.localPath = indexPath[0]);
+        }
     }
 
     /** 
@@ -173,21 +216,15 @@ class HTTPServer extends events.EventEmitter {
      */
     async receiveRequest(request, response, server) {
         try {
-            let ctx = new HTTPContext(request, response);
+            let context = new HTTPContext(request, response);
 
             //  Resolve the physical path
-            await this.resolveRequest(request, response, server);
+            if (await this.resolveRequest(context, server) === false)
+                return this.sendErrorFile(response, 400);
 
-            //  Does the request map to static content that exists?
-            if (ctx.request.urlParsed.exists) {
-                if (!this.routeStaticContent) {
-                    return this.handleStaticRequest(request, response);
-                }
-            }
+            //  TODO: Add auth
 
-            //  Did resolve - 404
-            return this.sendErrorFile(response, 404);
-
+            context.response.handler.executeHandler(context);
         }
         catch (err) {
             this.sendErrorFile(response, 500);
@@ -198,29 +235,21 @@ class HTTPServer extends events.EventEmitter {
 
     /** 
      * Process an HTTP connection
-     * @param {HTTPRequest} request The client request
-     * @param {HTTPResponse} response The server response
+     * @param {HTTPContext} context The current context
      */
-    async resolveRequest(request, response, server) {
+    async resolveRequest(context, server) {
+        let request = context.request;
 
         await HTTPUri.parse(request, async req => await this.mapLocation(req),
             request.connection.server instanceof https.Server);
 
-        let url = request.urlParsed;
+        let handler = this.getHandler(context, server);
 
-        if (url.stat.isDirectory()) {
-            let indexPath = ['index.html', 'index.htm', 'index.cshtml']
-                .map(s => {
-                    return path.join(url.localPath, s);
-                }).filter(fn => {
-                    return fs.existsSync(fn);
-                });
+        if (handler === false)
+            return false;
 
-            if (indexPath.length === 0) {
-                return this.sendErrorFile(response, 403);
-            }
-            url.stat = await this.statFile(url.localPath = indexPath[0]);
-        }
+        context.response.handler = handler;
+
         return true;
     }
 
@@ -256,6 +285,32 @@ class HTTPServer extends events.EventEmitter {
      * @param {string} filename The name of the file to stat.
      * @returns {Promise<fs.Stats & { exists: boolean }>} The stats or a pseudo stat on failure.
      */
+
+    /**
+     * Read a file asyncronously
+     * @param {string} filename The file to read.
+     * @param {string} encoding Intrepret the buffer as this type of encoding (false for binary)
+     */
+    async readFile(filename, encoding = false) {
+        return new Promise((resolve, reject) => {
+            try {
+                fs.readFile(filename, (err, content) => {
+                    if (err)
+                        reject(err);
+                    else {
+                        if (typeof encoding === 'string') {
+                            content = content.toString(encoding);
+                        }
+                        resolve(content);
+                    }
+                });
+            }
+            catch (ex) {
+                reject(ex);
+            }
+        });
+    }
+
     async statFile(filename) {
         return new Promise((resolve, reject) => {
             try {

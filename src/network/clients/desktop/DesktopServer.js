@@ -31,12 +31,11 @@ class DesktopServer extends ClientEndpoint {
             })
             .addMapping('/', path.join(__dirname, 'client/index.html'))
             .addMapping('/index.html', path.join(__dirname, 'client/index.html'))
-            .addMapping('/css/', path.join(__dirname, 'client/css/'))
-            .addMapping('/js/', path.join(__dirname, 'client/js/'))
+            .addMapping('/desktop/', path.join(__dirname, 'client/desktop/'))
             .on('upgrade', socket => {
                 console.log('Client has requested to upgrade to websocket');
             })
-            .bind();
+            .start();
         return this;
     }
 }
