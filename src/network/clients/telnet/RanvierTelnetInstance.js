@@ -25,7 +25,7 @@ class RanvierTelnetInstance extends ClientInstance {
     }
 
     eventSend(data) {
-        switch (data.eventType) {
+        switch (data.type) {
             case 'clearScreen':
                 this.write("%^INITTERM%^");
                 break;
@@ -52,19 +52,6 @@ class RanvierTelnetInstance extends ClientInstance {
         else if (this.inputStack.length === 1) {
             this.renderPrompt(this.inputStack[0]);
         }
-    }
-
-    addPrompt(opts, callback) {
-        if (typeof opts === 'string') {
-            opts = { text: opts, type: 'text', callback };
-        }
-        let frame = Object.assign({ type: 'text', text: '> ', callback }, opts);
-
-        if (frame.error) {
-            this.write(efuns.eol + frame.error.trim() + efuns.eol);
-        }
-        this.inputStack.unshift(frame);
-        return opts.drawPrompt === true ? this.renderPrompt(frame) : this;
     }
 
     transmit(buffer) {

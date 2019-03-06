@@ -67,9 +67,9 @@ class WhoCommand extends Command {
             </table>
         </div>;
 
-        thisPlayer().eventSend({
-            eventType: 'contextMenu',
-            eventData: {
+        eventSend({
+            type: 'contextMenu',
+            data: {
                 name: 'menu.who',
                 options: {
                     emoteto: {
@@ -86,8 +86,7 @@ class WhoCommand extends Command {
                 }
             }
         });
-        thisPlayer().write(result.render());
-        return true;
+        return writeLine(result.render());
     }
 
     help() {

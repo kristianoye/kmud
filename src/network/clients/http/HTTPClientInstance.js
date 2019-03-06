@@ -25,14 +25,14 @@ class HTTPClientInstance extends ClientInstance {
         client.echoing = true; // total hack for now
         client.on('disconnect', msg => this.disconnect('http', msg));
         client.on('kmud', data => {
-            switch (data.eventType) {
+            switch (data.type) {
                 case 'consoleInput':
                     let text = data.toString('utf8');
                     return this.enqueueCommand(data.eventData.cmdline);
 
                 default:
-                    let eventType = data.eventType,
-                        callback = this[_callbacks][eventType];
+                    let type = data.type,
+                        callback = this[_callbacks][type];
 
                     if (callback) {
                         callback.call(this.body(), data);
@@ -102,7 +102,7 @@ class HTTPClientInstance extends ClientInstance {
 
     close(reason) {
         this.eventSend({
-            eventType: 'kmud.disconnect',
+            type: 'kmud.disconnect',
             eventData: reason || '[No Reason Given]'
         });
         this.client.emit('console.disconnect');
@@ -141,7 +141,7 @@ class HTTPClientInstance extends ClientInstance {
      * @returns {HTTPClientInstance} The current client
      */
     eventSend(data) {
-        if (typeof data.eventType !== 'string')
+        if (typeof data.type !== 'string')
             throw new Error('Invalid MUD event: ' + JSON.stringify(data));
         this.client.emit('kmud', data);
         return this;
@@ -169,7 +169,7 @@ class HTTPClientInstance extends ClientInstance {
 
     renderPrompt(input) {
         input && this.eventSend({
-            eventType: 'renderPrompt',
+            type: 'renderPrompt',
             eventData: input.data
         });
         return this;
@@ -187,7 +187,7 @@ class HTTPClientInstance extends ClientInstance {
         }, opts);
 
         this.eventSend({
-            eventType: 'consoleText',
+            type: 'consoleText',
             eventData: data
         });
         return this;

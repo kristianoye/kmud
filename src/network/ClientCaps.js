@@ -56,8 +56,8 @@ class ClientCaps extends MUDEventEmitter {
                     setTerminalType(tty);
 
                     this.emit('kmud', {
-                        eventType: 'terminalType',
-                        eventData: tty
+                        type: 'terminalType',
+                        data: tty
                     });
                 }
             });
@@ -66,8 +66,8 @@ class ClientCaps extends MUDEventEmitter {
                 width = term.width;
 
                 this.emit('kmud', {
-                    eventType: 'windowSize',
-                    eventData: term
+                    type: 'windowSize',
+                    data: term
                 });
             });
         }

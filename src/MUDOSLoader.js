@@ -71,9 +71,9 @@ class MUDOSLoader extends MUDLoader {
                     end = typeof end === 'number' ? end : false;
 
                     if (typeof src === 'string') {
-                        src = new Buffer(_efuns.readFileSync(src), 'utf8');
+                        src = Buffer.from(_efuns.readFileSync(src), 'utf8');
                     }
-                    if (src instanceof Buffer) {
+                    if (Buffer.isBuffer(src)) {
                         if (start !== false) {
                             return end !== false ? src.slice(start, end) : src.slice(start);
                         }
@@ -140,7 +140,7 @@ class MUDOSLoader extends MUDLoader {
     allocate_buffer(n) {
         if (typeof n !== 'number')
             throw new Error(`Bad argument 1 to allocate_buffer; Expected number but got ${typeof n}`);
-        var buff = new Buffer(n);
+        var buff = Buffer.alloc(n);
         for (var i = 0; i < buff.length; i++) buff[i] = 0;
         return buff;
     }

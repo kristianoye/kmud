@@ -72,9 +72,11 @@ Please enter a password for admin character named '${this.config.mud.adminCharac
 
 MUD Settings:Admin Character:Pasword for ${this.config.mud.adminCharacter}> `, resp => {
                 master.createRunOnce({
-                    eventType: 'createAdmin',
-                    eventUsername: this.config.mud.adminCharacter,
-                    eventPassword: resp
+                    type: 'createAdmin',
+                    data: {
+                        username: this.config.mud.adminCharacter,
+                        password: resp
+                    }
                 });
                 this.callback();
             });

@@ -271,16 +271,6 @@ function addRuntimeAssert(e, preText, postText, isCon) {
 }
 
 /**
- * Indent some code
- * @param {JSXTranspilerOp} op The operation
- * @returns {string} The indented code
- */
-function jsxWhitespace(op) {
-    if (op.jsxDepth === 0) return '';
-    return op.jsxIndent + Array(op.jsxDepth + 1).join('   ');
-}
-
-/**
  * Parse a single element and return the transpiled source.
  * @param {JSXTranspilerOp} op The current operation
  * @param {NodeType} e The current node
@@ -641,7 +631,7 @@ function parseElement(op, e, depth) {
                     var jsxInX = op.source.slice(0, e.start).lastIndexOf('\n') + 1;
                     op.jsxIndent = ' '.repeat(e.start - jsxInX);
                 }
-                ret += jsxWhitespace(op, true) + 'createElement(';
+                ret += 'createElement(';
                 op.pos = e.start;
                 ret += parseElement(op, e.openingElement, depth + 1);
                 if (e.children.length > 0) {
@@ -649,7 +639,7 @@ function parseElement(op, e, depth) {
                         if(i === 1) op.jsxDepth++;
                         let t = parseElement(op, _, depth + 1);
                         if (t.length) {
-                            ret += ', ' + (_.type === 'JSXElement' ? '' : jsxWhitespace(op)) + t;
+                            ret += ', ' + (_.type === 'JSXElement' ? '' : '') + t;
                         }
                     });
                 }

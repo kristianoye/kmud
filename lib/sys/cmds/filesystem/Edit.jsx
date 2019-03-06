@@ -43,12 +43,12 @@ class EditFileCommand extends Command {
         if (efuns.isDirectorySync(fullPath))
             return 'You cannot edit a directory!';
 
-        thisPlayer().eventSend({
-            eventType: 'kmud.wizShell.editFile',
-            eventData: {
-                fullPath: fullPath,
-                fileName: fileName,
-                newFile: newFile,
+        eventSend({
+            type: 'kmud.wizShell.editFile',
+            data: {
+                fullPath,
+                fileName,
+                newFile,
                 source: !newFile ? efuns.readFileSync(fullPath) : ''
             }
         });

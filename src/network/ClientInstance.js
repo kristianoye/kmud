@@ -141,8 +141,9 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
 
                 storage && storage.setClient(this, this.port, this.clientType);
                 this.eventSend({
-                    eventType: 'kmud.connected',
-                    eventData: driver.efuns.mudName()
+                    type: 'connected',
+                    target: true,
+                    data: driver.efuns.mudName()
                 });
                 return true;
             });

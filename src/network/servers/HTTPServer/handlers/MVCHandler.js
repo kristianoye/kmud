@@ -10,14 +10,17 @@ const
     { HTTPContext } = require('../HTTPContext'),
     BaseContentHandler = require('./BaseContentHandler');
 
-class KMTemplateHandler extends BaseContentHandler {
+class MVCHandler extends BaseContentHandler {
     /**
      * Serve up a static file
      * @param {HTTPContext} context The context being served.
      */
     executeHandler(context) {
+        if (context.request.mimeType) {
 
+        }
+        return this.server.sendErrorFile(context.response, 404);
     }
 }
 
-module.exports = KMTemplateHandler;
+module.exports = MVCHandler;

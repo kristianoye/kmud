@@ -45,10 +45,9 @@ class HTTPContext {
      * @param {HTTPResponse} response The server response
      */
     constructor(request, response) {
-        request.urlParsed = HTTPUri.parse(request);
-
         this.request = request;
         this.response = response;
+        request.urlParsed = HTTPUri.parse(this);
     }
 }
 

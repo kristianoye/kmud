@@ -1,4 +1,12 @@
-﻿class MUDHtmlComponent {
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: February 28, 2019
+ *
+ * Description: For JSX implementation
+ */
+
+class MUDHtmlComponent {
     constructor(_element, _props, _children) {
         this.element = _element;
         this.props = _props;

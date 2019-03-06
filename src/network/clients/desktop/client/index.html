@@ -8,9 +8,17 @@
         <meta charset="utf-8">
     </head> 
     <body unselectable="on">
-        <div>Starting client...</div>
+        <script src="js/uuid.js"></script>
         <script src="desktop/js/jquery-3.3.1.js"></script>
         <script src="desktop/js/ventus.js"></script>
         <script src="desktop/js/client.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.dev.js"></script>
+        <script>
+            const client = (function () {
+                'use strict';
+                return new DesktopClientClass()
+                    .connect();
+            })();
+        </script>
     </body>
 </html>

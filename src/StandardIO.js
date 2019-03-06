@@ -100,12 +100,14 @@ class InternalBuffer {
      * @param {Buffer|string} bufferOrString The content to write
      */
     write(bufferOrString, encoding = false) {
-        encoding = encoding || this.encoding;
+        encoding = encoding || this.encoding || 'utf8';
         if (bufferOrString instanceof Buffer) {
             bufferOrString = bufferOrString.toString(this.encoding);
         }
         else if (encoding !== this.encoding) {
-            bufferOrString = new Buffer(bufferOrString, encoding).toString(this.encoding);
+            bufferOrString = Buffer
+                .from(bufferOrString, encoding)
+                .toString(this.encoding);
         }
         this.buffer += bufferOrString;
     }
@@ -177,9 +179,11 @@ class StandardInputStream extends Readable {
             writable: false
         });
         
-        client.on('data', buffer.onData = (line) => {
+        client.on('data', buffer.onData = async (line) => {
             buffer.write(line);
-            buffer.shell && buffer.shell.receiveInput(this);
+            if (buffer.shell) {
+                await buffer.shell.receiveInput(this);
+            }
         });
     }
 

@@ -1839,7 +1839,7 @@ var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;
           _this.mode = 'default';
         }
         event.stopPropagation();
-        event.preventDEfault();
+        event.preventDefault();
       }, 1000));
     },
 

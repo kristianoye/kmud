@@ -264,8 +264,8 @@ class ListCommand extends Command {
             });
         }, err => {
             tp.eventSend({
-                eventType: 'kmud.wizShell.dir',
-                eventData: {
+                type: 'kmud.wizShell.dir',
+                data: {
                     result: result,
                     title: path
                 }

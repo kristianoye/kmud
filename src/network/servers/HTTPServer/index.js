@@ -29,6 +29,8 @@ class HTTPServer extends events.EventEmitter {
      */
     constructor(config) {
         super();
+
+        this.enableWebSocket = config.enableWebSocket === true;
         /** @type {Object.<string,string>} */
         this.fileMappings = {};
         this.fileMappingNames = Object.keys(this.fileMappings);
@@ -123,8 +125,8 @@ class HTTPServer extends events.EventEmitter {
             urlParsed = request.urlParsed,
             handler = false;
 
+        context.response.mimeType = KnownMimeTypes.resolve(urlParsed.extension);
         if (urlParsed.exists) {
-            context.response.mimeType = KnownMimeTypes.resolve(urlParsed.extension);
             handler = this.handlers[urlParsed.extension] || this.handlers[HandlerDefault] || false;
         }
         else
@@ -159,7 +161,21 @@ class HTTPServer extends events.EventEmitter {
 
             this.standardServer.listen(
                 this.port,
-                this.portOptions.host);
+                this.portOptions.host)
+                .on('upgrade', (...args) => {
+                    this.emit('upgrade', ...args);
+                });
+
+            if (this.enableWebSocket) {
+                this.standardWebSocket = require('socket.io')(this.standardServer, {
+                    log: true,
+                    transports: ['websocket']
+                });
+
+                this.standardWebSocket.on('connection', client => {
+                    this.emit('connection', client);
+                });
+            }
         }
 
         if (typeof this.securePort === 'number' && this.port > 442) {
@@ -172,10 +188,11 @@ class HTTPServer extends events.EventEmitter {
 
     /**
      * Maps the requested location to a physical location (if requesting static content)
-     * @param {HTTPRequest} request The client request.
+     * @param {HTTPContext} context The current HTTP context.
      */
-    async mapLocation(request) {
-        let url = request.url,
+    async mapLocation(context) {
+        let request = context.request,
+            url = request.url,
             urlParsed = request.urlParsed,
             physicalPath = path.join(this.staticRoot, urlParsed.absolutePath.slice(1));
 
@@ -199,14 +216,20 @@ class HTTPServer extends events.EventEmitter {
         //  TODO: Allow server option to render custom index view?
         if (urlParsed.exists && urlParsed.stat.isDirectory()) {
             let indexPath = this.indexFiles
-                .map(s => path.join(url.localPath, s))
-                .filter(fn => fs.existsSync(fn));
+                .map(s => path.posix.join(url, s))
+                .map(async fn => await this.virtualPathExists(fn));
 
+            await Promise.all(indexPath).then(values => {
+                indexPath = values.filter(v => v !== false);
+            });
             if (indexPath.length === 0) {
                 return this.sendErrorFile(response, 403);
             }
-            url.stat = await this.statFile(url.localPath = indexPath[0]);
+            let [localFile, stat] = indexPath[0];
+            urlParsed.stat = stat;
+            urlParsed.localPath = localFile;
         }
+        return true;
     }
 
     /** 
@@ -240,8 +263,11 @@ class HTTPServer extends events.EventEmitter {
     async resolveRequest(context, server) {
         let request = context.request;
 
-        await HTTPUri.parse(request, async req => await this.mapLocation(req),
+        let result = await HTTPUri.parse(context, async ctx => await this.mapLocation(ctx),
             request.connection.server instanceof https.Server);
+
+        if (result === false)
+            return false;
 
         let handler = this.getHandler(context, server);
 
@@ -311,33 +337,82 @@ class HTTPServer extends events.EventEmitter {
         });
     }
 
+    /**
+     * Stat a file on the filesystem.
+     * @param {any} filename
+     */
     async statFile(filename) {
         return new Promise((resolve, reject) => {
             try {
                 fs.stat(filename, (err, stats) => {
                     if (err)
-                        resolve({
-                            exists: false,
-                            isDirectory: () => false,
-                            isFile: () => false,
-                            isSocket: () => false,
-                            error: err
-                        });
+                        resolve(createDummyStats(err));
                     else
-                        resolve(Object.assign(stats, { exists: true }));
+                        resolve(Object.assign(stats, { exists: true, error: false }));
                 });
             }
             catch (err) {
-                reject({
-                    exists: false,
-                    isDirectory: () => false,
-                    isFile: () => false,
-                    isSocket: () => false,
-                    error: err
-                });
+                resolve(createDummyStats(err));
             }
         });
     }
+
+    /**
+     * Checks to see if the specified virtual path exists.
+     * @param {string} virtualPath The virtual path to check
+     * @returns {[string, fs.Stats]} Information about the alternate location
+     */
+    async virtualPathExists(virtualPath) {
+        for (let i = 0, names = this.fileMappingNames, m = names.length; i < m; i++) {
+            if (virtualPath.startsWith(names[i])) {
+                let mapsTo = path.join(this.fileMappings[names[i]], virtualPath.slice(names[i].length));
+                let stats = await this.statFile(mapsTo);
+                if (stats.exists) {
+                    return [mapsTo, stats];
+                }
+            }
+        }
+        return false;
+    }
+}
+
+/**
+ * @param {Error} err The error that occurred
+ * @returns {fs.Stats & { exists: false, error: Error }}
+ */
+function createDummyStats(err = false) {
+    let dt = new Date(0),
+        alwaysFalse = () => false;
+
+    return {
+        atime: dt,
+        atimeMs: dt.getTime(),
+        birthtime: dt,
+        birthtimeMs: dt.getTime(),
+        blksize: 4096,
+        blocks: 0,
+        ctime: dt,
+        ctimeMs: dt.getTime(),
+        dev: -1,
+        error: err || new Error('Unknown error'),
+        exists: false,
+        gid: -1,
+        ino: -1,
+        nlink: -1,
+        uid: -1,
+        mode: -1,
+        mtime: dt,
+        mtimeMs: dt.getTime(),
+        size: -1,
+        rdev: -1,
+        isBlockDevice: alwaysFalse,
+        isCharacterDevice: alwaysFalse,
+        isDirectory: alwaysFalse,
+        isFIFO: alwaysFalse,
+        isFile: alwaysFalse,
+        isSocket: alwaysFalse,
+        isSymbolicLink: alwaysFalse
+    };
 }
 
 module.exports = HTTPServer;

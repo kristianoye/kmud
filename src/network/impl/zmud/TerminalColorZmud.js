@@ -6,7 +6,7 @@ function ANSI(c) {
         r.push(s.charCodeAt(i));
     }
     r.push(109);
-    return new Buffer(new Uint8Array(r)).toString('utf8');
+    return Buffer.from(new Uint8Array(r)).toString('utf8');
 }
 
 function ESC(c) {
@@ -15,7 +15,7 @@ function ESC(c) {
     for (var i = 0; i < s.length; i++) {
         r.push(s.charCodeAt(i));
     }
-    return new Buffer(new Uint8Array(r)).toString('utf8');
+    return Buffer.from(new Uint8Array(r)).toString('utf8');
 }
 
 const MudColorImplementation = require('../MudColorImplementation'),

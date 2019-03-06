@@ -546,6 +546,34 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
+     * Create a context frame that includes the master/driver.
+     * @param {string} method The method being called.
+     * @param {function(ExecutionContext):any} callback The callback that executes when the context is ready.
+     * @param {string} fileName The optional filename
+     * @returns {any} The result of the callback
+     */
+    async driverCallAsync(method, callback, fileName, rethrow = false) {
+        let result, ecc = this.getExecution(
+            this.masterObject || this,
+            method,
+            fileName || this.masterFilename,
+            false, 0);
+
+        try {
+            result = await callback(ecc);
+        }
+        catch (err) {
+            logger.log(`Error in method '${method}': ${err.message}\r\n${err.stack}`);
+            if (rethrow) throw err;
+            else result = err;
+        }
+        finally {
+            ecc.pop(method);
+        }
+        return result;
+    }
+
+    /**
      * Expand the functionality of the driver by loading additional functionality.
      */
     enableFeatures() {
@@ -926,10 +954,7 @@ class GameServer extends MUDEventEmitter {
                     .map(s => JSON.parse(s));
                 try {
                     let $storage = this.storage.get(this.masterObject);
-                    $storage.emit('kmud', {
-                        eventType: 'runOnce',
-                        eventData: list
-                    });
+                    $storage.emit('kmud', { type: 'runOnce', dataData: list });
                     logger.log(`Run once complete; Removing ${runOnce}`);
                     fs.unlinkSync(runOnce);
                 }

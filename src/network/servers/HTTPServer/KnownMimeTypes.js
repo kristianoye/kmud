@@ -113,6 +113,10 @@ const
             "type": "application/json",
             "text": "JSON format"
         },
+        ".map": {
+            "type": "application/octet-stream",
+            "text":"Resource Map File"
+        },
         ".mhtm": {
             "type": "text/mud-html",
             "text": "MUD HyperText Markup"
@@ -312,8 +316,11 @@ const
             let mtypes = Object.keys(KnownMimeTypes)
                 .filter(ext => {
                     let mtype = KnownMimeTypes[ext];
-                    return mtype.text.toLowerCase().contains(searchFor) ||
-                        mtype.type.toLowerCase().contains(searchFor);
+
+                    if (!mtype || typeof mtype.text !== 'string')
+                        return false;
+                    return mtype.text.toLowerCase().indexOf(searchFor) > -1 ||
+                        mtype.type.toLowerCase().indexOf(searchFor) > - 1;
                 })
                 .map(ext => {
                     return Object.assign({ extension: ext }, KnownMimeTypes[ext]);

@@ -82,8 +82,9 @@ class HTTPUri {
 HTTPUri.parse = async function (arg, resolver = false, isSecure = false) {
     if (typeof arg === 'object') {
         let scheme = isSecure ? 'https' : 'http',
-            url = `${scheme}://${arg.headers.host}${arg.url}`,
-            result = arg.urlParsed = new HTTPUri(url);
+            req = arg.request,
+            url = `${scheme}://${req.headers.host}${req.url}`,
+            result = req.urlParsed = new HTTPUri(url);
 
         return !!resolver && resolver(arg) || result;
     }

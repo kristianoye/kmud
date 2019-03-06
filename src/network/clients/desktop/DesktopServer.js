@@ -10,6 +10,7 @@ const
     ClientEndpoint = require('../../ClientEndpoint'),
     HTTPServer = require('../../servers/HTTPServer'),
     MudPort = require('../../../config/MudPort'),
+    DesktopClient = require('./DesktopClient'),
     io = require('socket.io'),
     path = require('path');
 
@@ -26,14 +27,20 @@ class DesktopServer extends ClientEndpoint {
     bind() {
         this.server = new HTTPServer(
             {
+                enableWebSocket: true,
                 port: this.port,
                 portOptions: { host: this.address }
             })
-            .addMapping('/', path.join(__dirname, 'client/index.html'))
             .addMapping('/index.html', path.join(__dirname, 'client/index.html'))
             .addMapping('/desktop/', path.join(__dirname, 'client/desktop/'))
             .on('upgrade', socket => {
                 console.log('Client has requested to upgrade to websocket');
+            })
+            .on('connection', client => {
+                let wrapper = new DesktopClient(this, client);
+                this.emit('kmud.connection', wrapper);
+                this.emit('kmud.connection.new', wrapper, 'http');
+
             })
             .start();
         return this;

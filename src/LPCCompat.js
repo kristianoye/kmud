@@ -198,8 +198,8 @@ class LPCParser {
 
     wireFormat(o) {
         var s = this.serialize(o),
-            ecl = new Buffer(this.int32ToByteArray(s.length)),
-            output = Buffer.concat([ecl, new Buffer(s, 'ascii')]);
+            ecl = Buffer.from(this.int32ToByteArray(s.length)),
+            output = Buffer.concat([ecl, Buffer.from(s, 'ascii')]);
         return output;
     }
 }

@@ -368,7 +368,7 @@ class CommandShell extends MUDEventEmitter {
      * Send the command to the body to be executed (via its storage object)
      * @param {ParsedCommand[]} cmds The command chunks to execute.
      */
-    executeCommands(cmds) {
+    async executeCommands(cmds) {
         if (cmds.length) {
             setTimeout(async () => {
                 try {
@@ -1182,9 +1182,8 @@ class CommandShell extends MUDEventEmitter {
      * Process a single line of user input.
      * @param {string} input The user's line of input.
      */
-    processInput(input) {
-        driver.driverCall('input', ecc => {
-
+    async processInput(input) {
+        driver.driverCallAsync('input', async ecc => {
             //  Set up for the next command
             ecc.whenCompleted(() => {
                 this.inputTo = false;
@@ -1195,7 +1194,7 @@ class CommandShell extends MUDEventEmitter {
                 if (this.inputTo) {
                     let inputTo = this.inputTo;
 
-                    let inputTrapped = ecc.withPlayer(this.storage, () => {
+                    let inputTrapped = ecc.withPlayerAsync(this.storage, async () => {
                         //  This should not happen, but just in case the current input dissappears...
                         if (!inputTo) {
                             this.stderr.writeLine(`-kmsh: WARNING: Input frame dissappeared unexpectedly!`);
@@ -1359,7 +1358,7 @@ class CommandShell extends MUDEventEmitter {
      * Receive input from stdin
      * @param {StandardInputStream} stream The STDIN stream
      */
-    receiveInput(stream) {
+    async receiveInput(stream) {
         try {
             if (!this.executing) {
                 let commandBuffer = this.commandBuffer = (this.commandBuffer || '') + stream.readLine();
@@ -1381,7 +1380,7 @@ class CommandShell extends MUDEventEmitter {
                 }
                 else {
                     this.executing = true;
-                    this.processInput(commandBuffer);
+                    await this.processInput(commandBuffer);
                     this.commandBuffer = '';
                 }
             }

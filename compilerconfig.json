@@ -6,5 +6,9 @@
   {
     "outputFile": "src/network/clients/desktop/client/css/client.css",
     "inputFile": "src/network/clients/desktop/client/css/client.scss"
+  },
+  {
+    "outputFile": "src/network/clients/desktop/client/desktop/css/client.css",
+    "inputFile": "src/network/clients/desktop/client/desktop/css/client.scss"
   }
 ]

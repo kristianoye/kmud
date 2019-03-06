@@ -130,7 +130,7 @@ class EditorInstance {
 
         if (this.caps) {
             this.caps.on('kmud', evt => {
-                switch (evt.eventType) {
+                switch (evt.type) {
                     case 'disconnect':
                         // TODO: Save to deadedit file
                         break;

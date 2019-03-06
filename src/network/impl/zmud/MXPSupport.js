@@ -14,7 +14,7 @@ class MXPSupport extends ClientImplementation {
      * @param {number} tagId The MXP tag number to send.
      */
     mxpLineTag(n) {
-        return Buffer.concat([new Buffer([10, 13, 27]), new Buffer(`[${tagId}z`, 'ascii')]);
+        return Buffer.concat([Buffer.from([10, 13, 27]), Buffer.from(`[${tagId}z`, 'ascii')]);
     }
 
     /**
@@ -23,7 +23,7 @@ class MXPSupport extends ClientImplementation {
      * @returns {Buffer} The prepared buffer.
      */
     openLine(text) {
-        return Buffer.concat([this.mxpLineTag(MXP_OPEN), new Buffer(text.replace(/\n/g, ''), 'utf8'), new Buffer([10, 13])]);
+        return Buffer.concat([this.mxpLineTag(MXP_OPEN), Buffer.from(text.replace(/\n/g, ''), 'utf8'), Buffer.from([10, 13])]);
     }
 
     /**
@@ -32,7 +32,7 @@ class MXPSupport extends ClientImplementation {
      * @returns {Buffer} The prepared buffer.
      */
     secureLine(text) {
-        return Buffer.concat([this.mxpLineTag(MXP_SECURE), new Buffer(text.replace(/\n/g, ''), 'utf8'), new Buffer([10, 13])]);
+        return Buffer.concat([this.mxpLineTag(MXP_SECURE), Buffer.from(text.replace(/\n/g, ''), 'utf8'), Buffer.from([10, 13])]);
     }
 }
 

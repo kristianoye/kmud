@@ -65,7 +65,8 @@ exports.Options = Opts;
 class TelnetSocket extends EventEmitter {
     constructor(opts = {}) {
         super();
-        this.socket = null;
+        /** @type {net.Socket} */
+        this.socket;
         this.maxInputLength = opts.maxInputLength || 512;
         this.echoing = true;
         this.gaMode = null;
@@ -112,9 +113,14 @@ class TelnetSocket extends EventEmitter {
         }
     }
 
-    write(data, encoding) {
+    /**
+     * Write data to the socket.
+     * @param {string|Buffer} data The data to write to the socket
+     * @param {string} encoding The encoding to use
+     */
+    write(data, encoding = 'utf8') {
         if (!Buffer.isBuffer(data)) {
-            data = new Buffer(data, encoding);
+            data = Buffer.from(data, encoding);
         }
 
         // escape IACs by duplicating
@@ -126,7 +132,7 @@ class TelnetSocket extends EventEmitter {
         }
 
         if (iacs) {
-            let b = new Buffer(data.length + iacs);
+            let b = Buffer.alloc(data.length + iacs);
             for (let i = 0, j = 0; i < data.length; i++) {
                 b[j++] = data[i];
                 if (data[i] === Seq.IAC) {
@@ -172,10 +178,14 @@ class TelnetSocket extends EventEmitter {
             seq.push(command);
         }
 
-        this.transmit(new Buffer(seq));
+        this.transmit(Buffer.from(seq));
     }
 
-    toggleEcho(flag) {
+    /**
+     * Turn echo on or off (or toggle current state)
+     * @param {boolean} flag
+     */
+    toggleEcho(flag = undefined) {
         this.echoing = typeof flag === 'boolean' ? flag : !this.echoing;
         this.telnetCommand(this.echoing ? Seq.WONT : Seq.WILL, Opts.OPT_ECHO);
     }
@@ -190,15 +200,15 @@ class TelnetSocket extends EventEmitter {
     sendGMCP(gmcpPackage, data) {
         const gmcpData = gmcpPackage + ' ' + JSON.stringify(data);
         const dataBuffer = Buffer.from(gmcpData);
-        const seqStartBuffer = new Buffer([Seq.IAC, Seq.SB]);
-        const seqEndBuffer = new Buffer([Seq.IAC, Seq.SE]);
+        const seqStartBuffer = Buffer.from([Seq.IAC, Seq.SB, Opts.OPT_GMCP]);
+        const seqEndBuffer = Buffer.from([Seq.IAC, Seq.SE]);
 
-        this.transmit(Buffer.concat([seqStartBuffer, dataBuffer, seqEndBuffer], gmcpData.length + 4));
+        this.socket.write(Buffer.concat([seqStartBuffer, dataBuffer, seqEndBuffer], gmcpData.length + 5));
     }
 
     attach(connection) {
         this.socket = connection;
-        let inputbuf = new Buffer(this.maxInputLength);
+        let inputbuf = Buffer.alloc(this.maxInputLength);
         let inputlen = 0;
 
         /**
@@ -218,7 +228,7 @@ class TelnetSocket extends EventEmitter {
         if (this.offerMCP) this.telnetCommand(Seq.WILL, Opts.OPT_MCCP);
         if (this.offerMSP) this.telnetCommand(Seq.WILL, Opts.OPT_MSP);
         if (this.offerMXP) this.telnetCommand(Seq.WILL, Opts.OPT_MXP);
-        this.transmit(new Buffer("\r\n"));
+        this.transmit(Buffer.from("\r\n"));
 
         connection.on('data', (databuf) => {
             databuf.copy(inputbuf, inputlen);
@@ -256,7 +266,7 @@ class TelnetSocket extends EventEmitter {
                 this.input(Buffer.from(bucket));
             }
 
-            inputbuf = new Buffer(this.maxInputLength);
+            inputbuf = Buffer.alloc(this.maxInputLength);
             inputlen = 0;
         });
 
