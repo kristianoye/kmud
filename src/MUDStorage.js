@@ -8,6 +8,7 @@
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
     MUDCreationContext = require('./MUDCreationContext'),
+    ClientComponent = require('./ClientComponent'),
     ClientCaps = require('./network/ClientCaps'),
     CommandShell = require('./CommandShell');
 
@@ -25,7 +26,7 @@ class MUDStorage extends MUDEventEmitter {
     constructor(owner) {
         super();
 
-        this.client = false;
+        this.component = false;
         this.clientCaps = ClientCaps.DefaultCaps;
 
         /** @type {MUDObject} The current environment */
@@ -102,7 +103,7 @@ class MUDStorage extends MUDEventEmitter {
 
             this.heartbeat = false;
 
-            if (this.client)
+            if (this.component)
                 this.setClient(false, ...args);
 
             if (this.environment)
@@ -141,9 +142,13 @@ class MUDStorage extends MUDEventEmitter {
         this.owner.heartbeat(total, ticks);
     }
 
-    eventSend(eventData) {
+    /**
+     * Sends an event back to the client component.
+     * @param {MUDEvent} event
+     */
+    eventSend(event) {
         if (this.shell)
-            return this.shell.eventSend(eventData, this.connected);
+            return this.shell.eventSend(event, this.connected);
         return false;
     }
 
@@ -153,6 +158,14 @@ class MUDStorage extends MUDEventEmitter {
 
     set connected(flag) {
         return this.flag(MUDStorage.PROP_CONNECTED, flag);
+    }
+
+    get destroyed() {
+        return this.hasFlag(MUDStorage.PROP_DESTRUCTED);
+    }
+
+    set destroyed(value) {
+        if (value) this.flag(MUDStorage.PROP_DESTRUCTED, true);
     }
 
     get environment() {
@@ -246,6 +259,12 @@ class MUDStorage extends MUDEventEmitter {
             return 0;
     }
 
+    /**
+     * Get storage
+     * @param {any} definingType
+     * @param {any} propertyName
+     * @param {any} initialValue
+     */
     get(definingType, propertyName, initialValue) {
         let baseName = definingType.prototype.baseName;
         let collection = this.properties[baseName];
@@ -263,6 +282,11 @@ class MUDStorage extends MUDEventEmitter {
         return result;
     }
 
+    /**
+     * Toggle/set a flag
+     * @param {any} flag
+     * @param {any} setFlag
+     */
     flag(flag, setFlag = true) {
         let andFlag = setFlag ? flag : ~flag;
 
@@ -305,25 +329,6 @@ class MUDStorage extends MUDEventEmitter {
             else
                 this.flags &= ~flag;
         }
-    }
-
-    /**
-     * 
-     * @param {string} cmdline
-     */
-    command(cmdline) {
-        return driver.driverCall('command', ecc => {
-            ecc.withPlayer(this, player => {
-                let cmd = player.processInput(cmdline);
-                return cmd.executeCommand(cmd);
-            });
-        });
-    }
-
-    get destroyed() { return this.hasFlag(MUDStorage.PROP_DESTRUCTED); }
-
-    set destroyed(value) {
-        if (value) this.flag(MUDStorage.PROP_DESTRUCTED, true);
     }
 
     /**
@@ -477,29 +482,30 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     /**
-     * Associate a client with this store and its related object.
-     * @param {any} client
+     * Associate a component with this store and its related object.
+     * @param {ClientComponent} component The client bound to this store and in-game object.
      */
-    setClient(client, ...args) {
+    setClient(component, ...args) {
         try {
-            if (client) {
+            if (component) {
                 let streams;
 
                 //  If the client has an old body, the client needs to be dissassociated with it
-                if (client.body) {
-                    let store = driver.storage.get(client.body);
+                if (component.body) {
+                    let store = driver.storage.get(component.body);
                     if (store) {
                         driver.driverCall('disconnect', context => {
                             store.connected = false;
                             store.interactive = false;
                             store.connected = false;
                             store.lastActivity = 0;
+
                             if (store.shell) {
                                 //  Take the I/O streams from the old shell
                                 streams = store.shell.releaseStreams();
                             }
                             context.withPlayer(store, player => player.disconnect());
-                            store.client = false;
+                            store.component = false;
                             store.clientCaps = ClientCaps.DefaultCaps;
                         });
                     }
@@ -511,14 +517,14 @@ class MUDStorage extends MUDEventEmitter {
                 this.interactive = true;
                 this.lastActivity = efuns.ticks;
 
-                client.body = wrapper(this.owner);
-                client.storage = this;
+                component.body = wrapper(this.owner);
+                component.storage = this;
 
-                this.client = client;
-                this.clientCaps = client.caps;
+                this.component = component;
+                this.clientCaps = component.caps;
 
                 //  Linkdeath
-                client.once('disconnected', () => {
+                component.once('disconnected', () => {
                     driver.driverCall('disconnect', ecc => {
                         ecc.withPlayer(this, player => {
                             player.disconnect()
@@ -528,9 +534,6 @@ class MUDStorage extends MUDEventEmitter {
 
                 //  Connect to the new body
                 driver.driverCall('connect', context => {
-                    if (!this.shell) {
-                        this.shell = new CommandShell({}, this, streams);
-                    }
                     let shellSettings = context.withPlayer(this, player => player.connect(...args), false);
                     this.shell.update(shellSettings);
                     context.whenCompleted(() => {
@@ -543,20 +546,20 @@ class MUDStorage extends MUDEventEmitter {
                 if (this.connected)
                     driver.driverCall('disconnect', context => {
                         if (this.shell) this.shell.flushAll();
-                        let client = this.client;
+                        let component = this.component;
                         this.connected = false;
 
-                        if (this.client)
-                            this.client.populateContext(true, context);
+                        if (this.component)
+                            this.component.populateContext(true, context);
                         try {
                             context.withPlayer(this, player => player.disconnect(...args));
                         }
                         finally {
-                            client && client.close();
+                            component && component.close();
                         }
                     });
-                if (this.client) this.client.body = false;
-                this.client = false;
+                if (this.component) this.component.body = false;
+                this.component = false;
                 this.clientCaps = ClientCaps.DefaultCaps;
             }
             return true;

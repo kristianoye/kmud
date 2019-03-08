@@ -968,17 +968,17 @@ class GameServer extends MUDEventEmitter {
                 .bind()
                 .on('kmud.connection', /** @param {MUDClient} client */ client => {
                     this.driverCall('onConnection', () => {
-                        let newLogin = this.masterObject.connect(client.port, client.clientType);
-                        if (newLogin) {
-                            client.setBody(newLogin);
+                        //let newLogin = this.masterObject.connect(client.port, client.clientType);
+                        //if (newLogin) {
+                        //    client.setBody(newLogin);
 
-                            if (driver.connections.indexOf(client) === -1)
-                                driver.connections.push(client);
-                        }
-                        else {
-                            client.writeLine('Sorry, something is very wrong right now; Please try again later.');
-                            client.close('No Login Object Available');
-                        }
+                        //    if (driver.connections.indexOf(client) === -1)
+                        //        driver.connections.push(client);
+                        //}
+                        //else {
+                        //    client.writeLine('Sorry, something is very wrong right now; Please try again later.');
+                        //    client.close('No Login Object Available');
+                        //}
                     });
                 })
                 .on('kmud.connection.new', function (client, protocol) {

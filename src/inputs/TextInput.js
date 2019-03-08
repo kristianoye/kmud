@@ -8,7 +8,7 @@
 const
     BaseInput = require('./BaseInput');
 
-class TextInput extends BaseInput.BaseInput {
+class TextInput extends BaseInput {
     _normalize(text, client) {
         if (this.type === 'password' && client.clientType === 'text') {
             client.toggleEcho(true);
@@ -57,7 +57,7 @@ class TextInput extends BaseInput.BaseInput {
     }
 }
 
-module.exports = {
-    TextInput: BaseInput.defineInputType(TextInput),
-    PasswordInput: BaseInput.defineInputType(TextInput, 'password')
-};
+BaseInput.defineInputType(TextInput);
+BaseInput.defineInputType(TextInput, 'password');
+
+module.exports = TextInput;

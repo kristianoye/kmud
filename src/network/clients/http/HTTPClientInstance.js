@@ -68,14 +68,6 @@ class HTTPClientInstance extends ClientInstance {
     get clientType() { return 'html'; }
 
     /**
-     * Indicates this client is capable of rendering HTML
-     * @returns {boolean} Flag indicating the client understands HTML
-     */
-    get isBrowser() {
-        return true;
-    }
-
-    /**
      * Prompts the user for input
      * @param {Object} opts Options to include in the prompt request.
      * @param {String} opts.type The type of prompt.  May be 'text' or 'password'.

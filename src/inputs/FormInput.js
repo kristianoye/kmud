@@ -6,9 +6,9 @@
  * Renders a composite of other input types and waits for all 
  */
 const
-    Base = require('./BaseInput');
+    BaseInput = require('./BaseInput');
 
-class FormInput extends Base.BaseInput {
+class FormInput extends BaseInput {
     constructor(type, opts = {}) {
         super(type, opts);
 
@@ -23,6 +23,6 @@ class FormInput extends Base.BaseInput {
     }
 }
 
-Base.defineInputType(FormInput, 'form');
+BaseInput.defineInputType(FormInput, 'form');
 
 module.exports = FormInput;

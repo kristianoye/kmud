@@ -11,14 +11,21 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
         _windowManager = new Ventus.WindowManager(),
         SessionCookie = '_sess';
 
+    /** @type {BaseComponent[]} */
+    var _components = [];
+
+    /** @type {Object.<string,BaseComponent>} */
+    var _componentById = {};
+
     var
-        _components = [],
-        _componentById = {},
         _connected = false,
         _eventData = {},
         _windowTypes = {},
         _webSocket = false;
 
+    /**
+     * Represents a single event and its listeners
+     */
     class EventData {
         /**
          * Construct a new event instance
@@ -33,6 +40,12 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
             this.listeners = [];
         }
 
+        /**
+         * Bind a new listener to the event.
+         * @param {function(...any):void} handler The handler to bind.
+         * @param {boolean} onlyOnce If set then the handler is removed after the first call.
+         * @param {boolean} prepend If true then the handler is put in the first position.
+         */
         addListener(handler, onlyOnce = false, prepend = false) {
             return this.listeners[prepend ? 'unshift' : 'push']({
                 handler,
@@ -91,6 +104,9 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
         }
     }
 
+    /**
+     * This data is hidden away from the client
+     */
     class EventSenderPrivateData {
         constructor() {
             /** @type {Object.<string,EventData>} */
@@ -141,6 +157,9 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
         return _eventData[ob.id] = new EventSenderPrivateData();
     }
 
+    /** 
+     * Public interface for sending and receiving events
+     */
     class EventSender {
         constructor() {
             Object.defineProperty(this, 'id', {
@@ -192,6 +211,9 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
         }
     }
 
+    /**
+     * Base of all GUI components
+     */
     class BaseComponent extends EventSender {
         /**
          * 
@@ -240,58 +262,46 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
          * @param {MUDEvent} event The event data
          */
         onWindowHint(event) {
+            if (this.window.movable) {
+                let data = event.data;
 
+                if (data.hasOwnProperty('width')) {
+
+                }
+                if (data.hasOwnProperty('position')) {
+                    if (typeof data.position === 'object') {
+                        let { x, y } = data.position;
+                        this.window.move(x, y);
+                    }
+                    else if (Array.isArray(data.position)) {
+                        let [x, y] = data.position;
+                    }
+                }
+            }
+        }
+
+        register() {
+            this.emit('kmud', {
+                type: 'windowRegister',
+                data: Object.assign({
+                    id: this.id,
+                    type: this.constructor.name
+                }, this._register())
+            });
+            this.window.open();
+        }
+
+        /** 
+         * Augment the registraion object before sending
+         */
+        _register() {
+            return {};
         }
 
         setTitle(s) {
             this.window.$titlebar.find('h1').el.textContent = s;
         }
     }
-
-    class MainWindow extends BaseComponent {
-        constructor(desktop, window, options = {}) {
-            super(desktop, window, options);
-
-            this.mudName = 'Unknown MUD';
-            this.setTitle(`${this.mudName} - Connected`);
-            this.connected = true;
-        }
-
-        onConnect() {
-            this.connected = true;
-            this.setTitle(`${this.mudName} - Connected`);
-        }
-
-        onConnected(event) {
-            this.connected = true;
-            this.mudName = event.data;
-            this.setTitle(`${this.mudName} - ${this.connected ? 'Connected' : 'Disconnected'}`);
-        }
-
-        onDisconnect() {
-            this.connected = false;
-            this.setTitle(`${this.mudName} - Disconnected`);
-        }
-    }
-
-    /**
-     * 
-     * @param {DesktopClientClass} desktop The client
-     * @param {Object.<string,any>} options The initial options
-     */
-    MainWindow.createWindowOptions = function (desktop, options = {}) {
-        let deskSize = desktop.desktopSize;
-        return options = Object.assign({
-            animations: false,
-            title: 'Main Window',
-            classname: 'MainWindow',
-            x: deskSize.width / 4,
-            y: deskSize.height / 4,
-            stayinspace: true,
-            width: deskSize.width / 2,
-            height: deskSize.height / 2
-        }, options);
-    };
     
     class DesktopClientClass extends EventSender {
         /**
@@ -307,7 +317,6 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
             if (navigator.cookieEnabled) {
                 let sessionId = this.cookies[SessionCookie];
             }
-            this.defineWindowType(MainWindow);
         }
 
         /**
@@ -359,9 +368,13 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
             _webSocket.on('connect', () => {
                 _connected = true;
 
+                //  Register existing modules with server
+                _components.forEach(component => component.register());
+
                 //  Only create a new window if we have to
                 if (this.getComponentOfType('MainWindow').length === 0)
                     this.createWindow('MainWindow');
+                
 
                 this.emit('kmud', { type: 'connect', target: true });
             });
@@ -404,30 +417,30 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
 
             options.windowId = uuidv1();
 
-            let window = _windowManager.createWindow(options),
-                component = new targetType(this, window, options);
+            let window = _windowManager.createWindow(options);
+            /** @type {BaseComponent} */
+            let component = new targetType(this, window, options);
 
             _components.push(component);
             _componentById[options.windowId] = component;
 
 
-            _webSocket.emit('kmud', { type: 'windowRegister', data: [options.windowIdm, type] });
+            _webSocket.emit('kmud', {
+                type: 'windowRegister',
+                data: {
+                    id: component.id,
+                    type: type.name
+                }
+            });
+
+            //  Enable the component to send events
             component.on('kmud', event => {
                 _webSocket.emit('kmud', event);
             });
 
-            window.open();
+            //  Register the component with the remote server
+            component.register();
 
-            return this;
-        }
-
-        /**
-         * Define a new window type
-         * @param {any} type
-         * @returns {DesktopClientClass} Returns the client.
-         */
-        defineWindowType(type) {
-            _windowTypes[type.name] = type;
             return this;
         }
 
@@ -451,6 +464,20 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
         get windowManager() {
             return _windowManager;
         }
+    }
+
+
+    /**
+        * Define a new window type
+        * @param {...any} type One or more types to register.
+        */
+    DesktopClientClass.defineWindowType = function (...typeList) {
+        typeList.forEach(type => {
+            if (type.constructor instanceof BaseComponent.constructor === false)
+                throw new Error(`${t.name} is not a suitable component type`);
+            _windowTypes[type.name] = type;
+        });
+        return DesktopClientClass;
     }
 
     return { BaseComponent, DesktopClientClass };

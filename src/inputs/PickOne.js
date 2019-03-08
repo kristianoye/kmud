@@ -7,9 +7,9 @@
  * one or more values.
  */
 const
-    Base = require('./BaseInput');
+    BaseInput = require('./BaseInput');
 
-class PickOneInput extends Base.BaseInput {
+class PickOneInput extends BaseInput {
     /**
      * Construct a PickOneInput
      * @param {string} type The type of control being constructed
@@ -132,6 +132,6 @@ class PickOneInput extends Base.BaseInput {
     }
 }
 
-Base.defineInputType(PickOneInput, 'pickone');
+BaseInput.defineInputType(PickOneInput, 'pickone');
 
 module.exports = PickOneInput;

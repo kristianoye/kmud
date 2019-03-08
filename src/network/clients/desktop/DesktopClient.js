@@ -28,7 +28,6 @@ class DesktopClient extends ClientInstance {
             type: 'disconnect',
             data: reason || '[No Reason Given]'
         });
-        this.client.emit('console.disconnect');
         this.client.disconnect();
     }
 
@@ -80,11 +79,9 @@ class DesktopClient extends ClientInstance {
      */
     async receiveEvent(event) {
         try {
-            let data = event.data || {};
-
             switch (event.type) {
                 case 'windowRegister':
-                    this.windows[data[0]] = data[1];
+                    ClientInstance.registerComponent(this, event.data);
                     break;
             }
         }

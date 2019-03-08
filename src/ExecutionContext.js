@@ -404,7 +404,7 @@ class ExecutionContext extends MUDEventEmitter {
 
         try {
             this.player = player;
-            this.client = storage.client || this.client;
+            this.client = storage.component || this.client;
             this.shell = storage.shell || this.shell;
             this.storage = storage || this.storage;
             this.truePlayer = this.truePlayer || player;

@@ -7,12 +7,21 @@
  */
 
 const
-    ClientInstance = require('../../ClientInstance');
+    ClientInstance = require('../../ClientInstance'),
+    uuidv1 = require('uuid/v1');
 
 class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, client) {
         super(endpoint, client, client.remoteAddress);
+
+        this.mainWindow = ClientInstance.registerComponent(this, {
+            type: 'MainWindow',
+            attachTo: 'newLogin',
+            id: uuidv1(),
+            requiresShell: true
+        });
         this.client.on('data', (buffer) => {
+            this.mainWindow.emit('data', buffer.toString('utf8'));
             this.emit('data', buffer.toString('utf8'));
         });
         this.client.on('close', msg => {
@@ -24,16 +33,23 @@ class RanvierTelnetInstance extends ClientInstance {
         this.closed = false;
     }
 
-    eventSend(data) {
-        switch (data.type) {
+    eventSend(event) {
+        switch (event.type) {
             case 'clearScreen':
                 this.write("%^INITTERM%^");
                 break;
-        }
-    }
 
-    get isBrowser() {
-        return false;
+            case 'prompt':
+                this.renderPrompt(event.data);
+                break;
+
+            case 'write':
+                this.write(event.data);
+                break;
+
+            default:
+                break;
+        }
     }
 
     /*

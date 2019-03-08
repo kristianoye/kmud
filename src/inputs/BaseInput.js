@@ -80,50 +80,51 @@ class BaseInput {
 }
 
 const
-    KnownTypes = [],
-    InputTypes = {
-        BaseInput,
-        create: function (type, opts = {}, callback) {
-            if (typeof type === 'string' && type in InputTypes === false) {
-                if (typeof opts === 'object') {
-                    opts.text = type;
-                    type = opts.type || 'text';
-                }
-                else {
-                    opts = { text: type };
-                    type = 'text';
-                }
-            }
-            else if (typeof type === 'object') {
-                opts = Object.assign(opts || {}, type);
-                type = opts.type || 'text';
-            }
-            if (typeof type !== 'string')
-                throw new Error(`Bad argument 1  to BaseInput.create(); Expected string|object but got ${typeof type}`);
-            let typeName = type.toLowerCase();
-            if (typeName in InputTypes) {
-                let typeConstructor = InputTypes[typeName],
-                    instance = new typeConstructor(type, opts);
-                return instance.validate(callback);
-            }
-            throw new Error(`Input type ${type} does not appear to exist`)
-        },
-        defineInputType: function (type, typeName) {
-            if (type instanceof BaseInput.constructor === false) {
-                throw new Error(`Type ${type.constructor.name} is not a valid input type`);
-            }
-            typeName = typeName || type.name.toLowerCase();
-            if (typeName.endsWith('input')) typeName = typeName.slice(0, -5);
-            InputTypes[typeName] = type;
-            KnownTypes.push(typeName);
-            return type;
-        },
-        knownType: function (s) {
-            return KnownTypes.indexOf(s) > -1;
-        }
-    };
+    InputTypes = {},
+    KnownTypes = [];
 
-module.exports = InputTypes;
+BaseInput.create = function (type, opts = {}, callback) {
+    if (typeof type === 'string' && type in InputTypes === false) {
+        if (typeof opts === 'object') {
+            opts.text = type;
+            type = opts.type || 'text';
+        }
+        else {
+            opts = { text: type };
+            type = 'text';
+        }
+    }
+    else if (typeof type === 'object') {
+        opts = Object.assign(opts || {}, type);
+        type = opts.type || 'text';
+    }
+    if (typeof type !== 'string')
+        throw new Error(`Bad argument 1  to BaseInput.create(); Expected string|object but got ${typeof type}`);
+    let typeName = type.toLowerCase();
+    if (typeName in InputTypes) {
+        let typeConstructor = InputTypes[typeName],
+            instance = new typeConstructor(type, opts);
+        return instance.validate(callback);
+    }
+    throw new Error(`Input type ${type} does not appear to exist`)
+};
+
+BaseInput.defineInputType = function (type, typeName) {
+    if (type instanceof BaseInput.constructor === false) {
+        throw new Error(`Type ${type.constructor.name} is not a valid input type`);
+    }
+    typeName = typeName || type.name.toLowerCase();
+    if (typeName.endsWith('input')) typeName = typeName.slice(0, -5);
+    InputTypes[typeName] = type;
+    KnownTypes.push(typeName);
+    return type;
+};
+
+BaseInput.knownType = function (s) {
+    return KnownTypes.indexOf(s) > -1;
+};
+
+module.exports = BaseInput;
 
 require('./TextInput');
 require('./YesNoInput');

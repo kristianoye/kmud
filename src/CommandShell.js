@@ -1,4 +1,4 @@
-﻿/**
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: February 20, 2019
@@ -10,8 +10,9 @@
 const
     IO = require('./StandardIO'),
     { LinkedList } = require('./LinkedList'),
+    ClientComponent = require('./ClientComponent'),
     MUDEventEmitter = require('./MUDEventEmitter'),
-    { BaseInput } = require('./inputs/BaseInput'),
+    BaseInput = require('./inputs/BaseInput'),
     CommandInterval = 5;
 
 const
@@ -70,11 +71,13 @@ const
 class CommandShell extends MUDEventEmitter {
     /**
      * Construct a new command shell object.
-     * @param {any} options
-     * @param {any} storage
+     * @param {ClientComponent} component The component that is bound to this shell.
+     * @param {CommandShellOptions} options The options used when parsing commands.
      */
-    constructor(options, storage, streams = false) {
+    constructor(component, options) {
         super();
+
+        this.component = component;
 
         /** @type {CommandShellOptions} */
         this.options = Object.assign({
@@ -91,18 +94,12 @@ class CommandShell extends MUDEventEmitter {
             history: []
         }, options);
 
-        this.storage = storage;
-        this.client = storage.client;
-        this.playerRef = storage.owner;
+        this.client = component.client;
 
-        if (streams) {
-            IO.InternalBuffer.attach(streams, storage.client, this);
-        }
-
-        this.stdin = streams.stdin || new IO.StandardInputStream({ encoding: 'utf8' }, storage.client, this);
-        this.stdout = streams.stdout || new IO.StandardOutputStream({ encoding: 'utf8' }, storage.client, this);
-        this.stderr = streams.stderr || new IO.StandardOutputStream({ encoding: 'utf8' }, storage.client, this);
-        this.console = streams.console || new IO.StandardPassthruStream({ encoding: 'utf8' }, storage.client, this);
+        this.stdin = new IO.StandardInputStream({ encoding: 'utf8' }, component, this);
+        this.stdout = new IO.StandardOutputStream({ encoding: 'utf8' }, component, this);
+        this.stderr = new IO.StandardOutputStream({ encoding: 'utf8' }, component, this);
+        this.console = new IO.StandardPassthruStream({ encoding: 'utf8' }, component, this);
 
         if (this.options.allowAliases) {
             this.aliases = this.options.aliases || [];
@@ -127,6 +124,8 @@ class CommandShell extends MUDEventEmitter {
 
         /** @type {BaseInput} */
         this.inputTo = undefined;
+
+        this.shellLevel = 1;
     }
 
     /**
@@ -139,6 +138,37 @@ class CommandShell extends MUDEventEmitter {
             throw new Error('Illegal call to addPrompt(); Must be a valid input type');
         this.inputStack.unshift(prompt);
         this.renderPrompt();
+    }
+
+    /**
+     * Attaches this shell to a player.
+     * @param {MUDObject} player The in-game object to attach I/O to .
+     * @param {number} shellLevel Shell level determines default behavior for command processing.
+     * @param {number} snoopLevel Snoop level 0 [actual player], level 1 [observe], level 2 [control], level 3 [lockout]
+     * @returns {boolean} True on success.
+     */
+    attachPlayer(player, shellLevel = 1, snoopLevel = 0) {
+        let storage = driver.storage.get(player);
+
+        if (storage) {
+            this.shellLevel = shellLevel;
+            this.storage = storage;
+
+            switch (snoopLevel) {
+                case 0:
+                    storage.shell = this;
+                    storage.setClient(this.component);
+                    break;
+
+                case 1:
+                case 2:
+                case 3:
+                    throw new Error('Not implemented');
+            }
+
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -157,6 +187,10 @@ class CommandShell extends MUDEventEmitter {
         return false;
     }
 
+    /**
+     * Expand any xverb aliases that might be defined.
+     * @param {any} cmd
+     */
     expandAliases(cmd) {
         if (this.options.aliases) {
             let alias = this.options.aliases[cmd.verb] || false;
@@ -491,12 +525,17 @@ class CommandShell extends MUDEventEmitter {
         return defaultValue;
     }
 
+    /**
+     * Send an event to the underlying client.
+     * @param {any} eventData
+     * @param {any} connected
+     */
     eventSend(eventData, connected) {
         //  TODO: Add handling of shell-specific events
 
         if (connected === true) {
-            if (this.client)
-                return this.client.eventSend(eventData);
+            if (this.component)
+                return this.component.eventSend(eventData);
         }
         return false;
     }
@@ -1433,15 +1472,15 @@ class CommandShell extends MUDEventEmitter {
                                 throw new Error('Invalid input');
 
                             if (inputTo) {
-                                this.client.renderPrompt(inputTo);
+                                this.component.renderPrompt(inputTo);
                             }
                             else {
-                                this.client.renderPrompt({ type: 'text', text: this.prompt });
+                                this.component.renderPrompt({ type: 'text', text: this.prompt });
                             }
                         }
                     }
                     catch (err) {
-                        this.client && this.client.writeLine(`CRITICAL: ${err.message}`);
+                        this.component && this.component.writeLine(`CRITICAL: ${err.message}`);
                         this.client && this.client.write('> ');
                     }
                     finally {

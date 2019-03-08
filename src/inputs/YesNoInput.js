@@ -6,7 +6,7 @@
  * Provides support for entering text or passwords.
  */
 const
-    Base = require('./BaseInput'),
+    BaseInput = require('./BaseInput'),
     Types = {
         YesNo: 'yes-no',
         YesNoCancel: 'yes-no-cancel',
@@ -14,7 +14,7 @@ const
     },
     ValidTypes = [Types.YesNo, Types.YesNoCancel, Types.AbortRetryFail];
 
-class YesNoInput extends Base.BaseInput {
+class YesNoInput extends BaseInput {
     /**
      * @param {string} type The type of control to construct
      * @param {{ type: string, default: string, rederAs: string }} opts Options for the control
@@ -75,8 +75,8 @@ class YesNoInput extends Base.BaseInput {
     }
 }
 
-Base.defineInputType(YesNoInput, Types.YesNo);
-Base.defineInputType(YesNoInput, Types.YesNoCancel);
-Base.defineInputType(YesNoInput, Types.AbortRetryFail);
+BaseInput.defineInputType(YesNoInput, Types.YesNo);
+BaseInput.defineInputType(YesNoInput, Types.YesNoCancel);
+BaseInput.defineInputType(YesNoInput, Types.AbortRetryFail);
 
 module.exports = YesNoInput;

@@ -6,6 +6,7 @@
  * Description: Provides stream support for server side client I/O.
  */
 const
+    ClientComponent = require('./ClientComponent'),
     { Writable, Readable } = require('stream'),
     uuidv1 = require('uuid/v1'),
     os = require('os');
@@ -14,9 +15,9 @@ const
     Buffers = {};
 
 class InternalBuffer {
-    constructor(client, shell, encoding='utf8') {
+    constructor(component, shell, encoding='utf8') {
         this.buffer = '';
-        this.client = client;
+        this.component = component;
         this.encoding = encoding;
         this.id = uuidv1();
         this.shell = shell;
@@ -25,11 +26,11 @@ class InternalBuffer {
 
     /**
      * Assign new stream ownership
-     * @param {any} client
+     * @param {any} component
      * @param {any} shell
      */
-    attach(client, shell) {
-        this.client = client;
+    attach(component, shell) {
+        this.component = component;
         this.shell = shell;
     }
 
@@ -37,7 +38,7 @@ class InternalBuffer {
      * Destroy the stream 
      */
     destroy() {
-        this.buffer = this.shell = this.client = false;
+        this.buffer = this.shell = this.component = false;
         delete Buffers[this.id];
     }
 
@@ -45,7 +46,7 @@ class InternalBuffer {
      * Detach from the current owner
      */
     detach() {
-        this.client = false;
+        this.component = false;
         this.shell = false;
         return this;
     }
@@ -56,7 +57,7 @@ class InternalBuffer {
     flush() {
         let chunk = this.read(4096);
         if (chunk) {
-            this.client.write(chunk);
+            this.component.write(chunk);
             if (chunk.length === 4096) // there might be more
                 setTimeout(() => this.flush(), 0);
         }
@@ -115,12 +116,12 @@ class InternalBuffer {
 
 /**
  * Create a new internal buffer
- * @param {MUDClient} client The client tied to this stream.
+ * @param {ClientComponent} component The component that owns this thing
  * @param {any} shell The shell tied to this stream.
  * @returns {InternalBuffer} The newly created internal buffer.
  */
-InternalBuffer.create = function (client, shell, encoding = 'utf8') {
-    return new InternalBuffer(client, shell, encoding);
+InternalBuffer.create = function (component, shell, encoding = 'utf8') {
+    return new InternalBuffer(component, shell, encoding);
 };
 
 /**
@@ -128,11 +129,11 @@ InternalBuffer.create = function (client, shell, encoding = 'utf8') {
  * @param {Object.<string,StandardInputStream|StandardOutputStream|StandardPassthruStream>} streams The streams to reconnect
  * @param {object} newOwner The new shell attached to this the streams.
  */
-InternalBuffer.attach = function (streams, client, shell) {
+InternalBuffer.attach = function (streams, component, shell) {
     Object.keys(streams).forEach(name => {
         let stream = streams[name],
             buffer = InternalBuffer.get(stream.id);
-        buffer.attach(client, shell);
+        buffer.attach(component, shell);
     });
 };
 
@@ -165,21 +166,23 @@ class StandardInputStream extends Readable {
     /**
      * Construct a new input stream
      * @param {ReadableOptions} opts Options passed to parent interface
-     * @param {string} buffer The buffer available
+     * @param {ClientComponent} component The component that is the source for this stream.
+     * @param {CommandShell} shell The command shell to dispatch the input to.
      */
-    constructor(opts, client, shell) {
+    constructor(opts, component, shell) {
         super(opts = Object.assign(
             {
                 encoding: 'utf8'
             }, opts));
-        let buffer = InternalBuffer.create(client, shell, opts.encoding);
+
+        let buffer = InternalBuffer.create(component, shell, opts.encoding);
 
         Object.defineProperty(this, 'id', {
             value: buffer.id,
             writable: false
         });
         
-        client.on('data', buffer.onData = async (line) => {
+        component.on('data', buffer.onData = async (line) => {
             buffer.write(line);
             if (buffer.shell) {
                 await buffer.shell.receiveInput(this);
@@ -196,7 +199,7 @@ class StandardInputStream extends Readable {
         if (buffer) {
             // We need stdin to stop listening for data
             if (buffer.listener) 
-                buffer.client.off('data', buffer.listener);
+                buffer.component.off('data', buffer.listener);
             buffer.destroy();
         }
         super._destroy(error, callback);
@@ -241,7 +244,7 @@ StandardInputStream.get = function (o) {
  * with.  This content is then flushed once the command is completed
  **/
 class StandardOutputStream extends Writable {
-    constructor(opts, client, shell) {
+    constructor(opts, component, shell) {
         super(opts = Object.assign(
             {
                 encoding: 'utf8',
@@ -249,7 +252,7 @@ class StandardOutputStream extends Writable {
                 writableHighWaterMark: 32 * 1024
             }, opts));
 
-        let buffer = InternalBuffer.create(client, shell, opts.encoding);
+        let buffer = InternalBuffer.create(component, shell, opts.encoding);
 
         Object.defineProperty(this, 'id', {
             value: buffer.id,
@@ -307,14 +310,14 @@ class StandardPassthruStream extends Writable {
     /**
      * @param {any} opts
      */
-    constructor(opts, client, shell) {
+    constructor(opts, component, shell) {
         super(opts = Object.assign(
             {
                 encoding: 'utf8',
                 decodeStrings: false
             }, opts));
 
-        let buffer = InternalBuffer.create(client, shell, opts.encoding);
+        let buffer = InternalBuffer.create(component, shell, opts.encoding);
         Object.defineProperty(this, 'id', {
             value: buffer.id,
             writable: false
@@ -336,9 +339,9 @@ class StandardPassthruStream extends Writable {
             if (chunk instanceof Buffer) {
                 chunk = chunk.toString(encoding || buffer.encoding);
             }
-            if (buffer && buffer.client) {
-                if (buffer.client.writable) {
-                    buffer.client.write(chunk);
+            if (buffer && buffer.component) {
+                if (buffer.component.writable) {
+                    buffer.component.write(chunk);
                 }
             }
             callback();

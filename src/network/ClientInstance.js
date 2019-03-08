@@ -7,15 +7,14 @@
  */
 const
     ClientEndpoint = require('./ClientEndpoint'),
+    ClientComponent = require('../ClientComponent'),
     ClientCaps = require('./ClientCaps'),
     MUDEventEmitter = require('../MUDEventEmitter'),
-    { BaseInput } = require('../inputs/BaseInput'),
-    GameServer = require('../GameServer'),
-    os = require('os');
+    BaseInput = require('../inputs/BaseInput'),
+    CommandShell = require('../CommandShell');
 
 var
-    maxCommandExecutionTime = 0,
-    DefaultError = 'What?';
+    maxCommandExecutionTime = 0;
 
 /**
  * Abstracted client interface shared by all client connection types.
@@ -35,6 +34,8 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
         this.caps = new ClientCaps(this);
         this.commandStack = [];
         this.commandTimer = false;
+        /** @type {ClientComponent[]} */
+        this.components = [];
         this.endpoint = endpoint;
         this.inputStack = [];
         this.port = endpoint.port;
@@ -43,6 +44,16 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
 
         this.client.on('terminal type', ttype => this.emit('terminal type', ttype));
         this.client.on('window size', spec => this.emit('window size', spec));
+    }
+
+    /**
+     * Add a component to the client
+     * @param {ClientComponent} comp The component to add
+     * @returns {boolean} True on success
+     */
+    addComponent(comp) {
+        let indexId = this.components.push(comp);
+        return indexId > 0;
     }
 
     /**
@@ -114,6 +125,10 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
         if (emitDisconnect) this.emit('disconnected', this);
     }
 
+    eventSend() {
+        throw new Error('Client must implement eventSend()');
+    }
+
     get idleTime() {
         return this.store && this.store.idleTime;
     }
@@ -159,10 +174,6 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
     }
 }
 
-/**
- * Initializes the client with runtime configuration data.
- * @param {GameServer} driver
- */
 ClientInstance.configureForRuntime = function(driver) {
     DefaultError = driver.config.mudlib.defaultError || 'What?';
 
@@ -171,4 +182,39 @@ ClientInstance.configureForRuntime = function(driver) {
     maxCommandStackSize = driver.config.driver.maxCommandStackSize;
 };
 
+/**
+ * Registers a component with a particular client
+ * @param {ClientInstance} client The client that controls the component
+ * @param {Object.<string,any>} data Info Component registration details.
+ */
+ClientInstance.registerComponent = function (client, data) {
+    let component = new ClientComponent(client, data);
+
+    if (component.requiresShell) {
+        let shell = component.attachShell(new CommandShell(component, data.shellOptions));
+
+        if (data.attachTo === 'newLogin') {
+            try {
+                let newLogin = driver.masterObject.connect(client.port, client.clientType);
+
+                if (newLogin) {
+                    shell.attachPlayer(newLogin)
+                    if (driver.connections.indexOf(component) === -1)
+                        driver.connections.push(component);
+                }
+                else
+                    throw new Error('Login not available');
+            }
+            catch (err) {
+                client.writeLine('Sorry, something is very wrong right now; Please try again later.');
+                client.close('No Login Object Available');
+            }
+        }
+    }
+
+
+    return component;
+};
+
 module.exports = ClientInstance;
+

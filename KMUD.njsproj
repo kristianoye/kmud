@@ -382,6 +382,9 @@
     <Compile Include="lib\wwwroot\monaco\min\vs\language\typescript\src\mode.js" />
     <Compile Include="lib\wwwroot\monaco\min\vs\language\typescript\src\worker.js" />
     <Compile Include="lib\wwwroot\monaco\min\vs\loader.js" />
+    <Compile Include="src\ClientComponent.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\CommandShell.js">
       <SubType>Code</SubType>
     </Compile>
@@ -595,6 +598,9 @@
     </Compile>
     <Compile Include="server.js" />
     <Compile Include="src\network\clients\desktop\client\desktop\js\client.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\network\clients\desktop\client\desktop\js\components\MainWindow.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\clients\desktop\client\desktop\js\jquery-3.3.1.js">
@@ -1054,6 +1060,7 @@
     <Folder Include="src\network\clients\desktop\client\desktop\js\" />
     <Folder Include="src\network\clients\desktop\client\desktop\css\" />
     <Folder Include="src\network\clients\desktop\client\desktop\" />
+    <Folder Include="src\network\clients\desktop\client\desktop\js\components\" />
     <Folder Include="src\network\clients\http\" />
     <Folder Include="src\network\clients\telnet\" />
     <Folder Include="src\network\impl\" />
