@@ -50,6 +50,16 @@ class ClientComponent extends MUDEventEmitter {
                 attachTo: false,
                 requiresShell: false
             }, options);
+
+            client.on('kmud', /** @param {MUDEvent} event */ event => {
+                if (this.matchId(event.origin)) {
+                    switch (event.type) {
+                        case 'input':
+                            this.emit('data', event.data);
+                            break;
+                    }
+                }
+            });
         }
     }
 
@@ -76,12 +86,24 @@ class ClientComponent extends MUDEventEmitter {
     }
 
     get caps() {
-        $(this).caps || this.client.caps;
+        return $(this).caps || this.client.caps;
     }
 
     /** @type {ClientInstance} */
     get client() {
         return this._client;
+    }
+
+    close() {
+        return this.disconnect('Connection Closed; Good-bye!');
+    }
+
+    disconnect(reason) {
+        return this.client.eventSend(Object.assign({
+            target: this.id,
+            type: 'disconnect',
+            data: reason
+        }));
     }
 
     /** @type {string} */

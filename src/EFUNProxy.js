@@ -388,10 +388,10 @@ class EFUNProxy {
 
         return driver.driverCall('exec', () => {
             let oldStorage = driver.storage.get(oldBody),
-                client = oldStorage.client;
+                component = oldStorage.component;
 
             //  The old storage has no client?!
-            if (!client)
+            if (!component)
                 return false;
 
             let newStorage = driver.storage.get(newBody);
@@ -401,7 +401,7 @@ class EFUNProxy {
                 return false;
 
             try {
-                client.setBody(ptrNew, ptrOld);
+                newStorage.setClient(component);
                 let result = callback ? callback(oldBody, newBody) || true : true;
                 return result;
             }
@@ -409,12 +409,12 @@ class EFUNProxy {
                 /* ack... try and roll back */
                 console.log(`Error during exec(): ${e.message}; Rolling back.`);
                 try {
-                    client.setBody(oldBody);
+                    component.body = oldBody;
                 }
                 catch (ee) {
                     /* rollback failed, too... destroy them all */
-                    this.write('Sorry things did not work out.');
-                    client.disconnect();
+                    this.writeLine('Sorry things did not work out.');
+                    component.disconnect();
                 }
                 throw e;
             }

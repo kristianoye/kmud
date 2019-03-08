@@ -21,7 +21,7 @@ class RanvierTelnetInstance extends ClientInstance {
             requiresShell: true
         });
         this.client.on('data', (buffer) => {
-            this.mainWindow.emit('data', buffer.toString('utf8'));
+            this.emit('kmud', { type: 'input', data: buffer.toString('utf8'), origin: mainWindow.id });
             this.emit('data', buffer.toString('utf8'));
         });
         this.client.on('close', msg => {
@@ -37,6 +37,10 @@ class RanvierTelnetInstance extends ClientInstance {
         switch (event.type) {
             case 'clearScreen':
                 this.write("%^INITTERM%^");
+                break;
+
+            case 'connected':
+                this.writeLine(`Connected to ${event.data}`);
                 break;
 
             case 'prompt':

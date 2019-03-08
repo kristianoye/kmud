@@ -1,7 +1,7 @@
 ﻿/// <reference path="jquery-3.3.1.js" />
 /// <reference path="ventus.js" />
 
-/** @typedef {{ type: string, data: any, target: string|string[]|boolean }} MUDEvent */
+/** @typedef {{ type: string, data: any, target: string|string[]|boolean, origin: string }} MUDEvent */
 
 
 const { BaseComponent, DesktopClientClass } = (function (Ventus) {
@@ -225,10 +225,10 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
             super();
 
             Object.defineProperties(this, {
-                $content: {
+                $_content: {
                     get: () => $(window.$content.el)
                 },
-                $titlebar: {
+                $_titlebar: {
                     get: () => $(window.$titlebar.el)
                 },
                 client: {
@@ -243,9 +243,10 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
 
             client.on('kmud', event => {
                 try {
-                    console.log('Component received event', event);
                     if (this.match(event.target)) {
                         let handler = 'on' + event.type.charAt(0).toUpperCase() + event.type.slice(1);
+
+                        console.log(`Component received event; Looking for ${handler}`, event);
 
                         if (typeof this[handler] === 'function')
                             return this[handler].call(this, event);
@@ -255,6 +256,14 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
 
                 }
             });
+        }
+
+        /** 
+         * The component content area
+         * @type {JQuery<HTMLElement>} 
+         */
+        get $content() {
+            return this.$_content;
         }
 
         /**
@@ -281,13 +290,14 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
         }
 
         register() {
-            this.emit('kmud', {
+            let event = {
                 type: 'windowRegister',
                 data: Object.assign({
                     id: this.id,
                     type: this.constructor.name
                 }, this._register())
-            });
+            };
+            this.emit('kmud', event);
             this.window.open();
         }
 
@@ -296,6 +306,13 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
          */
         _register() {
             return {};
+        }
+
+        sendEvent(event) {
+            let eventOut = Object.assign({
+                origin: this.id
+            }, event);
+            return this.emit('kmud', eventOut);
         }
 
         setTitle(s) {
@@ -374,9 +391,11 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
                 //  Only create a new window if we have to
                 if (this.getComponentOfType('MainWindow').length === 0)
                     this.createWindow('MainWindow');
-                
 
-                this.emit('kmud', { type: 'connect', target: true });
+                this.emit('kmud', {
+                    type: 'connect',
+                    target: true
+                });
             });
 
             _webSocket.on('disconnect', () => {
@@ -424,17 +443,9 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
             _components.push(component);
             _componentById[options.windowId] = component;
 
-
-            _webSocket.emit('kmud', {
-                type: 'windowRegister',
-                data: {
-                    id: component.id,
-                    type: type.name
-                }
-            });
-
             //  Enable the component to send events
             component.on('kmud', event => {
+                console.log('Sending packet to server:', event);
                 _webSocket.emit('kmud', event);
             });
 

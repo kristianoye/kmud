@@ -499,11 +499,6 @@ class MUDStorage extends MUDEventEmitter {
                             store.interactive = false;
                             store.connected = false;
                             store.lastActivity = 0;
-
-                            if (store.shell) {
-                                //  Take the I/O streams from the old shell
-                                streams = store.shell.releaseStreams();
-                            }
                             context.withPlayer(store, player => player.disconnect());
                             store.component = false;
                             store.clientCaps = ClientCaps.DefaultCaps;
@@ -521,7 +516,7 @@ class MUDStorage extends MUDEventEmitter {
                 component.storage = this;
 
                 this.component = component;
-                this.clientCaps = component.caps;
+                this.clientCaps = component.caps || ClientCaps.DefaultCaps;
 
                 //  Linkdeath
                 component.once('disconnected', () => {

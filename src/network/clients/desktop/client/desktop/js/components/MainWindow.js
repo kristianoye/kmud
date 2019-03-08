@@ -13,7 +13,8 @@
 
         _register() {
             return {
-                shell: true
+                requiresShell: true,
+                attachTo: 'newLogin'
             };
         }
 
@@ -31,6 +32,37 @@
         onDisconnect() {
             this.connected = false;
             this.setTitle(`${this.mudName} - Disconnected`);
+        }
+
+        onPrompt(event) {
+            let data = event.data, id = event.name || 'Input',
+                $prompt = $(`<input type="${data.type}" name="${id}" id="${id}" />"`).data(data),
+                $label = $(`<label for="${id}" />`).text(data.text),
+                $row = $('<tr/>')
+                    .append($('<td/>').append($label))
+                    .append($('<td/>').append($prompt)),
+                $table = $('<table class="prompt" />')
+                    .css({ margin: '15% auto' })
+                    .append($row),
+                $button = $('<input type="button" value="Continue" />');
+
+            $table.append($('<tr/>').append(
+                $('<td colspan="2" />').append($button)
+                    .css({ textAlign: 'center' })));
+
+            $button.on('click', e => {
+                this.sendEvent({ type: 'input', data: $prompt.val() });
+            });
+
+            if (this.mode === 'dialog')
+                this.$content.empty();
+
+            this.$content.append($table);
+        }
+
+        onWindowHint(event) {
+            super.onWindowHint(event);
+            this.mode = event.data.mode || 'normal';
         }
     }
 

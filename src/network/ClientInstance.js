@@ -204,6 +204,8 @@ ClientInstance.registerComponent = function (client, data) {
                 }
                 else
                     throw new Error('Login not available');
+
+                component.eventSend({ type: 'connected', data: efuns.mudName() });
             }
             catch (err) {
                 client.writeLine('Sorry, something is very wrong right now; Please try again later.');

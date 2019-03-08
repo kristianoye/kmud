@@ -36,41 +36,11 @@ class Login extends MUDObject {
             type: 'windowHint',
             target: 'MainWindow',
             data: {
-                mode: 'modalDialog',
+                mode: 'dialog',
                 position: 'center'
             }
-        })
-        eventSend({
-            type: 'dialog',
-            target: 'MainWindow',
-            data: <div className="dialog">
-                <table>
-                    <tr>
-                        <td>
-                            <label for="Username">Username</label>:
-                        </td>
-                        <td>
-                            <input type="text" id="Username" />
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <label for="Password">Password</label>:
-                        </td>
-                        <td>
-                            <input type="password" id="Password" />
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="2" style="text-align: center;">
-                            <input type="button" value="Login" />
-                            <input type="button" value="Create New Player" />
-                        </td>
-                    </tr>
-                </table>
-            </div>
         });
-
+        this.enterUsername();
         return { allowEscaping: false };
     }
 

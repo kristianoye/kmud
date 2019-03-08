@@ -83,6 +83,10 @@ class DesktopClient extends ClientInstance {
                 case 'windowRegister':
                     ClientInstance.registerComponent(this, event.data);
                     break;
+
+                default:
+                    this.emit('kmud', event);
+                    break;
             }
         }
         catch (err) {
