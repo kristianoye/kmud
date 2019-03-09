@@ -334,6 +334,13 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
             if (navigator.cookieEnabled) {
                 let sessionId = this.cookies[SessionCookie];
             }
+
+            $('.new-connection').on('dblclick', e => {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+
+                this.createWindow('MainWindow');
+            });
         }
 
         /**
@@ -447,6 +454,18 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
             component.on('kmud', event => {
                 console.log('Sending packet to server:', event);
                 _webSocket.emit('kmud', event);
+            });
+
+            component.window.signals.on('closed', () => {
+                console.log('closed', arguments);
+                let index = _components.indexOf(component);
+                if (index > -1) _components.slice(index, 1);
+
+                _webSocket.emit('kmud', {
+                    type: 'windowDelete',
+                    origin: component.id,
+                    data: component.id
+                });
             });
 
             //  Register the component with the remote server

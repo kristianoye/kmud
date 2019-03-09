@@ -1405,7 +1405,7 @@ class CommandShell extends MUDEventEmitter {
                                 this.component.renderPrompt(inputTo);
                             }
                             else {
-                                this.component.renderPrompt({ type: 'text', text: this.prompt });
+                                this.component.renderPrompt({ type: 'text', text: this.prompt, console: true });
                             }
                         }
                     }

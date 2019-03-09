@@ -80,6 +80,13 @@ class DesktopClient extends ClientInstance {
     async receiveEvent(event) {
         try {
             switch (event.type) {
+                case 'windowDelete':
+                    {
+                        let index = this.components.findIndex(v => v.id === event.data);
+                        this.components[index].disconnect('disconnected');
+                    }
+                    break;
+
                 case 'windowRegister':
                     ClientInstance.registerComponent(this, event.data);
                     break;

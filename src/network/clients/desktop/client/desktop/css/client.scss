@@ -11,6 +11,28 @@ body {
     height: 100%;
     user-select: none;
 
+    .new-connection {
+        cursor: pointer;
+        position: absolute;
+        text-align: center;
+        top: 64px;
+        left: 64px;
+
+        .inner {
+            position: relative;
+            top: 20px;
+            left: 35%;
+            background: url(../img/new_connection.png) no-repeat;
+            border: 1px solid black;
+            border-radius: 3px;
+            padding: 3px;
+            background-size: contain;
+            width: 32px;
+            height: 32px;
+            position: absolute;
+        }
+    }
+
     .wm-space {
         background: url(../img/desktop-bg-1.jpg) no-repeat center center fixed;
         background-size: cover;

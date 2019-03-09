@@ -1,4 +1,5 @@
 ﻿/// <reference path="../client.js" />
+/// <reference path="InputRenderer.js" />
 
 
 (function (DesktopClientClass, BaseComponent) {
@@ -35,24 +36,7 @@
         }
 
         onPrompt(event) {
-            let data = event.data, id = event.name || 'Input',
-                $prompt = $(`<input type="${data.type}" name="${id}" id="${id}" />"`).data(data),
-                $label = $(`<label for="${id}" />`).text(data.text),
-                $row = $('<tr/>')
-                    .append($('<td/>').append($label))
-                    .append($('<td/>').append($prompt)),
-                $table = $('<table class="prompt" />')
-                    .css({ margin: '15% auto' })
-                    .append($row),
-                $button = $('<input type="button" value="Continue" />');
-
-            $table.append($('<tr/>').append(
-                $('<td colspan="2" />').append($button)
-                    .css({ textAlign: 'center' })));
-
-            $button.on('click', e => {
-                this.sendEvent({ type: 'input', data: $prompt.val() });
-            });
+            let $table = InputRenderer.render(Object.assign({}, event, { sender: this }));
 
             if (this.mode === 'dialog')
                 this.$content.empty();
@@ -62,6 +46,9 @@
 
         onWindowHint(event) {
             super.onWindowHint(event);
+            if (this.mode !== event.data.mode) {
+                this.$content.empty();
+            }
             this.mode = event.data.mode || 'normal';
         }
     }

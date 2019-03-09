@@ -22,7 +22,7 @@ class RanvierTelnetInstance extends ClientInstance {
         });
         this.client.on('data', (buffer) => {
             this.emit('kmud', { type: 'input', data: buffer.toString('utf8'), origin: mainWindow.id });
-            this.emit('data', buffer.toString('utf8'));
+            //this.emit('data', buffer.toString('utf8'));
         });
         this.client.on('close', msg => {
             this.disconnect('telnet', msg || 'not specified');

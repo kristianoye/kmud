@@ -600,6 +600,7 @@
     <Compile Include="src\network\clients\desktop\client\desktop\js\client.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\network\clients\desktop\client\desktop\js\components\InputRenderer.js" />
     <Compile Include="src\network\clients\desktop\client\desktop\js\components\MainWindow.js">
       <SubType>Code</SubType>
     </Compile>
@@ -757,6 +758,7 @@
     <Content Include="src\network\clients\desktop\client\desktop\img\desktop-bg-2.jpg" />
     <Content Include="src\network\clients\desktop\client\desktop\img\desktop-bg-3.jpg" />
     <Content Include="src\network\clients\desktop\client\desktop\img\desktop-bg-4.jpg" />
+    <Content Include="src\network\clients\desktop\client\desktop\img\new_connection.png" />
     <Content Include="src\network\clients\desktop\client\index.html">
       <SubType>Code</SubType>
     </Content>

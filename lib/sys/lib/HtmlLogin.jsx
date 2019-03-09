@@ -93,6 +93,14 @@ class Login extends MUDObject {
                     player && efuns.unguarded(() => {
                         efuns.exec(this, player, () => {
                             logger.log('Switching from Login to Player Instance');
+                            eventSend({
+                                type: 'windowHint',
+                                target: 'MainWindow',
+                                data: {
+                                    mode: 'normal',
+                                    position: 'center'
+                                }
+                            });
                             player.movePlayer(playerData.environment || '/world/sarta/Square', () => {
                                 logger.log('Executing connect() on new player');
                             });
