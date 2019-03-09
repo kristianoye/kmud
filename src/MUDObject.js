@@ -135,11 +135,11 @@ class MUDObject extends MUDEventEmitter {
 
     receiveMessage(msgClass, text) {
         let store = driver.storage.get(this);
-        if (store.client) {
+        if (store.component) {
             if (msgClass.startsWith('N'))
-                store.client.write(text);
+                store.component.write(text);
             else
-                store.client.writeLine(text);
+                store.component.writeLine(text);
         }
     }
 

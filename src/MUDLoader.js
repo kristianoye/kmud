@@ -337,8 +337,8 @@ class MUDLoader {
             thisObject = target || ecc.player,
             store = !!thisObject && driver.storage.get(thisObject);
 
-        if (store) {
-            return store.eventSend(event);
+        if (store && store.component) {
+            return store.eventSend(Object.assign({ target: store.component.id }, event));
         }
         return false;
     }

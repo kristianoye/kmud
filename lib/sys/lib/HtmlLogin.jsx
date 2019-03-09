@@ -34,7 +34,6 @@ class Login extends MUDObject {
 
         eventSend({
             type: 'windowHint',
-            target: 'MainWindow',
             data: {
                 mode: 'dialog',
                 position: 'center'
@@ -55,7 +54,6 @@ class Login extends MUDObject {
                 efuns.unguarded(() => {
                     eventSend({
                         type: 'windowHint',
-                        target: 'MainWindow',
                         data: {
                             mode: 'normal',
                             position: 'center'
@@ -94,7 +92,6 @@ class Login extends MUDObject {
                             efuns.exec(this, player, () => {
                                 eventSend({
                                     type: 'windowHint',
-                                    target: 'MainWindow',
                                     data: {
                                         mode: 'normal',
                                         position: 'center'
@@ -113,7 +110,6 @@ class Login extends MUDObject {
                             logger.log('Switching from Login to Player Instance');
                             eventSend({
                                 type: 'windowHint',
-                                target: 'MainWindow',
                                 data: {
                                     mode: 'normal',
                                     position: 'center'
@@ -243,6 +239,13 @@ class Login extends MUDObject {
         if (player) {
             logger.log('Creating new player');
             efuns.exec(this, player, (oldBody, newPlayer) => {
+                eventSend({
+                    type: 'windowHint',
+                    data: {
+                        mode: 'normal',
+                        position: 'center'
+                    }
+                });
                 if (oldBody === newPlayer) {
                     writeLine('Oops, sorry.  Your body was not ready for you!  Tell someone to fix this.');
                     return efuns.destruct(this);

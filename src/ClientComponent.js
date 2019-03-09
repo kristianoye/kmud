@@ -95,11 +95,11 @@ class ClientComponent extends MUDEventEmitter {
     }
 
     //  Something in the game told the remote client to delete this component.
-    localDisconnect() {
+    localDisconnect(reason) {
         return this.client.eventSend(Object.assign({
             target: this.id,
             type: 'disconnect',
-            data: reason
+            data: reason || 'None given'
         }));
     }
 
