@@ -82,14 +82,25 @@ class MUDStorage extends MUDEventEmitter {
      * Execute a command from the shell.
      * @param {any} rawcmd
      */
-    eventCommand(rawcmd) {
-        return driver.driverCall('executeCommand', context => {
+    async eventCommand(rawcmd) {
+        return await driver.driverCallAsync('executeCommand', async (context) => {
             let cmd = {
                 verb: rawcmd.verb.value,
                 args: rawcmd.args.map(a => a.value),
                 text: rawcmd.text
             };
-            return context.withPlayer(this, player => player.executeCommand(cmd), false);
+
+            return await context.withPlayerAsync(this, async (player) => {
+                let result = false;
+                try {
+                    result = await player.executeCommand(cmd);
+                    return result;
+                }
+                catch (err) {
+                    result = err;
+                }
+                return result;
+            }, false);
         }, this.filename, true);
     }
 
@@ -104,7 +115,7 @@ class MUDStorage extends MUDEventEmitter {
             this.heartbeat = false;
 
             if (this.component)
-                this.setClient(false, ...args);
+                this.eventExec(false, ...args);
 
             if (this.environment)
                 this.owner.emit('kmud.item.removed', this.environment);
@@ -128,6 +139,104 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     /**
+     * Associate a component with this store and its related object.
+     * @param {ClientComponent} component The client bound to this store and in-game object.
+     */
+    eventExec(component, ...args) {
+        try {
+            if (component instanceof ClientComponent) {
+                let streams = false;
+
+                //  If the client has an old body, the client needs to be dissassociated with it
+                if (component.body) {
+                    let store = driver.storage.get(component.body);
+                    if (store) {
+                        driver.driverCall('disconnect', context => {
+                            store.connected = false;
+                            store.interactive = false;
+                            store.connected = false;
+                            store.lastActivity = 0;
+                            store.shell = false;
+                            context.withPlayer(store, player => player.disconnect());
+                            store.component = false;
+                            store.clientCaps = ClientCaps.DefaultCaps;
+                        });
+                    }
+                    else
+                        return false;
+                }
+
+                this.connected = true;
+                this.interactive = true;
+                this.lastActivity = efuns.ticks;
+
+                this.shell = component.shell;
+                this.component = component;
+
+                component.shell.playerRef = component.body = wrapper(this.owner);
+                component.shell.storage = component.storage = this;
+
+
+                this.clientCaps = component.caps || ClientCaps.DefaultCaps;
+
+                //  Linkdeath
+                component.once('disconnected', () => {
+                    driver.driverCall('disconnect', ecc => {
+                        ecc.withPlayer(this, player => {
+                            player.disconnect()
+                        });
+                    });
+                });
+
+                //  Connect to the new body
+                driver.driverCall('connect', context => {
+                    let shellSettings = context.withPlayer(this, player => player.connect(...args), false);
+                    this.shell.update(shellSettings);
+                    context.whenCompleted(() => {
+                        this.shell.renderPrompt();
+                    });
+                });
+                return true;
+            }
+            else {
+                if (this.connected)
+                    driver.driverCall('disconnect', context => {
+                        if (this.shell) this.shell.flushAll();
+                        let component = this.component;
+                        this.connected = false;
+
+                        if (this.component)
+                            this.component.populateContext(true, context);
+                        try {
+                            context.withPlayer(this, player => player.disconnect(...args));
+                        }
+                        finally {
+                            component && component.close();
+                        }
+                    });
+                if (this.component) this.component.body = false;
+                this.component = false;
+                this.clientCaps = ClientCaps.DefaultCaps;
+            }
+            return true;
+        }
+        catch (err) {
+            logger.log('Error in setClient: ', err);
+        }
+        finally {
+            setTimeout(() => {
+                driver.driverCall('setClient', ecc => {
+                    ecc.whenCompleted(() => {
+                        if (this.shell)
+                            this.shell.renderPrompt(false);
+                    });
+                });
+            }, 100);
+        }
+        return false;
+    }
+
+    /**
      * Pass the heartbeat on to the in-game object.
      * @param {number} total
      * @param {number} ticks
@@ -136,10 +245,102 @@ class MUDStorage extends MUDEventEmitter {
         if (this.lastActivity) {
             if (this.idleTime > this.maxIdleTime) {
                 this.heartbeat = false;
-                return this.setClient(false, 'You have been idle for too long.');
+                return this.eventExec(false, 'You have been idle for too long.');
             }
         }
         this.owner.heartbeat(total, ticks);
+    }
+
+    /**
+     * Restore the storage object.  Is this used?
+     * TODO: Make all this async... sigh
+     * @param {any} data
+     */
+    eventRestore(data) {
+        if (data) {
+            let owner = unwrap(this.owner);
+
+            if (typeof owner.migrateData === 'function') {
+                owner.migrateData(data);
+                return owner;
+            }
+
+            return driver.driverCall('restoreObject', () => {
+                //  Restore inventory
+                data.inventory = data.inventory || [];
+                for (let i = 0; i < data.inventory.length; i++) {
+                    try {
+                        let item = efuns.restoreObject(data.inventory[i]);
+                        item.moveObject(owner);
+                    }
+                    catch (e) {
+                        this.shell.stderr.writeLine(`* Failed to load object ${data.inventory[i].$type}`);
+                    }
+                }
+
+                let restoreData = (hive, key, value) => {
+                    try {
+                        let type = typeof value;
+
+                        if (['string', 'boolean', 'number'].indexOf(type) > -1) {
+                            return hive ? hive[key] = value : value;
+                        }
+                        else if (Array.isArray(value)) {
+                            if (hive)
+                                return hive[key] = value.map(v => restoreData(false, false, v));
+                            else
+                                return value.map(v => restoreData(false, false, v));
+                        }
+                        else if (type === 'object') {
+                            let $type = value['$type'];
+                            if ($type) {
+                                try {
+                                    if (hive)
+                                        return hive[key] = efuns.restoreObject(value);
+                                    else
+                                        return efuns.restoreObject(value);
+                                }
+                                catch (err) {
+                                }
+                            }
+                            else if (!hive) {
+                                hive = {};
+                                Object.keys(value).forEach(key => {
+                                    restoreData(hive, key, value);
+                                });
+                                return hive;
+                            }
+                            else {
+                                if (key in hive === false)
+                                    hive = hive[key] = {};
+                                else
+                                    hive = hive[key];
+
+                                Object.keys(value).forEach(key => {
+                                    restoreData(hive, key, value[key])
+                                });
+                                return hive;
+                            }
+                        }
+                    }
+                    catch (err) {
+                        logger.log('error in eventRestore(): ', err);
+                    }
+                }
+                if (typeof this.owner.applyRestore === 'function') {
+                    this.owner.applyRestore();
+                }
+                Object.keys(data.properties).forEach(filename => {
+                    if (this.properties.hasOwnProperty(filename) === false)
+                        this.properties[filename] = {};
+                    else if (typeof this.properties[filename] !== 'object')
+                        throw new Error(`Unable to restore object; Unexpected value for key ${filename}`);
+                    restoreData(this.properties, filename, data.properties[filename]);
+                });
+                return owner;
+            });
+        }
+        return false;
     }
 
     /**
@@ -393,186 +594,6 @@ class MUDStorage extends MUDEventEmitter {
     removeSymbol(prop) {
         delete this.symbols[prop];
         return this;
-    }
-
-    /**
-     * Restore the storage object.  Is this used?
-     * TODO: Make all this async... sigh
-     * @param {any} data
-     */
-    eventRestore(data) {
-        if (data) {
-            let owner = unwrap(this.owner);
-
-            if (typeof owner.migrateData === 'function') {
-                owner.migrateData(data);
-                return owner;
-            }
-
-            return driver.driverCall('restoreObject', () => {
-                //  Restore inventory
-                data.inventory = data.inventory || [];
-                for (let i = 0; i < data.inventory.length; i++) {
-                    try {
-                        let item = efuns.restoreObject(data.inventory[i]);
-                        item.moveObject(owner);
-                    }
-                    catch (e) {
-                        this.shell.stderr.writeLine(`* Failed to load object ${data.inventory[i].$type}`);
-                    }
-                }
-
-                let restoreData = (hive, key, value) => {
-                    try {
-                        let type = typeof value;
-
-                        if (['string', 'boolean', 'number'].indexOf(type) > -1) {
-                            return hive ? hive[key] = value : value; 
-                        }
-                        else if (Array.isArray(value)) {
-                            if (hive)
-                                return hive[key] = value.map(v => restoreData(false, false, v));
-                            else
-                                return value.map(v => restoreData(false, false, v));
-                        }
-                        else if (type === 'object') {
-                            let $type = value['$type'];
-                            if ($type) {
-                                try {
-                                    if (hive)
-                                        return hive[key] = efuns.restoreObject(value);
-                                    else
-                                        return efuns.restoreObject(value);
-                                }
-                                catch (err) {
-                                }
-                            }
-                            else if (!hive) {
-                                hive = {};
-                                Object.keys(value).forEach(key => {
-                                    restoreData(hive, key, value);
-                                });
-                                return hive;
-                            }
-                            else {
-                                if (key in hive === false)
-                                    hive = hive[key] = {};
-                                else
-                                    hive = hive[key];
-
-                                Object.keys(value).forEach(key => {
-                                    restoreData(hive, key, value[key])
-                                });
-                                return hive;
-                            }
-                        }
-                    }
-                    catch (err) {
-                        logger.log('error in eventRestore(): ', err);
-                    }
-                }
-
-                if (typeof this.owner.applyRestore === 'function') {
-                    this.owner.applyRestore();
-                }
-                return owner;
-            });
-        }
-        return false;
-    }
-
-    /**
-     * Associate a component with this store and its related object.
-     * @param {ClientComponent} component The client bound to this store and in-game object.
-     */
-    setClient(component, ...args) {
-        try {
-            if (component) {
-                let streams;
-
-                //  If the client has an old body, the client needs to be dissassociated with it
-                if (component.body) {
-                    let store = driver.storage.get(component.body);
-                    if (store) {
-                        driver.driverCall('disconnect', context => {
-                            store.connected = false;
-                            store.interactive = false;
-                            store.connected = false;
-                            store.lastActivity = 0;
-                            context.withPlayer(store, player => player.disconnect());
-                            store.component = false;
-                            store.clientCaps = ClientCaps.DefaultCaps;
-                        });
-                    }
-                    else
-                        return false;
-                }
-
-                this.connected = true;
-                this.interactive = true;
-                this.lastActivity = efuns.ticks;
-
-                component.body = wrapper(this.owner);
-                component.storage = this;
-
-                this.component = component;
-                this.clientCaps = component.caps || ClientCaps.DefaultCaps;
-
-                //  Linkdeath
-                component.once('disconnected', () => {
-                    driver.driverCall('disconnect', ecc => {
-                        ecc.withPlayer(this, player => {
-                            player.disconnect()
-                        });
-                    });
-                });
-
-                //  Connect to the new body
-                driver.driverCall('connect', context => {
-                    let shellSettings = context.withPlayer(this, player => player.connect(...args), false);
-                    this.shell.update(shellSettings);
-                    context.whenCompleted(() => {
-                        this.shell.renderPrompt();
-                    });
-                });
-                return true;
-            }
-            else {
-                if (this.connected)
-                    driver.driverCall('disconnect', context => {
-                        if (this.shell) this.shell.flushAll();
-                        let component = this.component;
-                        this.connected = false;
-
-                        if (this.component)
-                            this.component.populateContext(true, context);
-                        try {
-                            context.withPlayer(this, player => player.disconnect(...args));
-                        }
-                        finally {
-                            component && component.close();
-                        }
-                    });
-                if (this.component) this.component.body = false;
-                this.component = false;
-                this.clientCaps = ClientCaps.DefaultCaps;
-            }
-            return true;
-        }
-        catch (err) {
-            logger.log('Error in setClient: ', err);
-        }
-        finally {
-            setTimeout(() => {
-                driver.driverCall('setClient', ecc => {
-                    ecc.whenCompleted(() => {
-                        if (this.shell)
-                            this.shell.renderPrompt(false);
-                    });
-                });
-            }, 100);
-        }
-        return false;
     }
 }
 

@@ -411,6 +411,9 @@ class ExecutionContext extends MUDEventEmitter {
 
             return callback(player, this);
         }
+        catch (err) {
+            console.log('Error in withPlayer(): ', err);
+        }
         finally {
             if (methodName) ecc.pop(methodName);
             if (restoreOldPlayer) {
@@ -447,6 +450,9 @@ class ExecutionContext extends MUDEventEmitter {
             this.truePlayer = this.truePlayer || player;
 
             return await callback(player, this);
+        }
+        catch (err) {
+            console.log('Error in withPlayerAsync(): ', err);
         }
         finally {
             if (methodName) ecc.pop(methodName);

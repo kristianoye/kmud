@@ -157,7 +157,7 @@ class CommandShell extends MUDEventEmitter {
             switch (snoopLevel) {
                 case 0:
                     storage.shell = this;
-                    storage.setClient(this.component);
+                    storage.eventExec(this.component);
                     break;
 
                 case 1:
@@ -422,7 +422,7 @@ class CommandShell extends MUDEventEmitter {
                         if (this.options.allowAliases) {
                             this.expandAliases(cmd);
                         }
-                        result = this.storage.eventCommand(cmd);
+                        result = await this.storage.eventCommand(cmd);
 
                         if (efuns.isPromise(result)) {
                             return await result
@@ -1387,6 +1387,7 @@ class CommandShell extends MUDEventEmitter {
         //  We are already waiting for the prompt to be rendered
         if (this.promptTimer)
             return;
+
         this.promptTimer = setTimeout(() => {
             try {
                 if (this.storage && this.storage.connected && !this.executing) {
@@ -1429,7 +1430,7 @@ class CommandShell extends MUDEventEmitter {
      */
     update(options) {
         this.options = Object.assign(this.options, options);
-        this.env = options.env;
+        this.env = this.options.env || {};
     }
 }
 

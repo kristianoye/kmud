@@ -401,7 +401,7 @@ class EFUNProxy {
                 return false;
 
             try {
-                newStorage.setClient(component);
+                newStorage.eventExec(component);
                 let result = callback ? callback(oldBody, newBody) || true : true;
                 return result;
             }

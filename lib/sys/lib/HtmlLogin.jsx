@@ -68,7 +68,7 @@ class Login extends MUDObject {
             if (pwd.length === 0) {
                 this.client.close();
             }
-            else if (!efuns.checkPassword(pwd, playerData.private['/base/Player'].player.password)) {
+            else if (!efuns.checkPassword(pwd, playerData.properties['/base/Player'].password)) {
                 writeLine('\nPassword incorrect!\n');
                 this.enterPassword(name, playerData);
             }

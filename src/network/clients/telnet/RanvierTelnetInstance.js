@@ -14,7 +14,7 @@ class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, client) {
         super(endpoint, client, client.remoteAddress);
 
-        this.mainWindow = ClientInstance.registerComponent(this, {
+        let mainWindow = this.mainWindow = ClientInstance.registerComponent(this, {
             type: 'MainWindow',
             attachTo: 'newLogin',
             id: uuidv1(),
