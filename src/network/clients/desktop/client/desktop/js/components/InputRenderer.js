@@ -133,8 +133,21 @@ const InputRenderer = (function () {
                 $label = $(`<label for="${id}" />`).text(data.text),
                 $row = $('<tr/>')
                     .append($('<td/>').append($label))
-                    .append($('<td/>').append($prompt));
+                    .append($('<td/>').append($prompt)),
+                $errorRow = $('<tr style="display:none;" />').append($('<td colspan="3" style="color: red; text-align: center;" class="error" />'));
 
+            if (data.error) {
+                if (Array.isArray(data.error)) {
+                    let $ul = $('<ul/>');
+                    data.error.forEach(e => {
+                        $ul.append($('<li/>').css({ textAlign: 'left' }).text(e.message || e));
+                    });
+                    $errorRow.css({ display: 'table-row' }).find('.error').empty().append($ul);
+                }
+                else {
+                    $errorRow.css({ display: 'table-row' }).find('.error').text(data.error);
+                }
+            }
             if ($table === false) {
                 $table = this.createTable();
             }
@@ -154,7 +167,7 @@ const InputRenderer = (function () {
                 });
             }
             $table.append($row);
-
+            $table.append($errorRow);
             setTimeout(() => $prompt.focus(), 50);
 
             return $table;

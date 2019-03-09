@@ -408,7 +408,7 @@ class TelnetSocket extends EventEmitter {
                                     terminalType: subnegBuffer.slice(1).toString('utf8').trim()
                                 };
                                 if (tte.terminalType) {
-                                    this.emit('terminal type', tte);
+                                    this.emit('kmud', { type: terminalType, data: tte });
                                     if (typeof tte.terminalType !== 'undefined')
                                         this.telnetCommand(Seq.SB, [Opts.OPT_TTYPE, 1, Seq.IAC, Seq.SE]);
                                 }

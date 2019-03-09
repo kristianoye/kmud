@@ -8,7 +8,6 @@
 const
     ClientEndpoint = require('./ClientEndpoint'),
     ClientComponent = require('../ClientComponent'),
-    ClientCaps = require('./ClientCaps'),
     MUDEventEmitter = require('../MUDEventEmitter'),
     BaseInput = require('../inputs/BaseInput'),
     CommandShell = require('../CommandShell');
@@ -31,9 +30,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
 
         this.body = null;
         this.client = client;
-        this.caps = new ClientCaps(this);
-        this.commandStack = [];
-        this.commandTimer = false;
+
         /** @type {ClientComponent[]} */
         this.components = [];
         this.endpoint = endpoint;
@@ -41,9 +38,6 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
         this.port = endpoint.port;
         this.remoteAddress = remoteAddress;
         this.storage = false;
-
-        this.client.on('terminal type', ttype => this.emit('terminal type', ttype));
-        this.client.on('window size', spec => this.emit('window size', spec));
     }
 
     /**
@@ -67,6 +61,8 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
     addPrompt(opts, callback) {
         return this;
     }
+
+    get clientProtocol() { return 'telnet'; }
 
     get clientType() { return 'text'; }
 
@@ -111,18 +107,16 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
     /**
      * @returns {string}
      */
-    get defaultTerminalType() {
-        return 'unknown';
-    }
+    get defaultTerminalType() { return 'unknown'; }
 
     /**
      * The client has disconnected
      * @param {string} protocol The client protocol (should be endpoint?)
      * @param {string} msg The reason for the disconnect.
      */
-    disconnect(protocol, msg, emitDisconnect = true) {
-        this.emit('kmud.connection.closed', this, protocol);
-        if (emitDisconnect) this.emit('disconnected', this);
+    disconnect() {
+        this.emit('kmud.connection.closed', this, this.clientProtocol);
+        this.emit('disconnected', this);
     }
 
     eventSend() {
@@ -131,6 +125,27 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
 
     get idleTime() {
         return this.store && this.store.idleTime;
+    }
+
+    /**
+     * The remote client disconnected unexpectedly
+     */
+    remoteDisconnect() {
+        this.components.forEach(component => {
+            try {
+                component.remoteDisconnect('Client closed');
+            }
+            catch (err) {
+                logger.log(`Error in DesktopClient.disconnect(): ${err.meessage}`);
+            }
+        });
+
+        this.disconnect();
+
+        this.emit('kmud', {
+            type: 'remoteDisconnect',
+            data: 'Remote client went away'
+        });
     }
 
     renderPrompt(input) {

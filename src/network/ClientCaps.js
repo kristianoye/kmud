@@ -48,27 +48,38 @@ class ClientCaps extends MUDEventEmitter {
         };
 
         if (client) {
-            client.on('terminal type', (ttype) => {
-                if (ttype.terminalType) {
-                    let tty = ttype.terminalType.toLowerCase(),
-                        n = terminalTypes.indexOf(tty);
-                    if (n === -1) terminalTypes.push(tty);
-                    setTerminalType(tty);
+            client.on('kmud', event => {
+                switch (event.type) {
+                    case 'terminalType':
+                        if (event.data) {
+                            let ttype = event.data;
+                            let tty = ttype.terminalType.toLowerCase(),
+                                n = terminalTypes.indexOf(tty);
+                            if (n === -1) terminalTypes.push(tty);
 
-                    this.emit('kmud', {
-                        type: 'terminalType',
-                        data: tty
-                    });
+                            setTerminalType(tty);
+
+                            this.emit('kmud', {
+                                type: 'terminalType',
+                                data: tty
+                            });
+                        }
+                        break;
+
+                    case 'windowSize':
+                        {
+                            let term = event.data;
+
+                            height = term.height;
+                            width = term.width;
+
+                            this.emit('kmud', {
+                                type: 'windowSize',
+                                data: term
+                            });
+                        }
+                        break;
                 }
-            });
-            client.on('window size', (term) => {
-                height = term.height;
-                width = term.width;
-
-                this.emit('kmud', {
-                    type: 'windowSize',
-                    data: term
-                });
             });
         }
 
@@ -101,7 +112,7 @@ class ClientCaps extends MUDEventEmitter {
             }
         });
 
-        setTerminalType.apply(this, [client.defaultTerminalType]);
+        setTerminalType(client.defaultTerminalType);
     }
 
     /**

@@ -53,24 +53,34 @@ class Login extends MUDObject {
         return prompt(InputTypeYesNo, `${(player.displayName)} is already connected; Do you wish to take over? `, resp => {
             if (resp === 'yes') {
                 efuns.unguarded(() => {
+                    eventSend({
+                        type: 'windowHint',
+                        target: 'MainWindow',
+                        data: {
+                            mode: 'normal',
+                            position: 'center'
+                        }
+                    });
                     efuns.exec(this, player);
+                    efuns.destruct(this);
                 });
             }
             else {
-                writeLine('\n\nPlease select a different username then.\n');
-                return this.enterUsername();
+                return this.enterUsername({
+                    error: 'Please select a different username then'
+                });
             }
         });
     }
 
-    private enterPassword(name, playerData) {
-        return prompt(InputTypePassword, 'Enter password: ', (pwd) => {
+    private enterPassword(name, playerData, opts = {}) {
+        opts = Object.assign({ text: 'Enter password: ' }, opts);
+        return prompt(InputTypePassword, opts, (pwd) => {
             if (pwd.length === 0) {
                 this.client.close();
             }
             else if (!efuns.checkPassword(pwd, playerData.properties['/base/Player'].password)) {
-                writeLine('\nPassword incorrect!\n');
-                this.enterPassword(name, playerData);
+                this.enterPassword(name, playerData, { error: 'Password incorrect' });
             }
             else {
                 //  Player authenticated successfully
@@ -82,8 +92,16 @@ class Login extends MUDObject {
                     else {
                         efuns.unguarded(() => {
                             efuns.exec(this, player, () => {
-                                this.destroy();
+                                eventSend({
+                                    type: 'windowHint',
+                                    target: 'MainWindow',
+                                    data: {
+                                        mode: 'normal',
+                                        position: 'center'
+                                    }
+                                });
                                 player.writeLine('Reconnected');
+                                this.destroy();
                             });
                         });
                     }
@@ -123,18 +141,16 @@ class Login extends MUDObject {
         return prompt(InputTypeText, opts, async (name) => {
             if (name.length === 0) {
                 writeLine('\nGood-bye!');
-                return this.client.close();
+                return efuns.destruct(this);
             }
             await PlayerDaemon().playerExists(name, true, (player, error) => {
                 if (error) {
-                    writeLine('\nOops!  Something went wrong!  Try another name or come back again later!\n\n');
-                    this.enterUsername();
+                    this.enterUsername({ error: 'Something went wrong; Try another name or come back again later.' });
                 }
                 else if (!player) 
                     prompt(InputTypeYesNo, { text: `Is ${name} the name you really want? `, default: 'yes' }, resp => {
                         if (resp !== 'yes') {
-                            writeLine('\Enter the name you really want, then.\n\n');
-                            return this.enterUsername();
+                            return this.enterUsername({ error: 'Enter the name you really want, then.' });
                         }
                         else
                             return this.selectPassword({ name });
@@ -147,21 +163,19 @@ class Login extends MUDObject {
 
     get maxIdleTime() { return LoginTimeout; }
 
-    private async selectPassword(playerData) {
-        prompt(InputTypePassword, 'Select a password: ', async (plain) => {
-            var foo = 42;
+    private async selectPassword(playerData, opts = {}) {
+        opts = Object.assign({ text: 'Select a password' }, opts);
+        prompt(InputTypePassword, opts, async (plain) => {
             try {
                 let errors, password = await efuns.createPasswordAsync(plain)
                     .catch(e => { errors = e });
                 if (!errors)
                     this.confirmPassword(Object.assign(playerData, { password, plain }));
                 else if (!Array.isArray(errors.list)) {
-                    writeLine(`\n${errors.message}\n\n`);
-                    this.selectPassword(playerData);
+                    this.selectPassword(playerData, { error: errors.message });
                 }
                 else {
-                    writeLine(`\n${errors.list.join('\n')}\n\n`);
-                    this.selectPassword(playerData);
+                    this.selectPassword(playerData, { error: errors.list });
                 }
             }
             catch (wtf) {
@@ -173,8 +187,7 @@ class Login extends MUDObject {
     private confirmPassword(playerData) {
         prompt(InputTypePassword, 'Confirm password: ', pwd => {
             if (playerData.plain !== pwd) {
-                writeLine('\nPasswords do not match; Please try again.\n\n');
-                this.selectPassword(playerData);
+                this.selectPassword(playerData, { error: 'Passwords do not match; Please try again.' });
             }
             else {
                 delete playerData.plain;
@@ -183,8 +196,8 @@ class Login extends MUDObject {
         });
     }
 
-    private selectGender(playerData) {
-        let opts = {
+    private selectGender(playerData, opts = {}) {
+        opts = Object.assign({
             text: 'Select a gender for your character: ', type: 'pickOne', options: {
                 m: 'male',
                 f: 'female',
@@ -193,23 +206,22 @@ class Login extends MUDObject {
             },
             summary: ',',
             prompt: 'Gender'
-        };
+        }, opts);
         prompt(InputTypePickOne, opts, gender => {
             if (gender) {
                 this.enterEmailAddress(Object.assign(playerData, { gender }));
             }
             else {
-                writeLine('\nInvalid gender choice; Please try again (you can change later)\n\n');
-                this.selectGender(playerData);
+                this.selectGender(playerData, { error: 'Invalid gender choice; Please try again (you can change later)' });
             }
         });
     }
 
-    private enterEmailAddress(playerData) {
-        prompt('text', 'Enter e-mail address: ', email => {
+    private enterEmailAddress(playerData, opts = {}) {
+        opts = Object.assign({ text: 'Enter e-mail address' }, opts);
+        prompt('text', opts, email => {
             if (!validEmail.test(email)) {
-                writeLine('\nInvalid email address\n\n');
-                this.enterEmailAddress(playerData);
+                this.enterEmailAddress(playerData, { error: 'Invalid email address' });
             }
             else {
                 this.enterRealName(Object.assign(playerData, { email: email }));

@@ -457,15 +457,21 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
             });
 
             component.window.signals.on('closed', () => {
-                console.log('closed', arguments);
                 let index = _components.indexOf(component);
-                if (index > -1) _components.slice(index, 1);
-
-                _webSocket.emit('kmud', {
-                    type: 'windowDelete',
-                    origin: component.id,
-                    data: component.id
-                });
+                if (index > -1) _components.splice(index, 1);
+                try {
+                    _webSocket.emit('kmud', {
+                        type: 'windowDelete',
+                        origin: component.id,
+                        data: component.id
+                    });
+                }
+                catch (err) {
+                    /* eat it */
+                }
+                if (_components.length === 0) {
+                    console.log('All windows have closed');
+                }
             });
 
             //  Register the component with the remote server

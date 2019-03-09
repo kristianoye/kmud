@@ -69,7 +69,7 @@ class BaseInput {
     validate(callback) {
         if (this._validate()) {
             this.callback = callback;
-            return Object.freeze(this);
+            return this;
         }
         throw new Error('Input validation error');
     }

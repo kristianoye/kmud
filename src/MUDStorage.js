@@ -205,13 +205,14 @@ class MUDStorage extends MUDEventEmitter {
                         let component = this.component;
                         this.connected = false;
 
-                        if (this.component)
-                            this.component.populateContext(true, context);
+                        //if (this.component)
+                        //    this.component.populateContext(true, context);
+
                         try {
                             context.withPlayer(this, player => player.disconnect(...args));
                         }
                         finally {
-                            component && component.close();
+                            component && component.localDisconnect();
                         }
                     });
                 if (this.component) this.component.body = false;

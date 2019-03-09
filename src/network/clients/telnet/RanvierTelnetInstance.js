@@ -8,6 +8,7 @@
 
 const
     ClientInstance = require('../../ClientInstance'),
+    ClientCaps = require('../../ClientCaps'),
     uuidv1 = require('uuid/v1');
 
 class RanvierTelnetInstance extends ClientInstance {
@@ -21,16 +22,17 @@ class RanvierTelnetInstance extends ClientInstance {
             requiresShell: true
         });
         this.client.on('data', (buffer) => {
-            this.emit('kmud', { type: 'input', data: buffer.toString('utf8'), origin: mainWindow.id });
-            //this.emit('data', buffer.toString('utf8'));
+            this.emit('kmud', {
+                type: 'input',
+                data: buffer.toString('utf8'),
+                origin: mainWindow.id
+            });
         });
-        this.client.on('close', msg => {
-            this.disconnect('telnet', msg || 'not specified');
-        });
-        this.client.on('drain', () => {
-            this.emit('drain');
-        });
+        this.client.on('close', () => this.remoteDisconnect());
+        this.client.on('drain', () => this.emit('drain'));
         this.closed = false;
+        this.client.on('kmud', event => this.emit('kmud', event));
+        this.caps = new ClientCaps(this);
     }
 
     eventSend(event) {

@@ -10,6 +10,7 @@
             this.mudName = 'Unknown MUD';
             this.setTitle(`${this.mudName} - Connected`);
             this.connected = true;
+            this.onWindowHint({ data: { mode: 'dialog' } });
         }
 
         _register() {
@@ -38,18 +39,49 @@
         onPrompt(event) {
             let $table = InputRenderer.render(Object.assign({}, event, { sender: this }));
 
-            if (this.mode === 'dialog')
+            if (this.mode === 'dialog') {
                 this.$content.empty();
-
-            this.$content.append($table);
+                this.$content.append($table);
+            }
+            else if (this.mode === 'normal') {
+                let $textarea = $('<textarea placeholder="Enter a commmand..." class="commandPrompt" />');
+                let $sendButton = $('<input type="button" class="sender" value="Send" />');
+                this.$prompter.empty().append($textarea, $sendButton);
+                if (this.window.active === true) {
+                    setTimeout(() => $textarea.focus(), 50);
+                }
+                $sendButton.one('click', (e) => {
+                    this.sendEvent({
+                        type: 'input',
+                        data: $textarea.val()
+                    });
+                });
+            }
         }
 
         onWindowHint(event) {
             super.onWindowHint(event);
             if (this.mode !== event.data.mode) {
                 this.$content.empty();
+
+                switch (this.mode = event.data.mode || 'normal') {
+                    case 'normal':
+                        {
+                            let $view = this.$view = $('<section class="view"></section>');
+                            let $prompter = this.$prompter = $('<footer class="prompter"></footer>')
+                            this.$content.append($view, $prompter);
+                        }
+                        break;
+                }
             }
-            this.mode = event.data.mode || 'normal';
+        }
+
+        onWrite(event) {
+            if (this.mode === 'normal') {
+                let $div = $('<div class="msg" />').append(event.data);
+                this.$view.append($div);
+                $div[0].scrollIntoView();
+            }
         }
     }
 

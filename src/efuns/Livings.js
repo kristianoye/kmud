@@ -135,7 +135,7 @@ class LivingsHelper {
         let ob = typeof target === 'object' ? target : unwrap(target);
         if (ob) {
             let store = driver.storage.get(ob);
-            return !!store && store.interactive;
+            return !!store && store.connected;
         }
         return false;
     }

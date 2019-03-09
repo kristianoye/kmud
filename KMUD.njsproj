@@ -690,6 +690,7 @@
     <Compile Include="src\network\servers\HTTPServer\KnownMimeTypes.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\network\servers\HTTPServer\RouteTable.js" />
     <Compile Include="src\StandardIO.js">
       <SubType>Code</SubType>
     </Compile>
@@ -754,6 +755,9 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="src\network\clients\desktop\client\desktop\css\ventus.css" />
+    <Content Include="src\network\clients\desktop\client\desktop\css\_mainWindow.scss">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\network\clients\desktop\client\desktop\img\desktop-bg-1.jpg" />
     <Content Include="src\network\clients\desktop\client\desktop\img\desktop-bg-2.jpg" />
     <Content Include="src\network\clients\desktop\client\desktop\img\desktop-bg-3.jpg" />

@@ -126,6 +126,12 @@ class CommandShell extends MUDEventEmitter {
         this.inputTo = undefined;
 
         this.shellLevel = 1;
+
+        component.on('remoteDisconnect', () => {
+            if (this.storage) {
+                this.storage.eventExec(false);
+            }
+        });
     }
 
     /**
@@ -1276,6 +1282,7 @@ class CommandShell extends MUDEventEmitter {
                             }
                             else if (input instanceof Error) {
                                 this.stderr.write(`\n${input.message}\n\n`);
+                                inputTo.error = input.message;
                             }
                             return true;
                         }

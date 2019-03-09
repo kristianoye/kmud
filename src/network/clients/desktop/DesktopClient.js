@@ -8,6 +8,7 @@
 
 const
     ClientInstance = require('../../ClientInstance'),
+    ClientCaps = require('../../ClientCaps'),
     MUDHtml = require('../../../MUDHtml');
 
 class DesktopClient extends ClientInstance {
@@ -17,9 +18,17 @@ class DesktopClient extends ClientInstance {
         this.eventTimer = false;
         this.windows = {};
 
-        client.on('disconnect', msg => this.disconnect('http', msg));
+        client.on('disconnect', () => this.remoteDisconnect());
         client.on('kmud', async evt => await this.receiveEvent(evt));
+
+        this.emit('kmud', {
+            type: 'terminalType',
+            data: 'kmud'
+        });
+        this.caps = new ClientCaps(this);
     }
+
+    get clientProtocol() { return 'http'; }
 
     get clientType() { return 'html'; }
 
@@ -31,6 +40,7 @@ class DesktopClient extends ClientInstance {
         this.client.disconnect();
     }
 
+    get defaultTerminalType() { return 'kmud'; }
 
     /**
      * Keep sending events until they are none left
@@ -83,7 +93,7 @@ class DesktopClient extends ClientInstance {
                 case 'windowDelete':
                     {
                         let index = this.components.findIndex(v => v.id === event.data);
-                        this.components[index].disconnect('disconnected');
+                        this.components[index].remoteDisconnect('disconnected');
                     }
                     break;
 
@@ -114,6 +124,7 @@ class DesktopClient extends ClientInstance {
      * @param {any} text
      */
     write(text) {
+        let test = this.caps.do('expandColors', text);
         this.eventSend({ type: 'write', data: text });
         return this;
     }

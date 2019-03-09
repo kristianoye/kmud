@@ -94,16 +94,19 @@ class ClientComponent extends MUDEventEmitter {
         return this._client;
     }
 
-    close() {
-        return this.disconnect('Connection Closed; Good-bye!');
-    }
-
-    disconnect(reason) {
+    //  Something in the game told the remote client to delete this component.
+    localDisconnect() {
         return this.client.eventSend(Object.assign({
             target: this.id,
             type: 'disconnect',
             data: reason
         }));
+    }
+
+    // Indicates the remote client disconnected the component (maybe by closing the window)
+    // In this case we trigger netdeath but leave the shell in place in case the client comes back.
+    remoteDisconnect(reason) {
+        this.emit('remoteDisconnect', reason);
     }
 
     /** @type {string} */
@@ -196,9 +199,10 @@ class ClientComponent extends MUDEventEmitter {
     }
 
     write(textOrBuffer) {
+        let colorized = this.caps.do('expandColors', textOrBuffer);
         return this.client.eventSend({
             type: 'write',
-            data: textOrBuffer,
+            data: colorized,
             target: this.id
         });
     }
