@@ -150,6 +150,21 @@ class LivingsHelper {
         return !!store && store.interactive;
     }
 
+    /**
+     * Determines if an object is a player
+     * @param {MUDObject|MUDWrapper} target The item to check
+     * @returns {boolean} Returns true if the object is interactive
+     */
+    static isPlayer(target) {
+        let store = driver.storage.get(target);
+        return !!store && store.player;
+    }
+
+    /**
+     * Determines if an object is a wizard
+     * @param {MUDObject|MUDWrapper} target The item to check
+     * @returns {boolean} Returns true if the object is interactive
+     */
     static isWizard(target) {
         let store = driver.storage.get(target);
         return !!store && store.wizard;
@@ -163,12 +178,13 @@ class LivingsHelper {
     static players(showAll = false) {
         return driver.playerObjects
             .toArray()
-            .filter(o => {
+            .map(o => {
                 if (showAll)
-                    return typeof o === 'object' ? o : unwrap(o);
-                else if (LivingsHelper.isConnected(o))
-                    return typeof o === 'object' ? o : unwrap(o);
-            });
+                    return typeof o.owner === 'object' ? o.owner : false;
+                else if (o.connected)
+                    return typeof o.owner === 'object' ? o.owner : false;
+            })
+            .filter(o => o !== false);
     }
 }
 

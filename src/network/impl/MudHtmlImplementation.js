@@ -21,7 +21,7 @@ class MudHtmlImplementation extends ClientImplementation {
      * @param {string} text The text that may contain HTML.
      */
     renderHtml(text) {
-        let para = text.split(/(?:<p\s+[^>]*>|<p>|<\/p>)/i);
+        let para = (text || '').split(/(?:<p\s+[^>]*>|<p>|<\/p>)/i);
         if (para.length > 1) {
             let result = para.map(s => {
                 let foo = s.replace(ElementRegex, '')
@@ -31,7 +31,7 @@ class MudHtmlImplementation extends ClientImplementation {
 
             return result;
         }
-        return text;
+        return text || '';
     }
 
     /**

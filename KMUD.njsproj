@@ -92,6 +92,7 @@
     <Compile Include="lib\base\Weapon.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\cmds\player\Emote.js" />
     <Compile Include="lib\cmds\player\Reply.js" />
     <Compile Include="lib\daemon\EmoteDaemon.js">
       <SubType>Code</SubType>
@@ -159,9 +160,6 @@
     </Compile>
     <Compile Include="lib\cmds\player\Body.js" />
     <Compile Include="lib\cmds\player\Cls.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="lib\cmds\player\Emote.jsx">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\cmds\common\Go.js">

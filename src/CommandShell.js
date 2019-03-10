@@ -1316,7 +1316,7 @@ class CommandShell extends MUDEventEmitter {
                 }
             }
             catch (err) {
-                errorLine(`CRITICAL: ${err.message}`);
+                this.stderr.writeLine(`CRITICAL: ${err.message}`);
             }
         });
     }

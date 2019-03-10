@@ -199,7 +199,9 @@ class ClientComponent extends MUDEventEmitter {
     }
 
     write(textOrBuffer) {
-        let colorized = this.caps.do('expandColors', textOrBuffer);
+        let caps = this.caps;
+
+        let colorized = this.caps.do('expandColors', textOrBuffer) || textOrBuffer;
         return this.client.eventSend({
             type: 'write',
             data: colorized,

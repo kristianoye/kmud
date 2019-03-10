@@ -15,6 +15,8 @@ class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, client) {
         super(endpoint, client, client.remoteAddress);
 
+        this.caps = new ClientCaps(this);
+
         let mainWindow = this.mainWindow = ClientInstance.registerComponent(this, {
             type: 'MainWindow',
             attachTo: 'newLogin',
@@ -32,7 +34,6 @@ class RanvierTelnetInstance extends ClientInstance {
         this.client.on('drain', () => this.emit('drain'));
         this.closed = false;
         this.client.on('kmud', event => this.emit('kmud', event));
-        this.caps = new ClientCaps(this);
     }
 
     eventSend(event) {

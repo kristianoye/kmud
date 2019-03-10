@@ -35,7 +35,7 @@ class VMWrapper extends VMAbstraction {
         });
 
         let options = {
-            filename: context.resolvedName,
+            filename: context.resolvedName.toLowerCase(),
             lineOffset: 0,
             produceCachedData: false,
             displayErrors: true

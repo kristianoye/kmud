@@ -943,7 +943,7 @@ class EFUNProxy {
      * @returns {boolean} True if the value is a player or false.
      */
     playerp(target) {
-        return unwrap(target, (player) => player.isPlayer());
+        return this.living.isPlayer(target);
     }
 
     /**

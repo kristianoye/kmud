@@ -53,7 +53,7 @@ class ClientCaps extends MUDEventEmitter {
                     case 'terminalType':
                         if (event.data) {
                             let ttype = event.data;
-                            let tty = ttype.terminalType.toLowerCase(),
+                            let tty = ttype.toLowerCase(),
                                 n = terminalTypes.indexOf(tty);
                             if (n === -1) terminalTypes.push(tty);
 
