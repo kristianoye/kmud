@@ -7,8 +7,12 @@
  */
 
 class FileSystemHelper {
-    static isDirectoryAsync(path) {
-        return driver.fileManager.isDirectoryAsync(efuns, path);
+    static createDirectoryAsync(expr, flags = 0) {
+        return driver.fileManager.createDirectoryAsync(efuns, expr, flags);
+    }
+
+    static isDirectoryAsync(expr) {
+        return driver.fileManager.isDirectoryAsync(efuns, expr);
     }
 }
 

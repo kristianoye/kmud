@@ -44,7 +44,8 @@ global.MUDFS = {
         None: 0,
         Verbose: 1,
         EnsurePath: 1 << 21,
-        ExplicitPerms: 1 << 22
+        ExplicitPerms: 1 << 22,
+        IgnoreExisting: 1 << 25
     },
     MoveFlags: {
         // FileFlags enum
@@ -302,6 +303,14 @@ class FileManager extends MUDEventEmitter {
         return fileSystem;
     }
 
+    createDirectoryAsync(efuns, expr, flags = 0) {
+        let req = this.createFileRequest('CreateDirectory', expr, false, flags, null, efuns);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.createDirectoryAsync(req.relativePath, req.flags);
+    }
+
     /**
      * Create a directory in the MUD filesystem.
      * @param {EFUNProxy} efuns The object creating the directory.
@@ -315,6 +324,45 @@ class FileManager extends MUDEventEmitter {
             return req.deny();
         else
             return req.fileSystem.createDirectorySync(req.relativePath, req.flags);
+    }
+
+    /**
+     * Generate a dummy stat.
+     * @param {Error} err An error that occurred.
+     */
+    createDummyStats(err = false) {
+            let dt = new Date(0),
+                alwaysFalse = () => false;
+
+            return {
+                atime: dt,
+                atimeMs: dt.getTime(),
+                birthtime: dt,
+                birthtimeMs: dt.getTime(),
+                blksize: 4096,
+                blocks: 0,
+                ctime: dt,
+                ctimeMs: dt.getTime(),
+                dev: -1,
+                error: err || new Error('Unknown error'),
+                exists: false,
+                gid: -1,
+                ino: -1,
+                nlink: -1,
+                uid: -1,
+                mode: -1,
+                mtime: dt,
+                mtimeMs: dt.getTime(),
+                size: -1,
+                rdev: -1,
+                isBlockDevice: alwaysFalse,
+                isCharacterDevice: alwaysFalse,
+                isDirectory: alwaysFalse,
+                isFIFO: alwaysFalse,
+                isFile: alwaysFalse,
+                isSocket: alwaysFalse,
+                isSymbolicLink: alwaysFalse
+            };
     }
 
     /**

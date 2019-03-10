@@ -139,14 +139,71 @@ class DefaultFileSystem extends FileSystem {
         return req.fileName && req.fileName.match(/[\*\?]+/);
     }
 
+
+    async createDirectoryAsync(expr, flags) {
+        let fullPath = this.translatePath(expr);
+        let parts = path.relative(this.root, fullPath).split(path.sep),
+            ensure = (flags & MUDFS.MkdirFlags.EnsurePath) === MUDFS.MkdirFlags.EnsurePath;
+        let mkdir = async (dir) => {
+            return new Promise((resolve) => {
+                try {
+                    fs.mkdir(dir, err => {
+                        if (err) {
+                            switch (err.code) {
+
+                                default:
+                                    resolve(err);
+                                    break;
+                            }
+                        }
+                        else resolve(true);
+                    });
+                }
+                catch (err) {
+                    resolve(err);
+                }
+            });
+        };
+
+        for (let i = 0, max = parts.length; i < max; i++) {
+            let dir = path.join(this.root, path.sep, ...parts.slice(0, i + 1)),
+                stat = await this.statAsync(dir);
+
+            if (stat.exists && !stat.isDirectory())
+                return false;
+
+            if (i + 1 === max) {
+                if (stat.exists)
+                    return true;
+
+                let result = await mkdir(dir);
+
+                if (result === true)
+                    return true;
+                else
+                    throw result;
+            }
+            else if (stat.isDirectory())
+                continue;
+
+            else if (!ensure)
+                return false;
+
+            else {
+                let result = await mkdir(dir);
+                if (result !== true) throw result;
+            }
+        }
+    }
+
     /**
      * Create a directory syncronously.
-     * @param {FileSystemRequest} req The directory expression to create.
+     * @param {string} expr The directory expression to create.
      * @param {number} flags Additional options for createDirectory.
      * @returns {string} The full path to the newly created directory.
      */
-    createDirectorySync(req, flags) {
-        let fullPath = this.translatePath(req);
+    createDirectorySync(expr, flags) {
+        let fullPath = this.translatePath(expr);
         let parts = path.relative(this.root, fullPath).split(path.sep),
             ensure = (flags & MUDFS.MkdirFlags.EnsurePath) === MUDFS.MkdirFlags.EnsurePath;
 
@@ -188,9 +245,9 @@ class DefaultFileSystem extends FileSystem {
                 return Object.freeze(new FileSystemStat(stat, undefined, this.mountPoint));
             }
             else if (typeof statFunc === 'object') {
-                if (typeof stat.isDirectory === 'function')
-                    stat.isDirectory = stat.isDirectory();
-                if (typeof stat.isFile === 'function')
+                if (typeof statFunc.isDirectory === 'function')
+                    statFunc.isDirectory = statFunc.isDirectory();
+                if (typeof statFunc.isFile === 'function')
                     stat.isFile = stat.isFile();
                 if (!stat.exists && (stat.atime > 0 || stat.isDirectory || stat.isFile))
                     stat.exists = true;
@@ -437,12 +494,19 @@ class DefaultFileSystem extends FileSystem {
     statAsync(localPath) {
         let fullPath = this.translatePath(localPath);
 
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             try {
-                fs.stat(fullPath,
-                    stats => resolve(Object.freeze(this.createStat(stats))));
+                fs.stat(fullPath, (err, stats) => {
+                    if (err) {
+                        resolve(driver.fileManager.createDummyStats(err));
+                    }
+                    else
+                        resolve(Object.assign(stats, { exists: true }));
+                });
             }
-            catch (err) { reject(err); }
+            catch (err) {
+                resolve(driver.fileManager.createDummyStats(err));
+            }
         });
     }
 
