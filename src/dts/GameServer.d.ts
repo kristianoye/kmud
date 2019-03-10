@@ -4,27 +4,6 @@
 /// <reference path="MasterObject.d.ts"/>
 /// <reference path="MUDConfig.d.ts" />
 
-declare class MUDGlobals {
-    /**
-     * Transfer the collected globals to the MUDLoader object.
-     * @param loader
-     */
-    modifyLoader(loader: MUDLoader): void;
-}
-
-let mudglobal = new MUDGlobals;
-
-declare class MUDObjectStack {
-    /** The object reference */
-    object: MUDObject;
-
-    /** The name of the file the object was created from */
-    file: string;
-
-    /** The name of the method from the stack */
-    func: string;
-}
-
 declare class ExecutionFrame {
     readonly file: string;
 

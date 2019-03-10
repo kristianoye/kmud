@@ -343,6 +343,10 @@ class MUDLoader {
         return false;
     }
 
+    get MUDFS() {
+        return Object.assign({}, global.MUDFS);
+    }
+
     /**
      * Capture the next line of user input
      * @param {string} type The type of control to create
@@ -485,7 +489,7 @@ MUDLoader.getInitialization = function () {
  * @param {GameServer} driver A reference to the game driver.
  */
 MUDLoader.configureForRuntime = function (driver) {
-    mudglobal.modifyLoader(MUDLoader.prototype);
+    //mudglobal.modifyLoader(MUDLoader.prototype);
 };
 
 module.exports = MUDLoader;

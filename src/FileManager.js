@@ -13,7 +13,7 @@ const
     FileSystem = require('./FileSystem').FileSystem,
     path = require('path');
 
-mudglobal.MUDFS = {
+global.MUDFS = {
     GetDirFlags: {
         // FileFlags
         None: 0,

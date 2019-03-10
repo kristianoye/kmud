@@ -6,13 +6,9 @@
     GAMESTATE_SHUTDOWN = 4;
 
 Error.stackTraceLimit = Infinity;
+global.logger = require('./MUDLogger');
 
 const
-    MUDLogger = require('./MUDLogger'),
-    MUDGlobals = require('./MUDGlobals');
-
-const
-    bcrypt = require('bcrypt'),
     fs = require('fs'),
     path = require('path'),
     ErrorTypes = require('./ErrorTypes'),
@@ -21,7 +17,7 @@ const
 const
     MudSection = require('./config/MudSection'),
     DriverSection = require('./config/DriverSection'),
-    MudlibSection = require('./config/MudlibSection'),
+    MudlibSection = require('./config/MLibSection'),
     MUDPasswordPolicy = require('./config/MUDPasswordPolicy');
 
 var

@@ -35,4 +35,4 @@ global.LOGGER_VERBOSE = LOGGER_VERBOSE;
 global.LOGGER_DEBUG = LOGGER_DEBUG;
 global.LOGGER_PRODUCTION = LOGGER_PRODUCTION;
 
-global.logger = new MUDLogger();
+module.exports = new MUDLogger();

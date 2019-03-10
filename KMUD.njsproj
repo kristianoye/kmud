@@ -422,13 +422,11 @@
     <Compile Include="src\config\DriverSection.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\config\MLibSection.js" />
     <Compile Include="src\config\MudlibFileSystem.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\config\MudlibMasterObject.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\MudlibSection.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\config\DriverCompilerLoader.js">
@@ -536,9 +534,6 @@
     <Compile Include="src\LPCCompat.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\MUDArgs.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="src\MUDCache.js">
       <SubType>Code</SubType>
     </Compile>
@@ -553,9 +548,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\MUDEventEmitter.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDGlobals.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\MUDHtml.js">
@@ -589,9 +581,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\ClientInstance.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MudLib.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="server.js" />

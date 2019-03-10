@@ -34,8 +34,7 @@ var
     IncludeCache = {},
     MUDStorage = require('./MUDStorage'),
     SaveExtension = '.json',
-    { MUDHtmlComponent } = require('./MUDHtml'),
-    MUDArgs = require('./MUDArgs');
+    { MUDHtmlComponent } = require('./MUDHtml');
 
 class EFUNProxy {
     /**
@@ -471,11 +470,6 @@ class EFUNProxy {
      * @param {boolean} restrict
      */
     ed(fileName, writeFunc, exitFunc, restrict) {
-        let args = new MUDArgs(arguments),
-            file = args.required('string'),
-            writeCallback = args.optional('functon|string'),
-            exitCallback = args.optional('function|string'),
-            restricted = args.optional('boolean', false);
     }
 
     /**
@@ -1329,7 +1323,7 @@ class EFUNProxy {
      * 
      */
     present() {
-        let args = new MUDArgs(arguments),
+        let args = {},
             objId = '', self = this;
 
         if (args.optional('string', s => objId = s)) {
