@@ -1,5 +1,4 @@
 ﻿const
-    Extensions = require('./Extensions'),
     GAMESTATE_STARTING = 1,
     GAMESTATE_INITIALIZING = 2,
     GAMESTATE_RUNNING = 3,

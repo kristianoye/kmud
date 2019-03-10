@@ -29,11 +29,6 @@ class VMWrapper extends VMAbstraction {
         module.context = vm.createContext(module.loader);
         module.loader.ctx = module.context;
 
-        vm.runInContext(ExtensionText, module.context, {
-            filename: './src/Extensions.js',
-            displayErrors: true
-        });
-
         let options = {
             filename: context.resolvedName.toLowerCase(),
             lineOffset: 0,
@@ -55,6 +50,12 @@ class VMWrapper extends VMAbstraction {
             let content = module.context.constructor.getInitialization && module.context.constructor.getInitialization();
             content && vm.runInContext(content, module.context);
             module.context.initialized = true;
+
+            vm.runInContext(ExtensionText, module.context, {
+                filename: './src/Extensions.js',
+                displayErrors: true
+            });
+
         }
 
         return vm.runInContext(content, module.context, options);
