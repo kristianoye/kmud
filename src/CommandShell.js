@@ -235,49 +235,42 @@ class CommandShell extends MUDEventEmitter {
      * @returns {string} The string with any history occurences replaced.
      */
     expandHistory(source) {
-        let i = -1,
-            m = source.length,
-            n = i = source.indexOf('!'),
-            hist = this.history;
+        //  Look for unescaped 
+        let pieces = source.split(/((?<!\\)\![^\s]+)/);
 
-        if (hist && n > -1) {
-            let take = (f, t) => {
-                let ret = '';
-                if (f instanceof RegExp) {
-                    let ret = f.exec(source.slice(i));
-                    if (Array.isArray(ret)) {
-                        i += (ret[1] || ret[0]).length;
-                        return ret[1] || ret[0];
-                    }
-                    return '';
-                }
-                else if (typeof f === 'string') {
-                    let check = source.slice(i, i + f.length);
-                    if (check !== f) return false;
-                    i += check.length;
-                    return check;
-                }
-                ret = source.slice(f = f || i, t = t || f + 1);
-                i = t;
-                return ret;
-            };
-
-            while (n > -1) {
-                let lc = source.charAt(i++ - 1);
-                if (lc === '\\') {
-                    //  This one is escaped, find the next
-                    n = source.slice(n + 1).indexOf('!');
-                }
+        if (pieces.length > 1) {
+            pieces = pieces.map(chunk => {
+                if (chunk.charAt(0) !== '!')
+                    return chunk;
                 else {
-                    //  Not escaped
+                    let source = chunk.slice(1), i = 0, n = 0;
+                    let take = (f, t) => {
+                        let ret = '';
+                        if (f instanceof RegExp) {
+                            let ret = f.exec(source.slice(i));
+                            if (Array.isArray(ret)) {
+                                i += (ret[1] || ret[0]).length;
+                                return ret[1] || ret[0];
+                            }
+                            return '';
+                        }
+                        else if (typeof f === 'string') {
+                            let check = source.slice(i, i + f.length);
+                            if (check !== f) return false;
+                            i += check.length;
+                            return check;
+                        }
+                        ret = source.slice(f = f || i, t = t || f + 1);
+                        i = t;
+                        return ret;
+                    };
+
                     let found = '',
-                        start = n,
                         search = '!',
                         index = -1,
-                        history = this.history,
-                        end = n + 1;
+                        history = this.history;
 
-                    if (take('!')) found = history[history.max];
+                    if (take('!')) found = history.last && history.last.value;
                     else if (take('%')) found = history.keyword || '';
                     else {
                         let contains = take('?'),
@@ -288,7 +281,7 @@ class CommandShell extends MUDEventEmitter {
 
                         if (isNaN(index)) {
                             if (contains)
-                                for (let ptr = history.first; !found && ptr; ptr = history.next(ptr)) {
+                                for (let ptr = history.first; !found && ptr; ptr = ptr.next) {
                                     let n = ptr.value.indexOf(search)
                                     if (n > -1) {
                                         let args = efuns.input.splitArgs(found = ptr.value, true);
@@ -301,7 +294,7 @@ class CommandShell extends MUDEventEmitter {
                                     }
                                 }
                             else
-                                for (let ptr = history.last; !found && ptr; ptr = ptr.prev(ptr)) {
+                                for (let ptr = history.last; !found && ptr; ptr = ptr.prev) {
                                     if (ptr.value.startsWith(search)) {
                                         found = ptr.value;
                                         break;
@@ -394,13 +387,12 @@ class CommandShell extends MUDEventEmitter {
                                 throw Error(`Unrecognized expression starting at position ${i - 1}`);
                         }
                     }
-                    source = source.slice(0, start) + found + source.slice(i);
-                    n = source.indexOf('!', i + found.length);
-                    m = source.length;
+                    return found;
                 }
-            }
-        }
+            });
 
+            return pieces.join('');
+        }
         return source;
     }
 
@@ -644,6 +636,7 @@ class CommandShell extends MUDEventEmitter {
 
                 if (isEscaped) {
                     token.value += c;
+                    isEscaped = false;
                     continue;
                 }
 
@@ -685,12 +678,13 @@ class CommandShell extends MUDEventEmitter {
 
                     case '*':
                     case '?':
-                        if (options.expandFileExpressions) {
+                        if (options.allowFileExpressions) {
                             token.value += c;
                             token.type = TT.FileExpression;
                         }
                         else
                             token.value += c;
+                        token.end = i + 1;
                         break;
 
                     case ';':
@@ -1035,13 +1029,12 @@ class CommandShell extends MUDEventEmitter {
                     default:
                         if (/\s/.test(c)) {
                             if (token.value) {
-                                token.end = i - 1;
                                 done = true;
                             }
                             else {
                                 token.type = TT.WS;
                                 i += (token.value = take(/^\s+/, i)).length;
-                                token.end = i;
+                                token.end = i--;
                                 done = true;
                             }
                         }
@@ -1050,7 +1043,7 @@ class CommandShell extends MUDEventEmitter {
                         }
                         else if (/[a-zA-Z0-9_\/\.]/.test(c)) {
                             i += (token.value += take(/^[a-zA-Z0-9_\/\.]+/, i)).length;
-                            token.end = i;
+                            token.end = i--;
 
                             if (options.allowObjectShell && take('.')) {
                                 if (token.value === 'process') {
@@ -1067,9 +1060,8 @@ class CommandShell extends MUDEventEmitter {
                                     token.isExpression = true;
                                     return nextToken(--i, TT.MemberExpression);
                                 }
-                                else --i;
+                                done = true;
                             }
-                            done = true;
                         }
                         else if (inExpr())
                             throw new Error(`Unexpected character ${c} at position ${i}`);
@@ -1140,16 +1132,19 @@ class CommandShell extends MUDEventEmitter {
                     });
                     options = Object.assign(options, overrides);
                 }
-                let arg = nextToken();
+                let arg = nextToken(command.end);
                 while (arg) {
                     if (arg.isValueType) {
                         command.args.push(arg);
                     }
+                    else if (arg.type === TT.FileExpression) {
+                        command.args.push(arg);
+                    }
                     else if (arg.type !== TT.WS) {
-                        i = arg.start;
+                        i = arg.start; // ?? Why ??
                         break;
                     }
-                    arg = nextToken();
+                    arg = nextToken(arg.end);
                 }
                 if (arg && arg.type !== TT.Operator)
                     throw new Error(`Unexpected token ${arg.type} found starting at position ${i}`);

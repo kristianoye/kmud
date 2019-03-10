@@ -19,7 +19,7 @@ class WhoCommand extends Command {
 
         writeLine(`There are ${count} player(s) on-line:`);
 
-        players.forEach((player, i) => {
+        players.forEach(player => {
             writeLine(player.getTitle());
         });
 
@@ -94,4 +94,4 @@ class WhoCommand extends Command {
     }
 }
 
-module.exports = WhoCommand;
+module.exports = new WhoCommand();

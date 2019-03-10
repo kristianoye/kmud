@@ -46,15 +46,23 @@
             else if (this.mode === 'normal') {
                 let $textarea = $('<textarea placeholder="Enter a commmand..." class="commandPrompt" />');
                 let $sendButton = $('<input type="button" class="sender" value="Send" />');
+
                 this.$prompter.empty().append($textarea, $sendButton);
+
                 if (this.window.active === true) {
                     setTimeout(() => $textarea.focus(), 50);
                 }
-                $sendButton.one('click', (e) => {
-                    this.sendEvent({
-                        type: 'input',
-                        data: $textarea.val()
-                    });
+
+                $sendButton.one('click', e => {
+                    this.sendEvent({ type: 'input', data: $textarea.val() });
+                });
+                $textarea.on('keydown', e => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+
+                        this.sendEvent({ type: 'input', data: $textarea.val() });
+                    }
                 });
             }
         }

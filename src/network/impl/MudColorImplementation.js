@@ -32,27 +32,15 @@ class MudColorImplementation extends ClientImplementation {
      * @returns {string} The same string with the color codes expanded for the client.
      */
     expandColors(s) {
-        let lookup = this.colorMap(),
-            c = s.indexOf('%^'), d = 0;
+        let chunks = s.split(/\%\^([a-zA-Z0-9]+)\%\^/);
 
-        while (c > -1 && c < s.length) {
-            var l = s.indexOf('%^', c + 2);
-            if (l > -1) {
-                var org = s.substr(c + 2, l - c - 2), m = org.toUpperCase(),
-                    r = lookup[m];
-                // Increment or decrement RESET stack to determine 
-                // how many resets to add to end
-                d += m === 'RESET' ? -1 : r ? 1 : 0;
-                r = typeof r === 'undefined' ? org : r;
-                s = s.substr(0, c) + r + s.substr(l + 2);
-                c = s.indexOf('%^', c + r.length);
-            }
-            else {
-                c = s.indexOf('%^', c + 2);
-            }
-        }
-        while (d-- > 0) {
-            s += lookup['RESET'];
+        if (chunks.length > 1) {
+            let lookup = this.colorMap(),
+                multicolor = chunks.map(chunk => {
+                    return lookup.hasOwnProperty(chunk) ? lookup[chunk] : chunk;
+                }).join('');
+
+            return multicolor;
         }
         return s;
     }

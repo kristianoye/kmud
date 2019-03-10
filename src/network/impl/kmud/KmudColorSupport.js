@@ -19,34 +19,34 @@ const
 class KmudColorSupport extends MudColorImplementation {
     /**
      * Color expansion is currently performed on the client.
-     * @param {any} input Passes the original value through.
+     * @param {string} input Passes the original value through.
+     * @returns {string} The input with colors expanded.
      */
     expandColors(input) {
-        let colorStart = input.indexOf('%^'),
-            d = 0;
+        let chunks = input.split(/\%\^([a-zA-Z0-9]+)\%\^/),
+            result = input;
 
-        while (colorStart > -1 && colorStart < input.length) {
-            // Does it have an end
-            let l = input.indexOf('%^', colorStart + 2); 
-            if (l > -1) {
-                let org = input.substr(colorStart + 2, l - colorStart - 2), m = org.toUpperCase(),
-                    r = ColorLookups[m];
+        if (chunks.length > 1) {
+            let  depth = 0;
 
-                // Increment or decrement RESET stack to determine 
-                // how many resets to add to end
-                d++;
-                let replacement = `<span style="${r}">`;
-                input = input.substr(0, colorStart) + replacement + input.substr(l + 2);
-                colorStart = input.indexOf('%^', colorStart + r.length);
-            }
-            else {
-                colorStart = input.indexOf('%^', colorStart + 2);
-            }
+            result = chunks.map(chunk => {
+                if (chunk === 'RESET') {
+                    let result = '</span>'.repeat(depth);
+                    depth = 0;
+                    return result;
+                }
+                else if (chunk in ColorLookups) {
+                    depth++;
+                    return `<span style="${ColorLookups[chunk]}">`;
+                }
+                else
+                    return chunk;
+            }).join('');
+
+            if (depth > 0)
+                result += '</span>'.repeat(depth);
         }
-        while (d--) {
-            input += '</span>';
-        }
-        return input.split(/\n/g).join('<br/>');
+        return result.split(/\n/g).join('<br/>');
     }
 
     /**

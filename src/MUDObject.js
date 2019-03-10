@@ -67,6 +67,12 @@ class MUDObject extends MUDEventEmitter {
             return true;
     }
 
+    get directory() {
+        let parts = efuns.parsePath(this.filename),
+            dir = parts.file.slice(0, parts.file.lastIndexOf('/'));
+        return dir;
+    }
+
     get inventory() {
         let store = driver.storage.get(this);
         return !!store && store.inventory;

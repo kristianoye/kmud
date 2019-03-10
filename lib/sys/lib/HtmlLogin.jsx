@@ -97,8 +97,12 @@ class Login extends MUDObject {
                                         position: 'center'
                                     }
                                 });
+                                eventSend({
+                                    type: 'windowAuth',
+                                    data: player.keyId
+                                });
                                 player.writeLine('Reconnected');
-                                this.destroy();
+                                efuns.destruct(this);
                             });
                         });
                     }
