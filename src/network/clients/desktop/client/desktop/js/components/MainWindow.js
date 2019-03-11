@@ -79,8 +79,9 @@
         }
 
         onWindowAuth(event) {
+            let { user, auth } = event.data;
             sessionStorage[event.target] = event.data;
-            document.cookie = this.id + '=' + event.data;
+            document.cookie = `auth=${user}:${auth}`;
         }
 
         onWindowHint(event) {

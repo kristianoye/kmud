@@ -5,8 +5,6 @@
  *
  * Description: Placeholder for future MVC-based server.
  */
-const
-    path = require('path');
 
 class HTTPUri {
     /**

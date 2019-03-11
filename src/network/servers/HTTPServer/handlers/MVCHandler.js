@@ -16,9 +16,7 @@ class MVCHandler extends BaseContentHandler {
      * @param {HTTPContext} context The context being served.
      */
     executeHandler(context) {
-        if (context.request.mimeType) {
 
-        }
         return this.server.sendErrorFile(context.response, 404);
     }
 }

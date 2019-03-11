@@ -14,7 +14,9 @@ const
 
 const
     AuthManager = require('./AuthManager'),
+    FileAbstraction = require('./FileAbstraction'),
     HTTPUri = require('./HTTPUri'),
+    RouteTable = require('./RouteTable'),
     KnownMimeTypes = Object.assign({}, require('./KnownMimeTypes')),
     { HTTPRequest, HTTPResponse, HTTPContext } = require('./HTTPContext');
 
@@ -33,6 +35,7 @@ class HTTPServer extends events.EventEmitter {
 
         this.authManager = new AuthManager(config.authConfig);
         this.enableWebSocket = config.enableWebSocket === true;
+        /** Provide a common interface to the filesystem */
         /** @type {Object.<string,string>} */
         this.fileMappings = {};
         this.fileMappingNames = Object.keys(this.fileMappings);
@@ -46,6 +49,7 @@ class HTTPServer extends events.EventEmitter {
                 IncomingMessage: HTTPRequest,
                 ServerResponse: HTTPResponse
             });
+        this.routeTable = new RouteTable(this);
         this.securePort = config.securePort || false;
         this.secureOptions = config.secureOptions;
         this.staticRoot = config.staticRoot || path.join(__dirname, '../../../../lib/wwwroot');
@@ -53,6 +57,8 @@ class HTTPServer extends events.EventEmitter {
         this.addHandler(HandlerDefault, './handlers/StaticContentHandler')
             .addHandler(HandlerMVC, './handlers/MVCHandler')
             .addHandler('mhtm', './handlers/KMTemplateHandler');
+
+        this.fileSystem = new FileAbstraction.FileAbstractionDefault();
     }
 
     /**
@@ -99,10 +105,12 @@ class HTTPServer extends events.EventEmitter {
     addMapping(target, destination) {
         if (target in this.fileMappings)
             throw new Error(`addMapping error: Location ${target} has already been mapped to ${this.fileMappings[target]}`);
+
         this.fileMappings[target] = destination;
         this.fileMappingNames = Object.keys(this.fileMappings).sort((a, b) => {
             return a.split('/').length > b.split('/').length ? -1 : 1;
         });
+        this.fileSystem.addMapping(target, destination);
         return this;
     }
 
@@ -114,6 +122,18 @@ class HTTPServer extends events.EventEmitter {
      */
     addMimeType(extension, type, text) {
         this.mimeTypes[extension] = { type, text };
+        return this;
+    }
+
+    /**
+     * Create a filesystem abstraction for the web server.
+     * @param {FileAbstraction.FileAbstractionBase} fileSystem The filesystem abstraction
+     */
+    createFileAbstraction(fileSystem) {
+        if (fileSystem) {
+            this.fileSystem = fileSystem;
+            this.fileSystem.addMapping(this.fileMappings);
+        }
         return this;
     }
 
@@ -340,6 +360,15 @@ class HTTPServer extends events.EventEmitter {
     }
 
     /**
+     * Set the static root
+     * @param {any} siteRoot
+     */
+    setStaticRoot(siteRoot) {
+        this.staticRoot = siteRoot;
+        return this;
+    }
+
+    /**
      * Stat a file on the filesystem.
      * @param {any} filename
      */
@@ -375,6 +404,17 @@ class HTTPServer extends events.EventEmitter {
             }
         }
         return false;
+    }
+
+    withRoutes(doAction = false) {
+        if (typeof doAction === 'function')
+            try {
+                doAction(this.routeTable);
+            }
+            catch (err) {
+                throw err;
+            }
+        return this;
     }
 }
 

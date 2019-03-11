@@ -656,6 +656,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\servers\HTTPServer\AuthManager.js" />
+    <Compile Include="src\network\servers\HTTPServer\FileAbstraction.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\network\servers\HTTPServer\handlers\BaseContentHandler.js">
       <SubType>Code</SubType>
     </Compile>
@@ -1036,6 +1039,7 @@
     <Folder Include="lib\wwwroot\monaco\min\vs\language\typescript\lib\" />
     <Folder Include="lib\wwwroot\monaco\min\vs\language\typescript\src\" />
     <Folder Include="lib\wwwroot\controller\" />
+    <Folder Include="lib\wwwroot\view\" />
     <Folder Include="lib\wwwroot\sound\" />
     <Folder Include="lib\wwwroot\sound\ogg\" />
     <Folder Include="lib\wwwroot\sound\ogg\animals\" />

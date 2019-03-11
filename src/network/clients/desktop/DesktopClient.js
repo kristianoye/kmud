@@ -40,10 +40,19 @@ class DesktopClient extends ClientInstance {
         this.client.disconnect();
     }
 
+    /**
+     * Creates an token the remote client may use to access external services.
+     * @param {any} event
+     */
     createAuthToken(event) {
         let token = this.endpoint.createAuthToken(event.data.username, event.data.password);
         if (token)
-            return Object.assign(event, { data: token });
+            return Object.assign(event, {
+                data: {
+                    auth: token,
+                    user: event.data.username
+                }
+            });
         return false;
     }
 

@@ -309,6 +309,7 @@ class GameServer extends MUDEventEmitter {
             this.applyErrorHandler = locateApply('errorHandler', false);
             this.applyGetPreloads = locateApply('getPreloads', false);
             this.applyLogError = locateApply('logError', false);
+            this.applyRegisterServer = locateApply('registerServer', false);
             this.applyValidDestruct = locateApply('validDestruct', false);
             this.applyValidExec = locateApply('validExec', false);
             this.applyValidObject = locateApply('validObject', false);
@@ -892,6 +893,19 @@ class GameServer extends MUDEventEmitter {
                 list.push(ob);
             }
         }
+    }
+
+    /**
+     * Register an external server.
+     * @param {any} spec
+     */
+    registerServer(spec) {
+        //  Failure to register a server is a fatal error
+        return this.driverCall('registerServer', () => {
+            if (this.applyRegisterServer)
+                return this.applyRegisterServer(spec);
+            return false;
+        }, this.masterFilename, true);
     }
 
     /**

@@ -43,6 +43,24 @@ class DesktopServer extends ClientEndpoint {
 
             })
             .start();
+
+        if (typeof driver.applyRegisterServer === 'function') {
+            if (this.port > 0)
+                driver.applyRegisterServer({
+                    address: this.address,
+                    protocol: 'http',
+                    port: this.port,
+                    server: this.server
+                });
+
+            if (this.securePort > 0)
+                driver.registerServer({
+                    address: this.address,
+                    protocol: 'http',
+                    port: this.securePort,
+                    server: this.server
+                });
+        }
         return this;
     }
 
