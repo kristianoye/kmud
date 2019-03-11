@@ -14,15 +14,25 @@
         }
 
         _register() {
-            return {
-                requiresShell: true,
-                attachTo: 'newLogin'
-            };
+            let auth = sessionStorage[this.id];
+
+            if (auth) {
+                return {
+                    requiresShell: true,
+                    auth
+                };
+            }
+            else 
+                return {
+                    requiresShell: true,
+                    attachTo: 'newLogin'
+                };
         }
 
         onConnect() {
             this.connected = true;
             this.setTitle(`${this.mudName} - Connected`);
+            return super.onConnect();
         }
 
         onConnected(event) {
@@ -34,6 +44,7 @@
         onDisconnect() {
             this.connected = false;
             this.setTitle(`${this.mudName} - Disconnected`);
+            return super.onDisconnect();
         }
 
         onPrompt(event) {
@@ -65,6 +76,11 @@
                     }
                 });
             }
+        }
+
+        onWindowAuth(event) {
+            sessionStorage[event.target] = event.data;
+            document.cookie = this.id + '=' + event.data;
         }
 
         onWindowHint(event) {

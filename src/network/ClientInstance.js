@@ -67,6 +67,14 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
     get clientType() { return 'text'; }
 
     /**
+     * Find a component by ID
+     * @param {string} id The UUID of the component to find.
+     */
+    getComponentById(id) {
+        return this.components.find(c => c.id === id);
+    }
+
+    /**
      * Initialize
      * @param {boolean} skipCallback If true then no onComplete handler is created.
      * @param {ExecutionContext} ecc The current execution context.
@@ -203,13 +211,12 @@ ClientInstance.configureForRuntime = function(driver) {
  * @param {Object.<string,any>} data Info Component registration details.
  */
 ClientInstance.registerComponent = function (client, data) {
-    let component = new ClientComponent(client, data);
+    let component = client.getComponentById(data.id) || new ClientComponent(client, data);
 
     if (component.requiresShell) {
-        let shell = component.attachShell(new CommandShell(component, data.shellOptions));
-
         if (data.attachTo === 'newLogin') {
             try {
+                let shell = component.attachShell(new CommandShell(component, data.shellOptions));
                 let newLogin = driver.masterObject.connect(client.port, client.clientType);
 
                 if (newLogin) {
@@ -225,6 +232,13 @@ ClientInstance.registerComponent = function (client, data) {
             catch (err) {
                 client.writeLine('Sorry, something is very wrong right now; Please try again later.');
                 client.close('No Login Object Available');
+            }
+        }
+        else if (data.auth) {
+            let credentials = client.endpoint.decryptAuthToken(data.auth);
+            if (credentials != false) {
+                let newLogin = driver.masterObject.connect(client.port, client.clientType, credentials);
+
             }
         }
     }

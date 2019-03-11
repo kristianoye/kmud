@@ -45,6 +45,18 @@ class DesktopServer extends ClientEndpoint {
             .start();
         return this;
     }
+
+    createAuthToken(username, password) {
+        if (this.server.authManager != null) 
+            return this.server.authManager.create(username, password);
+        return false;
+    }
+
+    decryptAuthToken(authToken) {
+        if (this.server.authManager != null)
+            return this.server.authManager.decrypt(authToken);
+        return false;
+    }
 }
 
 module.exports = DesktopServer;

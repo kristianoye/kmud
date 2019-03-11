@@ -7,7 +7,6 @@
 $include('InputTypes');
 
 const
-    Base = require('Base'),
     Daemon = require('Daemon'),
     validEmail = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
     PlayerDaemon = efuns.loadObjectSync(Daemon.Player),
@@ -83,6 +82,15 @@ class Login extends MUDObject {
             else {
                 //  Player authenticated successfully
                 let player = efuns.living.findPlayer(name);
+
+                eventSend({
+                    type: 'windowAuth',
+                    data: {
+                        username: efuns.normalizeName(name),
+                        password: playerData.properties['/base/Player'].password
+                    }
+                });
+
                 if (player) {
                     if (efuns.living.isConnected(player)) {
                         this.confirmTakeover(player);
@@ -96,10 +104,6 @@ class Login extends MUDObject {
                                         mode: 'normal',
                                         position: 'center'
                                     }
-                                });
-                                eventSend({
-                                    type: 'windowAuth',
-                                    data: player.keyId
                                 });
                                 player.writeLine('Reconnected');
                                 efuns.destruct(this);

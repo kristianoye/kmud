@@ -655,6 +655,7 @@
     <Compile Include="src\network\impl\zmud\ZmudHtmlSupport.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\network\servers\HTTPServer\AuthManager.js" />
     <Compile Include="src\network\servers\HTTPServer\handlers\BaseContentHandler.js">
       <SubType>Code</SubType>
     </Compile>

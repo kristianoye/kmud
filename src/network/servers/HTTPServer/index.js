@@ -13,6 +13,7 @@ const
     fs = require('fs');
 
 const
+    AuthManager = require('./AuthManager'),
     HTTPUri = require('./HTTPUri'),
     KnownMimeTypes = Object.assign({}, require('./KnownMimeTypes')),
     { HTTPRequest, HTTPResponse, HTTPContext } = require('./HTTPContext');
@@ -30,6 +31,7 @@ class HTTPServer extends events.EventEmitter {
     constructor(config) {
         super();
 
+        this.authManager = new AuthManager(config.authConfig);
         this.enableWebSocket = config.enableWebSocket === true;
         /** @type {Object.<string,string>} */
         this.fileMappings = {};

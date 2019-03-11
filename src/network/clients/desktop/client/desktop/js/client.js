@@ -266,6 +266,16 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
             return this.$_content;
         }
 
+        onConnect() {
+            this.$content.find('.cover').remove();
+            return true;
+        }
+
+        onDisconnect() {
+            this.$content.append($('<div class="cover" />'));
+            return true;
+        }
+
         /**
          * The server has suggested a window hint
          * @param {MUDEvent} event The event data
@@ -459,6 +469,7 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
             component.window.signals.on('closed', () => {
                 let index = _components.indexOf(component);
                 if (index > -1) _components.splice(index, 1);
+                sessionStorage.removeItem(component.id);
                 try {
                     _webSocket.emit('kmud', {
                         type: 'windowDelete',
@@ -483,6 +494,10 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
         /** @type {{ height: number, width: number }} */
         get desktopSize() {
             return { height: $(window).height(), width: $(window).width() };
+        }
+
+        getComponentById(id) {
+            return _components.find(component => component.id === id);
         }
 
         /**

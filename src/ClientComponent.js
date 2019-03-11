@@ -155,6 +155,15 @@ class ClientComponent extends MUDEventEmitter {
      * @param {MUDEvent} event The event to send to the client.
      */
     eventSend(event) {
+        switch (event.type) {
+            case 'windowAuth':
+                {
+                    event = this.client.createAuthToken(event);
+                    if (!event)
+                        return;
+                }
+                break;
+        }
         return this.client.eventSend(Object.assign({
             target: this.id
         }, event));

@@ -36,7 +36,9 @@ body div.MainWindow section.wm-content section.view {
   top: 36px;
   left: 0; }
   body div.MainWindow section.wm-content section.view div.msg {
-    padding: 5px 10px 5px 10px; }
+    padding: 0 10px 0 10px; }
+  body div.MainWindow section.wm-content section.view div.msg ~ div.msg {
+    margin-top: 1px; }
 
 body div.MainWindow section.wm-content footer.prompter {
   position: absolute;
@@ -55,7 +57,7 @@ body div.MainWindow section.wm-content footer.prompter {
     height: 75%; }
 
 body {
-  font-size: 12pt;
+  font-size: 12px;
   font-family: "Open Sans", sans-serif;
   background-color: #fff;
   height: 100%;
@@ -82,3 +84,11 @@ body {
     background: url(../img/desktop-bg-1.jpg) no-repeat center center fixed;
     background-size: cover;
     user-select: none; }
+  body div.cover {
+    background: rgba(128, 128, 128, 0.5);
+    position: absolute;
+    z-index: 5;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    top: 0; }

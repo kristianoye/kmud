@@ -40,6 +40,13 @@ class DesktopClient extends ClientInstance {
         this.client.disconnect();
     }
 
+    createAuthToken(event) {
+        let token = this.endpoint.createAuthToken(event.data.username, event.data.password);
+        if (token)
+            return Object.assign(event, { data: token });
+        return false;
+    }
+
     get defaultTerminalType() { return 'kmud'; }
 
     /**
