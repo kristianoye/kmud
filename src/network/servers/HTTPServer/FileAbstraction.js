@@ -15,13 +15,22 @@ class FileAbstractionBase {
      * Construct an abstraction
      * @param {Object.<string,string>} mapping
      */
-    constructor() {
+    constructor(contentRoot) {
         /** 
          * Maps alternate location for certain files.
          * @type {Object.<string,string>}
          */
         this.fileMappings = {};
         this.fileMappingNames = [];
+        this.indexFiles = [];
+        this.contentRoot = contentRoot || false;
+    }
+
+    addIndexFile(...index) {
+        index.forEach(fn => {
+            if (typeof fn === 'string' && fn.length > 0 && this.indexFiles.indexOf(fn) === -1)
+                this.indexFiles.push(fn);
+        });
     }
 
     addMapping(target, destination) {
@@ -41,31 +50,58 @@ class FileAbstractionBase {
         return this;
     }
 
-    async readDirectory(expr) {
+    async readDirectory(expr, isMapped = undefined) {
         throw new Error('Not implemented');
     }
 
-    async readFile(expr) {
+    async readFile(expr, isMapped = undefined) {
+        throw new Error('Not implemented');
+    }
+
+    /**
+     * Attempt to read a location for a physical file.
+     * @param {string} expr The file expression to stat
+     * @param {boolean} isMapped Has the location already been mapped?
+     * @returns {Promise<fs.Stats & { exists: boolean }>} Return information about a file.
+     */
+    async readLocation(expr, isMapped = undefined) {
         throw new Error('Not implemented');
     }
 
     /**
      * Resolve any mapped paths to their actual destinations.
      * @param {string} expr The expression to try and translate.
-     * @returns {string} Returns the actual filename to use for the request.
+     * @returns {[string, boolean]} Returns the location to use and a flag indicating if the file was mapped.
      */
     resolve(expr) {
         for (let i = 0, max = this.fileMappingNames.length; i < max; i++) {
             let name = this.fileMappingNames[i];
 
             if (expr.startsWith(name)) {
-
+                let rightPart = url.slice(mapped[i].length);
+                let newPath = path.posix.join(this.fileMappings[name], rightPart.slice(1));
+                return [newPath, true];
             }
         }
-        return expr;
+        return [path.posix.resolve(this.contentRoot, expr), false];
     }
 
-    async stat(expr) {
+    /**
+     * (Re)define the content root directory
+     * @param {any} root
+     */
+    setContentRoot(root) {
+        this.contentRoot = root;
+        return this;
+    }
+
+    /**
+     * Attempt to stat a file
+     * @param {string} expr The file expression to stat
+     * @param {boolean} isMapped Has the location already been mapped?
+     * @returns {Promise<fs.Stats & { exists: boolean }>} Return information about a file.
+     */
+    async stat(expr, isMapped = undefined) {
         throw new Error('Not implemented');
     }
 }
@@ -111,7 +147,7 @@ class FileAbstractionDefault extends FileAbstractionBase {
      * @param {string} expr The directory expression to read.
      * @returns {Promise<string[]>} Returns a promise that returns a list of filenames.
      */
-    async readDirectory(expr) {
+    async readDirectory(expr, isMapped = undefined) {
         let dir = expr;
         /** @type {RegExp} */
         let pat;
@@ -150,7 +186,7 @@ class FileAbstractionDefault extends FileAbstractionBase {
      * @param {string} encoding Optional encoding to convert the file to
      * @returns {Promise<string|Buffer>} Returns a promise of a buffer or a string.
      */
-    async readFile(expr, encoding = false) {
+    async readFile(expr, encoding = false, isMapped = undefined) {
         return new Promise((resolve) => {
             try {
                 fs.readFile(expr, (err, buffer) => {
@@ -172,9 +208,10 @@ class FileAbstractionDefault extends FileAbstractionBase {
     /**
      * Attempt to stat a file
      * @param {string} expr The file expression to stat
+     * @param {boolean} isMapped Has the location already been mapped?
      * @returns {Promise<fs.Stats & { exists: boolean }>} Return information about a file.
      */
-    async stat(expr) {
+    async stat(expr, isMapped = undefined) {
         return new Promise((resolve) => {
             try {
                 fs.stat(expr, (err, stat) => {

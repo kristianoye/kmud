@@ -498,14 +498,14 @@ class DefaultFileSystem extends FileSystem {
             try {
                 fs.stat(fullPath, (err, stats) => {
                     if (err) {
-                        resolve(driver.fileManager.createDummyStats(err));
+                        resolve(driver.fileManager.createDummyStats(err, fullPath));
                     }
                     else
-                        resolve(Object.assign(stats, { exists: true }));
+                        resolve(Object.assign(stats, { exists: true, path: fullPath }));
                 });
             }
             catch (err) {
-                resolve(driver.fileManager.createDummyStats(err));
+                resolve(driver.fileManager.createDummyStats(err, fullPath));
             }
         });
     }

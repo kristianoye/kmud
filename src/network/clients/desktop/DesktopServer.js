@@ -9,6 +9,7 @@
 const
     ClientEndpoint = require('../../ClientEndpoint'),
     HTTPServer = require('../../servers/HTTPServer'),
+    FileAbstraction = require('./FileAbstraction'),
     MudPort = require('../../../config/MudPort'),
     DesktopClient = require('./DesktopClient'),
     io = require('socket.io'),
@@ -31,6 +32,7 @@ class DesktopServer extends ClientEndpoint {
                 port: this.port,
                 portOptions: { host: this.address }
             })
+            .createFileAbstraction(new FileAbstraction())
             .addMapping('/index.html', path.join(__dirname, 'client/index.html'))
             .addMapping('/desktop/', path.join(__dirname, 'client/desktop/'))
             .on('upgrade', socket => {

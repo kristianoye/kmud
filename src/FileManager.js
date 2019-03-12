@@ -330,7 +330,7 @@ class FileManager extends MUDEventEmitter {
      * Generate a dummy stat.
      * @param {Error} err An error that occurred.
      */
-    createDummyStats(err = false) {
+    createDummyStats(err = false, fullPath = '') {
             let dt = new Date(0),
                 alwaysFalse = () => false;
 
@@ -353,6 +353,7 @@ class FileManager extends MUDEventEmitter {
                 mode: -1,
                 mtime: dt,
                 mtimeMs: dt.getTime(),
+                path: fullPath || '',
                 size: -1,
                 rdev: -1,
                 isBlockDevice: alwaysFalse,
@@ -528,6 +529,14 @@ class FileManager extends MUDEventEmitter {
             return req.deny();
         else
             return req.fileSystem.readJsonFileSync(req.fullPath);
+    }
+
+    statAsync(efuns, expr, flags) {
+        let req = this.createFileRequest('stat', expr, false, flags, null, efuns);
+        if (!req.securityManager.validReadFile(efuns, req.fullPath))
+            return req.deny();
+        else
+            return req.fileSystem.statAsync(req.relativePath, req.flags);
     }
 
     /**

@@ -35,12 +35,10 @@ class HTTPServer extends events.EventEmitter {
 
         this.authManager = new AuthManager(config.authConfig);
         this.enableWebSocket = config.enableWebSocket === true;
-        /** Provide a common interface to the filesystem */
-        /** @type {Object.<string,string>} */
         this.fileMappings = {};
         this.fileMappingNames = Object.keys(this.fileMappings);
         this.handlers = {};
-        this.indexFiles = ['index.html', 'index.htm', 'index.mhtm'];
+        this.indexFiles = [];
         this.mimeTypes = Object.assign({}, KnownMimeTypes);
         this.port = config.port || 8088;
         this.portOptions = Object.assign(
@@ -52,13 +50,27 @@ class HTTPServer extends events.EventEmitter {
         this.routeTable = new RouteTable(this);
         this.securePort = config.securePort || false;
         this.secureOptions = config.secureOptions;
-        this.staticRoot = config.staticRoot || path.join(__dirname, '../../../../lib/wwwroot');
+        this.contentRoot = config.staticRoot || path.join(__dirname, '../../../../lib/wwwroot');
 
         this.addHandler(HandlerDefault, './handlers/StaticContentHandler')
             .addHandler(HandlerMVC, './handlers/MVCHandler')
             .addHandler('mhtm', './handlers/KMTemplateHandler');
 
         this.fileSystem = new FileAbstraction.FileAbstractionDefault();
+    }
+
+    /**
+     * Add one or more index filenames (e.g. index.htm, index.html, etc)
+     * @param {...string} spec
+     */
+    addIndexFile(...spec) {
+        spec.forEach(fn => {
+            if (this.indexFiles.indexOf(fn) === -1)
+                this.indexFiles.push(fn);
+        });
+        if (this.fileSystem)
+            this.fileSystem.addIndexFile(...spec);
+        return this;
     }
 
     /**
@@ -132,7 +144,10 @@ class HTTPServer extends events.EventEmitter {
     createFileAbstraction(fileSystem) {
         if (fileSystem) {
             this.fileSystem = fileSystem;
+
+            this.fileSystem.setContentRoot(this.contentRoot);
             this.fileSystem.addMapping(this.fileMappings);
+            this.fileSystem.addIndexFile(...this.indexFiles);
         }
         return this;
     }
@@ -178,7 +193,7 @@ class HTTPServer extends events.EventEmitter {
 
             Object.assign(this.standardServer, {
                 routeStaticContent: false,
-                staticRoot: this.staticRoot
+                staticRoot: this.contentRoot
             });
 
             this.standardServer.listen(
@@ -216,9 +231,9 @@ class HTTPServer extends events.EventEmitter {
         let request = context.request,
             url = request.url,
             urlParsed = request.urlParsed,
-            physicalPath = path.join(this.staticRoot, urlParsed.absolutePath.slice(1));
+            physicalPath = path.join(this.contentRoot, urlParsed.absolutePath.slice(1));
 
-        urlParsed.validLocation = physicalPath.startsWith(this.staticRoot);
+        urlParsed.validLocation = physicalPath.startsWith(this.contentRoot);
 
         //  Is this location mapped to a virtual location?
         for (let i = 0, mapped = this.fileMappingNames, m = mapped.length; i < m; i++) {
@@ -262,6 +277,7 @@ class HTTPServer extends events.EventEmitter {
     async receiveRequest(request, response, server) {
         try {
             let context = new HTTPContext(request, response);
+            let loc = await this.fileSystem.readLocation(request.url.slice(1));
 
             //  Resolve the physical path
             if (await this.resolveRequest(context, server) === false)
@@ -363,8 +379,10 @@ class HTTPServer extends events.EventEmitter {
      * Set the static root
      * @param {any} siteRoot
      */
-    setStaticRoot(siteRoot) {
-        this.staticRoot = siteRoot;
+    setContentRoot(siteRoot) {
+        this.contentRoot = siteRoot;
+        if (this.fileSystem)
+            this.fileSystem.setContentRoot(siteRoot);
         return this;
     }
 
