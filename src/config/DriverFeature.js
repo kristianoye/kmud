@@ -6,10 +6,10 @@
 class DriverFeature {
     constructor(id, data, pos, driverFlags) {
         /** @type {Object.<string,boolean>} */
-        this.driverFlags = driverFlags;
+        this.driverFlags = driverFlags || {};
 
         /** @type {boolean} */
-        this.enabled = data.enabled;
+        this.enabled = data.enabled || false;
 
         /** @type {FeatureBase} */
         this.instance = null;

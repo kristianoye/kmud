@@ -15,7 +15,7 @@ class MudSection {
         /** @type {string} */
         this.adminEmail = data.adminEmail || '[Unspecified]';
 
-        this.dbm = new DBManager(data.databases || {});
+        this.dbm = data.databases ? new DBManager(data.databases || {}) : false;
 
         /** @type {Object.<string,boolean>} */
         this.features = data.features || {};
@@ -24,7 +24,10 @@ class MudSection {
         this.passwordPolicy = new MUDPasswordPolicy(data.passwordPolicy || { minLength: 5 });
 
         /** @type {MudPort[]} */
-        this.portBindings = data.portBindings.map(p => new MudPort(p));
+        this.portBindings = (data.portBindings || []).map(p => new MudPort(p));
+        if (this.portBindings.length === 0) {
+            this.portBindings = MudPort.createDefaults();
+        }
     }
 
     assertValid() {

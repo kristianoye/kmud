@@ -9,6 +9,10 @@ try {
 
     try {
         let config = new MUDConfig();
+
+        config.entryDirectory = __dirname;
+        config.entryScript = process.argv[1];
+
         config.run();
     }
     catch (e) {

@@ -8,8 +8,7 @@
     <EnableTypeScript>true</EnableTypeScript>
     <TypeScriptSourceMap>true</TypeScriptSourceMap>
     <TypeScriptModuleKind>CommonJS</TypeScriptModuleKind>
-    <ScriptArguments>
-    </ScriptArguments>
+    <ScriptArguments>--setup</ScriptArguments>
     <Environment>
     </Environment>
     <LastActiveSolutionConfig>Debug|Any CPU</LastActiveSolutionConfig>

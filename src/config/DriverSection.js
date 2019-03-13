@@ -12,8 +12,10 @@
 
 class DriverSection {
     constructor(data) {
-        /** @type {string} */
-        this.core = data.core;
+        /** @type {'single'|'multi'} */
+        this.core = data.core || 'single';
+
+        this.cores = parseInt(data.cores || 1);
 
         /** @type {string} */
         this.driverPath = path.resolve(__dirname, '..');
@@ -23,6 +25,17 @@ class DriverSection {
 
         /** @type {Object.<string,DriverFeature>} */
         this.features = {};
+
+        if (!data.features) {
+            data.features = {
+                "verb": {
+                    "enabled": true,
+                    "longDesc": "The Verb Package provides rule-based grammer for parsing user input.",
+                    "module": "./features/VerbSystem",
+                    "name": "KMUD Verb Package"
+                }
+            };
+        }
 
         if (typeof data.features === 'object') {
             Object.keys(data.features).forEach((id, pos) => {
@@ -55,15 +68,6 @@ class DriverSection {
         /** @type {boolean} */
         this.useLazyResets = data.useLazyResets || false;
 
-        /** @type {boolean} */
-        this.useObjectProxies = typeof data.useObjectProxies === 'boolean' ? data.useObjectProxies : false;
-
-        /** @type {boolean} */
-        this.useRevocableProxies = typeof data.useRevocableProxies === 'boolean' ? data.useRevocableProxies : false;
-
-        /** @type {string} */
-        this.objectCreationMethod = typeof data.objectCreationMethod === 'string' ? data.objectCreationMethod : 'inline';
-
         /** @type {DriverCompiler} */
         this.compiler = new DriverCompiler(Object.assign(DriverCompiler.defaults, data.compiler || {}));
 
@@ -72,9 +76,6 @@ class DriverSection {
     }
 
     assertValid() {
-        if (['inline', 'thinWrapper', 'fullWrapper'].indexOf(this.objectCreationMethod) === -1) {
-            throw new Error(`Invalid setting for driver.objectCreationMethod: Got ${data.objectCreationMethod} [valid values: inline, thinWrapper, fullWrapper`);
-        }
         this.forEachFeature((feature, index) => feature.assertValid());
         this.compiler.assertValid();
         this.networking.assertValid();

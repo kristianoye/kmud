@@ -39,6 +39,16 @@ class MudPort {
         this.server = path.resolve(data.server || defaultServer);
     }
 
+    static createDefaults() {
+        return [new MudPort({
+            address: '0.0.0.0',
+            enabled: true,
+            port: 8000,
+            maxConnections: 50,
+            wizardsOnly: false
+        })];
+    }
+
     assertValid(index) {
         if (typeof this.port !== 'number')
             throw new Error(`Invalid setting for port entry #${index}; Value must be numeric and not ${typeof index}`);

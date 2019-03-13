@@ -9,3 +9,5 @@ mudconfig.json
 runOnce.json
 runAlways.json
 shadowfs/
+/KMUD.sln
+/.vs/KMUD/v15

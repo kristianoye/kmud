@@ -169,17 +169,6 @@ DriverNetworking.defaults = {
                 }
             ]
         },
-        "https": {
-            "enabled": false,
-            "handlers": [
-                {
-                    "id": "default-https",
-                    "file": "./network/HTTPClientEndpoint",
-                    "name": "Standard Web Server (HTTP)",
-                    "default": true
-                }
-            ]
-        },
         "telnet": {
             "enabled": true,
             "handlers": [

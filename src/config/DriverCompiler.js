@@ -52,22 +52,21 @@ DriverCompiler.defaults = {
     virtualMachine: "vm",
     components: [
         {
-            id: "JSXTranspiler",
-            name: "JSX Transpiler",
-            file: "./compiler/JSXTranspiler"
+            id: "MudScriptTranspiler",
+            name: "MudScript Transpiler",
+            file: "./compiler/MudScriptTranspiler"
         }
     ],
     languages: {
         ".js": {
             id: "JavaScript",
-            loader: "MUDOSLoader",
+            loader: "MUDLoader",
             loaderOptions: {},
             name: "JavaScript Pipeline",
             pipeline: [
                 {
-                    extension: ".js",
-                    id: "JSXTranspiler",
-                    name: "JSX Transpiler Without JSX",
+                    id: "MudScriptTranspiler",
+                    name: "Transpiler Without JSX",
                     allowJsx: false
                 }
             ]
@@ -75,11 +74,15 @@ DriverCompiler.defaults = {
         ".jsx": {
             id: "JSX",
             enabled: true,
-            loader: "MUDOSLoader",
+            loader: "MUDLoader",
             loaderOptions: {},
-            name: "MUD JSX",
+            name: "JSX Pipeline",
             pipeline: [
-                "JSXTranspiler"
+                {
+                    id: "MudScriptTranspiler",
+                    name: "Transpiler with JSX",
+                    allowJsx: true
+                }
             ]
         }
     },

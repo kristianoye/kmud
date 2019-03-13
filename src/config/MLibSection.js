@@ -1,7 +1,8 @@
 ﻿const
     ConfigUtil = require('../ConfigUtil'),
     MudlibMasterObject = require('./MudlibMasterObject'),
-    MudlibFileSystem = require('./MudlibFileSystem').MudlibFileSystem;
+    MudlibFileSystem = require('./MudlibFileSystem').MudlibFileSystem,
+    path = require('path');
 
 class MudlibSection {
     constructor(data) {
@@ -14,7 +15,7 @@ class MudlibSection {
         this.backboneUid = data.backboneUid || 'BACKBONE';
 
         /** @type {string} */
-        this.baseDirectory = data.baseDirectory;
+        this.baseDirectory = data.baseDirectory || path.join(__dirname, '..', '..');
 
         /** @type {string} */
         this.defaultError = data.defaultError || 'What?';
@@ -23,7 +24,7 @@ class MudlibSection {
         this.defaultSaveExtension = data.defaultSaveExtension || '.json';
 
         /** @type {MudlibFileSystem} */
-        this.fileSystem = new MudlibFileSystem(data.fileSystem || MudlibFileSystem.createDefaults());
+        this.fileSystem = new MudlibFileSystem(data.fileSystem || {});
 
         /** @type {string} */
         this.heartbeatInterval = ConfigUtil.parseTime(data.heartbeatInterval) || 1000;
@@ -71,5 +72,9 @@ class MudlibSection {
         return `${this.mudlibName} v${this.mudlibVersionMajor}.${this.mudlibVersionMinor}.${this.mudlibPatchVersion}`;
     }
 }
+
+MudlibSection.createDefault = function () {
+    return new MudlibSection({});
+};
 
 module.exports = MudlibSection;

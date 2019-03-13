@@ -24,33 +24,32 @@ var
 
 class MUDConfig {
     constructor() {
-        if (configInstance) {
+        if (configInstance) 
             throw new Error('Use MUDConfig.get() instead.');
-        }
-        /** @type {boolean} */
-        this.singleUser = false;
 
-        /** @type {boolean} */
+        this.setupMode = false;
+        this.singleUser = false;
         this.skipStartupScripts = false;
 
         var options = this.processCommandLine({
             configFile: path.resolve(__dirname, '../mudconfig.json')
         });
-        let exists = fs.existsSync(options.configFile),
-            raw = {};
+        let exists = fs.existsSync(options.configFile), raw = {};
 
         if (!this.setupMode && !exists)
             throw new ErrorTypes.MissingConfigError(`File ${options.configFile} not found!`);
+
         else if (exists) {
             raw = JSON.parse(this.stripBOM(fs.readFileSync(options.configFile, 'utf8')));
+            if (typeof raw.mud !== 'object')
+                throw new Error(`Config file '${options.configFile}' did not define section 'mud'`);
         }
-        else {
-            raw = JSON.parse(this.stripBOM(fs.readFileSync(path.resolve(__dirname, './setup/BaseConfig.json'), 'utf8')));
-        }
-        this.configFile = options.configFile;
-        this['mudlibSection'] = new MudlibSection(raw.mudlib);
-        this['driverSection'] = new DriverSection(raw.driver);
-        this['mudSection'] = new MudSection(raw.mud);
+
+        this.configFile = options.configFile || path.join(this.entryDirectory, 'mudconfig.json');
+
+        this.mudlibSection = new MudlibSection(raw.mudlib || {});
+        this.driverSection = new DriverSection(raw.driver || {});
+        this.mudSection = new MudSection(raw.mud || {});
 
         if (this.singleUser === true) {
             this.mud.features.intermud = false;
@@ -69,6 +68,10 @@ class MUDConfig {
         this.mud.assertValid();
         this.mudlib.assertValid();
         return this;
+    }
+
+    createDefaultConfig() {
+        this.mudlibSection = MudlibSection
     }
 
     createRunOnce(data) {
@@ -101,15 +104,16 @@ class MUDConfig {
     }
 
     processCommandLine(options) {
-        var isSwitch = /^(?:[-]{1,2}|[\/]{1})(.+)/,
+        let isSwitch = /^(?:[-]{1,2}|[\/]{1})(.+)/,
             runSetup = false;
 
-        for (var i = 1, max = process.argv.length; i < max; i++) {
-            var arg = process.argv[i],
+        for (let i = 1, max = process.argv.length; i < max; i++) {
+            let arg = process.argv[i],
                 m = isSwitch.exec(arg);
 
             if (m) {
-                var opt = m[1].toLowerCase();
+                let opt = m[1].toLowerCase();
+
                 switch (opt) {
                     case 'config':
                         if (typeof (options.configFile = process.argv[++i]) !== 'string') {
@@ -138,7 +142,11 @@ class MUDConfig {
                 }
             }
         }
-        if (this.setupMode) this.runSetup.runSetup(options, this);
+
+        if (this.setupMode) {
+            this.runSetup.runSetup(options, this);
+        }
+    
         return options;
     }
 

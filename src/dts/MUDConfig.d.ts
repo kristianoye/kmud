@@ -17,9 +17,6 @@
     /** Max time allotted to evaluating a block of code in eval() */
     maxEvalTime: number;
 
-    /** Dictates how object instaces are constructed; Possible values are inline, thinWrapper, or fullWrapper */
-    objectCreationMethod: string;
-
     /** Controls how often the driver checks for objects to reset (unless useLazyResets is true); Measured in ms */
     resetPollingInterval: number;
 
@@ -28,12 +25,6 @@
 
     /** If true then reset() is checked prior to executing a player action instead of by timer */
     useLazyResets: boolean;
-
-    /** Indicates whether the driver should use proxies instead of wrappers to maintain object stack (defaults to false) */
-    useObjectProxies: boolean;
-
-    /** If true then proxies are revoked when an object is destructed */
-    useRevocableProxies: boolean;
 }
 
 declare class MudlibSection {
