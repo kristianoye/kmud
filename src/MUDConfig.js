@@ -10,8 +10,9 @@ global.logger = require('./MUDLogger');
 const
     fs = require('fs'),
     path = require('path'),
-    ErrorTypes = require('./ErrorTypes'),
-    GameSetup = require('./setup/GameSetup');
+    ErrorTypes = require('./ErrorTypes');
+
+//const GameSetup = require('./setup/GameSetup');
 
 const
     MudSection = require('./config/MudSection'),
@@ -51,6 +52,13 @@ class MUDConfig {
         this.driverSection = new DriverSection(raw.driver || {});
         this.mudSection = new MudSection(raw.mud || {});
 
+        if (this.setupMode) {
+            const ConfigApp = require('./config/ConfigApp');
+
+            let app = new ConfigApp(this);
+            return app.start();
+        }
+
         if (this.singleUser === true) {
             this.mud.features.intermud = false;
             this.mud.portBindings.forEach(binding => binding.address = '127.0.0.1');
@@ -72,6 +80,14 @@ class MUDConfig {
 
     createDefaultConfig() {
         this.mudlibSection = MudlibSection
+    }
+
+    createExport() {
+        let configExport = {
+            mud: this.mudSection.createExport()
+        };
+
+        return configExport;
     }
 
     createRunOnce(data) {
@@ -128,7 +144,8 @@ class MUDConfig {
 
                     case 'setup':
                         logger.log('Running setup...');
-                        this.runSetup = new GameSetup();
+                        //this.runSetup = new GameSetup();
+                        this.runSetup = true;
                         this.setupMode = true;
                         break;
 
@@ -141,10 +158,6 @@ class MUDConfig {
                         break;
                 }
             }
-        }
-
-        if (this.setupMode) {
-            this.runSetup.runSetup(options, this);
         }
     
         return options;

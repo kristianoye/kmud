@@ -9,7 +9,12 @@ class MudlibSection {
         logger.log('MudlibSection constructor called.');
 
         /** @type {Object.<string,string>} */
-        this.applyNames = data.applyNames;
+        this.applyNames = { length: 0 };
+        if (data.applyNames)
+            Object.keys(data.applyNames).forEach(key => {
+                this.applyNames[key] = data.applyNames[key];
+                this.applyNames.length++;
+            });
 
         /** @type {string} */
         this.backboneUid = data.backboneUid || 'BACKBONE';

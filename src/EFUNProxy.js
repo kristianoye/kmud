@@ -1728,6 +1728,46 @@ class EFUNProxy {
     }
 
     /**
+     * Roll the dice...
+     * @param {number|string} rollCount 
+     * @param {number} dieFaces
+     * @param {number} modifier
+     */
+    roll(rollCount, dieFaces = 1, modifier = 0) {
+
+        if (typeof rollCount === 'string') {
+            rollCount = rollCount.replace(/[^\dd\+\-]+/g, '');
+
+            let info = rollCount.split(/([d\+\-])/).map((s, i) => {
+                if (s === '+' || s === '-')
+                    return s;
+                else if (s === 'd')
+                    return false;
+                return parseInt(s) || 1;
+            }).filter(s => s !== false);
+
+            if (info.length === 1)
+                throw new Error(`Illegal dice expression: ${rollCount}`);
+
+            else if (info.length === 4) {
+                let withSign = `${info[2]}${info[3]}`;
+                info[2] = parseInt(withSign);
+                info.pop();
+            }
+
+            rollCount = info.shift();
+            dieFaces = info.shift() || 6;
+            modifier = info.shift() || 0;
+        }
+
+        let total = 0;
+        for (let i = 0; i < rollCount; i++) {
+            total += Math.floor(Math.random() * dieFaces) + 1;
+        }
+        return Math.max(0, total + modifier);
+    }
+
+    /**
      * Removes color codes from a string.
      * @param {string} str The string to remove color from.
      * @returns {string} The string minus any color encoding.

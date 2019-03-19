@@ -27,8 +27,6 @@ function stripBOM(content) {
 
 class GameSetup {
     constructor() {
-        var self = this;
-
         this.config = {};
         this.console = con;
         this.options = {};
@@ -106,7 +104,9 @@ class GameSetup {
         if (!options.configFile) {
             options.configFile = 'mudconfig.json';
         }
+
         configPath = options.configFile;
+
         if (!this.configExists) {
             this.console.write(`\nWarning: Specified config ${configPath} does not yet exist; Loading defaults\n\n`);
             this.config  = JSON.parse(stripBOM(fs.readFileSync(path.resolve(__dirname, './BaseConfig.json'), 'utf8')));

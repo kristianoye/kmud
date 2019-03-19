@@ -1,14 +1,14 @@
 ﻿
 declare class MUDMixin {
-    $copyMethods(type: function): MUDMixin;
-    $copyMethods(type: function, like: function(string): boolean): MUDMixin;
-    $copyMethods(type: function, like: string[]): MUDMixin;
+    $copyMethods(type: string): MUDMixin;
+    $copyMethods(type: string, like: (spec: string) => boolean): MUDMixin;
+    $copyMethods(type: string, like: string[]): MUDMixin;
 
     /**
      * Extend the target type using 
      * @param type
      */
-    $extendType(type: function): any;
+    $extendType(type: string): any;
 }
 
 declare class MUDObject
@@ -44,28 +44,6 @@ declare class MUDObject
      * @returns {boolean} Returns true if the object matches all specified IDs.
      */
     matchesId(idList: string[]): boolean;
-}
-
-declare class ExecutionContext {
-    /** Releases/destroys the context */
-    dispose(): ExecutionContext;
-
-    /** Called when a frame pops off the stack */
-    pop(): ExecutionContext;
-
-    /**
-     * Called when a new execution frame enters the stack
-     * @param ob The object that has a method executing.
-     * @param method The name of the method that is being executed.
-     */
-    push(ob: MUDObject, method: string, isAsync: boolean, lineNumber: number, callString: string): ExecutionContext;
-
-    /** Restores a context back to running state */
-    restore(): ExecutionContext;
-
-    /** Suspends the execution context for an async operation */
-    suspend(): ExecutionContext;
-
 }
 
 declare type MUDWrapper = () => MUDObject;
@@ -153,13 +131,6 @@ declare class MUDClientCaps {
     readonly videoEnabled: boolean;
 }
 
-declare class MUDExecEvent {
-    readonly newBody: MUDObject;
-    readonly newStorage: MUDStorage;
-    readonly oldBody: MUDObject;
-    readonly oldStorage: MUDStorage;
-}
-
 declare class MUDHelp {
     /** Describes the type of help object this is for (e.g. command, efun, etc) */
     type: string;
@@ -207,7 +178,7 @@ declare class MUDPrompt {
 declare class MUDInputEvent {
     readonly args: string[];
     readonly caps: MUDClientCaps;
-    readonly complete: function;
+    readonly complete: () => any;
     readonly error: string;
     readonly fromHistory: boolean;
     readonly original: string;

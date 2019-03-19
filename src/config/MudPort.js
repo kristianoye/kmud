@@ -49,6 +49,33 @@ class MudPort {
         })];
     }
 
+    /**
+     * Determine if the port object is a default
+     * @param {MudPort} mudport
+     */
+    static isDefault(mudport) {
+        return (
+            mudport.address === '0.0.0.0' &&
+            mudport.enabled === true &&
+            mudport.port === 8000 &&
+            mudport.maxConnections === 50 &&
+            mudport.wizardsOnly === false);
+    }
+
+    createExport() {
+        return {
+            address: this.address,
+            client: this.client,
+            enabled: this.enabled,
+            options: this.options,
+            maxConnections: this.maxConnections,
+            port: this.port,
+            server: this.server,
+            type: this.type,
+            wizardsOnly: this.wizardsOnly
+        };
+    }
+
     assertValid(index) {
         if (typeof this.port !== 'number')
             throw new Error(`Invalid setting for port entry #${index}; Value must be numeric and not ${typeof index}`);
