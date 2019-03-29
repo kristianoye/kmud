@@ -25,6 +25,16 @@ const
     HandlerDefault = 'default',
     HandlerMVC = 'MVC';
 
+/**
+ * Maps a virtual location to a physical, storage location on the server.
+ */
+class Location {
+    constructor(vloc, ploc) {
+        this.virtualPath = vloc;
+        this.physicalPath = ploc;
+    }
+}
+
 class HTTPServer extends events.EventEmitter {
     /**
      * Construct an HTTP Server instance.
@@ -183,47 +193,6 @@ class HTTPServer extends events.EventEmitter {
     }
 
     /**
-     * Bind ports and listen for clients
-     */
-    start() {
-        if (typeof this.port === 'number' && this.port > 79 && this.port < 65000) {
-            this.standardServer = http.createServer(
-                this.portOptions,
-                async (req, resp) => await this.receiveRequest(req, resp, this.standardServer));
-
-            Object.assign(this.standardServer, {
-                routeStaticContent: false,
-                staticRoot: this.contentRoot
-            });
-
-            this.standardServer.listen(
-                this.port,
-                this.portOptions.host)
-                .on('upgrade', (...args) => {
-                    this.emit('upgrade', ...args);
-                });
-
-            if (this.enableWebSocket) {
-                this.standardWebSocket = require('socket.io')(this.standardServer, {
-                    log: true,
-                    transports: ['websocket']
-                });
-
-                this.standardWebSocket.on('connection', client => {
-                    this.emit('connection', client);
-                });
-            }
-        }
-
-        if (typeof this.securePort === 'number' && this.port > 442) {
-            this.secureServer = https.createServer(
-                this.secureOptions,
-                this.receiveRequest);
-        }
-        return this;
-    }
-
-    /**
      * Maps the requested location to a physical location (if requesting static content)
      * @param {HTTPContext} context The current HTTP context.
      */
@@ -231,7 +200,7 @@ class HTTPServer extends events.EventEmitter {
         let request = context.request,
             url = request.url,
             urlParsed = request.urlParsed,
-            physicalPath = path.join(this.contentRoot, urlParsed.absolutePath.slice(1));
+            physicalPath = path.posix.join(this.contentRoot, urlParsed.absolutePath.slice(1));
 
         urlParsed.validLocation = physicalPath.startsWith(this.contentRoot);
 
@@ -267,6 +236,31 @@ class HTTPServer extends events.EventEmitter {
             urlParsed.localPath = localFile;
         }
         return true;
+    }
+
+    /**
+     * Read a file asyncronously
+     * @param {string} filename The file to read.
+     * @param {string} encoding Intrepret the buffer as this type of encoding (false for binary)
+     */
+    async readFile(filename, encoding = false) {
+        return new Promise((resolve, reject) => {
+            try {
+                fs.readFile(filename, (err, content) => {
+                    if (err)
+                        reject(err);
+                    else {
+                        if (typeof encoding === 'string') {
+                            content = content.toString(encoding);
+                        }
+                        resolve(content);
+                    }
+                });
+            }
+            catch (ex) {
+                reject(ex);
+            }
+        });
     }
 
     /** 
@@ -345,37 +339,6 @@ class HTTPServer extends events.EventEmitter {
     }
 
     /**
-     * 
-     * @param {string} filename The name of the file to stat.
-     * @returns {Promise<fs.Stats & { exists: boolean }>} The stats or a pseudo stat on failure.
-     */
-
-    /**
-     * Read a file asyncronously
-     * @param {string} filename The file to read.
-     * @param {string} encoding Intrepret the buffer as this type of encoding (false for binary)
-     */
-    async readFile(filename, encoding = false) {
-        return new Promise((resolve, reject) => {
-            try {
-                fs.readFile(filename, (err, content) => {
-                    if (err)
-                        reject(err);
-                    else {
-                        if (typeof encoding === 'string') {
-                            content = content.toString(encoding);
-                        }
-                        resolve(content);
-                    }
-                });
-            }
-            catch (ex) {
-                reject(ex);
-            }
-        });
-    }
-
-    /**
      * Set the static root
      * @param {any} siteRoot
      */
@@ -383,6 +346,47 @@ class HTTPServer extends events.EventEmitter {
         this.contentRoot = siteRoot;
         if (this.fileSystem)
             this.fileSystem.setContentRoot(siteRoot);
+        return this;
+    }
+
+    /**
+     * Bind ports and listen for clients
+     */
+    start() {
+        if (typeof this.port === 'number' && this.port > 79 && this.port < 65000) {
+            this.standardServer = http.createServer(
+                this.portOptions,
+                async (req, resp) => await this.receiveRequest(req, resp, this.standardServer));
+
+            Object.assign(this.standardServer, {
+                routeStaticContent: false,
+                staticRoot: this.contentRoot
+            });
+
+            this.standardServer.listen(
+                this.port,
+                this.portOptions.host)
+                .on('upgrade', (...args) => {
+                    this.emit('upgrade', ...args);
+                });
+
+            if (this.enableWebSocket) {
+                this.standardWebSocket = require('socket.io')(this.standardServer, {
+                    log: true,
+                    transports: ['websocket']
+                });
+
+                this.standardWebSocket.on('connection', client => {
+                    this.emit('connection', client);
+                });
+            }
+        }
+
+        if (typeof this.securePort === 'number' && this.port > 442) {
+            this.secureServer = https.createServer(
+                this.secureOptions,
+                this.receiveRequest);
+        }
         return this;
     }
 
@@ -424,6 +428,10 @@ class HTTPServer extends events.EventEmitter {
         return false;
     }
 
+    /**
+     * Do stuff with the routing table (helper callback)
+     * @param {any} doAction
+     */
     withRoutes(doAction = false) {
         if (typeof doAction === 'function')
             try {

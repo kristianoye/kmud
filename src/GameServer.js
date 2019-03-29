@@ -924,13 +924,19 @@ class GameServer extends MUDEventEmitter {
      * @returns {GameServer} A reference to the GameServer.
      */
     async run(callback) {
-        let nets = await NetUtil.discoveryAsync()
-            .catch(err => { throw new Error(`Could not start GameServer: ${err}`); }),
-            list = nets.filter(n => n.internetAccess);
+        if (this.config.singleUser !== true) {
+            let nets = await NetUtil.discoveryAsync()
+                .catch(err => { throw new Error(`Could not start GameServer: ${err}`); }),
+                list = nets.filter(n => n.internetAccess);
 
-        if (list.length === 0)
-            throw new Error('Could not start GameServer: No suitable network interfaces');
-        this.serverAddress = list[0].address;
+            if (list.length === 0)
+                throw new Error('Could not start GameServer: No suitable network interfaces');
+
+            this.serverAddress = list[0].address;
+        }
+        else {
+            this.serverAddress = '127.0.0.1';
+        }
 
         if (!this.loginObject) {
             throw new Error('Login object must be specified');
@@ -1069,7 +1075,7 @@ class GameServer extends MUDEventEmitter {
                 }
                 //  This requires revisiting.  Use real stack and pop to avoid grossness like this.
                 if (n > 0) this.resetStack.splice(0, n);
-            }, MUDConfig.driver.resetPollingInterval);
+            }, this.config.driver.resetPollingInterval);
         }
         return this;
     }

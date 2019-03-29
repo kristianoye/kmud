@@ -30,7 +30,9 @@ class DesktopServer extends ClientEndpoint {
             {
                 enableWebSocket: true,
                 port: this.port,
-                portOptions: { host: this.address }
+                portOptions: {
+                    host: this.address
+                }
             })
             .createFileAbstraction(new FileAbstraction())
             .addMapping('/index.html', path.join(__dirname, 'client/index.html'))

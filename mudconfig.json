@@ -1,0 +1,274 @@
+{
+  "mud": {
+    "name": "Another KMUD",
+    "adminName": "Not Specified",
+    "adminEmail": "#nobody@nowhere.com",
+    "adminCharacter": "",
+    "databases": {
+    },
+    "features": {
+      "autoWiz": true,
+      "intermud3": false,
+      "webEditor": true
+    },
+    "passwordPolicy": {
+      "allowPlainTextAuth": true,
+      "minLength": 3,
+      "maxLength": 100,
+      "requiredUpper": 0,
+      "requiredLower": 0,
+      "requiredSymbols": 0,
+      "requiredNumbers": 0
+    },
+    "portBindings": [
+      {
+        "name": "Player telnet port 8000",
+        "client": "./src/network/clients/telnet/RanvierTelnetInstance",
+        "server": "./src/network/clients/telnet/RanvierTelnetEndpoint",
+        "address": "0.0.0.0",
+        "port": 8000,
+        "type": "telnet",
+        "wizardsOnly": false,
+        "maxConnections": 100
+      },
+      {
+        "name": "Player web port 8080",
+        "address": "0.0.0.0",
+        "port": 8080,
+        "type": "http",
+        "wizardsOnly": true,
+        "maxConnections": 5
+      },
+      {
+        "name": "Experimental web port 8088",
+        "address": "0.0.0.0",
+        "client": "./src/network/clients/desktop/DesktopClient",
+        "server": "./src/network/clients/desktop/DesktopServer",
+        "serverOptions": {
+          "staticRoot": "./lib/wwwroot"
+        },
+        "port": 8088,
+        "type": "http",
+        "wizardsOnly": true,
+        "maxConnections": 5
+      },
+      {
+        "address": "0.0.0.0",
+        "port": 8888,
+        "type": "http",
+        "wizardsOnly": "arch",
+        "maxConnections": 10
+      }
+    ]
+  },
+  "mudlib": {
+    "baseDirectory": "./lib",
+    "defaultError": "What? (not recognized: $verb)",
+    "fileSystem": {
+      "fileManager": "./FileManager",
+      "securityManager": "./fs/DefaultFileSecurity",
+      "fileSystemTable": {
+        "/": {
+          "type": "./fs/DefaultFileSystem",
+          "options": {
+            "path": "./",
+            "readOnly": false
+          }
+        }
+      }
+    },
+    "heartbeatInterval": "1 second",
+    "objectResetInterval": "30 minutes",
+    "includePath": [
+      "/base/include",
+      "/sys/include"
+    ],
+    "applyNames": {
+      "getPreloads": "epilog",
+      "validExec": "validExec",
+      "validRead": "validRead",
+      "validRequire": "validRequire",
+      "validWrite": "validWrite"
+    },
+    "master": {
+      "path": "/sys/daemon/GameMaster",
+      "parameters": {
+        "permissionsFile": "/sys/etc/permissions.json",
+        "preloadsFile": "/sys/etc/preloads.json",
+        "groupsFile": "/sys/etc/groups.json",
+        "accessFile": "/sys/etc/access.json"
+      }
+    },
+    "logDirectory": "/log",
+    "loginObject": "/sys/lib/Login",
+    "simulEfuns": "/sys/lib/SimulEfuns"
+  },
+  "driver": {
+    "core": "single-core",
+    "externalModules": {
+      "async": true,
+      "net": true
+    },
+    "maxCommandExecutionTime": 0,
+    "maxCommandLength": 512,
+    "maxCommandsPerSecond": 5,
+    "maxCommandStackSize": 100,
+    "maxEvalTime": 5000,
+    "features": {
+      "ACLSecurity": {
+        "enabled": false,
+        "module": "./features/SecurityFileACL",
+        "name": "ACL-Based Security Filesystem",
+        "parameters": {
+          "shadowDirectory": "../../shadowfs",
+          "shadowGranularity": "file",
+          "accessDataFile": "../../lib/sys/etc/accessMk3.json",
+          "applyNameValidCreate": "aclValidCreate",
+          "applyNameValidDelete": "aclValidDelete",
+          "applyNameValidDestruct": "aclValidDestruct->aclValidWrite",
+          "applyNameValidGrant": "aclValidGrant",
+          "applyNameValidLoad": "aclValidLoad->aclValidRead",
+          "applyNameValidRead": "aclValidRead",
+          "applyNameValidWrite": "aclValidWrite",
+
+          "efunNameQueryAcl": "queryPerms"
+        }
+      },
+      "DomainStats": {
+        "enabled": true,
+        "module": "./features/DomainStats",
+        "name": "MudOS-like Domain Stats",
+        "parameters": {
+          "applyNameAuthorFile": "authorFile",
+          "applyNameDomainFile": "domainFile",
+          "efunNameAddWorth": "add_worth",
+          "efunNameAuthorStats": "author_stats",
+          "efunNameDomainStats": "domain_stats",
+          "preserveStats": true,
+          "preserveStatsFormat": "json|mudos"
+        }
+      },
+      "MUDEditor": {
+        "id": "",
+        "enabled": true,
+        "module": "./features/MUDEditor",
+        "name": "Line Editor Support",
+        "parameters": {
+          "enableOldEditor": false,
+          "efunNameEdStart": "editorStart",
+          "efunNameEdCommand": "editorCmd",
+          "efunNameQueryEdMode": "queryEditorMode",
+          "lineNumberPadding": 5,
+          "maxFileSize": 102400
+        }
+      },
+      "Verbs": {
+        "id": "Verbs",
+        "enabled": true,
+        "module": "./features/VerbSystem",
+        "name": "MudOS-like Verb Support",
+        "parameters": {
+          "allowHandlerParameter": false,
+          "allowMatchRemotePlayers": true,
+          "applyNamingConvention": "camelCase",
+          "applyNameInventoryAccessible": "isInventoryAccessible",
+          "applyNameInventoryVisible": "isInventoryVisible",
+          "applyNameIsLiving": "isLiving",
+          "applyNameIsPlayer": "isPlayer",
+          "efunNameParseAddRule": "verbAddRule",
+          "efunNameParseAddSynonym": "verbAddSynonym",
+          "efunNameParseInit": false,
+          "efunNameParseRefresh": false,
+          "efunNameParseSentence": "parseSentence",
+          "efunNameParseVerb": "parseVerb",
+          "useVerbRuleScope": true
+        }
+      }
+    },
+    "resetPollingInterval": "5 seconds",
+    "showDriverFrames": false,
+    "useLazyResets": true,
+    "useObjectProxies": false,
+    "useRevocableProxies": false,
+    "objectCreationMethod": "inline",
+    "compiler": {
+      "maxCompileTime": -1,
+      "maxConstructorTime": -1,
+      "sealTypesAfterCompile": true,
+      "virtualMachine": "vm",
+      "components": [
+        {
+          "id": "MudScriptTranspiler",
+          "name": "JSX Transpiler",
+          "file": "./compiler/MudScriptTranspiler"
+        },
+        {
+          "id": "LPCPreprocessor",
+          "name": "MudOS Preprocessor",
+          "file": "./compiler/LPCPreprocessor",
+          "reusable": false
+        }
+      ],
+      "languages": {
+        ".js": {
+          "id": "MudScript",
+          "loader": "MUDOSLoader",
+          "loaderOptions": {},
+          "name": "Plain MudScript",
+          "pipeline": [
+            {
+              "extension": ".js",
+              "id": "MudScriptTranspiler",
+              "name": "JSX Transpiler Without JSX",
+              "allowAccessModifiers": true,
+              "allowLiteralCallouts": false,
+              "allowPackageModifier": true,
+              "allowJsx": false,
+              "defaultAccessModifier": "public",
+              "requireAccessModifiers": false
+            }
+          ]
+        },
+        ".jsx": {
+          "id": "MudScriptJSX",
+          "enabled": true,
+          "loader": "MUDOSLoader",
+          "loaderOptions": {},
+          "name": "MudScript with JSX",
+          "pipeline": [
+            {
+              "extension": ".jsx",
+              "id": "MudScriptTranspiler",
+              "name": "JSX Transpiler With JSX",
+              "allowAccessModifiers": true,
+              "allowLiteralCallouts": false,
+              "allowPackageModifier": true,
+              "allowJsx": true,
+              "defaultAccessModifier": "public",
+              "requireAccessModifiers": false
+            }
+          ]
+        },
+        ".c": {
+          "id": "LPC",
+          "enabled": false,
+          "loader": "MUDOSLoader",
+          "name": "LPC Pipeline",
+          "pipeline": [
+            "LPCPreprocessor"
+          ]
+        }
+      },
+      "loaders": {
+        "MUDLoader": {
+          "name": "KMUD Standard Loader",
+          "file": "./MUDLoader"
+        },
+        "MUDOSLoader": {
+          "name": "MudOS Compatibility Loader",
+          "file": "./MUDOSLoader"
+        }
+      }
+    }
+  }
+}
