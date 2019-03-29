@@ -7,9 +7,9 @@
  */
 
 const
+    DesktopFileAbstraction = require('./DesktopFileAbstraction'),
     ClientEndpoint = require('../../ClientEndpoint'),
     HTTPServer = require('../../servers/HTTPServer'),
-    FileAbstraction = require('./FileAbstraction'),
     MudPort = require('../../../config/MudPort'),
     DesktopClient = require('./DesktopClient'),
     io = require('socket.io'),
@@ -32,7 +32,7 @@ class DesktopServer extends ClientEndpoint {
                 port: this.port,
                 portOptions: { host: this.address }
             })
-            .createFileAbstraction(new FileAbstraction())
+            .createFileAbstraction(new DesktopFileAbstraction())
             .addMapping('/index.html', path.join(__dirname, 'client/index.html'))
             .addMapping('/desktop/', path.join(__dirname, 'client/desktop/'))
             .on('upgrade', socket => {
@@ -47,21 +47,27 @@ class DesktopServer extends ClientEndpoint {
             .start();
 
         if (typeof driver.applyRegisterServer === 'function') {
-            if (this.port > 0)
-                driver.applyRegisterServer({
-                    address: this.address,
-                    protocol: 'http',
-                    port: this.port,
-                    server: this.server
+            if (this.port > 0) {
+                driver.driverCall('applyRegisterServer', () => {
+                    driver.applyRegisterServer({
+                        address: this.address,
+                        protocol: 'http',
+                        port: this.port,
+                        server: this.server
+                    });
                 });
+            }
 
-            if (this.securePort > 0)
-                driver.registerServer({
-                    address: this.address,
-                    protocol: 'http',
-                    port: this.securePort,
-                    server: this.server
+            if (this.securePort > 0) {
+                driver.driverCall('applyRegisterServer', () => {
+                    driver.registerServer({
+                        address: this.address,
+                        protocol: 'http',
+                        port: this.securePort,
+                        server: this.server
+                    });
                 });
+            }
         }
         return this;
     }

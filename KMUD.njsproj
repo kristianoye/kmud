@@ -8,7 +8,8 @@
     <EnableTypeScript>true</EnableTypeScript>
     <TypeScriptSourceMap>true</TypeScriptSourceMap>
     <TypeScriptModuleKind>CommonJS</TypeScriptModuleKind>
-    <ScriptArguments>--setup</ScriptArguments>
+    <ScriptArguments>
+    </ScriptArguments>
     <Environment>
     </Environment>
     <LastActiveSolutionConfig>Debug|Any CPU</LastActiveSolutionConfig>
@@ -660,7 +661,7 @@
     <Compile Include="src\network\impl\zmud\ZmudHtmlSupport.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\network\clients\desktop\FileAbstraction.js">
+    <Compile Include="src\network\clients\desktop\DesktopFileAbstraction.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\network\servers\HTTPServer\AuthManager.js" />
