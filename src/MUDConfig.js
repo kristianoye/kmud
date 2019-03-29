@@ -48,14 +48,14 @@ class MUDConfig {
 
         this.configFile = options.configFile || path.join(this.entryDirectory, 'mudconfig.json');
 
-        this.mudlibSection = new MudlibSection(raw.mudlib || {});
-        this.driverSection = new DriverSection(raw.driver || {});
-        this.mudSection = new MudSection(raw.mud || {});
+        this.mudlib = new MudlibSection(raw.mudlib || {});
+        this.driver = new DriverSection(raw.driver || {});
+        this.mud = new MudSection(raw.mud || {});
 
         if (this.setupMode) {
             const ConfigApp = require('./config/ConfigApp');
 
-            let app = new ConfigApp(this);
+            let app = new ConfigApp(this, options);
             return app.start();
         }
 
@@ -84,7 +84,9 @@ class MUDConfig {
 
     createExport() {
         let configExport = {
-            mud: this.mudSection.createExport()
+            mud: this.mudSection.createExport(),
+            mudlib: Object.assign({}, this.mudlib),
+            driver: Object.assign({}, this.driver)
         };
 
         return configExport;
@@ -94,29 +96,8 @@ class MUDConfig {
         fs.writeFileSync(path.resolve(__dirname, '../runOnce.json'), JSON.stringify(data), { flags: 'a', encoding: 'utf8' });
     }
 
-    /**
-     * @returns {DriverSection} The driver section from the config.
-     */
-    get driver() {
-        return this['driverSection'];
-    }
-
     loadFallback() {
 
-    }
-
-    /**
-     * @returns {MudSection} The mud section from the config.
-     */
-    get mud() {
-        return this['mudSection'];
-    }
-
-    /**
-     * @returns {MudlibSection} The mudlib section from the config.
-     */
-    get mudlib() {
-        return this['mudlibSection'];
     }
 
     processCommandLine(options) {

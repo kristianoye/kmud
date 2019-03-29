@@ -1,6 +1,5 @@
 ﻿const
     ConfigUtil = require('../ConfigUtil'),
-    { DriverNetworking } = require('./DriverNetworking'),
     DriverCompiler = require('./DriverCompiler'),
     DriverFeature = require('./DriverFeature'),
     path = require('path');
@@ -72,13 +71,13 @@ class DriverSection {
         this.compiler = new DriverCompiler(Object.assign(DriverCompiler.defaults, data.compiler || {}));
 
         /** @type {DriverNetworking} */
-        this.networking = new DriverNetworking(Object.assign(DriverNetworking.defaults, data.networking || {}));
+        //this.networking = new DriverNetworking(Object.assign(DriverNetworking.defaults, data.networking || {}));
     }
 
     assertValid() {
         this.forEachFeature((feature, index) => feature.assertValid());
         this.compiler.assertValid();
-        this.networking.assertValid();
+        //this.networking.assertValid();
         ConfigUtil.assertRange(this.maxCommandLength, 'driver.maxCommandLength', 100, 1024 * 4);
         return this;
     }

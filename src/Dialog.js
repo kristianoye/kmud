@@ -94,6 +94,11 @@ class SimplePrompt {
                 else
                     return callback(val);
             }
+            else if (typeof p.type === 'function') {
+                let result = p.type(resp);
+                if (typeof result !== 'undefined')
+                    return callback(result);
+            }
             this.render();
         });
     }
@@ -112,6 +117,7 @@ class MainMenu {
         this.options = {};
         this.onExit = function () { };
         this.help = params.help || (eol + 'Help not available.' + eol);
+        this.helpTopics = {};
         this.prompt = params.prompt || 'Your choice:';
         this.text = params.text;
     }
@@ -123,6 +129,20 @@ class MainMenu {
      */
     add(opt) {
         return this.addOption(opt.text || '', opt.char || 'x', opt.callback || function () { }, opt.control);
+    }
+
+    /**
+     * Add some help text
+     * @param {string|Object.<string,string>} subject The help subject.
+     * @param {string} text The full help text.
+     */
+    addHelp(subject, text) {
+        if (typeof subject === 'object') {
+            this.helpTopics = Object.assign(this.helpTopics, subject)
+        }
+        else
+            this.helpTopics[subject] = text;
+        return this;
     }
 
     /**
@@ -159,28 +179,51 @@ class MainMenu {
     render() {
         let text = this.text + eol + eol;
 
-        Object.keys(this.options).forEach(key => {
+        this.optionKeys = [];
+
+        if (typeof this.getOptions === 'function') {
+            this.getOptions();
+        }
+
+        Object.keys(this.options).forEach((key, i) => {
             let line = this.options[key].text;
+
             if (typeof line === 'function')
                 line = line(this, key, this.options[key]);
+
             if (typeof line === 'string') {
                 let index = line.toLowerCase().indexOf(key.toLowerCase());
 
                 if (index > -1) {
-                    line = line.slice(0, index) + '[' + line.slice(index, index + 1) + ']' + line.slice(index + 1);
+                    line = line.slice(0, index) + '[' + line.slice(index, index + key.length) + ']' + line.slice(index + 1);
                 }
+                line = (i < 10 ? ' ' : '') + i.toString() + ') ' + line;
                 text += '\t' + line + eol;
+
+                this.optionKeys.push(key);
             }
         });
 
         text += eol + `${this.prompt}: `;
 
         rl.question(text, resp => {
-            resp = resp.trim();
+            let index = parseInt(resp = resp.trim()),
+                help = /^help\s*(.+)?/.exec(resp);
 
-            if (resp === 'help')
-                writeLine(eol + this.help + eol);
+            if (!isNaN(index) && !this.options.hasOwnProperty(index) && index < this.optionKeys.length)
+                resp = this.optionKeys[index];
 
+            if (Array.isArray(help)) {
+                if (!help[1])
+                    writeLine(eol + this.help + eol);
+                else {
+                    index = parseInt(help[1]);
+                    if (!isNaN(index) && !this.options.hasOwnProperty(index) && index < this.optionKeys.length)
+                        help[1] = this.optionKeys[index];
+                    let helpText = this.helpTopics[help[1]] || `No help available for '${help[1]}'`;
+                    writeLine(eol + helpText + eol);
+                }
+            }
             else if (this.options.hasOwnProperty(resp)) {
                 let op = this.options[resp];
 

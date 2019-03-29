@@ -44,7 +44,7 @@ class MudSection {
             adminEmail:  this.adminEmail,
             features: this.features,
             passwordPolicy: this.passwordPolicy,
-            portBindigs: this.portBindings.map(p => p.createExport())
+            portBindings: this.portBindings.map(p => p.createExport())
         };
 
         return configExport;
@@ -206,7 +206,7 @@ MudSection.createPasswordPolicyDialog = function (policy) {
 
 /**
  * Configure the MUD section
- * @param {MUDSection} mud
+ * @param {MudSection} mud
  */
 MudSection.createDialog = function (mud) {
     const Dialog = require('../Dialog');
@@ -276,6 +276,32 @@ MudSection.createDialog = function (mud) {
             minLength: 2,
             type: 'string'
         })
+    });
+    //  Admin Email
+    dlg.add({
+        text: () => {
+            return `Change Admin Characters [currently: ${mud.adminCharacter}]`
+        },
+        char: 'c',
+        callback: (adminCharacter) => {
+            mud.adminCharacter = adminCharacter;
+        },
+        control: new Dialog.SimplePrompt({
+            defaultValue: () => mud.adminCharacter,
+            error: 'Not a valid character name',
+            pattern: /^[#]*[a-zA-Z]+[\w\d\.\_]+$/,
+            question: () => {
+                return `Admin Character [${mud.adminCharacter}]: `;
+            },
+            minLength: 2,
+            type: 'string'
+        })
+    });
+    //  MUD Ports
+    dlg.add({
+        text: () => `Change Port Assignments [currently ${mud.portBindings.length} defined]`,
+        char: 'o',
+        control: MudPort.createConfigUI(mud.portBindings)
     });
 
     dlg.add({

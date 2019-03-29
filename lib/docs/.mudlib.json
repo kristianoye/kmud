@@ -1,0 +1,10 @@
+﻿{
+  "include": [
+    "/base/include",
+    "/sys/include"
+  ],
+  "master": {
+    "path": "/sys/daemon/GameMaster",
+    "parameters": {}
+  }
+}

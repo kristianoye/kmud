@@ -8,8 +8,7 @@
     <EnableTypeScript>true</EnableTypeScript>
     <TypeScriptSourceMap>true</TypeScriptSourceMap>
     <TypeScriptModuleKind>CommonJS</TypeScriptModuleKind>
-    <ScriptArguments>
-    </ScriptArguments>
+    <ScriptArguments>--single-user</ScriptArguments>
     <Environment>
     </Environment>
     <LastActiveSolutionConfig>Debug|Any CPU</LastActiveSolutionConfig>
@@ -742,6 +741,9 @@
     <Content Include=".eslint">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\docs\.mudlib.json">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="lib\sys\etc\accessEx.json">
       <SubType>Code</SubType>
     </Content>
@@ -751,6 +753,7 @@
     <Content Include="lib\sys\etc\singletons.json">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="mudconfig.json" />
     <Content Include="src\network\clients\desktop\client\desktop\css\client.css" />
     <Content Include="src\network\clients\desktop\client\desktop\css\client.min.css" />
     <Content Include="src\network\clients\desktop\client\desktop\css\client.scss">
