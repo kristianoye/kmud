@@ -79,6 +79,13 @@ class DesktopFileAbstraction extends Abstraction.FileAbstractionDefault {
      * @returns {Promise<fs.Stats & { exists: boolean, path: string }>} Return information about a file.
      */
     async stat(expr, isMapped = undefined) {
+        for (let i = 0, m = this.fileMappingNames.length; i < m; i++) {
+            let mapName = this.fileMappingNames[i];
+            if (expr.startsWith(mapName)) {
+
+            }
+        }
+
         let stat = await this.driverCall('statAsync', async () => {
             return await driver.fileManager.statAsync(driver.efuns, expr);
         });

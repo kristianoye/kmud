@@ -34,10 +34,10 @@ class DesktopServer extends ClientEndpoint {
                     host: this.address
                 }
             })
-            .createFileAbstraction(new DesktopFileAbstraction())
+            .createFileAbstraction(DesktopFileAbstraction)
             .addMapping('/index.html', path.join(__dirname, 'client/index.html'))
             .addMapping('/desktop/', path.join(__dirname, 'client/desktop/'))
-            .on('upgrade', socket => {
+            .on('upgrade', () => {
                 console.log('Client has requested to upgrade to websocket');
             })
             .on('connection', client => {

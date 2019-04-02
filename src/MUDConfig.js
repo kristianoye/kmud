@@ -45,6 +45,13 @@ class MUDConfig {
             if (typeof raw.mud !== 'object')
                 throw new Error(`Config file '${options.configFile}' did not define section 'mud'`);
         }
+        else {
+            let baseConfig = path.resolve(__dirname, '../baseconfig.json');
+
+            if (fs.existsSync(baseConfig)) {
+                raw = JSON.parse(this.stripBOM(fs.readFileSync(baseConfig, 'utf8')));
+            }
+        }
 
         this.configFile = options.configFile || path.join(this.entryDirectory, 'mudconfig.json');
 
@@ -84,7 +91,7 @@ class MUDConfig {
 
     createExport() {
         let configExport = {
-            mud: this.mudSection.createExport(),
+            mud: this.mud.createExport(),
             mudlib: Object.assign({}, this.mudlib),
             driver: Object.assign({}, this.driver)
         };

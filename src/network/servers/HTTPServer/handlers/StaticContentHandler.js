@@ -8,6 +8,7 @@
 
 const
     { HTTPContext } = require('../HTTPContext'),
+    KnownMimeTypes = require('../KnownMimeTypes'),
     BaseContentHandler = require('./BaseContentHandler'),
     fs = require('fs');
 
@@ -21,7 +22,9 @@ class StaticContentHandler extends BaseContentHandler {
             response = context.response,
             url = request.urlParsed,
             localPath = url.localPath,
+            server = context.server,
             stat = url.stat;
+
 
         let lastModified = request.headers["if-modified-since"];
         if (lastModified) {
@@ -33,6 +36,8 @@ class StaticContentHandler extends BaseContentHandler {
         }
         fs.readFile(localPath, (err, buff) => {
             if (!err) {
+                response.mimeType = KnownMimeTypes.resolve(url.extension);
+
                 response.writeHead(200, 'OK', {
                     'Content-Type': response.mimeType.type,
                     'Last-Modified': stat.mtime.toISOString()
@@ -41,8 +46,9 @@ class StaticContentHandler extends BaseContentHandler {
                 response.end();
             }
             else
-                this.sendErrorFile(response, 500);
+                server.sendErrorFile(response, 500);
         });
+        return true;
     }
 }
 

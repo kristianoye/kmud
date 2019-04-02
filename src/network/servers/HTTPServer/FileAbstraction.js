@@ -10,6 +10,38 @@ const
     path = require('path'),
     fs = require('fs');
 
+class FileLocation {
+    /**
+     * @param {FileAbstractionBase} abs The file abstraction that created the object.
+     * @param {string} vp The virtual path
+     * @param {string} pp The physical path
+     */
+    constructor(abs, vp, pp) {
+        this.creator = abs;
+        this.virtualPath = vp;
+        this.physicalPath = pp;
+    }
+
+    /**
+     * Resolve a relative virtual path
+     * @param {string} vp The relative virtual path
+     * @returns {FileLocation} The new file location
+     */
+    resolveVirtual(vp) {
+        let virtualPath = path.posix.join(this.virtualPath, vp),
+            physicalPath = this.creator.resolve(virtualPath);
+
+        return new FileLocation(this.creator, virtualPath, physicalPath);
+    }
+
+    async stat() {
+        if (typeof this._stat !== 'undefined')
+            return this._stat;
+
+        return this._stat = await this.creator.stat(this.physicalPath);
+    }
+}
+
 class FileAbstractionBase {
     /**
      * Construct an abstraction
@@ -50,6 +82,25 @@ class FileAbstractionBase {
         return this;
     }
 
+    /**
+     * Create a location object.
+     * @param {string} virtualPath The virtual path
+     * @returns {FileLocation} The file location object mapping a virtual path to a physical path.
+     */
+    createLocation(virtualPath) {
+        if (virtualPath.charAt(0) !== '/')
+            throw new Error(`Virtual path (${virtualPath}) must start with /`);
+        for (let i = 0; i < this.fileMappingNames.length; i++) {
+            let name = this.fileMappingNames[i];
+            if (virtualPath.startsWith(name)) {
+                let mappedPath = path.join(this.fileMappings[name], virtualPath.slice(name.length));
+                return new FileLocation(this, virtualPath, mappedPath);
+            }
+        }
+        let physicalPath = path.join(this.contentRoot, virtualPath.slice(1));
+        return new FileLocation(this, virtualPath, physicalPath);
+    }
+
     async readDirectory(expr, isMapped = undefined) {
         throw new Error('Not implemented');
     }
@@ -71,24 +122,25 @@ class FileAbstractionBase {
     /**
      * Resolve any mapped paths to their actual destinations.
      * @param {string} expr The expression to try and translate.
-     * @returns {[string, boolean]} Returns the location to use and a flag indicating if the file was mapped.
+     * @returns {string} Returns the location to use and a flag indicating if the file was mapped.
      */
     resolve(expr) {
         for (let i = 0, max = this.fileMappingNames.length; i < max; i++) {
             let name = this.fileMappingNames[i];
 
             if (expr.startsWith(name)) {
-                let rightPart = url.slice(mapped[i].length);
+                let rightPart = expr.slice(this.fileMappings[name].length);
                 let newPath = path.posix.join(this.fileMappings[name], rightPart.slice(1));
-                return [newPath, true];
+                return newPath;
             }
         }
-        return [path.posix.resolve(this.contentRoot, expr), false];
+        return path.join(this.contentRoot, expr.slice(1));
     }
 
     /**
-     * (Re)define the content root directory
-     * @param {any} root
+     * Replace the content root directory.
+     * @param {string} root The content root directory
+     * @returns {FileAbstractionBase} 
      */
     setContentRoot(root) {
         this.contentRoot = root;
@@ -216,15 +268,18 @@ class FileAbstractionDefault extends FileAbstractionBase {
             try {
                 fs.stat(expr, (err, stat) => {
                     if (err) {
-                        resolve(FileAbstractionBase.createDummyStats(err));
+                        resolve(FileAbstractionBase.createDummyStats(err, expr));
                     }
                     else {
-                        resolve(Object.assign(stat, { exists: true }));
+                        resolve(Object.assign(stat, {
+                            exists: true,
+                            fullPath: expr
+                        }));
                     }
                 });
             }
             catch (err) {
-                resolve(FileAbstractionBase.createDummyStats(err));
+                resolve(FileAbstractionBase.createDummyStats(err, expr));
             }
         });
     }

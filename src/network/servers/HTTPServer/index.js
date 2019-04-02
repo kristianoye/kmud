@@ -3,7 +3,7 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: February 28, 2019
  *
- * Description: New and improved? HTTP daemon for KMUD
+ * Description: New and improved? (IIS-inspired) HTTP daemon for KMUD
  */
 const
     events = require('events'),
@@ -25,13 +25,91 @@ const
     HandlerDefault = 'default',
     HandlerMVC = 'MVC';
 
+
 /**
- * Maps a virtual location to a physical, storage location on the server.
+ * @typedef {Object} HandlerConfig 
+ * @property {string} module The module that will handle the Request.
+ * @property {number} [order=0] The order in which the handler will be tried.
+ * @property {string|RegExp} [path='*'] The path pattern that must be.
+ * @property {string|number} [resourceType=3] The resource type that the handler applies to.
+ * @property {string} [verb='*'] One ore more verbs to match.
  */
-class Location {
-    constructor(vloc, ploc) {
-        this.virtualPath = vloc;
-        this.physicalPath = ploc;
+
+class HTTPHandlerEntry extends events.EventEmitter {
+    /**
+     * Construct a new handler.
+     * @param {HTTPServer} server The server that owns this entry.
+     * @param {HandlerConfig} config The handler configuration.
+     */
+    constructor(server, config) {
+        super();
+
+        this.module = config.module;
+        this.order = config.order || 0;
+        /** @type {string|RegExp} */
+        this.path = config.path || '*';
+        this.resourceType = config.resourceType || 'Unspecified';
+        this.server = server;
+        this.verb = config.verb || '*';
+
+        if (this.verb.length > 1)
+            this.verbs = this.verb.split(',').map(s => s.trim().toUpperCase());
+
+        if (typeof this.path === 'string')
+            this.path = new RegExp('^' + this.path.replace(/\./g, '\\.').replace(/\*/, '.*').replace(/\?/, '.') + '$');
+    }
+
+    /**
+     * Returns an instance of the actual handler.
+     * @returns {BaseContentHandler} 
+     */
+    getInstance() {
+        if (!this.instance) {
+            let module = require(this.module), instance = false;
+            if (typeof module === 'object') {
+                this.instance = instance = module;
+            }
+            else {
+                instance = new module();
+                if (instance.reusable)
+                    this.instance = instance;
+            }
+            return instance;
+        }
+        return this.instance;
+    }
+
+    /**
+     * Attempt to process a request
+     * @param {HTTPContext} ctx The context to process
+     * @returns {boolean} Returns true if the context was handled or false if not.
+     */
+    async processRequest(ctx) {
+        let instance = this.getInstance();
+        try {
+            let result = await instance.executeHandler(ctx);
+            return result !== false;
+        }
+        catch (err) {
+
+        }
+        return false;
+    }
+
+    /**
+     * Check to see if this handler should try and process the request.
+     * @param {HTTPContext} ctx The context to check
+     * @returns {boolean} True if the handler should try and process the request.
+     */
+    tryRequest(ctx) {
+
+        if (Array.isArray(this.verbs) && this.verbs.indexOf(ctx.request.method) === -1)
+            return false;
+
+        if (typeof this.path === 'object' && !this.path.test(ctx.request.url))
+            return false;
+
+        return true;
     }
 }
 
@@ -47,7 +125,9 @@ class HTTPServer extends events.EventEmitter {
         this.enableWebSocket = config.enableWebSocket === true;
         this.fileMappings = {};
         this.fileMappingNames = Object.keys(this.fileMappings);
-        this.handlers = {};
+
+        /** @type {HTTPHandlerEntry[]} */
+        this.handlers = [];
         this.indexFiles = [];
         this.mimeTypes = Object.assign({}, KnownMimeTypes);
         this.port = config.port || 8088;
@@ -57,14 +137,15 @@ class HTTPServer extends events.EventEmitter {
                 IncomingMessage: HTTPRequest,
                 ServerResponse: HTTPResponse
             });
+
         this.routeTable = new RouteTable(this);
         this.securePort = config.securePort || false;
         this.secureOptions = config.secureOptions;
         this.contentRoot = config.staticRoot || path.join(__dirname, '../../../../lib/wwwroot');
 
-        this.addHandler(HandlerDefault, './handlers/StaticContentHandler')
-            .addHandler(HandlerMVC, './handlers/MVCHandler')
-            .addHandler('mhtm', './handlers/KMTemplateHandler');
+        this.addHandler({ verbs: '*', module: './handlers/StaticContentHandler', path: '*' });
+        this.addHandler({ verbs: '*', module: './handlers/KMTemplateHandler', path: '*.mhtml' });
+        this.addHandler({ verbs: '*', module: './handlers/MVCHandler', path: '*' });
 
         this.fileSystem = new FileAbstraction.FileAbstractionDefault();
     }
@@ -85,36 +166,49 @@ class HTTPServer extends events.EventEmitter {
 
     /**
      * Adds a MIME handler
-     * @param {string} mimeSpec The MIME type to handle
-     * @param {string} modulePath The path to the module that will handle requests of this type.
+     * @param {{ server: HTTPServer, module: string, order: number, path: string, verbs: string }} config Info on the handler to add.
      * @returns {HTTPServer}
      */
-    addHandler(mimeSpec, modulePath) {
-        let fullModulePath = path.join(__dirname, modulePath),
-            handler = require(fullModulePath);
+    addHandler(config) {
 
-        if (handler instanceof BaseContentHandler === false &&
-            handler.constructor instanceof BaseContentHandler.constructor === false)
-            throw new Error(`No suitable handler for MIME spec '${mimeSpec}' found in module ${fullModulePath}`);
+        if (typeof config !== 'object')
+            throw new Error('Bad argument 1 to addHandler');
+        else if (typeof config.module !== 'string')
+            throw new Error('Handler config is missing required property: module');
+        else if (typeof config.verbs !== 'string')
+            throw new Error('Handler config is missing required property: module');
 
-        if (typeof mimeSpec === 'string') {
-            if (mimeSpec === HandlerDefault || mimeSpec === HandlerMVC) {
-                this.handlers[mimeSpec] = handler;
-            }
-            else {
-                let type = KnownMimeTypes.resolve(mimeSpec);
+        if (typeof config.order !== 'number')
+            config.order = this.handlers.length;
 
-                if (Array.isArray(type)) {
-                    type.forEach(m => {
-                        this.handlers[m.extension] = handler;
-                    });
-                }
-                else if (!type)
-                    throw new Error(`Could not determine MIME type from '${$mimeSpec}'`);
-                else
-                    this.handlers[type.extension] = handler;
-            }
-        }
+        this.handlers.push(new HTTPHandlerEntry(this, config));
+        this.handlers.sort((a, b) => a.order < b.order ? -1 : 1);
+
+        //let fullModulePath = path.join(__dirname, modulePath),
+        //    handler = require(fullModulePath);
+
+        //if (handler instanceof BaseContentHandler === false &&
+        //    handler.constructor instanceof BaseContentHandler.constructor === false)
+        //    throw new Error(`No suitable handler for MIME spec '${mimeSpec}' found in module ${fullModulePath}`);
+
+        //if (typeof mimeSpec === 'string') {
+        //    if (mimeSpec === HandlerDefault || mimeSpec === HandlerMVC) {
+        //        this.handlers[mimeSpec] = handler;
+        //    }
+        //    else {
+        //        let type = KnownMimeTypes.resolve(mimeSpec);
+
+        //        if (Array.isArray(type)) {
+        //            type.forEach(m => {
+        //                this.handlers[m.extension] = handler;
+        //            });
+        //        }
+        //        else if (!type)
+        //            throw new Error(`Could not determine MIME type from '${$mimeSpec}'`);
+        //        else
+        //            this.handlers[type.extension] = handler;
+        //    }
+        //}
         return this;
     }
 
@@ -149,13 +243,12 @@ class HTTPServer extends events.EventEmitter {
 
     /**
      * Create a filesystem abstraction for the web server.
-     * @param {FileAbstraction.FileAbstractionBase} fileSystem The filesystem abstraction
+     * @param {FileAbstraction.FileAbstractionBase} fileSystemType The filesystem abstraction type to create
      */
-    createFileAbstraction(fileSystem) {
-        if (fileSystem) {
-            this.fileSystem = fileSystem;
+    createFileAbstraction(fileSystemType) {
+        if (fileSystemType) {
+            this.fileSystem = new fileSystemType(this.contentRoot);
 
-            this.fileSystem.setContentRoot(this.contentRoot);
             this.fileSystem.addMapping(this.fileMappings);
             this.fileSystem.addIndexFile(...this.indexFiles);
         }
@@ -229,7 +322,7 @@ class HTTPServer extends events.EventEmitter {
                 indexPath = values.filter(v => v !== false);
             });
             if (indexPath.length === 0) {
-                return this.sendErrorFile(response, 403);
+                return this.sendErrorFile(context.response, 403);
             }
             let [localFile, stat] = indexPath[0];
             urlParsed.stat = stat;
@@ -271,14 +364,28 @@ class HTTPServer extends events.EventEmitter {
     async receiveRequest(request, response, server) {
         try {
             let context = new HTTPContext(request, response);
-            let loc = await this.fileSystem.readLocation(request.url.slice(1));
+            let loc = await this.resolvePath(request.url)
+
+            context.server = this;
+
+            context.request.urlParsed = HTTPUri.parse(context, server.isSecure);
+            context.request.urlParsed.localPath = loc.physicalPath;
+            context.request.urlParsed.stat = await loc.stat();
+
+            for (let i = 0; i < this.handlers.length; i++) {
+                let handler = this.handlers[i];
+                if (handler.tryRequest(context)) {
+                    if (await handler.processRequest(context) !== false) {
+                        return;
+                    }
+                }
+            }
 
             //  Resolve the physical path
             if (await this.resolveRequest(context, server) === false)
                 return this.sendErrorFile(response, 400);
 
             //  TODO: Add auth
-
             context.response.handler.executeHandler(context);
         }
         catch (err) {
@@ -286,6 +393,31 @@ class HTTPServer extends events.EventEmitter {
         }
         finally {
         }
+    }
+
+    async resolveAction(url) {
+
+    }
+
+    /**
+     * Map a virtual path to a physical path (that may or may not exist)
+     * @param {string} expr The expression to evaluate.
+     */
+    async resolvePath(expr) {
+        let resolvedFilename = this.fileSystem.createLocation(expr),
+            stat = await resolvedFilename.stat();
+
+        if (stat.isDirectory()) {
+            for (let i = 0; i < this.indexFiles.length; i++) {
+                let indexFile = resolvedFilename.resolveVirtual(this.indexFiles[i]);
+                let indexStat = await indexFile.stat();
+
+                if (indexStat.exists) {
+                    return indexFile;
+                }
+            }
+        }
+        return resolvedFilename;
     }
 
     /** 
@@ -344,8 +476,6 @@ class HTTPServer extends events.EventEmitter {
      */
     setContentRoot(siteRoot) {
         this.contentRoot = siteRoot;
-        if (this.fileSystem)
-            this.fileSystem.setContentRoot(siteRoot);
         return this;
     }
 
@@ -363,6 +493,7 @@ class HTTPServer extends events.EventEmitter {
                 staticRoot: this.contentRoot
             });
 
+            this.standardServer.isSecure = false;
             this.standardServer.listen(
                 this.port,
                 this.portOptions.host)
@@ -386,6 +517,8 @@ class HTTPServer extends events.EventEmitter {
             this.secureServer = https.createServer(
                 this.secureOptions,
                 this.receiveRequest);
+            this.standardServer.isSecure = true;
+
         }
         return this;
     }
@@ -448,7 +581,7 @@ class HTTPServer extends events.EventEmitter {
  * @param {Error} err The error that occurred
  * @returns {fs.Stats & { exists: false, error: Error }}
  */
-function createDummyStats(err = false) {
+function createDummyStats(err = false, fullPath = undefined) {
     let dt = new Date(0),
         alwaysFalse = () => false;
 
@@ -464,6 +597,7 @@ function createDummyStats(err = false) {
         dev: -1,
         error: err || new Error('Unknown error'),
         exists: false,
+        fullPath,
         gid: -1,
         ino: -1,
         nlink: -1,

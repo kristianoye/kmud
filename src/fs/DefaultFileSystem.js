@@ -501,7 +501,10 @@ class DefaultFileSystem extends FileSystem {
                         resolve(driver.fileManager.createDummyStats(err, fullPath));
                     }
                     else
-                        resolve(Object.assign(stats, { exists: true, path: fullPath }));
+                        resolve(Object.assign(stats, {
+                            exists: true,
+                            path: fullPath
+                        }));
                 });
             }
             catch (err) {

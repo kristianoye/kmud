@@ -74,17 +74,16 @@ class HTTPUri {
 /**
  * 
  * @param {any} arg
- * @param {function(HTTPUri): string} resolver A function to resolve virtual to physical paths
  * @param {boolean} [isSecure=false] Indicates whether HTTPS is being used
  */
-HTTPUri.parse = async function (arg, resolver = false, isSecure = false) {
+HTTPUri.parse = function (arg, isSecure = false) {
     if (typeof arg === 'object') {
         let scheme = isSecure ? 'https' : 'http',
             req = arg.request,
             url = `${scheme}://${req.headers.host}${req.url}`,
             result = req.urlParsed = new HTTPUri(url);
 
-        return !!resolver && resolver(arg) || result;
+        return result;
     }
     else if (typeof arg === 'string')
         return new HTTPUri(arg);

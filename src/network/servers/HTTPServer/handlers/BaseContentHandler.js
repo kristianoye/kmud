@@ -9,16 +9,6 @@ const
     { HTTPContext } = require('../HTTPContext');
 
 class BaseContentHandler {
-    /**
-     * Construct a handler
-     * @param {any} server
-     * @param {any} context
-     */
-    constructor(server, context) {
-        this.server = server;
-        this.context = context || false;
-    }
-
     addPerfStat() {
         throw new Error(`addPerfStat() was not implemented in ${this.constructor.name}`);
     }
@@ -36,6 +26,13 @@ class BaseContentHandler {
      */
     renderPerfStats() {
         throw new Error(`renderPerfStats() was not implemented in ${this.constructor.name}`);
+    }
+
+    /**
+     * Can the handler be re-used for subsequent requests
+     */
+    get reusable() {
+        return false;
     }
 }
 

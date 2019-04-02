@@ -47,7 +47,6 @@ class HTTPContext {
     constructor(request, response) {
         this.request = request;
         this.response = response;
-        request.urlParsed = HTTPUri.parse(this);
     }
 }
 
