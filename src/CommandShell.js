@@ -450,11 +450,15 @@ class CommandShell extends MUDEventEmitter {
     executeResult(result, cmds) {
         try {
             let cmd = cmds.shift(),
-                success = result !== false && result instanceof Error === false;
+                success = result === true || result === 0; // result !== false && result instanceof Error === false;
 
             if (this.env) {
                 this.env["?"] = success;
                 this.env["??"] = result;
+            }
+
+            if (typeof result === 'string' && result.length > 0) {
+                this.stderr.writeLine(result);
             }
 
             if (success) {

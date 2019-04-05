@@ -17,6 +17,10 @@ class MUDCache {
         this.moduleNames = [];
     }
 
+    /**
+     * Remove a module from the cache
+     * @param {string} filename The name of the module to unload
+     */
     delete(filename) {
         let module = this[filename] || false;
         if (module) {
