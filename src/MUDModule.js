@@ -5,8 +5,7 @@
  */
 var
     GameServer = require('./GameServer'),
-    MUDEventEmitter = require('./MUDEventEmitter'),
-    async = require('async');
+    MUDEventEmitter = require('./MUDEventEmitter');
 
 var
     useAuthorStats = false,
@@ -334,6 +333,23 @@ class MUDModule extends MUDEventEmitter {
     }
 
     /**
+     * Get all instances for the specified types
+     * @param {...string} typeList
+     */
+    getInstances(...typeList) {
+        let result = [];
+
+        if (!Array.isArray(typeList) || typeList.length === 0)
+            typeList = Object.keys(this.instanceMap);
+
+        (typeList || Object.keys(this.instanceMap)).forEach(type => {
+            let instances = this.instanceMap[type].filter(o => typeof o === 'object');
+            result.push(...instances);
+        });
+        return result;
+    }
+
+    /**
      * Request a specific instance of a type.
      * @param {PathExpr} req The instance request.
      * @returns {MUDWrapper} The specified instance.
@@ -419,6 +435,13 @@ class MUDModule extends MUDEventEmitter {
     }
 
     /**
+     * Returns all types defined in the module
+     */
+    getTypes() {
+        return Object.keys(this.types);
+    }
+
+    /**
      * Determines if the module is related to this module.
      * @param {MUDModule} module The module to check.
      * @returns {boolean} True if the module is related.
@@ -474,6 +497,9 @@ class MUDModule extends MUDEventEmitter {
         //});
     }
 
+    /**
+     * Seal all defined types to prevent tampering
+     */
     sealTypes() {
         this.types && Object.keys(this.types)
             .forEach(tn => Object.freeze(this.types[tn]));

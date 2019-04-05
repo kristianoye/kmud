@@ -1208,6 +1208,7 @@ class CommandShell extends MUDEventEmitter {
                     }
 
                 case TT.WS:
+                    i = tok.end;
                     break;
 
                 default:

@@ -305,6 +305,10 @@ class MUDLoader {
         return driver.createEfunInstance(fn);
     }
 
+    clearInterval(ident) {
+        return global.clearInterval(ident);
+    }
+
     createElement() {
         let children = [].slice.call(arguments),
             type = children.shift(),
@@ -343,6 +347,34 @@ class MUDLoader {
         return false;
     }
 
+    /**
+     * Sets a value (and creates if needed).
+     * @param {any} definingType The class reference attempting to set the value
+     * @param {propertyName} value The name of the variable to create
+     * @param {any} initialValue The initial value if the property is not defined
+     * @returns {any} Returns the value on success
+     */
+    get(definingType, propertyName, initialValue) {
+        let store = driver.storage.get(this);
+        return !!store && store.get(definingType, propertyName, initialValue);
+    }
+
+    inc(usingType, file, key, value = 0, access = 2) {
+        let store = driver.storage.get(this);
+        store.set(this, usingType, file, key, value, access | 128, false);
+    }
+
+    /**
+     * Send a message to one or more objects.
+     * @param {any} messageType
+     * @param {any} expr
+     * @param {any} audience
+     * @param {any} excluded
+     */
+    message(messageType='', expr='', audience=[], excluded=[]) {
+        return efuns.message(messageType, expr, audience, excluded);
+    }
+
     get MUDFS() {
         return Object.assign({}, global.MUDFS);
     }
@@ -374,37 +406,12 @@ class MUDLoader {
      * Sets a value (and creates if needed).
      * @param {any} definingType The class reference attempting to set the value
      * @param {propertyName} value The name of the variable to create
-     * @param {any} initialValue The initial value if the property is not defined
-     * @returns {any} Returns the value on success
-     */
-    get(definingType, propertyName, initialValue) {
-        let store = driver.storage.get(this);
-        return !!store && store.get(definingType, propertyName, initialValue);
-    }
-
-    inc(usingType, file, key, value = 0, access = 2) {
-        let store = driver.storage.get(this);
-        store.set(this, usingType, file, key, value, access | 128, false);
-    }
-
-    register(usingType, file, key, val, access = 2) {
-        // TODO: Remove this entirely
-    }
-
-    /**
-     * Sets a value (and creates if needed).
-     * @param {any} definingType The class reference attempting to set the value
-     * @param {propertyName} value The name of the variable to create
      * @param {any} value The actual value of the property
      * @returns {boolean} Returns true on success.
      */
     set(definingType, propertyName, value) {
         let store = driver.storage.get(this);
         return store.set(definingType, propertyName, value);
-    }
-
-    clearInterval(ident) {
-        return global.clearInterval(ident);
     }
 
     setInterval(callback, timer) {

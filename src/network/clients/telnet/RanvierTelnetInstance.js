@@ -34,6 +34,12 @@ class RanvierTelnetInstance extends ClientInstance {
         this.client.on('drain', () => this.emit('drain'));
         this.closed = false;
         this.client.on('kmud', event => this.emit('kmud', event));
+        this.client.on('window size', evt => {
+            this.emit('kmud', {
+                type: 'windowSize',
+                data: evt
+            });
+        });
     }
 
     eventSend(event) {

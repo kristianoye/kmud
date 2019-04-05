@@ -10,18 +10,20 @@ const
 class MoreCommand extends Command {
     cmd(args, cmdline) {
         try {
-            if (args.length === 0) 'Usage: more <filename>';
+            let fileName = args.trim();
+            if (!fileName) 'Usage: more <filename>';
             var player = thisPlayer,
-                fullpath = efuns.resolvePath(args[0], thisPlayer().workingDirectory);
+                fullpath = efuns.resolvePath(fileName, thisPlayer().workingDirectory);
 
-            if (args[0] === 'here') fullpath = thisPlayer().environment.filename + '.js';
+            if (fileName === 'here')
+                fullpath = thisPlayer().environment.filename + '.js';
 
             if (!efuns.isFile(fullpath))
                 return fullpath + ' is not a file.';
 
             let content = efuns.readFileSync(fullpath);
-            writeLine(content);
-            cmdline.complete();
+            efuns.text.more(content);
+            return true;
         }
         catch (x) {
             writeLine('Error: ' + x);

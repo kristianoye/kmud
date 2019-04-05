@@ -14,13 +14,18 @@ const
 class MUDCache {
     constructor() {
         this.length = 0;
+        this.moduleNames = [];
     }
 
     delete(filename) {
-        var module = this[filename] || false;
+        let module = this[filename] || false;
         if (module) {
             if (!module.loaded) {
                 delete this[filename];
+                let index = this.moduleNames.indexOf(filename);
+                if (index > -1) {
+                    this.moduleNames.splice(index, 1);
+                }
                 return true;
             }
         }
@@ -52,6 +57,7 @@ class MUDCache {
         let module = this[filename];
         if (!module) {
             this[filename] = module = new MUDModule(filename, fullPath, muddir, isVirtual, isMixin, parent);
+            this.moduleNames.push(filename);
         }
         return module;
     }

@@ -27,6 +27,7 @@ const
     FileSystemHelper = require('./efuns/FileSystem'),
     InputHelper = require('./efuns/Inputs'),
     LivingsHelper = require('./efuns/Livings'),
+    ObjectHelper = require('./efuns/ObjectHelper'),
     TextHelper = require('./efuns/TextHelper'),
     TimeHelper = require('./efuns/Time');
 
@@ -819,7 +820,7 @@ class EFUNProxy {
      * @param {string|MUDHtmlComponent|number|function} expr The message expression to display.
      * @param {MUDObject|MUDObject[]} audience One or more recipients to send the message to.
      * @param {MUDObject|MUDObject[]} excluded One or more objects to explicitly exclude from receiving the message.
-     * @returns {void} Returns nothing.
+     * @returns {true} Always returns true.
      */
     message(messageType, expr, audience, excluded) {
         if (expr) {
@@ -865,6 +866,7 @@ class EFUNProxy {
                 });
             }
         }
+        return true;
     }
 
     /**
@@ -929,6 +931,10 @@ class EFUNProxy {
         if (typeof name !== 'string')
             throw new Error(`Bad argument 1 to normalizeName; Expected string got ${(typeof name)}`);
         return name.toLowerCase().replace(/[^a-zA-Z]+/g, '');
+    }
+
+    get objects() {
+        return ObjectHelper;
     }
 
     /**
