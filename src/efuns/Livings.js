@@ -66,7 +66,7 @@ class LivingsHelper {
             store = driver.storage.get(thisObject);
 
         if (store) {
-            return (store.player = flag);
+            return (store.wizard = flag);
         }
         return false;
     }

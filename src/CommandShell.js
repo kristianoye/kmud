@@ -1127,7 +1127,7 @@ class CommandShell extends MUDEventEmitter {
                 if (command.index === 0) {
                     let overrides = this.player && driver.driverCall('prepareCommand', () => {
                         try {
-                            return this.player.prepareCommand(command.verb);
+                            return this.player.prepareCommand(command.verb.value);
                         }
                         catch (err) {
 
