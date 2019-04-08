@@ -17,11 +17,12 @@ const
     LS_OPT_CLASSIFY = 1 << 6;   // Append classification for file types (e.g. / for directories)
 
 class ListCommand extends Command {
-    cmd(args, cmdline) {
-        var player = thisPlayer,
+    cmd(text, cmdline) {
+        let player = thisPlayer(),
             getDirFlags = 0,
             displayFlags = 0,
-            dirList = [];
+            dirList = [],
+            args = cmdline.args;
 
         for (var i = 0; i < args.length; i++) {
             var opt = args[i];
@@ -274,7 +275,7 @@ class ListCommand extends Command {
         return true;
     }
 
-    getHelp() {
+    getHelpX() {
         return {
             type: 'command',
             category: 'Commands > Creator Commands > Filesystem',

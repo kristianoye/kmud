@@ -20,6 +20,14 @@ function ESC(c) {
 
 const MudColorImplementation = require('../MudColorImplementation'),
     TerminalColorsAnsi = {
+        'B_BLACK': ANSI(40),
+        'B_BLUE': ANSI(44),
+        'B_CYAN': ANSI(46),
+        'B_GREEN': ANSI(42),
+        'B_MAGENTA': ANSI(45),
+        'B_ORANGE': ANSI(43),
+        'B_RED': ANSI(41),
+        'B_WHITE': ANSI(47),
         'RESET': ANSI(0),
         'BOLD': ANSI(1),
         'BLACK': ANSI(30),
@@ -28,9 +36,11 @@ const MudColorImplementation = require('../MudColorImplementation'),
         'CYAN': ANSI(36),
         'MAGENTA': ANSI(35),
         'ORANGE': ANSI(33),
+        'RESET': ANSI("0"),
         'YELLOW': ANSI(1) + ANSI(33),
         'GREEN': ANSI(32),
         'WHITE': ANSI(37),
+        'CLEARLINE': ESC('[L') + ESC('[G'),
         'INITTERM': ESC("[H") + ESC("[2J")
     };
 

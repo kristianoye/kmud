@@ -32,8 +32,9 @@ class TextInput extends BaseInput {
      * @param {MUDClient} client The client to render for
      */
     renderText(client) {
+        let prompt = typeof this.text === 'function' ? this.text() : this.text;
         client.toggleEcho(this.type !== 'password');
-        client.write(this.text);
+        client.write(prompt);
     }
 
     _validate() {

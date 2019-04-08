@@ -1,4 +1,10 @@
-﻿
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ * 
+ * Provides text manipulation routines.
+ */
 const
     os = require('os');
 
@@ -10,18 +16,19 @@ class TextHelper {
      */
     static more(content, options = {}) {
         let tp = efuns.thisPlayer(),
+            prompt = false,
             ptr = 0;
 
-        let displayText = (pageOffset = 0) => {
+        let displayText = (pageOffset = 0, linesToShow = 0) => {
             let caps = efuns.clientCaps(tp),
                 width = caps.clientWidth,
-                linesToDisplay = options.lines || caps.clientHeight;
+                linesToDisplay = linesToShow > 0 ? linesToShow : (options.lines || caps.clientHeight) - 2;
 
             if (pageOffset !== 0) {
-                ptr += (pageOffset * 2);
+                if ((ptr += linesToDisplay * pageOffset) < 0) ptr = 0;
             }
 
-            for (let i = 0, max = linesToDisplay - 2; i < max; i++) {
+            for (let i = 0, max = linesToDisplay; i < max; i++) {
                 if (ptr < content.length) {
                     let line = content[ptr++];
 
@@ -46,20 +53,50 @@ class TextHelper {
             efuns.input.addPrompt('text',
                 {
                     default: false,
-                    text: 'More: ',
+                    text: () => {
+                        let pct = Math.floor((ptr * 1.0 / content.length * 1.0) * 100);
+                        let result = prompt || `%^B_WHITE%^%^BLACK%^--More--(${pct}%)%^RESET%^ `;
+                        prompt = false;
+                        return result;
+                    },
                     type: 'text'
                 },
                 (resp) => {
-                    switch (resp.trim().charAt(0)) {
+                    resp = resp.trim();
+                    switch (resp.charAt(0)) {
                         case 'b':
-                            ptr -= displayText(-1);
+                            displayText(-2);
                             return true;
 
                         case 'q':
                             return options.onExit ? options.onExit() : false; // done
 
                         case '=':
-                            tp.receiveMessage('more', ptr.toString() + efuns.eol);
+                            prompt = ptr.toString() + ' ';
+                            return true;
+
+                        case '/':
+                            {
+                                let reg = new RegExp(resp.slice(1)), found = false;
+                                for (let i = ptr; i < content.length; i++) {
+                                    if (reg.test(content[i])) {
+                                        found = i;
+                                        break;
+                                    }
+                                }
+                                if (found === false) {
+                                    prompt = '%^CLEARLINE%^%^B_WHITE%^%^BLACK%^Pattern not found%^RESET%^ ';
+                                    return true;
+                                }
+                                else {
+                                    ptr = Math.max(found - 2, 0);
+                                    tp.receiveMessage('more', `...Skipping ${found - ptr} line(s)...`);
+                                }
+                            }
+                            break;
+
+                        case '':
+                            displayText(0, 1);
                             return true;
 
                         case '?':

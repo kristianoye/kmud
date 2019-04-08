@@ -1046,7 +1046,7 @@ class CommandShell extends MUDEventEmitter {
                             token.value += c;
                         }
                         else if (/[a-zA-Z0-9_\/\.]/.test(c)) {
-                            i += (token.value += take(/^[a-zA-Z0-9_\/\.]+/, i)).length;
+                            token.value += take(/^[a-zA-Z0-9_\/\.]+/, i);
                             token.end = i--;
 
                             if (options.allowObjectShell && take('.')) {

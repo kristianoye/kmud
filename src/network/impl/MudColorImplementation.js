@@ -32,7 +32,7 @@ class MudColorImplementation extends ClientImplementation {
      * @returns {string} The same string with the color codes expanded for the client.
      */
     expandColors(s) {
-        let chunks = s.split(/\%\^([a-zA-Z0-9]+)\%\^/);
+        let chunks = s.split(/\%\^([a-zA-Z0-9\_]+)\%\^/);
 
         if (chunks.length > 1) {
             let lookup = this.colorMap(),
