@@ -10,9 +10,6 @@
  *       - Security system validates the results and returns
  */
 class FileSystemStat {
-    constructor(fileSystem) {
-    }
-
     /**
      * Checks to see if the path exists.
      * @returns {boolean} Indicates whether the path exists.

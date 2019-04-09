@@ -86,7 +86,7 @@ class MUDStorage extends MUDEventEmitter {
         return await driver.driverCallAsync('executeCommand', async (context) => {
             let cmd = {
                 verb: rawcmd.verb.value,
-                args: rawcmd.args.map(a => a.value),
+                args: rawcmd.args.map(a => a.hasOwnProperty('value') ? a.value : a),
                 text: rawcmd.text
             };
 
@@ -431,6 +431,10 @@ class MUDStorage extends MUDEventEmitter {
             this.playerName = flag;
         }
         this.flag(MUDStorage.PROP_ISPLAYER, flag !== false);
+    }
+
+    get thisObject() {
+        return unwrap(this.owner);
     }
 
     get wizard() {

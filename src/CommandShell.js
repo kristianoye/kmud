@@ -13,7 +13,8 @@ const
     ClientComponent = require('./ClientComponent'),
     MUDEventEmitter = require('./MUDEventEmitter'),
     BaseInput = require('./inputs/BaseInput'),
-    CommandInterval = 5;
+    CommandInterval = 5,
+    path = require('path');
 
 const
     TT = {
@@ -414,6 +415,7 @@ class CommandShell extends MUDEventEmitter {
                             }
                             else
                                 result = this.env[cmd.lhs.value] = cmd.value, cmds;
+
                             return this.executeResult(result, cmds);
                         }
 
@@ -498,6 +500,58 @@ class CommandShell extends MUDEventEmitter {
             else
                 this.renderPrompt();
         }
+    }
+
+    /**
+     * 
+     * @param {{ args:any[], verb:string }[]} cmds
+     */
+    async expandFileExpressions(cmds) {
+        let tasks = [], cwd = '/';
+
+        driver.driverCall('applyGetWorkingDir', () => {
+            let gcwd = this.storage.thisObject.applyGetWorkingDir;
+
+            if (typeof gcwd === 'function') {
+                cwd = this.storage.thisObject.applyGetWorkingDir();
+            }
+        });
+        for (let i = 0; i < cmds.length; i++) {
+            let cmd = cmds[i], newargs = cmd.args.slice(0);
+
+            for (let j = 0; j < cmd.args.length; j++) {
+                if (cmd.args[j].type == TT.FileExpression) {
+                    let expr = cmd.args[j];
+
+                    tasks.push(new Promise(async resolve => {
+                        try {
+                            driver.driverCallAsync('expandFileExpressions', async ecc => {
+                                await ecc.withPlayerAsync(this.storage, async player => {
+                                    try {
+                                        let pathExpr = path.posix.join(cwd, expr.value),
+                                            result = await driver.fileManager.readDirectoryAsync(driver.efuns, pathExpr);
+
+                                        if (Array.isArray(result) && result.length > 0) {
+                                            let n = newargs.indexOf(expr);
+                                            newargs = newargs.slice(0, n).concat(result, newargs.slice(n + 1));
+                                            cmd.args = newargs;
+                                        }
+                                        resolve(true);
+                                    }
+                                    catch (err) {
+                                        resolve(false);
+                                    }
+                                });
+                            });
+                        }
+                        catch (err) {
+                            resolve(false);
+                        }
+                    }));
+                }
+            }
+        }
+        return Promise.all(tasks);
     }
 
     /**
@@ -906,7 +960,10 @@ class CommandShell extends MUDEventEmitter {
                                     else
                                         return valueType.toUpperCase();
                                 };
-                                let textVersion = convertValue(token.value);
+
+                                token.type = TT.VariableValue;
+                                let tokenValue = this.expandVariable(token.value, '$' + token.value);
+                                let textVersion = convertValue(tokenValue);
                                 source = source.slice(0, token.start) + textVersion + source.slice(token.end);
                                 i = token.start + textVersion.length;
                                 token.end = token.start + textVersion.length;
@@ -1119,6 +1176,7 @@ class CommandShell extends MUDEventEmitter {
 
                     type: TT.Command,
                     verb: token,
+                    hasFileExpressions: false,
                     index: commandIndex++,
                     start: token.start,
                     end: token.end,
@@ -1142,6 +1200,7 @@ class CommandShell extends MUDEventEmitter {
                         command.args.push(arg);
                     }
                     else if (arg.type === TT.FileExpression) {
+                        command.hasFileExpressions = true;
                         command.args.push(arg);
                     }
                     else if (arg.type !== TT.WS) {
@@ -1308,6 +1367,10 @@ class CommandShell extends MUDEventEmitter {
                     }
 
                     let cmds = this.process(input);
+
+                    if (cmds.some(c => c.hasFileExpressions)) {
+                        await this.expandFileExpressions(cmds);
+                    }
                     return this.executeCommands(cmds);
                 }
                 catch (err) {

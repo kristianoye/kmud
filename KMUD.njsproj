@@ -152,7 +152,7 @@
     <Compile Include="lib\sys\cmds\admin\Shutdown.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\cmds\creator\SetEnv.jsx">
+    <Compile Include="lib\cmds\creator\Set.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\filesystem\Update.jsx">

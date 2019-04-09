@@ -477,8 +477,11 @@ class FileManager extends MUDEventEmitter {
     }
 
     readDirectoryAsync(efuns, expr, flags, callback) {
-        let req = this.createFileRequest('readDirectoryAsync', expr, true, flags);
-        return req.securityManager.readDirectoryAsync(efuns, req, callback);
+        let req = this.createFileRequest('ReadDirectory', expr, false, flags, null, efuns);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.readDirectoryAsync(req.pathRel, req.fileName, req.flags);
     }
 
     readDirectorySync(efuns, expr, flags) {

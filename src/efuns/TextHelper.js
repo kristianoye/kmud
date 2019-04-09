@@ -17,6 +17,7 @@ class TextHelper {
     static more(content, options = {}) {
         let tp = efuns.thisPlayer(),
             prompt = false,
+            reg = false,
             ptr = 0;
 
         let displayText = (pageOffset = 0, linesToShow = 0) => {
@@ -75,9 +76,37 @@ class TextHelper {
                             prompt = ptr.toString() + ' ';
                             return true;
 
+                        case 'n':
+                            {
+                                let found = false;
+
+                                if (reg === false) {
+                                    prompt = '%^CLEARLINE%^%^B_WHITE%^%^BLACK%^No previous regular expression%^RESET%^ ';
+                                    return true;
+                                }
+                                for (let i = ptr; i < content.length; i++) {
+                                    if (reg.test(content[i])) {
+                                        found = i;
+                                        break;
+                                    }
+                                }
+                                if (found === false) {
+                                    prompt = '%^CLEARLINE%^%^B_WHITE%^%^BLACK%^Pattern not found%^RESET%^ ';
+                                    return true;
+                                }
+                                else {
+                                    ptr = Math.max(found - 2, 0);
+                                    tp.receiveMessage('more', `...Skipping ${found - ptr} line(s)...`);
+                                }
+                            }
+                            break;
+
                         case '/':
                             {
-                                let reg = new RegExp(resp.slice(1)), found = false;
+                                let found = false;
+
+                                reg = new RegExp(resp.slice(1));
+
                                 for (let i = ptr; i < content.length; i++) {
                                     if (reg.test(content[i])) {
                                         found = i;
@@ -96,6 +125,10 @@ class TextHelper {
                             break;
 
                         case '':
+                            displayText();
+                            return true;
+
+                        case 's':
                             displayText(0, 1);
                             return true;
 

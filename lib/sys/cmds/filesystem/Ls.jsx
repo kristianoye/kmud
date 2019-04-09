@@ -17,15 +17,17 @@ const
     LS_OPT_CLASSIFY = 1 << 6;   // Append classification for file types (e.g. / for directories)
 
 class ListCommand extends Command {
-    cmd(text, cmdline) {
+    async cmd(text, cmdline) {
         let player = thisPlayer(),
+            cwd = player.workingDirectory,
             getDirFlags = 0,
             displayFlags = 0,
-            dirList = [],
+            targetList = [],
             args = cmdline.args;
 
         for (var i = 0; i < args.length; i++) {
             var opt = args[i];
+
             if (opt.startsWith('-')) {
                 let optList = opt.charAt(1) === '-' ? [opt] : opt.slice(1).split('');
                 for (let j = 0; j < optList.length; j++) {
@@ -82,9 +84,10 @@ class ListCommand extends Command {
                 }
             }
             else {
-                dirList.push(efuns.resolvePath(args[i], thisPlayer().workingDirectory));
+                targetList.push(efuns.resolvePath(args[i], cwd));
             }
         }
+
         if (getDirFlags === 0)
             getDirFlags = MUDFS.GetDirFlags.Defaults;
 
@@ -94,25 +97,30 @@ class ListCommand extends Command {
         if (displayFlags === 0)
             displayFlags = LS_OPT_COLOR | LS_OPT_CLASSIFY | LS_OPT_COLFORMAT;
 
-        if (dirList.length === 0)
-            dirList.push(player.workingDirectory || '/');
+        if (targetList.length === 0)
+            targetList.push(cwd || '/');
 
-        if (thisPlayer().hasBrowser && (displayFlags & LS_OPT_PLAINTEXT) !== LS_OPT_PLAINTEXT) {
-            return this.webListing(dirList[0], thisPlayer);
+        for (let i = 0; i < targetList.length; i++) {
+            try {
+                let stat = await efuns.fs.statAsync(targetList[i]);
+                let rp = efuns.fs.relativePath(cwd, targetList[i]);
+
+                if (!stat.isFile() && !stat.isDirectory()) {
+                    errorLine(`ls: cannot access ${rp}: No such file or directory`);
+                }
+                else if (stat.isDirectory()) {
+                    writeLine(targetList[i]);
+                }
+                else {
+                    write(rp + '\t');
+                }
+            }
+            catch (err) {
+                errorLine(`${targetList[i]}: ${err.message}`);
+            }
         }
-        let results = Array(dirList.length),
-            completed = 0;
 
-        dirList.forEach((dir, i) => {
-            efuns.readDirectory(dir, getDirFlags, (files, err) => {
-                results[i] = files || err;
-                if (++completed === dirList.length)
-                    this.display(dirList, results, displayFlags, cmdline);
-            });
-        });
-
-        //  Indicate the command is async
-        return cmdline.complete;
+        return true;
     }
 
     /**

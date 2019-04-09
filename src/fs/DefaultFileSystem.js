@@ -376,6 +376,68 @@ class DefaultFileSystem extends FileSystem {
         return module.getInstanceWrapper(parts);
     }
 
+    readDirectoryAsync(relativePath, fileName, flags) {
+        return new Promise(resolve => {
+            try {
+                let fullPath = this.translatePath(relativePath), isAbs = relativePath.startsWith(this.root);
+                let showFullPath = (flags & MUDFS.GetDirFlags.FullPath) === MUDFS.GetDirFlags.FullPath,
+                    details = (flags & MUDFS.GetDirFlags.Details) === MUDFS.GetDirFlags.Details,
+                    pattern = fileName &&
+                        new RegExp('^' + fileName
+                            .replace(/\./g, '\\.')
+                            .replace(/\?/g, '.')
+                            .replace(/\*/g, '.+') + '$');
+
+                if (flags & MUDFS.GetDirFlags.ImplicitDirs && !fullPath.endsWith(path.sep))
+                    fullPath += path.sep;
+
+                fs.readdir(fullPath, { encoding: this.encoding, withFileTypes: true }, (err, filesIn) => {
+                    if (err)
+                        return resolve(err);
+
+                    let files = filesIn
+                        .filter(st => !pattern || pattern.test(st.name))
+                        .map(fn => showFullPath ? (isAbs ? '' : this.mountPoint) + relativePath + fn : fn),
+                        result = [];
+
+                    if (!details) {
+                        if (showFullPath)
+                            return resolve(files.map(n => (isAbs ? '' : this.mountPoint) + relativePath + n.name));
+                        else
+                            return resolve(files.map(n => n.name));
+                    }
+
+                    files.forEach(fd => {
+                        let fn = fd.name;
+
+                        //  Is the file hidden?
+                        if ((flags & MUDFS.GetDirFlags.Hidden) === 0 && fn.startsWith('.'))
+                            return false;
+
+                        // Do we need to stat?
+                        if ((relativePath.flags & MUDFS.GetDirFlags.Defaults) > 0) {
+                            let stat = fs.statSync(fullPath + '/' + fn);
+
+                            if (fd.isDirectory() && (relativePath.flags & MUDFS.GetDirFlags.Dirs) === 0)
+                                return false;
+
+                            if (fd.isFile() && (relativePath.flags & MUDFS.GetDirFlags.Files) === 0)
+                                return false;
+
+                            result.push(fd);
+                        }
+                        else
+                            result.push(fn);
+                    });
+                    resolve(result);
+                });
+            }
+            catch (err) {
+                resolve(err);
+            }
+        });
+    }
+
     /**
      * Reads a directory listing from the disk.
      * @param {string} relativePath The local path to read.
