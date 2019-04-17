@@ -507,15 +507,9 @@ class CommandShell extends MUDEventEmitter {
      * @param {{ args:any[], verb:string }[]} cmds
      */
     async expandFileExpressions(cmds) {
-        let tasks = [], cwd = '/';
+        let tasks = [],
+            cwd = driver.applyGetWorkingDir(this.storage.thisObject);
 
-        driver.driverCall('applyGetWorkingDir', () => {
-            let gcwd = this.storage.thisObject.applyGetWorkingDir;
-
-            if (typeof gcwd === 'function') {
-                cwd = this.storage.thisObject.applyGetWorkingDir();
-            }
-        });
         for (let i = 0; i < cmds.length; i++) {
             let cmd = cmds[i], newargs = cmd.args.slice(0);
 
@@ -528,7 +522,7 @@ class CommandShell extends MUDEventEmitter {
                             driver.driverCallAsync('expandFileExpressions', async ecc => {
                                 await ecc.withPlayerAsync(this.storage, async player => {
                                     try {
-                                        let pathExpr = path.posix.join(cwd, expr.value),
+                                        let pathExpr = path.posix.resolve(cwd, expr.value),
                                             result = await driver.fileManager.readDirectoryAsync(driver.efuns, pathExpr);
 
                                         if (Array.isArray(result) && result.length > 0) {
@@ -853,7 +847,7 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '=':
-                        if (options.allowObjectShell) {
+                        if (options.allowObjectShell && inExpr()) {
                             if (take('==')) {
                                 //  Equality operator
                             }

@@ -416,8 +416,6 @@ class DefaultFileSystem extends FileSystem {
 
                         // Do we need to stat?
                         if ((relativePath.flags & MUDFS.GetDirFlags.Defaults) > 0) {
-                            let stat = fs.statSync(fullPath + '/' + fn);
-
                             if (fd.isDirectory() && (relativePath.flags & MUDFS.GetDirFlags.Dirs) === 0)
                                 return false;
 
@@ -562,11 +560,14 @@ class DefaultFileSystem extends FileSystem {
                     if (err) {
                         resolve(driver.fileManager.createDummyStats(err, fullPath));
                     }
-                    else
-                        resolve(Object.assign(stats, {
+                    else {
+                        let stat = Object.assign(stats, {
                             exists: true,
-                            path: fullPath
-                        }));
+                            name: localPath.slice(localPath.lastIndexOf('/') + 1),
+                            path: path.posix.join(this.mountPoint, localPath)
+                        });
+                        resolve(stat);
+                    }
                 });
             }
             catch (err) {

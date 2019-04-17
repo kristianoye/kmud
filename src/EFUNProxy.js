@@ -27,6 +27,7 @@ const
     FileSystemHelper = require('./efuns/FileSystem'),
     InputHelper = require('./efuns/Inputs'),
     LivingsHelper = require('./efuns/Livings'),
+    MathHelper = require('./efuns/MathHelper'),
     ObjectHelper = require('./efuns/ObjectHelper'),
     TextHelper = require('./efuns/TextHelper'),
     TimeHelper = require('./efuns/Time');
@@ -553,6 +554,10 @@ class EFUNProxy {
         return driver.gameState;
     }
 
+    get math() {
+        return MathHelper;
+    }
+
     /**
      * Return filenames matching the specified file pattern.
      * @param {string} expr The pattern to match.
@@ -603,16 +608,16 @@ class EFUNProxy {
         if (isNaN(numeric))
             return 'invalid';
         if (numeric > TeraByte) {
-            return Math.round10(numeric / TeraByte, -2) + 'TB';
+            return this.math.round10(numeric / TeraByte, -2) + 'TB';
         }
         else if (numeric > GigaByte) {
-            return Math.round10(numeric / GigaByte, -2) + 'GB';
+            return this.math.round10(numeric / GigaByte, -2) + 'GB';
         }
         else if (numeric > MegaByte) {
-            return Math.round10(numeric / MegaByte, -2) + 'MB';
+            return this.math.round10(numeric / MegaByte, -2) + 'MB';
         }
         else if (numeric > KiloByte) {
-            return Math.round10(numeric / KiloByte, -2) + 'KB';
+            return this.math.round10(numeric / KiloByte, -2) + 'KB';
         }
         else {
             return numeric + 'B';

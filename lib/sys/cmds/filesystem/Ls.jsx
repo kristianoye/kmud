@@ -14,11 +14,34 @@ const
     LS_OPT_COLFORMAT = 1 << 3,  // Show output in columns
     LS_OPT_PLAINTEXT = 1 << 4,  // Do not display in Explorer
     LS_OPT_COLOR = 1 << 5,      // Show colors
-    LS_OPT_CLASSIFY = 1 << 6;   // Append classification for file types (e.g. / for directories)
+    LS_OPT_CLASSIFY = 1 << 6,   // Append classification for file types (e.g. / for directories)
+    LS_OPT_RECURSIVE = 1 << 7;
 
-class ListCommand extends Command {
+const
+    DisplayFormats = {
+        across: 'across',
+        commas: 'commas',
+        horizontal: 'horizontal',
+        long: 'long',
+        'single-column': 'singleColumn',
+        singleColumn: 'singleColumn',
+        verbose: 'long',
+        vertical: 'vertical'
+    },
+    ValidFormats = Object.keys(DisplayFormats);
+
+class ListOptions {
+    constructor() {
+        this.directories = [];
+        this.files = [];
+        this.format = "across";
+    }
+}
+
+class Ls extends Command {
     async cmd(text, cmdline) {
         let player = thisPlayer(),
+            opts = new ListOptions(),
             cwd = player.workingDirectory,
             getDirFlags = 0,
             displayFlags = 0,
@@ -30,8 +53,11 @@ class ListCommand extends Command {
 
             if (opt.startsWith('-')) {
                 let optList = opt.charAt(1) === '-' ? [opt] : opt.slice(1).split('');
+
                 for (let j = 0; j < optList.length; j++) {
-                    switch (optList[j]) {
+                    let [cmdarg, arg] = optList[j].split('=', 2);
+
+                    switch (cmdarg) {
                         case 'a':
                             getDirFlags |= MUDFS.GetDirFlags.Hidden;
                             break;
@@ -44,9 +70,14 @@ class ListCommand extends Command {
                             getDirFlags |= MUDFS.GetDirFlags.Dirs;
                             break;
 
+                        case '--format':
+                            if (ValidFormats.indexOf(arg) === -1)
+                                return `${cmdline.verb}: Invalid argument '${arg}' for '${cmdarg}'`;
+                            opts.format = arg;
+                            break;
+
                         case 'l': case '--long':
-                            getDirFlags |= MUDFS.GetDirFlags.Details;
-                            displayFlags |= LS_OPT_LONGFORMAT;
+                            opts.format = DisplayFormats.verbose;
                             break;
 
                         case 'p':
@@ -59,7 +90,7 @@ class ListCommand extends Command {
                             break;
 
                         case '1':
-                            displayFlags |= LS_OPT_SINGLECOL;
+                            opts.format = DisplayFormats.singleColumn;
                             break;
 
                         case 'C':
@@ -74,12 +105,23 @@ class ListCommand extends Command {
                             getDirFlags |= MUDFS.GetDirFlags.Files;
                             break;
 
-                        case 'T': case '-text':
+                        case 'R':
+                        case '--recursive':
+                            displayFlags |= LS_OPT_RECURSIVE;
+                            break;
+
+                        case 's':
+                        case '--size':
+                            displayFlags |= LS_OPT_SHOWSIZE;
+                            break;
+
+                        case 'T':
+                        case '--text':
                             displayFlags |= LS_OPT_PLAINTEXT;
                             break;
 
                         default:
-                            return `ls: unknown option: -${optList[j]}`;
+                            return `ls: unknown option: -${cmdarg}`;
                     }
                 }
             }
@@ -109,15 +151,26 @@ class ListCommand extends Command {
                     errorLine(`ls: cannot access ${rp}: No such file or directory`);
                 }
                 else if (stat.isDirectory()) {
-                    writeLine(targetList[i]);
+                    opts.directories.push(stat);
                 }
                 else {
-                    write(rp + '\t');
+                    opts.files.push(stat);
                 }
             }
             catch (err) {
-                errorLine(`${targetList[i]}: ${err.message}`);
+                return `${targetList[i]}: ${err.message}`;
             }
+        }
+
+        switch (DisplayFormats[opts.format]) {
+            case DisplayFormats.long:
+                return this.displayLongListing(opts);
+
+            case DisplayFormats.singleColumn:
+                return this.displaySingleColumn(opts);
+
+            default:
+                return `Unknown display format: ${opts.format}`;
         }
 
         return true;
@@ -153,7 +206,7 @@ class ListCommand extends Command {
      */
     displayColumnListing(dir, files, displayFlags, showDirName) {
         let buffer = '', total = 0;
-        if (showDirName) buffer += `\n${dir}:\n`;
+
         if (!Array.isArray(files)) {
             buffer += `Error: ${dir}: ${files}`;
         }
@@ -171,24 +224,33 @@ class ListCommand extends Command {
 
     /**
      * 
-     * @param {string} dir
-     * @param {FileSystemStat[]} files
-     * @param {number} displayFlags
-     * @param {boolean} showDirName
+     * @param {ListOptions} opts
      */
-    displayLongListing(dir, files, displayFlags, showDirName) {
-        let buffer = '', total = 0;
-        if (showDirName) buffer += `\n${dir}:\n`;
-        files.forEach(fi => {
-            buffer += efuns.sprintf('%5s %10s %10s %10s %-18s',
-                master().getAccessText(thisPlayer, dir + '/' + fi.name),
-                'owner',
-                'group',
-                (fi.size === -2) ? '[DIR]' : efuns.getMemSizeString(fi.size),
-                fi.mtime.toISOString().slice(0, 16))
-                + this.displayColumnName(fi, displayFlags) + '\n';
-        });
-        writeLine(buffer);
+    displayLongListing(opts) {
+        try {
+            let buffer = '', total = 0;
+
+            if (opts.files.length > 0) {
+                opts.files.forEach(fi => {
+                    buffer += efuns.sprintf('%5s %10s %10s %10s %-18s',
+                        '',
+                        'owner',
+                        'group',
+                        (fi.size === -2) ? '[DIR]' : efuns.getMemSizeString(fi.size),
+                        fi.mtime.toISOString().slice(0, 16))
+                        + this.displayColumnName(fi, LS_OPT_COLOR) + '\n';
+
+                    total += fi.blocks;
+                });
+
+                if (total > 0)
+                    buffer = `total ${total}` + efuns.eol + buffer;
+            }
+            return writeLine(buffer);
+        }
+        catch (x) {
+            return x.message;
+        }
     }
 
     /**
@@ -199,13 +261,13 @@ class ListCommand extends Command {
     displayColumnName(fi, flags) {
         let result = fi.name;
         if (flags & LS_OPT_COLOR) {
-            if (fi.isDirectory) {
+            if (fi.isDirectory()) {
                 result = "%^BLUE%^%^BOLD%^" + result + "%^RESET%^";
             }
-            else if (efuns.findObject(fi.parent + '/' + fi.name)) {
+            else if (efuns.findObject(fi.path)) {
                 result = "%^GREEN%^%^BOLD%^" + result + "%^RESET%^";
             }
-            else if (fi.name.endsWith('.js')) {
+            else if (fi.name.endsWith('.js') || fi.name.endsWith('.jsx')) {
                 result = "%^GREEN%^" + result + "%^RESET%^";
             }
         }
@@ -313,4 +375,4 @@ class ListCommand extends Command {
     }
 }
 
-module.exports = new ListCommand();
+module.exports = new Ls();

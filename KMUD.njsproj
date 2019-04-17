@@ -478,6 +478,9 @@
     <Compile Include="src\efuns\Livings.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\efuns\MathHelper.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\efuns\ObjectHelper.js">
       <SubType>Code</SubType>
     </Compile>

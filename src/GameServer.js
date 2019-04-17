@@ -168,6 +168,26 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
+     * Called to get the current working directory of the specified object (or the current player)
+     * @param {MUDObject} player
+     * @param {string} defaultDir The default directory if no directory is returned by current player
+     * @returns {string} The working directory.
+     */
+    applyGetWorkingDir(player = false, defaultDir = '/') {
+        if (!(player = player || this.efuns.thisPlayer()))
+            throw new Error('No player!');
+
+        return this.driverCall('applyGetWorkingDir', ecc => {
+            let store = this.storage.get(player);
+            return ecc.withPlayer(store, player => {
+                if (typeof player.applyGetWorkingDir === 'function')
+                    return player.applyGetWorkingDir();
+                return defaultDir;
+            });
+        });
+    }
+
+    /**
      * 
      * @param {LinkedList} collection The collection to maintain
      * @param {string} prop The storage property used to track index
