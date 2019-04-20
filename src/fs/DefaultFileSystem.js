@@ -397,14 +397,11 @@ class DefaultFileSystem extends FileSystem {
 
                     let files = filesIn
                         .filter(st => !pattern || pattern.test(st.name))
-                        .map(fn => showFullPath ? (isAbs ? '' : this.mountPoint) + relativePath + fn : fn),
+                        .map(fn => showFullPath ? (isAbs ? '' : this.mountPoint) + relativePath + fn.name : fn.name),
                         result = [];
 
                     if (!details) {
-                        if (showFullPath)
-                            return resolve(files.map(n => (isAbs ? '' : this.mountPoint) + relativePath + n.name));
-                        else
-                            return resolve(files.map(n => n.name));
+                        return resolve(files);
                     }
 
                     files.forEach(fd => {

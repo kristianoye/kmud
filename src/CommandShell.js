@@ -523,11 +523,26 @@ class CommandShell extends MUDEventEmitter {
                                 await ecc.withPlayerAsync(this.storage, async player => {
                                     try {
                                         let pathExpr = path.posix.resolve(cwd, expr.value),
-                                            result = await driver.fileManager.readDirectoryAsync(driver.efuns, pathExpr);
+                                            result = await driver.fileManager.readDirectoryAsync(driver.efuns, pathExpr, MUDFS.GetDirFlags.FullPath);
 
                                         if (Array.isArray(result) && result.length > 0) {
+                                            let lastSlash = expr.value.lastIndexOf('/'),
+                                                basePath = lastSlash > -1 ? expr.value.slice(0, lastSlash + 1) : false;
+
+                                            let relativePaths = result.map(fn => {
+                                                if (path.posix.isAbsolute(expr.value))
+                                                    return fn;
+                                                else {
+                                                    let n = fn.lastIndexOf('/'),
+                                                        f = fn.slice(n + 1);
+
+                                                    return basePath ? basePath + f : f;
+                                                }
+
+                                                return path.posix.relative(cwd, fn);
+                                            });
                                             let n = newargs.indexOf(expr);
-                                            newargs = newargs.slice(0, n).concat(result, newargs.slice(n + 1));
+                                            newargs = newargs.slice(0, n).concat(relativePaths, newargs.slice(n + 1));
                                             cmd.args = newargs;
                                         }
                                         resolve(true);
