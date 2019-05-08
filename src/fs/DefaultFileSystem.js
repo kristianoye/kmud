@@ -404,7 +404,7 @@ class DefaultFileSystem extends FileSystem {
                         return resolve(files);
                     }
 
-                    files.forEach(fd => {
+                    filesIn.forEach(fd => {
                         let fn = fd.name;
 
                         //  Is the file hidden?
@@ -412,17 +412,17 @@ class DefaultFileSystem extends FileSystem {
                             return false;
 
                         // Do we need to stat?
-                        if ((relativePath.flags & MUDFS.GetDirFlags.Defaults) > 0) {
-                            if (fd.isDirectory() && (relativePath.flags & MUDFS.GetDirFlags.Dirs) === 0)
+                        if ((flags & MUDFS.GetDirFlags.Defaults) > 0) {
+                            if (fd.isDirectory() && (flags & MUDFS.GetDirFlags.Dirs) === 0)
                                 return false;
 
-                            if (fd.isFile() && (relativePath.flags & MUDFS.GetDirFlags.Files) === 0)
+                            if (fd.isFile() && (flags & MUDFS.GetDirFlags.Files) === 0)
                                 return false;
 
                             result.push(fd);
                         }
                         else
-                            result.push(fn);
+                            result.push(fd);
                     });
                     resolve(result);
                 });

@@ -225,9 +225,10 @@ class EFUNProxy {
      * Render a list of words into columns of the specified width.
      * @param {string|string[]} list A collection of words to format.
      * @param {number} width The maximum column width.
+     * @param {MUDObject} [player] The optional player to format for.
      * @returns {string} A page of columns.
      */
-    columnText(list, width) {
+    columnText(list, width, player = false) {
         let rows = [],
             row = [],
             longest = 0,
@@ -238,7 +239,7 @@ class EFUNProxy {
             list = list.split(/\s+/);
         }
 
-        width = (width || this.clientCaps(this.thisPlayer()).clientWidth || 80);
+        width = (width || this.clientCaps(player || this.thisPlayer()).clientWidth || 80);
 
         list.forEach(i => {
             let n = this.stripColor(i).length;
@@ -255,7 +256,7 @@ class EFUNProxy {
             }
         });
         if (row.length > 0) rows.push(row.join(''));
-        return rows.join('\n');
+        return rows.join(this.eol);
     }
 
 

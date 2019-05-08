@@ -31,17 +31,27 @@ const
     ValidFormats = Object.keys(DisplayFormats);
 
 class ListOptions {
-    constructor() {
+    /**
+     * Construct a list options object
+     * @param {MUDObject} player The player executing the command
+     * @param {ListOptions} [parent] The parent options object
+     */
+    constructor(player, parent) {
         this.directories = [];
         this.files = [];
         this.format = "across";
+        this.player = player;
+        if (parent) {
+            this.format = parent.format;
+            this.player = parent.player;
+        }
     }
 }
 
 class Ls extends Command {
     async cmd(text, cmdline) {
         let player = thisPlayer(),
-            opts = new ListOptions(),
+            opts = new ListOptions(player),
             cwd = player.workingDirectory,
             getDirFlags = 0,
             displayFlags = 0,
@@ -126,7 +136,10 @@ class Ls extends Command {
                 }
             }
             else {
-                targetList.push(efuns.resolvePath(args[i], cwd));
+                targetList.push([
+                    args[i],
+                    efuns.resolvePath(args[i], cwd)
+                ]);
             }
         }
 
@@ -139,22 +152,23 @@ class Ls extends Command {
         if (displayFlags === 0)
             displayFlags = LS_OPT_COLOR | LS_OPT_CLASSIFY | LS_OPT_COLFORMAT;
 
-        if (targetList.length === 0)
-            targetList.push(cwd || '/');
+        if (targetList.length === 0) {
+            targetList.push([cwd || '/', cwd || '/']);
+        }
 
         for (let i = 0; i < targetList.length; i++) {
             try {
-                let stat = await efuns.fs.statAsync(targetList[i]);
-                let rp = efuns.fs.relativePath(cwd, targetList[i]);
+                let [expr, resolved] = targetList[i];
+                let stat = await efuns.fs.statAsync(resolved);
 
                 if (!stat.isFile() && !stat.isDirectory()) {
-                    errorLine(`ls: cannot access ${rp}: No such file or directory`);
+                    errorLine(`ls: cannot access ${expr}: No such file or directory`);
                 }
                 else if (stat.isDirectory()) {
-                    opts.directories.push(stat);
+                    opts.directories.push([expr, stat, resolved]);
                 }
                 else {
-                    opts.files.push(stat);
+                    opts.files.push([expr, stat, resolved]);
                 }
             }
             catch (err) {
@@ -162,64 +176,78 @@ class Ls extends Command {
             }
         }
 
+        let result = '';
         switch (DisplayFormats[opts.format]) {
+
+            case DisplayFormats.across:
+                result = await this.displayColumnListing(opts);
+                break;
+
             case DisplayFormats.long:
-                return this.displayLongListing(opts);
+                result = this.displayLongListing(opts);
+                break;
 
             case DisplayFormats.singleColumn:
-                return this.displaySingleColumn(opts);
+                result = this.displaySingleColumn(opts);
+                break;
 
             default:
                 return `Unknown display format: ${opts.format}`;
         }
 
-        return true;
+        return writeLine(result);
     }
 
-    /**
-     * Display the listing information to the user.
-     * @param {string[]} dirList The list of directories requested.
-     * @param {FileSystemStat[][]} results The results from the filesystem.
-     * @param {number} displayFlags The flags controlling the display of information.
-     * @param {MUDInputEvent} cmdline The original command line data.
-     */
-    display(dirList, results, displayFlags, cmdline) {
-        for (let i = 0, max = results.length; i < max; i++) {
-            let dir = results[i];
-
-            if (displayFlags & LS_OPT_LONGFORMAT)
-                this.displayLongListing(dirList[i], results[i], displayFlags, max > 1);
-            else if (displayFlags & LS_OPT_SINGLECOL)
-                this.displaySingleColumn(dirList[i], results[i], displayFlags, max > 1);
-            else
-                this.displayColumnListing(dirList[i], results[i], displayFlags, max > 1);
-        }
-        cmdline.complete();
+    async readDirectory(dir) {
+        let files = await efuns.readDirectoryAsync(dir, MUDFS.GetDirFlags.Details)
+        return files.map(stat => {
+            return [
+                stat.name,
+                stat,
+                `${dir}/${stat.name}`
+            ]
+        });
     }
 
     /**
      * List a directory in a single column format.
-     * @param {string} dir
-     * @param {FileSystemStat[]} files
-     * @param {number} displayFlags
-     * @param {boolean} showDirName
+     * @param {ListOptions} opts
      */
-    displayColumnListing(dir, files, displayFlags, showDirName) {
+    async displayColumnListing(opts) {
         let buffer = '', total = 0;
 
-        if (!Array.isArray(files)) {
-            buffer += `Error: ${dir}: ${files}`;
+        if (opts.files.length > 0) {
+            let maxLength = 0;
+
+            let files = opts.files.map(e => {
+                let [display, stat] = e;
+                let output = display;
+
+                if (opts.format & LS_OPT_SHOWSIZE) {
+                    let size = efuns.getMemSizeString(stat.size);
+                    output = efuns.sprintf('%5s %s', size, display);
+                }
+                if (opts.format & LS_OPT_CLASSIFY) {
+                    if (stat.isSymbolicLink()) output += '@';
+                    if (stat.isDirectory()) output += '/';
+                }
+                maxLength = Math.max(maxLength, output.length);
+                return output;
+            });
+
+            buffer += efuns.columnText(files, undefined, opts.player);
         }
-        else {
-            buffer += efuns.columnText(files.map(fi => {
-                let result = '';
-                if (displayFlags & LS_OPT_SHOWSIZE)
-                    result += efuns.sprintf('%-3s ', fi.size < 0 ? '0' : Math.floor(fi.size / 1024) || '1');
-                result += this.displayColumnName(fi, displayFlags);
-                return result;
-            }));
+        if (opts.directories.length > 0) {
+            for (let i = 0; i < opts.directories.length; i++) {
+                let [display, stat, resolved] = opts.directories[i];
+                let subdir = new ListOptions(opts.player, opts);
+
+                subdir.files = await this.readDirectory(`${resolved}/`);
+                buffer += `${display}:\n`;
+                buffer += await this.displayColumnListing(subdir);
+            }
         }
-        writeLine(buffer);
+        return buffer;
     }
 
     /**
