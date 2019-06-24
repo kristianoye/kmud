@@ -748,6 +748,10 @@
     <Content Include=".eslint">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\cmds\admin\placeholder.txt">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\cmds\arch\placeholder.txt" />
     <Content Include="lib\docs\.mudlib.json">
       <SubType>Code</SubType>
     </Content>
