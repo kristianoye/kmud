@@ -408,7 +408,7 @@ class DefaultFileSystem extends FileSystem {
                         let fn = fd.name;
 
                         if (!fn) {
-                            console.log('WARNING: readDirectoryAsync: File entry has no name');
+                            console.log(`WARNING: readDirectoryAsync(${relativePath}): File entry has no name`);
                             return false;
                         }
 
