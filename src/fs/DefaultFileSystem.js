@@ -407,6 +407,11 @@ class DefaultFileSystem extends FileSystem {
                     filesIn.forEach(fd => {
                         let fn = fd.name;
 
+                        if (!fn) {
+                            console.log('WARNING: readDirectoryAsync: File entry has no name');
+                            return false;
+                        }
+
                         //  Is the file hidden?
                         if ((flags & MUDFS.GetDirFlags.Hidden) === 0 && fn.startsWith('.'))
                             return false;
