@@ -408,18 +408,26 @@ class DefaultFileSystem extends FileSystem {
                         if (!details)
                             return resolve(showFullPath ? filesIn.map(fn => this.mountPoint + relativePath + fn) : filesIn);
 
-                        async.eachLimit(filesIn, 10, (fn) => {
+                        async.eachLimit(filesIn, 10, (fn, cb) => {
                             return new Promise((res, rej) => {
                                 try {
                                     fs.stat(path.join(this.root, relativePath, fn), (err, stat) => {
-                                        if (err) {
-                                            rej(err);
-                                            pushResult(err.message || err);
-                                        }
+                                        try {
+                                            if (err) {
+                                                rej(err);
+                                                pushResult(err.message || err);
+                                            }
 
-                                        stat.name = showFullPath ? (isAbs ? '' : this.mountPoint) + relativePath + fn : fn;
-                                        res(stat);
-                                        pushResult(stat);
+                                            stat.name = showFullPath ? (isAbs ? '' : this.mountPoint) + relativePath + fn : fn;
+                                            res(stat);
+                                            pushResult(stat);
+                                        }
+                                        catch (ix) {
+                                            pushResult(ix.message || ix);
+                                        }
+                                        finally {
+                                            cb(true);
+                                        }
                                     });
                                 }
                                 catch (x) {
