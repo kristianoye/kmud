@@ -398,7 +398,7 @@ class DefaultFileSystem extends FileSystem {
                         return resolve(err);
 
                     if (!isNode10) {
-                        let files = [], results = [];
+                        let results = [];
                         let pushResult = (res) => {
                             results.push(res);
                             if (results.length === filesIn.length)
@@ -406,15 +406,15 @@ class DefaultFileSystem extends FileSystem {
                         };
 
                         if (!details)
-                            return resolve(showFullPath ? filesIn.map(fn => (isAbs ? '' : this.mountPoint) + relativePath + fn) : filesIn);
+                            return resolve(showFullPath ? filesIn.map(fn => this.mountPoint + relativePath + fn) : filesIn);
 
                         async.eachLimit(filesIn, 10, (fn) => {
                             return new Promise((res, rej) => {
                                 try {
-                                    fs.stat((isAbs ? '' : this.mountPoint) + fn, (err, stat) => {
+                                    fs.stat(this.root + relativePath + fn, (err, stat) => {
                                         if (err) {
                                             rej(err);
-                                            pushResult(err);
+                                            pushResult(err.message || err);
                                         }
 
                                         stat.name = showFullPath ? (isAbs ? '' : this.mountPoint) + relativePath + fn : fn;
