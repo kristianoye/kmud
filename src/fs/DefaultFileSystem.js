@@ -426,7 +426,7 @@ class DefaultFileSystem extends FileSystem {
                                             pushResult(ix.message || ix);
                                         }
                                         finally {
-                                            cb(true);
+                                            cb();
                                         }
                                     });
                                 }
