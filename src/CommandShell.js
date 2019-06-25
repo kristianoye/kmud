@@ -13,6 +13,7 @@ const
     ClientComponent = require('./ClientComponent'),
     MUDEventEmitter = require('./MUDEventEmitter'),
     BaseInput = require('./inputs/BaseInput'),
+    semver = require('semver'),
     CommandInterval = 5,
     path = require('path');
 

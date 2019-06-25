@@ -8,7 +8,9 @@ const
     ExecutionContext = require('./ExecutionContext'),
     { NetUtil, NetworkInterface } = require('./network/NetUtil'),
     { LinkedList, LinkedListWithID, LinkedListWithLookup } = require('./LinkedList'),
+    semver = require('semver'),
     async = require('async');
+
 
 const
     fs = require('fs'),
@@ -869,6 +871,18 @@ class GameServer extends MUDEventEmitter {
                 })(method, proto[method]);
             });
         }
+    }
+
+    /**
+     * Check to see if the node version is at least this version
+     * @param {string} versionCheck The minimum version to check for.
+     * @returns {boolean} True if the version is at least specified version .
+     */
+    nodeVersion(versionCheck) {
+        if (semver.lt(process.version, versionCheck)) {
+            return false;
+        }
+        return true;
     }
 
     preCompile(module) {

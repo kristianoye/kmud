@@ -6,7 +6,7 @@
 const
     { FileSystem, FileSystemStat } = require('../FileSystem'),
     FileManager = require('../FileManager'),
-    ExecutionContext = require('../ExecutionContext'),
+    async = require('async'),
     path = require('path'),
     fs = require('fs');
 
@@ -392,44 +392,80 @@ class DefaultFileSystem extends FileSystem {
                     fullPath += path.sep;
 
                 fs.readdir(fullPath, { encoding: this.encoding, withFileTypes: true }, (err, filesIn) => {
+                    let isNode10 = driver.nodeVersion('10.0.0');
+
                     if (err)
                         return resolve(err);
 
-                    let files = filesIn
-                        .filter(st => !pattern || pattern.test(st.name))
-                        .map(fn => showFullPath ? (isAbs ? '' : this.mountPoint) + relativePath + fn.name : fn.name),
-                        result = [];
+                    if (!isNode10) {
+                        let files = [], results = [];
+                        let pushResult = (res) => {
+                            results.push(res);
+                            if (results.length === filesIn.length)
+                                resolve(results);
+                        };
 
-                    if (!details) {
-                        return resolve(files);
+                        if (!details)
+                            return resolve(showFullPath ? filesIn.map(fn => (isAbs ? '' : this.mountPoint) + relativePath + fn) : filesIn);
+
+                        async.eachLimit(filesIn, 10, (fn) => {
+                            return new Promise((res, rej) => {
+                                try {
+                                    fs.stat((isAbs ? '' : this.mountPoint) + fn, (err, stat) => {
+                                        if (err) {
+                                            rej(err);
+                                            pushResult(err);
+                                        }
+
+                                        stat.name = showFullPath ? (isAbs ? '' : this.mountPoint) + relativePath + fn : fn;
+                                        res(stat);
+                                        pushResult(stat);
+                                    });
+                                }
+                                catch (x) {
+                                    pushResult(x);
+                                }
+                            });
+                        });
                     }
+                    else {
 
-                    filesIn.forEach(fd => {
-                        let fn = fd.name;
+                        let files = filesIn
+                            .filter(st => !pattern || pattern.test(st.name))
+                            .map(fn => showFullPath ? (isAbs ? '' : this.mountPoint) + relativePath + fn.name : fn.name),
+                            result = [];
 
-                        if (!fn) {
-                            console.log(`WARNING: readDirectoryAsync(${relativePath}): File entry has no name`);
-                            return false;
+                        if (!details) {
+                            return resolve(files);
                         }
 
-                        //  Is the file hidden?
-                        if ((flags & MUDFS.GetDirFlags.Hidden) === 0 && fn.startsWith('.'))
-                            return false;
+                        filesIn.forEach(fd => {
+                            let fn = fd.name;
 
-                        // Do we need to stat?
-                        if ((flags & MUDFS.GetDirFlags.Defaults) > 0) {
-                            if (fd.isDirectory() && (flags & MUDFS.GetDirFlags.Dirs) === 0)
+                            if (!fn) {
+                                console.log(`WARNING: readDirectoryAsync(${relativePath}): File entry has no name`);
+                                return false;
+                            }
+
+                            //  Is the file hidden?
+                            if ((flags & MUDFS.GetDirFlags.Hidden) === 0 && fn.startsWith('.'))
                                 return false;
 
-                            if (fd.isFile() && (flags & MUDFS.GetDirFlags.Files) === 0)
-                                return false;
+                            // Do we need to stat?
+                            if ((flags & MUDFS.GetDirFlags.Defaults) > 0) {
+                                if (fd.isDirectory() && (flags & MUDFS.GetDirFlags.Dirs) === 0)
+                                    return false;
 
-                            result.push(fd);
-                        }
-                        else
-                            result.push(fd);
-                    });
-                    resolve(result);
+                                if (fd.isFile() && (flags & MUDFS.GetDirFlags.Files) === 0)
+                                    return false;
+
+                                result.push(fd);
+                            }
+                            else
+                                result.push(fd);
+                        });
+                        resolve(result);
+                    }
                 });
             }
             catch (err) {

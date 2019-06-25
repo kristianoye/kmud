@@ -268,6 +268,9 @@
     <Compile Include="lib\sys\lib\SimulEfuns.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\sys\skeleton\creator\Workroom.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\world\sarta\mob\Harry.js">
       <SubType>Code</SubType>
     </Compile>
@@ -755,6 +758,9 @@
     <Content Include="lib\docs\.mudlib.json">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\log\errors\placeholder.txt">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="lib\sys\etc\accessEx.json">
       <SubType>Code</SubType>
     </Content>
@@ -1023,6 +1029,8 @@
     <Folder Include="lib\sys\include\" />
     <Folder Include="lib\sys\etc\" />
     <Folder Include="lib\sys\cmds\" />
+    <Folder Include="lib\sys\skeleton\" />
+    <Folder Include="lib\sys\skeleton\creator\" />
     <Folder Include="lib\world\" />
     <Folder Include="lib\world\sarta\" />
     <Folder Include="lib\world\sarta\mob\" />

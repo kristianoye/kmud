@@ -68,7 +68,7 @@ class AuthManager {
             return result;
         }
         catch (err) {
-            console.log('Error in AuthManager');
+            console.log(`Error in AuthManager: ${err}: ${cryptoText}`);
         }
         return false;
     }
