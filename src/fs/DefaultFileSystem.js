@@ -411,7 +411,7 @@ class DefaultFileSystem extends FileSystem {
                         async.eachLimit(filesIn, 10, (fn) => {
                             return new Promise((res, rej) => {
                                 try {
-                                    fs.stat(this.root + relativePath + fn, (err, stat) => {
+                                    fs.stat(path.join(this.root, relativePath, fn), (err, stat) => {
                                         if (err) {
                                             rej(err);
                                             pushResult(err.message || err);
