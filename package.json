@@ -24,6 +24,6 @@
   },
   "devDependencies": {
     "bootstrap-menu": "^1.0.14",
-    "lodash": "^4.17.11"
+    "lodash": "^4.17.14"
   }
 }
