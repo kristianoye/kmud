@@ -185,14 +185,18 @@ class LinkedList {
      * @param {number} index The index to start taking elements from
      * @param {any} count THe number of items to retrieve.
      */
-    slice(index = -1, count = 1) {
-        let result = [], start = this.index[index = index > -1 ? index : this.min];
+    slice(index = -1, count = undefined) {
+        let result = [], ptr = this.index[index = index > -1 ? index : this.min];
 
-        if (!start)
+        if (!ptr)
             return [];
 
+        if (typeof count !== 'number')
+            count = this.length - index;
+
         while (count--) {
-            result.push(start.value);
+            result.push(ptr.value);
+            ptr = ptr.next;
         }
         return result;
     }

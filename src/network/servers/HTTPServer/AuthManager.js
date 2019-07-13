@@ -40,9 +40,6 @@ class AuthManager {
         }
 
         Object.freeze(this);
-
-        let test = this.create('Kriton', '3m1lthay3r');
-        let pass = this.decrypt(test);
     }
 
     create(username, password) {
