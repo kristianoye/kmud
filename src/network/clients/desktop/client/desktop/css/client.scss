@@ -41,6 +41,11 @@ body {
         user-select: none;
     }
 
+    .desktop-icon {
+        height: 32px;
+        width: 32px;
+    }
+
     div.cover {
         background: rgba(128, 128, 128, 0.5);
         position: absolute;

@@ -256,6 +256,14 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
 
                 }
             });
+
+            window.signals.on('open', e => {
+                typeof this.onWindowOpen === 'function' && this.onWindowOpen(e);
+            });
+
+            window.signals.on('close', e => {
+                typeof this.onWindowClose === 'function' && this.onWindowClose(e);
+            });
         }
 
         /** 

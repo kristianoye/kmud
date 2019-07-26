@@ -17,16 +17,20 @@
             let auth = sessionStorage[this.id];
 
             if (auth) {
-                return {
-                    requiresShell: true,
-                    auth
-                };
+                try {
+                    return {
+                        requiresShell: true,
+                        auth: JSON.parse(atob(auth))
+                    };
+                }
+                catch (e) {
+                    console.log('_register failed: ' + e.message);
+                }
             }
-            else 
-                return {
-                    requiresShell: true,
-                    attachTo: 'newLogin'
-                };
+            return {
+                requiresShell: true,
+                attachTo: 'newLogin'
+            };
         }
 
         onConnect() {
@@ -80,8 +84,12 @@
 
         onWindowAuth(event) {
             let { user, auth } = event.data;
-            sessionStorage[event.target] = event.data;
+            sessionStorage[event.target] = btoa(JSON.stringify(event.data));
             document.cookie = `auth=${user}:${auth}`;
+        }
+
+        onWindowClose(event) {
+            sessionStorage.removeItem(this.id);
         }
 
         onWindowHint(event) {

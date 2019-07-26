@@ -84,6 +84,9 @@ body {
     background: url(../img/desktop-bg-1.jpg) no-repeat center center fixed;
     background-size: cover;
     user-select: none; }
+  body .desktop-icon {
+    height: 32px;
+    width: 32px; }
   body div.cover {
     background: rgba(128, 128, 128, 0.5);
     position: absolute;

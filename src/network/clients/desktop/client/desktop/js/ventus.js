@@ -205,7 +205,7 @@ module.exports = function(useSourceMap) {
 				list.push(item);
 			}
 		}
-	};
+    };
 	return list;
 };
 
@@ -1231,6 +1231,10 @@ var _window = __webpack_require__(/*! ventus/wm/window */ "./ventus/wm/window.js
 
 var _window2 = _interopRequireDefault(_window);
 
+var _view = __webpack_require__("./ventus/core/view.js");
+
+var _view2 = _interopRequireDefault(_view);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 /**
@@ -1240,7 +1244,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
  */
 module.exports = {
   version: '0.3.0',
-
+  View: _view2.default,
   WindowManager: _windowmanager2.default,
   Window: _window2.default
 };
@@ -2680,30 +2684,32 @@ var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;
 
 		get overlay() {
 			return this._overlay;
-		},
+        },
+
+        addWindow: function addWindow(win) {
+            // Show 'default' mode
+            this.mode = 'default';
+
+            // Connect window signals to the manager listeners
+            win.signals.on('focus', this._focus, this);
+            win.signals.on('blur', this._blur, this);
+            win.signals.on('close', this._close, this);
+
+            // Connect window signals to manager mode actions
+            this.actions.forEach(function (action) {
+                win.signals.on(action, this[action], this);
+            }, this);
+
+            this.windows.push(win);
+
+            win.space = this.view;
+
+            win.focus();
+            return win;
+        },
 
 		createWindow: function createWindow(options) {
-			var win = new Window(options);
-
-			// Show 'default' mode
-			this.mode = 'default';
-
-			// Connect window signals to the manager listeners
-			win.signals.on('focus', this._focus, this);
-			win.signals.on('blur', this._blur, this);
-			win.signals.on('close', this._close, this);
-
-			// Connect window signals to manager mode actions
-			this.actions.forEach(function (action) {
-				win.signals.on(action, this[action], this);
-			}, this);
-
-			this.windows.push(win);
-
-			win.space = this.view;
-
-			win.focus();
-			return win;
+			return this.addWindow(new Window(options));
 		},
 
 

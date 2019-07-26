@@ -646,6 +646,10 @@ class EFUNProxy {
 
     get input() { return InputHelper; }
 
+    isAsync(expr) {
+        return typeof expr === 'function' && /^async /.test(expr.toString());
+    }
+
     /**
      * Determine if the expression is an async function.
      * @param {any} expr The expression to evaluate

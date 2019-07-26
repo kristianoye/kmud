@@ -82,7 +82,7 @@ class DesktopServer extends ClientEndpoint {
 
     decryptAuthToken(authToken) {
         if (this.server.authManager != null)
-            return this.server.authManager.decrypt(authToken);
+            return this.server.authManager.decrypt(authToken.auth);
         return false;
     }
 }
