@@ -180,10 +180,11 @@ class MUDObject extends MUDEventEmitter {
 
     write(msg) {
         let storage = driver.storage.get(this),
-            client = storage.client;
+            shell = storage.shell,
+            stdio = shell && shell.stdout;
 
-        if (client) {
-            client.write(msg || '');
+        if (shell) {
+            stdio.write(msg || '');
         }
         return this;
     }
