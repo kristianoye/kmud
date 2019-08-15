@@ -198,37 +198,6 @@ class FileSystem extends MUDEventEmitter {
     }
 
     /**
-     * Append data to a file; Creates file if needed.
-     * @param {string} req The file to append data to.
-     * @param {any} content The content to write to file.
-     * @param {function(boolean,Error):void} callback A callback to fire with success status.
-     */
-    appendFile(req, content, callback) {
-        return typeof callback === 'function' ?
-            this.assertAsync() && this.appendFileAsync(req, content, callback) :
-            this.assertSync() && this.appendFileSync(req, content);
-    }
-
-    /**
-     * Append data to a file in async mode; Creates file if needed.
-     * @param {string} req The file to append data to.
-     * @param {any} content The content to write to file.
-     * @param {function(Error):void} callback A callback to fire with success status.
-     */
-    appendFileAsync(req, content, callback) {
-        throw new NotImplementedError('appendFileAsync');
-    }
-
-    /**
-     * Append data to a file in sync mode; Create file if needed.
-     * @param {string} req
-     * @param {any} content
-     */
-    appendFileSync(req, content) {
-        throw new NotImplementedError('appendFileSync');
-    }
-
-    /**
      * Clone an object
      * @param {FileSystemRequest} req The clone request
      * @param {any} args Constructor args
@@ -560,9 +529,10 @@ class FileSystem extends MUDEventEmitter {
      * Write content to a file.
      * @param {FileSystemRequest} req
      * @param {string|Buffer} content
-     * @param {function(boolean, Error):void} callback
+     * @param {string|number} [flags] The optional flags to use
+     * @param {string} [encoding] The optional encoding to use
      */
-    writeFileAsync(req, content, callback) {
+    writeFileAsync(req, content, flags, encoding) {
         throw new NotImplementedError('writeFileAsync');
     }
 

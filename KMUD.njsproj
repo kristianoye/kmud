@@ -41,6 +41,12 @@
     <Compile Include="lib\base\Armor.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="lib\base\Combat\RealTime.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="lib\base\Combat\TurnBased.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="lib\base\Command.js">
       <SubType>Code</SubType>
     </Compile>
@@ -1000,6 +1006,7 @@
     <Folder Include="lib\" />
     <Folder Include="lib\base\" />
     <Folder Include="lib\base\include\" />
+    <Folder Include="lib\base\Combat\" />
     <Folder Include="lib\base\Partials\" />
     <Folder Include="lib\base\Verbs\" />
     <Folder Include="lib\cmds\creator\" />

@@ -817,7 +817,7 @@ class EFUNProxy {
      */
     log(file, message) {
         let logPath = path.posix.join(driver.config.mudlib.logDirectory, file);
-        return driver.fileManager.writeFileSync(this, logPath, message + '\n', 1);
+        return driver.fileManager.writeFileSync(this, logPath, message + '\n', 'a');
     }
 
     merge(...o) {

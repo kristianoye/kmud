@@ -82,7 +82,7 @@ var
 class FileSystemRequest {
     /**
      * Creates a filesystem request.
-     * @param {{ fs: FileSystem, flags: number, op: string, expr: string, relPath: string, isAsync: boolean, efuns: EFUNProxy }} data The data to construct the request with
+     * @param {{ fs: FileSystem, flags: number|string, op: string, expr: string, relPath: string, isAsync: boolean, efuns: EFUNProxy }} data The data to construct the request with
      */
     constructor(data) {
         this.async = data.isAsync;
@@ -104,7 +104,8 @@ class FileSystemRequest {
         this.fileSystem = data.fs;
 
         /** @type {number} */
-        this.flags = typeof data.flags === 'number' ? data.flags : 0;
+        this.flags = typeof data.flags === 'string' ? data.flags :
+            typeof data.flags === 'number' ? data.flags : 0;
 
         /** @type {FileSystemStat} */
         this.parent = null;
@@ -213,16 +214,6 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
-     * 
-     * @param {any} expr
-     * @param {any} content
-     * @param {any} callback
-     */
-    appendFile(expr, content, callback) {
-        let req = this.createFileRequest('appendFile', expr, typeof callback === 'function', 0);
-    }
-
-    /**
      * Not needed by default file manager.
      */
     assertValid() {
@@ -250,7 +241,7 @@ class FileManager extends MUDEventEmitter {
      * @param {string} op The name of the file operation
      * @param {string} expr THe filename expression being operated on
      * @param {boolean} isAsync A flag indicating whether this is an async operation
-     * @param {number} flags Any numeric flags associated with the operation
+     * @param {string|number} flags Any numeric flags associated with the operation
      * @param {function(): any} callback A defunct callback
      * @param {EFUNProxy} efuns The efun proxy that made the request.
      * @returns {FileSystemRequest} The request to be fulfilled.
@@ -587,15 +578,18 @@ class FileManager extends MUDEventEmitter {
      * @param {EFUNProxy} efuns The object performing the write operation.
      * @param {string} expr The file to write to.
      * @param {string|Buffer} content The content to write to file.
-     * @param {number} flags Flags controlling the operation.
+     * @param {string} flags Flags controlling the operation.
+     * @param {string} encoding The optional encoding to use
      * @returns {Promise<boolean>} The promise for the operation.
      */
-    async writeFileAsync(efuns, expr, content, flags) {
-        let req = this.createFileRequest('WriteFile', expr, true, flags, efuns);
+    async writeFileAsync(efuns, expr, content, flags, encoding) {
+        let req = this.createFileRequest('WriteFile', expr, true, flags || 'w', efuns);
         return new Promise((resolve, reject) => {
             try {
-                if (!req.valid()) reject(req.deny());
-                resolve(req.fileSystem.writeFileAsync(req.relativePath, content, req.flags));
+                if (!req.valid())
+                    reject(req.deny());
+                else
+                    resolve(req.fileSystem.writeFileAsync(req.relativePath, content, req.flags, encoding));
             }
             catch (err) {
                 reject(err);

@@ -11,3 +11,4 @@
 
 ## Mudlib:
 1. Finish command shell applies
+2. Make move* applies async

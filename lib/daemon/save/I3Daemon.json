@@ -1,8 +1,7 @@
 {
-  "private": {},
-  "props": {},
-  "protected": {},
-  "$environment": false,
-  "$inventory": [],
-  "$filename": "/sys/daemon/GameMaster"
+  "$type": "/daemon/I3Daemon",
+  "environment": false,
+  "flags": 0,
+  "inventory": [],
+  "properties": {}
 }

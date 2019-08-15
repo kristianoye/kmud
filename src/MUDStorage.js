@@ -331,13 +331,16 @@ class MUDStorage extends MUDEventEmitter {
                 if (typeof this.owner.applyRestore === 'function') {
                     this.owner.applyRestore();
                 }
-                Object.keys(data.properties).forEach(filename => {
-                    if (this.properties.hasOwnProperty(filename) === false)
-                        this.properties[filename] = {};
-                    else if (typeof this.properties[filename] !== 'object')
-                        throw new Error(`Unable to restore object; Unexpected value for key ${filename}`);
-                    restoreData(this.properties, filename, data.properties[filename]);
-                });
+                if (!data.properties)
+                    logger.log('error: restored data has no properties');
+                else
+                    Object.keys(data.properties).forEach(filename => {
+                        if (this.properties.hasOwnProperty(filename) === false)
+                            this.properties[filename] = {};
+                        else if (typeof this.properties[filename] !== 'object')
+                            throw new Error(`Unable to restore object; Unexpected value for key ${filename}`);
+                        restoreData(this.properties, filename, data.properties[filename]);
+                    });
                 return owner;
             });
         }

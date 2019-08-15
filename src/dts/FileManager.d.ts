@@ -216,14 +216,6 @@ declare class FileManager {
     readonly driver: GameServer;
 
     /**
-     * Append text to a file.
-     * @param efuns The caller requesting the new directory.
-     * @param expr The path expression to create.
-     * @param callback An optional callback for async mode.
-     */
-    appendFile(efuns: EFUNProxy, expr: string, content: string, callback: (success: boolean, err: Error) => void): boolean;
-
-    /**
      * Creates a directory on the filesystem.
      * @param efuns The caller requesting the new directory.
      * @param expr The path expression to create.
@@ -397,5 +389,14 @@ declare class FileManager {
      * @param content The content to write to the file.
      * @param callback An optional callback for async mode.
      */
-    writeFile(efuns: EFUNProxy, expr: string, content: string, callback: (err: Error|false) => void): void;
+    writeFile(efuns: EFUNProxy, expr: string, content: string, callback: (err: Error | false) => void): void;
+
+    /**
+     * Write data to a file.
+     * @param efuns The efun proxy making the request.
+     * @param expr The path expression to write to.
+     * @param content The content to append.
+     * @param flags Optional flags for the operation
+     */
+    writeFileAsync(efuns: EFUNProxy, expr: string, content: string, flags: number|string): Promise<boolean>;
 }

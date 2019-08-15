@@ -10,6 +10,16 @@ const
     path = require('path');
 
 class FileSystemHelper {
+    /**
+     * Append content to a new or existing file.
+     * @param {string} expr The filename expression
+     * @param {any} content The content to write to file
+     * @param {string} encoding The file encoding to use
+     */
+    static appendFileAsync(expr, content, encoding) {
+        return driver.fileManager.writeFileAsync(efuns, expr, content, 'a', encoding);
+    }
+
     static createDirectoryAsync(expr, flags = 0) {
         return driver.fileManager.createDirectoryAsync(efuns, expr, flags);
     }
@@ -32,6 +42,10 @@ class FileSystemHelper {
      */
     static statAsync(expr, flags = 0) {
         return driver.fileManager.statAsync(this, expr, flags);
+    }
+
+    static writeFileAsync(expr, content, flags, encoding) {
+        return driver.fileManager.writeFileAsync(efuns, expr, content, flags, encoding);
     }
 }
 

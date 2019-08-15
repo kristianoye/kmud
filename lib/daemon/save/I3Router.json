@@ -1,13 +1,7 @@
 {
-  "private": {},
-  "props": {},
-  "protected": {
-    "mudList": {},
-    "channels": {},
-    "port": 8787,
-    "routerName": "*kmud"
-  },
-  "$environment": false,
-  "$inventory": [],
-  "$filename": "/daemon/I3Router"
+  "$type": "/daemon/I3Router",
+  "environment": false,
+  "flags": 0,
+  "inventory": [],
+  "properties": {}
 }

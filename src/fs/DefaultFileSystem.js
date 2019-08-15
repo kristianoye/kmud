@@ -68,24 +68,6 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
-     * Appends content to a file syncronously.
-     * @param {FileSystemRequest} req The filesystem request.
-     * @param {string|Buffer} content The content to write to file.
-     * @returns {string} The absolute path to the file.
-     */
-    appendFileSync(req, content) {
-        return this.translatePath(req.relativePath, fullPath => {
-            let stat = this.statSync(fullPath);
-            if (stat.isDirectory)
-                throw new Error(`appendFile: ${req.fullPath} is a directory`);
-            return fs.writeFileSync(fullPath, content, {
-                encoding: this.encoding || 'utf8',
-                flag: 'a'
-            });
-        });
-    }
-
-    /**
      * 
      * @param {FileSystemRequest} req The filesystem request
      * @param {object} args Constructor args
@@ -673,28 +655,42 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
-     * Creates or overwites an existing file.
-     * @param {FileSystemRequest} req The virtual MUD path.
-     * @param {function(string):void=} callback  The callback thast receives success or failure notification.
-     * @returns {void} Returns nothing for async.
+     * Write to a file
+     * @param {string} expr The virtual MUD path.
+     * @param {string|Buffer} content The content to write to file
+     * @param {string|number} [flag] A flag indicating mode, etc
+     * @param {string} [encoding] The optional encoding to use
+     * @returns {boolean} Returns true on success.
      */
-    writeFileAsync(req, content, callback) {
-        throw new Error('Not implemented');
+    writeFileAsync(expr, content, flag, encoding) {
+        let fullPath = this.translatePath(expr);
+        return new Promise(resolve => {
+            fs.writeFile(fullPath, 
+                content,
+                { flag: flag || 'w', encoding: encoding || this.encoding || 'utf8' },
+                err => {
+                    if (err)
+                        resolve(err);
+                    else
+                        resolve(true);
+                });
+        });
     }
 
     /**
-     * Creates or overwites an existing file.
+     * Write to a file
      * @param {string} expr The virtual MUD path.
      * @param {string|Buffer} content The content to write to file
-     * @param {number} flag A flag indicating mode, etc
+     * @param {string|number} [flags] A flag indicating mode, etc
+     * @param {string} [encoding] The optional encoding to use
      * @returns {boolean} Returns true on success.
      */
-    writeFileSync(expr, content, flag) {
+    writeFileSync(expr, content, flags, encoding) {
         let fullPath = this.translatePath(expr);
         try {
             fs.writeFileSync(fullPath, content, {
-                encoding: this.encoding || 'utf8',
-                flag: flag ? 'a' : 'w'
+                encoding: encoding || this.encoding || 'utf8',
+                flag: flags || 'w'
             });
             return true;
         }

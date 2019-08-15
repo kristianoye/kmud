@@ -836,7 +836,11 @@ class GameServer extends MUDEventEmitter {
             logger.log('Compiler Error: ' + error.message);
             logger.log(error.stack);
         }
-        else this.applyLogError(path, error);
+        else {
+            this.driverCall('logError', () => {
+                this.applyLogError(path, error);
+            })
+        }
     }
 
     /**
