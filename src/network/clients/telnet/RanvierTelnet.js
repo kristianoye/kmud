@@ -254,9 +254,14 @@ class TelnetSocket extends EventEmitter {
                 if (databuf[i] === 3) { // ctrl-c 
                     continue; //eat it
                 }
-                if (databuf[i] !== 10) { // \n
+                if (databuf[i] !== 10 && databuf[i] !== 13) { // neither LF nor CR
                     bucket.push(databuf[i]);
                 } else {
+                    // look ahead to see if our newline delimiter is part of a combo.
+                    if (i+1 < inputlen && (databuf[i+1] === 10 || databuf[i+1 === 13])
+                        && databuf[i] !== databuf[i+1]) {
+                        i++;
+                    }
                     this.input(Buffer.from(bucket));
                     bucket = [];
                 }
@@ -305,7 +310,11 @@ class TelnetSocket extends EventEmitter {
 
         while (i < inputbuf.length) {
             if (inputbuf[i] !== Seq.IAC) {
-                cleanbuf[cleanlen++] = inputbuf[i++];
+                if (inputbuf[i] < 32) { // Skip any freaky control codes.
+                    i++;
+                } else {
+                    cleanbuf[cleanlen++] = inputbuf[i++];
+                }
                 continue;
             }
 
@@ -468,7 +477,7 @@ class TelnetSocket extends EventEmitter {
          * @event TelnetSocket#data
          * @param {Buffer} data
          */
-        this.emit('data', cleanbuf.slice(0, cleanlen - 1));
+        this.emit('data', cleanbuf.slice(0, cleanlen >= cleanbuf.length ? undefined : cleanlen));  // special processing required for slice() to work.
     }
 }
 
