@@ -252,6 +252,7 @@ class TelnetSocket extends EventEmitter {
             let bucket = [];
             for (let i = 0; i < inputlen; i++) {
                 if (databuf[i] === 3) { // ctrl-c 
+                    bucket = [];
                     continue; //eat it
                 }
                 if (databuf[i] !== 10 && databuf[i] !== 13) { // neither LF nor CR

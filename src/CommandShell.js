@@ -1350,7 +1350,7 @@ class CommandShell extends MUDEventEmitter {
 
                             }
                             else if (input instanceof Error) {
-                                this.stderr.write(`\n${input.message}\n\n`);
+                                this.stderr.write(efuns.eol + `${input.message}` + efuns.eol + efuns.eol);
                                 inputTo.error = input.message;
                             }
                             return true;

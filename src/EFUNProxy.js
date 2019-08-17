@@ -639,9 +639,9 @@ class EFUNProxy {
      * @returns {string} The indented string.
      */
     indent(str, count, pattern) {
-        return str.split('\n')
+        return str.split(this.eol)
             .map(s => Array(count || 1).join(pattern || '\t') + s)
-            .join('\n');
+            .join(this.eol);
     }
 
     get input() { return InputHelper; }
@@ -817,7 +817,7 @@ class EFUNProxy {
      */
     log(file, message) {
         let logPath = path.posix.join(driver.config.mudlib.logDirectory, file);
-        return driver.fileManager.writeFileSync(this, logPath, message + '\n', 'a');
+        return driver.fileManager.writeFileSync(this, logPath, message + this.eol, 'a');
     }
 
     merge(...o) {
@@ -1895,7 +1895,7 @@ class EFUNProxy {
     wrapText(text, maxLength, lineBreak, indent) {
         var result = [], line = [];
         var length = 0;
-        text = text.replace(/\n/g, ' ');
+        text = text.replace(this.eol.length ==2 ? /\r\n/g : /\n/g, ' ');
 
         maxLength = maxLength || 80;
 
@@ -1910,7 +1910,7 @@ class EFUNProxy {
         if (line.length > 0) {
             result.push(line.join(" "));
         }
-        return result.join('\n');
+        return result.join(this.eol);
     }
 
     error(...expr) {
@@ -1980,7 +1980,7 @@ class EFUNProxy {
                 });
 
                 if (appendNewline) {
-                    if (!efuns.text.trailingNewline(content)) content += '\n';
+                    if (!efuns.text.trailingNewline(content)) content += this.eol;
                 }
 
                 if (stream)

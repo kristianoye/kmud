@@ -31,6 +31,7 @@ class RanvierTelnetInstance extends ClientInstance {
             });
         });
         this.client.on('close', () => this.remoteDisconnect());
+        this.client.on('disconnect', () => this.disconnect());
         this.client.on('drain', () => this.emit('drain'));
         this.closed = false;
         this.client.on('kmud', event => this.emit('kmud', event));
@@ -52,6 +53,11 @@ class RanvierTelnetInstance extends ClientInstance {
                 this.writeLine(`Connected to ${event.data}`);
                 break;
 
+            case 'disconnect':
+                this.writeLine('Good-bye!');
+                this.disconnect();
+                break;
+
             case 'prompt':
                 this.renderPrompt(event.data);
                 break;
@@ -69,7 +75,6 @@ class RanvierTelnetInstance extends ClientInstance {
      *  Programatically disconnect the client from the server.
      */
     close() {
-        this.writeLine('Good-bye!');
         this.closed = true;
         this.client.end();
     }

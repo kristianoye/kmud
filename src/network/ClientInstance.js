@@ -66,6 +66,10 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
 
     get clientType() { return 'text'; }
 
+    close() {
+
+    }
+
     /**
      * Find a component by ID
      * @param {string} id The UUID of the component to find.
@@ -125,6 +129,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
     disconnect() {
         this.emit('kmud.connection.closed', this, this.clientProtocol);
         this.emit('disconnected', this);
+        this.close();
     }
 
     eventSend() {

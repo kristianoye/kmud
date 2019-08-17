@@ -1008,7 +1008,7 @@ class GameServer extends MUDEventEmitter {
             let runOnce = path.resolve(__dirname, '../runOnce.json');
             if (fs.existsSync(runOnce)) {
                 let list = this.config.stripBOM(fs.readFileSync(runOnce, 'utf8'))
-                    .split('\n')
+                    .split(efuns.eol)
                     .map(s => JSON.parse(s));
                 try {
                     let $storage = this.storage.get(this.masterObject);
@@ -1194,7 +1194,7 @@ class GameServer extends MUDEventEmitter {
             return target !== driver.masterObject;
         else if (frame.object === target)
             return true;
-        return this.applyValidDestruct(target, frame.object || frame.file, frame.method);
+        return this.applyValidDestruct(frame.object || frame.file, target, frame.method);
     }
 
     /**

@@ -144,7 +144,6 @@ class Login extends MUDObject {
 
         return prompt(InputTypeText, opts, async (name) => {
             if (name.length === 0) {
-                writeLine('\nGood-bye!');
                 return efuns.destruct(this);
             }
             await PlayerDaemon().playerExists(name, true, (player, error) => {
