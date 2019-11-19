@@ -41,6 +41,15 @@ class RmOperation {
     }
 
     /**
+     * Determine if a particular flag is set.
+     * @param {number} flags The flags to check
+     * @returns {boolean} Returns true if the flag(s) are set.
+     */
+    hasFlag(flags) {
+        return (this.flags & flags) === flags;
+    }
+
+    /**
      * Remove a flag from the operation
      * @param {number} flags One or more flags to remove.
      */

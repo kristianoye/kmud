@@ -23,6 +23,11 @@ class DesktopServer extends ClientEndpoint {
      */
     constructor(gameMaster, config) {
         super(gameMaster, config);
+
+        this.websocketOptions = Object.assign({
+            pingInterval: 25000,
+            pingTimeout: 60000
+        }, config.options.websocket || {});
     }
 
     bind() {
@@ -32,7 +37,8 @@ class DesktopServer extends ClientEndpoint {
                 port: this.port,
                 portOptions: {
                     host: this.address
-                }
+                },
+                websocketOptions: Object.assign({}, this.websocketOptions)
             })
             .createFileAbstraction(DesktopFileAbstraction)
             .addMapping('/index.html', path.join(__dirname, 'client/index.html'))

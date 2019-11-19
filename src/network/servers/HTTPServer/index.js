@@ -148,6 +148,7 @@ class HTTPServer extends events.EventEmitter {
         this.addHandler({ verbs: '*', module: './handlers/MVCHandler', path: '*' });
 
         this.fileSystem = new FileAbstraction.FileAbstractionDefault();
+        this.websocketOptions = config.websocketOptions || {};
     }
 
     /**
@@ -502,6 +503,12 @@ class HTTPServer extends events.EventEmitter {
                 });
 
             if (this.enableWebSocket) {
+                /** @type {SocketIO.ServerOptions} */
+                let socketOptions = Object.assign({
+                    log: true,
+                    transports: ['websocket']
+                }, this.websocketOptions);
+
                 this.standardWebSocket = require('socket.io')(this.standardServer, {
                     log: true,
                     transports: ['websocket']
