@@ -243,9 +243,19 @@ ClientInstance.registerComponent = function (client, data) {
             let credentials = client.endpoint.decryptAuthToken(data.auth);
             if (credentials != false) {
                 try {
-                    let newLogin = driver.masterObject.connect(client.port, client.clientType, credentials);
+                    let [user, shellOptions] = driver.masterObject.connect(client.port, client.clientType, credentials);
+                    if (user) {
+                        let shell = component.attachShell(new CommandShell(component, shellOptions));
+                        shell.attachPlayer(user)
+
+                        if (driver.connections.indexOf(component) === -1)
+                            driver.connections.push(component);
+                        component.eventSend({ type: 'connected', data: efuns.mudName() });
+                    }
                 }
                 catch (err) {
+                    client.writeLine('Sorry, something is very wrong right now; Please try again later.');
+                    client.close('No Login Object Available');
                     console.log(err);
                 }
             }
