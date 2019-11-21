@@ -54,6 +54,8 @@ class MUDObject extends MUDEventEmitter {
         }
     }
 
+    create() { }
+
     get environment() {
         let store = driver.storage.get(this);
         return !!store && store.environment;

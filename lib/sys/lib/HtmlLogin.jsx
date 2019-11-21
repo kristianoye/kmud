@@ -142,7 +142,7 @@ class Login extends MUDObject {
             minLengthError: 'Your username must be at least 3 characters'
         }, playerData);
 
-        return prompt(InputTypeText, opts, async (name) => {
+        return prompt(InputTypeText, opts, /** @param {string} name */ async (name) => {
             if (name.length === 0) {
                 return efuns.destruct(this);
             }
@@ -156,7 +156,7 @@ class Login extends MUDObject {
                             return this.enterUsername({ error: 'Enter the name you really want, then.' });
                         }
                         else
-                            return this.selectPassword({ name });
+                            return this.selectPassword({ displayName: name, keyId: efuns.normalizeName(name) });
                     });
                 else 
                     this.enterPassword(name, player);
@@ -227,7 +227,7 @@ class Login extends MUDObject {
                 this.enterEmailAddress(playerData, { error: 'Invalid email address' });
             }
             else {
-                this.enterRealName(Object.assign(playerData, { email: email }));
+                this.enterRealName(Object.assign(playerData, { emailAddress: email }));
             }
         });
     }
@@ -240,7 +240,7 @@ class Login extends MUDObject {
 
     private createNewCharacter(playerData) {
         let player = PlayerDaemon().createNewCharacter(Object.assign({}, {
-            name: playerData.name,
+            name: playerData.keyId,
         }, playerData));
 
         if (player) {

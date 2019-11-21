@@ -242,8 +242,12 @@ ClientInstance.registerComponent = function (client, data) {
         else if (data.auth) {
             let credentials = client.endpoint.decryptAuthToken(data.auth);
             if (credentials != false) {
-                let newLogin = driver.masterObject.connect(client.port, client.clientType, credentials);
-
+                try {
+                    let newLogin = driver.masterObject.connect(client.port, client.clientType, credentials);
+                }
+                catch (err) {
+                    console.log(err);
+                }
             }
         }
     }

@@ -206,7 +206,18 @@ class MUDCompiler {
                             filename: context.filename
                         };
                         delete ecc.restoreContext;
-                        return driver.compileVirtualObject(ecc.newContext.filename, args);
+                        let virtualResult = driver.compileVirtualObject(ecc.newContext.filename, args);
+                        args.forEach(a => {
+                            if (typeof a === 'object') {
+                                Object.keys(a).forEach(k => {
+                                    driver.driverCall('setProperty', eccInner => {
+                                        if (k in virtualResult) 
+                                            virtualResult[k] = a[k];
+                                    });
+                                });
+                            }
+                        });
+                        return virtualResult;
                     }
                     finally {
                         parentInfo = ecc.virtualParents.pop();
