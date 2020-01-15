@@ -55,13 +55,20 @@ class MUDOSLoader extends MUDLoader {
             },
             enable_commands: {
                 value: function (flag) {
-                    var to = _efuns.thisObject();
+                    var to = T.thisObject();
+                },
+                writable: false
+            },
+            environment: {
+                value: function (arg) {
+                    let ob = arg || T.thisObject();
+                    return typeof ob === 'object' && ob.environment;
                 },
                 writable: false
             },
             previous_object: {
                 value: function (n) {
-                    return _efuns.previousObject(n);
+                    return T.previousObject(n);
                 },
                 writable: false
             },

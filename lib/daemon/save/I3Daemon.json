@@ -3,5 +3,9 @@
   "environment": false,
   "flags": 0,
   "inventory": [],
-  "properties": {}
+  "properties": {
+    "/daemon/I3Daemon": {
+      "routers": {}
+    }
+  }
 }

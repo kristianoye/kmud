@@ -583,15 +583,13 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     removeInventory(item) {
-        let list = [];
-        this.inventory.forEach((ow, i) => {
-            if (ow.filename === item.filename) list.push(i);
-        });
-        if (list.length === 0)
-            return false;
-        while (list.length) {
-            this.inventory.splice(list.pop(), 1);
-        }
+        this.inventory
+            .map((ow, i) => {
+                if (ow.filename === item.filename) return i;
+            })
+            .reverse().forEach(i => {
+                this.$inventory.splice(i, 1);
+            });
         return true;
     }
 

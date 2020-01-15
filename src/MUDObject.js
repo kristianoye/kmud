@@ -101,7 +101,8 @@ class MUDObject extends MUDEventEmitter {
             newEnvironment = unwrap(target);
 
         if (!oldEnvironment || oldEnvironment.canReleaseItem(this) && newEnvironment) {
-            let targetStore = driver.storage.get(newEnvironment);
+            let targetStore = driver.storage.get(newEnvironment),
+                oldStorage = oldEnvironment && driver.storage.get(oldEnvironment);
             //  Can the destination accept this object?
             if (targetStore && newEnvironment.canAcceptItem(this)) {
 

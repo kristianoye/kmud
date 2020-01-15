@@ -340,6 +340,16 @@ class MUDCompiler {
         }
         return false;
     }
+
+    /**
+     * Attempts to compile the requested file into a usable MUD object.
+     * @param {MUDCompilerOptions|string} options Hints for the compiler.
+     * @param {MUDCompilerOptions} moreOptions Hints for the compiler.
+     * @returns {MUDModule} The compiled module
+     */
+    async compileObjectAsync(options, moreOptions) {
+
+    }
 }
 
 MUDCompiler.configureForRuntime = function (driver) {
