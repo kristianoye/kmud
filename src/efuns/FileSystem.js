@@ -24,6 +24,18 @@ class FileSystemHelper {
         return driver.fileManager.createDirectoryAsync(efuns, expr, flags);
     }
 
+    static createDirectorySync(expr, flags = 0) {
+        return driver.fileManager.createDirectorySync(efuns, expr, flags);
+    }
+
+    static async deleteDirectoryAsync(expr, flags = 0) {
+        return await driver.fileManager.deleteDirectory(efuns, expr, flags);
+    }
+
+    static async deleteDirectorySync(expr, flags = 0) {
+        return await driver.fileManager.deleteDirectorySync(efuns, expr, flags);
+    }
+
     static isDirectoryAsync(expr) {
         return driver.fileManager.isDirectoryAsync(efuns, expr);
     }
@@ -40,8 +52,8 @@ class FileSystemHelper {
      * @param {string} expr
      * @param {number} [flags] Optional flags to use when fetching file data.
      */
-    static statAsync(expr, flags = 0) {
-        return driver.fileManager.statAsync(this, expr, flags);
+    static async statAsync(expr, flags = 0) {
+        return await driver.fileManager.statAsync(this, expr, flags);
     }
 
     static writeFileAsync(expr, content, flags, encoding) {

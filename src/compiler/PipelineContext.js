@@ -145,6 +145,38 @@ class PipelineContext {
         return true;
     }
 
+    /**
+     * Checks to see if the specified file exists with the given extension.
+     * @param {any} ext
+     * @returns {boolean} 
+     */
+    async validExtensionAsync(ext) {
+        if (!this.content) {
+            if ((ext = ext || this.extension) === false)
+                return false;
+            let tryFilename = this.filename.endsWith(ext) ? this.filename : this.filename + ext,
+                stat = await driver.efuns.fs.statAsync(tryFilename, MUDFS.StatFlags.Content);
+            if (stat && stat.exists) {
+                if (stat.isFile) {
+                    let n = this.filename.lastIndexOf('/');
+
+                    this.extension = ext;
+                    this.filename = this.basename;
+                    this.lastModified = stat.mtime;
+                    this.exists = true;
+                    this.directory = this.filename.slice(0, n);
+                    this.resolvedName = this.realName += ext;
+                    this.isEval = false;
+                    this.content = stat.content;
+
+                    return true;
+                }
+            }
+            return false;
+        }
+        return true;
+    }
+
     virtualContext(virtualData) {
         if (virtualData) {
             this.baseName = virtualData.baseName;

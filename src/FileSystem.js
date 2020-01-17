@@ -241,30 +241,26 @@ class FileSystem extends MUDEventEmitter {
 
     /**
      * Removes a directory from the filesystem.
-     * @param {FileSystemRequest} req The path of the directory to remove.
+     * @param {string} req The path of the directory to remove.
      * @param {any} flags TBD
-     * @param {function(boolean,Error):void} callback Callback for async operation
      */
-    deleteDirectory(req, flags, callback) {
-        return typeof callback === 'function' ?
-            this.assertAsync() && this.deleteDirectoryAsync(req, flags, callback) :
-            this.assertSync() && this.deleteDirectorySync(req, flags);
-    }
-
-    /**
-     * Removes a directory from the filesystem.
-     * @param {FileSystemRequest} req The path of the directory to remove.
-     * @param {any} flags TBD
-     * @param {function(boolean,Error):void} callback Callback for async operation
-     */
-    deleteDirectoryAsync(req, flags, callback) {
+    async deleteDirectoryAsync(req, flags) {
         throw new NotImplementedError('deleteDirectoryAsync');
     }
 
     /**
      * Removes a directory from the filesystem.
-     * @param {FileSystemRequest} req The path of the directory to remove.
-     * @param {any} flags TBD
+     * @param {string} req The path of the directory to remove.
+     * @param {number} flags TBD
+     */
+    deleteDirectorySync(req, flags) {
+        throw new NotImplementedError('createDirectorySync');
+    }
+
+    /**
+     * Removes a directory from the filesystem.
+     * @param {string} req The path of the directory to remove.
+     * @param {number} flags TBD
      */
     deleteDirectorySync(req, flags) {
         throw new NotImplementedError('deleteDirectorySync');
@@ -458,20 +454,8 @@ class FileSystem extends MUDEventEmitter {
      * Read a file from the filesystem.
      * @param {FileSystemRequest} req The file path expression to read from.
      * @param {function(string,Error):void} callback The callback that fires when the read is complete.
-     * @returns {any} Returns void if async or data if successful read.
      */
-    readJsonFile(req, callback) {
-        return typeof callback === 'function' ?
-            this.assertAsync() && this.readJsonFileAsync(req, callback) :
-            this.assertSync() && this.readJsonFileSync(req);
-    }
-
-    /**
-     * Read a file from the filesystem.
-     * @param {FileSystemRequest} req The file path expression to read from.
-     * @param {function(string,Error):void} callback The callback that fires when the read is complete.
-     */
-    readJsonFileAsync(expr, callback) {
+    async readJsonFileAsync(expr, callback) {
         throw new NotImplementedError('readJsonFileAsync');
     }
 
@@ -501,7 +485,7 @@ class FileSystem extends MUDEventEmitter {
      * @param {FileSystemRequest} req The file expression to stat.
      * @param {function(FileSystemStat,Error):void} callback
      */
-    statAsync(req, callback) {
+    async statAsync(req, callback) {
         throw new NotImplementedError('statAsync');
     }
 

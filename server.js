@@ -13,7 +13,7 @@ try {
         config.entryDirectory = __dirname;
         config.entryScript = process.argv[1];
 
-        config.run();
+        setImmediate(async() => await config.run());
     }
     catch (e) {
         console.error(e.message);

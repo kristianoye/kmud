@@ -355,12 +355,12 @@ class GameServer extends MUDEventEmitter {
     /**
      * Initializes the filesystem.
      */
-    createFileSystems() {
+    async createFileSystems() {
         let fsconfig = this.config.mudlib.fileSystem;
 
         logger.logIf(LOGGER_PRODUCTION, 'Creating filesystem(s)');
         this.fileManager = fsconfig.createFileManager(this);
-        fsconfig.eachFileSystem(config => this.fileManager.createFileSystem(config));
+        fsconfig.eachFileSystem(async config => await this.fileManager.createFileSystem(config));
     }
 
     /**
@@ -976,9 +976,6 @@ class GameServer extends MUDEventEmitter {
             this.serverAddress = '127.0.0.1';
         }
 
-        if (!this.loginObject) {
-            throw new Error('Login object must be specified');
-        }
         logger.log('Starting %s', this.mudName.ucfirst());
         if (this.globalErrorHandler) {
             process.on('uncaughtException', err => {
@@ -987,7 +984,7 @@ class GameServer extends MUDEventEmitter {
                 this.errorHandler(err, false);
             });
         }
-        this.createFileSystems();
+        await this.createFileSystems();
         this.configureRuntime();
 
         return this.driverCall('startup', () => {
@@ -997,6 +994,8 @@ class GameServer extends MUDEventEmitter {
             this.enableFeatures();
             this.sealProtectedTypes();
             this.runStarting();
+            if (callback)
+                callback.call(this);
             return this;
         });
     }

@@ -121,7 +121,6 @@ class DefaultFileSystem extends FileSystem {
         return req.fileName && req.fileName.match(/[\*\?]+/);
     }
 
-
     async createDirectoryAsync(expr, flags) {
         let fullPath = this.translatePath(expr);
         let parts = path.relative(this.root, fullPath).split(path.sep),
@@ -251,6 +250,37 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
+     * Removes a directory from the filesystem.
+     * @param {string} relativePath The path of the directory to remove.
+     * @param {any} flags TBD
+     */
+    async deleteDirectoryAsync(relativePath, flags) {
+        let fullPath = this.translatePath(relativePath);
+        return new Promise((resolve, reject) => {
+            fs.rmdir(fullPath, { recursive: flags & 1 > 0 }, err => {
+                if (err) reject(err);
+                else resolve(true);
+            });
+        });
+    }
+
+    /**
+     * Removes a directory from the filesystem.
+     * @param {string} relativePath The path of the directory to remove.
+     * @param {number} flags TBD
+     */
+    deleteDirectorySync(relativePath, flags) {
+        let fullPath = this.translatePath(relativePath);
+        try {
+            fs.rmdirSync(fullPath, { recursive: flags & 1 > 0 });
+            return true;
+        }
+        catch (e) {
+        }
+        return false;
+    }
+
+    /**
      * Translate an absolute path back into a virtual path.
      * @param {string} expr The absolute path to translate.
      * @returns {string|false} The virtual path if the expression exists in this filesystem or false if not.
@@ -329,8 +359,22 @@ class DefaultFileSystem extends FileSystem {
         })
     }
 
-    loadObjectAsync(req, args, callback) {
-        throw new Error('Not implemented');
+    async loadObjectAsync(req, args, callback) {
+        let fullPath = path.posix.join(this.mountPoint, '/', req),
+            parts = driver.efuns.parsePath(fullPath),
+            module = driver.cache.get(parts.file),
+            forceReload = !module || flags & 1 === 1;
+
+        if (forceReload) {
+            module = await driver.compiler.compileObjectAsync({
+                args,
+                file: parts.file,
+                reload: !!module
+            });
+            if (!module)
+                throw new Error(`Failed to load module ${fullPath}`);
+        }
+        return module.getInstanceWrapper(parts);
     }
 
     /**
@@ -526,6 +570,21 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
+     * Read a file asynchronously.
+     * @param {string} req The file being requested.
+     * @returns {Promise<string>}
+     */
+    readFileAsync(req) {
+        let fullPath = this.translatePath(req);
+        return new Promise((resolve, reject) => {
+            fs.readFile(fullPath, { encoding: this.encoding || 'utf8' }, (err, data) => {
+                if (err) reject(err);
+                else resolve(this.stripBOM(data));
+            });
+        });
+    }
+
+    /**
      * Read a file syncronously from the filesystem.
      * @param {FileSystemRequest} req The file request.
      * @returns {string} The contents of the file.
@@ -536,31 +595,13 @@ class DefaultFileSystem extends FileSystem {
         return result;
     }
 
-    readJsonFileAsync(expr) {
-        let fullPath = this.translatePath(expr);
-        return new Promise((resolve, reject) => {
-            try {
-                fs.readFile(fullPath, (err, content) => {
-                    if (err) {
-                        switch (err.code) {
-                            case 'ENOENT': // File does not exist
-                            case 'EISDIR': // File is a directory
-                                return resolve(err);
-
-                            default:
-                                return reject(err);
-                        }
-                    }
-                    else {
-                        let ob = JSON.parse(content);
-                        resolve(ob);
-                    }
-                });
-            }
-            catch (err) {
-                reject(err);
-            }
-        });
+    /**
+     * Read a JSON file asynchronously
+     * @param {any} expr
+     */
+    async readJsonFileAsync(expr) {
+        let content = await this.readFileAsync(expr);
+        return JSON.parse(content);
     }
 
     /**
@@ -579,12 +620,12 @@ class DefaultFileSystem extends FileSystem {
         return false;
     }
 
-    statAsync(localPath) {
+    async statAsync(localPath, flags = 0) {
         let fullPath = this.translatePath(localPath);
 
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
             try {
-                fs.stat(fullPath, (err, stats) => {
+                fs.stat(fullPath, async (err, stats) => {
                     if (err) {
                         resolve(driver.fileManager.createDummyStats(err, fullPath));
                     }
@@ -594,6 +635,9 @@ class DefaultFileSystem extends FileSystem {
                             name: localPath.slice(localPath.lastIndexOf('/') + 1),
                             path: path.posix.join(this.mountPoint, localPath)
                         });
+                        if ((flags & MUDFS.StatFlags.Content) > 0) {
+                            stat.content = await this.readFileAsync(fullPath);
+                        }
                         resolve(stat);
                     }
                 });

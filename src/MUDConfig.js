@@ -137,6 +137,10 @@ class MUDConfig {
                         this.setupMode = true;
                         break;
 
+                    case 'test':
+                        this.runTests = true;
+                        break;
+
                     case 'skip-startup-scripts':
                         this.skipStartupScripts = true;
                         break;
@@ -168,18 +172,19 @@ class MUDConfig {
         return typeof ptr === 'undefined' || path.length ? defaultValue : ptr;
     }
 
-    run() {
+    async run() {
         if (!this.setupMode) {
             this.assertValid();
             let gameDriverType = require('./GameServer');
             let gameMaster = new gameDriverType(this);
 
-            /** @type {GameServer} The game server instance */
-            gameMaster
-                .setLoginObject('/sys/lib/Login')
-                .enableGlobalErrorHandler(true)
+            gameMaster.enableGlobalErrorHandler(true);
+            await gameMaster
                 .run(() => {
                     logger.log('Done with startup');
+                    if (this.runTests === true) {
+
+                    }
                 });
         }
     }

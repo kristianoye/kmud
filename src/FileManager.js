@@ -5,12 +5,25 @@
  *
  * Description: Provides a uniform API for accessing the underlying MUD
  * filesystems.
+ * 
+ * All filesystems must provide the following operations (async and optional sync):
+ *   Directories:
+ *     - Read Directory Contents
+ *     - Is Directory?
+ *     - MkDir
+ *     - RmDir
+ *   Files:
+ *     - Read File
+ *     - Write File
+ *     - Is File?
+ *     - Remove File
+ *   JSON:
+ *     - Read
+ *     - Write
  */
 const
-    ExecutionContext = require('./ExecutionContext'),
     MUDEventEmitter = require('./MUDEventEmitter'),
     { MudlibFileMount } = require('./config/MudlibFileSystem'),
-    FileSystem = require('./FileSystem').FileSystem,
     path = require('path');
 
 global.MUDFS = {
@@ -286,7 +299,7 @@ class FileManager extends MUDEventEmitter {
      * Create the specified filesystem.
      * @param {MudlibFileMount} fsconfig The filesystem to mount.
      */
-    createFileSystem(fsconfig) {
+    async createFileSystem(fsconfig) {
         let fileSystemType = require(path.join(__dirname, fsconfig.type)),
             securityManagerType = require(path.join(__dirname, fsconfig.securityManager)),
             fileSystem = this.fileSystems[fsconfig.mountPoint] = new fileSystemType(this, fsconfig.options, fsconfig.mountPoint),
@@ -294,12 +307,18 @@ class FileManager extends MUDEventEmitter {
         return fileSystem;
     }
 
-    createDirectoryAsync(efuns, expr, flags = 0) {
+    /**
+     * Create a directory asynchronously
+     * @param {any} efuns
+     * @param {any} expr
+     * @param {any} flags
+     */
+    async createDirectoryAsync(efuns, expr, flags = 0) {
         let req = this.createFileRequest('CreateDirectory', expr, false, flags, null, efuns);
         if (!req.valid())
             return req.deny();
         else
-            return req.fileSystem.createDirectoryAsync(req.relativePath, req.flags);
+            return await req.fileSystem.createDirectoryAsync(req.relativePath, req.flags);
     }
 
     /**
@@ -362,14 +381,27 @@ class FileManager extends MUDEventEmitter {
      * @param {EFUNProxy} efuns The object requesting the deletion.
      * @param {string} expr The directory to remove.
      * @param {object} options Any additional options.
-     * @param {function(boolean,Error):void} callback A callback if deleteDirectory is async.
      */
-    deleteDirectory(efuns, expr, options, callback) {
-        return this.createFileRequest('removeDirectory', expr, typeof callback === 'function', options, req => {
-            return req.securityManager.validDeleteDirectory(efuns, req) ?
-                req.fileSystem.deleteDirectory(req, options, callback) :
-                req.securityManager.denied('removeDirectory', req.fullPath);
-        });
+    deleteDirectoryAsync(efuns, expr, options) {
+        let req = this.createFileRequest('DeleteDirectory', expr, false, options.flags, null, efuns);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.deleteDirectoryAsync(req.relativePath, req.flags);
+    }
+
+    /**
+     * Remove a directory from the filesystem.
+     * @param {EFUNProxy} efuns The object requesting the deletion.
+     * @param {string} expr The directory to remove.
+     * @param {object} options Any additional options.
+     */
+    deleteDirectorySync(efuns, expr, options) {
+        let req = this.createFileRequest('DeleteDirectory', expr, false, options.flags, null, efuns);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.deleteDirectorySync(req.relativePath, req.flags);
     }
 
     /**
@@ -446,6 +478,22 @@ class FileManager extends MUDEventEmitter {
      * @param {number} flags Flags to control the operation
      * @returns {MUDObject} The loaded object... hopefully
      */
+    async loadObjectAsync(efuns, expr, args, flags = 0) {
+        let req = this.createFileRequest('LoadObject', expr, false, flags, null, efuns);
+        if (!req.valid())
+            return req.deny();
+        else
+            return await req.fileSystem.loadObjectAsync(req.relativePath, args || [], req.flags);
+    }
+
+    /**
+     * Load an object from disk.
+     * @param {EFUNProxy} efuns The efuns instance making the call.
+     * @param {string} expr Information about what is being requested.
+     * @param {any} args Data to pass to the constructor.
+     * @param {number} flags Flags to control the operation
+     * @returns {MUDObject} The loaded object... hopefully
+     */
     loadObjectSync(efuns, expr, args, flags = 0) {
         let req = this.createFileRequest('LoadObject', expr, false, flags, null, efuns);
         if (!req.valid())
@@ -503,12 +551,12 @@ class FileManager extends MUDEventEmitter {
      * @param {string} expr The JSON file being read.
      * @param {function=} callback An optional callback for async mode.
      */
-    readJsonFileAsync(efuns, expr) {
+    async readJsonFileAsync(efuns, expr) {
         let req = this.createFileRequest('readJsonFile', expr, false, 0, null, efuns);
         if (!req.valid('validReadFile'))
             return req.deny();
         else
-            return req.fileSystem.readJsonFileAsync(req.fullPath);
+            return await req.fileSystem.readJsonFileAsync(req.fullPath);
     }
 
     /**
@@ -517,7 +565,7 @@ class FileManager extends MUDEventEmitter {
      * @param {string} expr The JSON file being read.
      * @param {function=} callback An optional callback for async mode.
      */
-    readJsonFile(efuns, expr) {
+    readJsonFileSync(efuns, expr) {
         let req = this.createFileRequest('readJsonFile', expr, false, 0, null, efuns);
         if (!req.valid('validReadFile'))
             return req.deny();

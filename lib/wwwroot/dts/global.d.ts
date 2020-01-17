@@ -69,6 +69,10 @@ declare class MUDInfo {
     readonly uptime: number;
 }
 
+declare interface MUDStorage {
+
+}
+
 /**
  * Contains information required to construct a MUD object.
  */

@@ -774,6 +774,19 @@ class EFUNProxy {
     /** The livings namespace */
     get living() { return LivingsHelper; }
 
+    async loadObjectAsync(expr, ...args) {
+        if (expr instanceof MUDObject)
+            return expr;
+
+        if (typeof expr !== 'string') {
+            if (typeof expr === 'function' && expr.isWrapper)
+                return expr;
+            else if (expr instanceof MUDObject)
+                return global.wrap(expr);
+        }
+        return await driver.fileManager.loadObjectAsync(this, this.resolvePath(expr), args);
+    }
+
     /**
      * Attempts to find the specified object.  If not found then the object is compiled and returned.
      * @param {string} expr The filename of the object to try and load.
@@ -1448,19 +1461,18 @@ class EFUNProxy {
     /**
      * Attempt to read JSON data from a file.
      * @param {string} filename The file to try and read.
-     * @param {function=} callback An optional callback for async reads.
+     * @returns {object}
      */
-    readJsonFile(filename, callback) {
-        return driver.fileManager.readJsonFile(this, this.resolvePath(filename), callback);
+    async readJsonFileAsync(filename) {
+        return await driver.fileManager.readJsonFileAsync(this, this.resolvePath(filename));
     }
 
     /**
      * Attempt to read JSON data from a file.
      * @param {string} filename The file to try and read.
-     * @returns {object}
      */
-    readJsonFileAsync(filename) {
-        return driver.fileManager.readJsonFileAsync(this, this.resolvePath(filename));
+    readJsonFileSync(filename) {
+        return driver.fileManager.readJsonFileSync(this, this.resolvePath(filename));
     }
 
     /**
@@ -1592,7 +1604,7 @@ class EFUNProxy {
                 if (thisOb) {
                     if (!pathOrObject.endsWith(SaveExtension))
                         pathOrObject += SaveExtension;
-                    let data = this.readJsonFile(pathOrObject);
+                    let data = this.readJsonFileSync(pathOrObject);
                     if (data) {
                         let store = driver.storage.get(thisOb);
                         return store ? store.eventRestore(data) : false;
