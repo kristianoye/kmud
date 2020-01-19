@@ -6,6 +6,7 @@
 const
     { FileSystem, FileSystemStat } = require('../FileSystem'),
     FileManager = require('../FileManager'),
+    FileACL = require('./FileACL'),
     async = require('async'),
     path = require('path'),
     fs = require('fs');
@@ -280,6 +281,15 @@ class DefaultFileSystem extends FileSystem {
         return false;
     }
 
+    async getFileACL(relativePath) {
+        let aclFile = `${relativePath}/.acl`;
+        if (await this.isFileAsync(aclFile)) {
+            let content = await this.readJsonFileAsync(aclFile);
+            return new FileACL(content);
+        }
+        return undefined;
+    }
+
     /**
      * Translate an absolute path back into a virtual path.
      * @param {string} expr The absolute path to translate.
@@ -340,11 +350,19 @@ class DefaultFileSystem extends FileSystem {
      * @param {function(boolean,Error):void} callback
      * @returns {void} Nothing for async.
      */
-    isFileAsync(req, callback) {
-        return this.translatePath(req.relativePath, fullPath => {
-            return this.statAsync(fullPath, (stat, err) => {
-                return callback(stat.isFile, err);
-            });
+    async isFileAsync(relativePath) {
+        let absPath = this.translatePath(relativePath);
+        return new Promise(resolve => {
+            try {
+                fs.stat(absPath, (err, stats) => {
+                    if (err) resolve(false);
+                    else if (!stats) resolve(false);
+                    else resolve(stats.isFile());
+                });
+            }
+            catch (err) {
+                resolve(false);
+            }
         });
     }
 
@@ -590,7 +608,7 @@ class DefaultFileSystem extends FileSystem {
      * @returns {string} The contents of the file.
      */
     readFileSync(req) {
-       let fullPath = this.translatePath(req),
+        let fullPath = this.translatePath(req),
             result = this.stripBOM(fs.readFileSync(fullPath, { encoding: this.encoding || 'utf8' }));
         return result;
     }
@@ -600,8 +618,14 @@ class DefaultFileSystem extends FileSystem {
      * @param {any} expr
      */
     async readJsonFileAsync(expr) {
-        let content = await this.readFileAsync(expr);
-        return JSON.parse(content);
+        try {
+            let content = await this.readFileAsync(expr)
+            return JSON.parse(content);
+        }
+        catch (e) {
+            console.log(`readJsonFileAsync(): Error ${e.message}`);
+        }
+        return undefined;
     }
 
     /**

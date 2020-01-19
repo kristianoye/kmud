@@ -1525,6 +1525,46 @@ class EFUNProxy {
     }
 
     /**
+     * Import one or more required resources from another module.
+     * @param {string} moduleName The module name to import.
+     * @returns {any} The results of the import.
+     */
+    async requireAsync(moduleName) {
+        if (typeof moduleName === 'string') {
+            switch (moduleName) {
+                case 'lpc':
+                    return require('./LPCCompat');
+
+                case 'path':
+                    return path.posix;
+
+                case 'async':
+                case 'net':
+                    return require(moduleName);
+
+                default:
+                    let isInclude = moduleName.indexOf('/') === -1,
+                        filename = isInclude ?
+                            this.resolveInclude(moduleName) :
+                            this.resolvePath(moduleName, this.directoryName(this.filename)),
+                        module = driver.cache.get(filename);
+
+                    if (!module)
+                        module = await driver.compiler.compileObjectAsync({
+                            file: filename,
+                            reload: false,
+                            relativePath: this.directory
+                        });
+                    if (!module)
+                        throw new Error(`Failed to load required module '${filename}'`);
+                    else if (module.isCompiling)
+                        throw new Error(`Circular dependency detected: ${module.filename} <-> ${this.fileName}`);
+                    return module.exports;
+            }
+        }
+    }
+
+    /**
      * Attempt to find an include file.
      * @param {string} file The include file to locate.
      * @returns {string|false} Returns the path name of the file or false if not found.

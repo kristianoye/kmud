@@ -20,6 +20,39 @@ class VMWrapper extends VMAbstraction {
     }
 
     /**
+     * 
+     * @param {Promise} promise
+     */
+    makeQuerablePromise(promise) {
+        // Don't modify any promise that has been already modified.
+        if (promise.isResolved) return promise;
+
+        // Set initial state
+        var isPending = true;
+        var isRejected = false;
+        var isFulfilled = false;
+
+        // Observe the promise, saving the fulfillment in a closure scope.
+        var result = promise.then(
+            function (v) {
+                isFulfilled = true;
+                isPending = false;
+                return v;
+            },
+            function (e) {
+                isRejected = true;
+                isPending = false;
+                throw e;
+            }
+        );
+
+        result.isFulfilled = function () { return isFulfilled; };
+        result.isPending = function () { return isPending; };
+        result.isRejected = function () { return isRejected; };
+        return result;
+    }
+
+    /**
      * Load an object in its own virtual sandbox;
      * @param {PipelineContext} context The compiler context.
      * @param {MUDModule} module The module being loaded.
@@ -59,6 +92,55 @@ class VMWrapper extends VMAbstraction {
         }
 
         return vm.runInContext(content, module.context, options);
+    }
+
+    async runAsync(context, module) {
+        module.context = vm.createContext(module.loader);
+        module.loader.ctx = module.context;
+
+        let options = {
+            filename: context.resolvedName.toLowerCase(),
+            lineOffset: 0,
+            produceCachedData: false,
+            displayErrors: true
+        };
+
+        if (CompilerTimeout > 0) {
+            options.timeout = CompilerTimeout;
+        }
+
+        let content = ['(async() => { ',
+            `const [__DIR__, __FILE__] = ['${module.directory}', '${module.filename}'], `,
+            '__filename = __FILE__, ',
+            '__dirname = __DIR__, ',
+            'efuns = createEfuns(), ',
+            'module = efuns, ',
+            'requireAsync = async (s) => { return await efuns.requireAsync(s); }, ',
+            'require = function(str) { return efuns.require(str);  };',
+        context.content,
+            ' })()'].join('');
+
+        if (!module.context.initialized) {
+            let content = module.context.constructor.getInitialization && module.context.constructor.getInitialization();
+            content && vm.runInContext(content, module.context);
+            module.context.initialized = true;
+
+            vm.runInContext(ExtensionText, module.context, {
+                filename: './src/Extensions.js',
+                displayErrors: true
+            });
+        }
+
+        try {
+            let result = this.makeQuerablePromise(vm.runInContext(content, module.context, options));
+            if (result.isPending())
+                return await result;
+            return result;
+        }
+        catch (e) {
+            console.log(`Error in runAsync(): ${e.message}`);
+        }
+        return undefined;
     }
 }
 

@@ -773,10 +773,16 @@
     <Content Include="lib\sys\etc\accessMk3.json">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\sys\etc\acls.json">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="lib\sys\etc\singletons.json">
       <SubType>Code</SubType>
     </Content>
     <Content Include="mudconfig.json" />
+    <Content Include="src\fs\FileACL.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\network\clients\desktop\client\desktop\css\client.css" />
     <Content Include="src\network\clients\desktop\client\desktop\css\client.min.css" />
     <Content Include="src\network\clients\desktop\client\desktop\css\client.scss">

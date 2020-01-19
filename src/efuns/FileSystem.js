@@ -20,8 +20,8 @@ class FileSystemHelper {
         return driver.fileManager.writeFileAsync(efuns, expr, content, 'a', encoding);
     }
 
-    static createDirectoryAsync(expr, flags = 0) {
-        return driver.fileManager.createDirectoryAsync(efuns, expr, flags);
+    static async createDirectoryAsync(expr, flags = 0) {
+        return await driver.fileManager.createDirectoryAsync(efuns, expr, flags);
     }
 
     static createDirectorySync(expr, flags = 0) {
@@ -32,12 +32,28 @@ class FileSystemHelper {
         return await driver.fileManager.deleteDirectory(efuns, expr, flags);
     }
 
-    static async deleteDirectorySync(expr, flags = 0) {
-        return await driver.fileManager.deleteDirectorySync(efuns, expr, flags);
+    static deleteDirectorySync(expr, flags = 0) {
+        return driver.fileManager.deleteDirectorySync(efuns, expr, flags);
+    }
+
+    static async getFileACL(expr) {
+        return await driver.fileManager.getFileACL(efuns, expr);
     }
 
     static isDirectoryAsync(expr) {
         return driver.fileManager.isDirectoryAsync(efuns, expr);
+    }
+
+    static readJsonFileAsync(expr) {
+        return driver.fileManager.readJsonFileAsync(efuns, expr);
+    }
+
+    static async readDirectoryAsync(expr, flags = 0) {
+        return await driver.fileManager.readDirectoryAsync(efuns, expr, flags);
+    }
+
+    static readDirectorySync(expr, flags = 0) {
+        return driver.fileManager.readDirectorySync(efuns, expr, flags);
     }
 
     static relativePath(expr, cwd = false) {
@@ -56,8 +72,24 @@ class FileSystemHelper {
         return await driver.fileManager.statAsync(this, expr, flags);
     }
 
-    static writeFileAsync(expr, content, flags, encoding) {
-        return driver.fileManager.writeFileAsync(efuns, expr, content, flags, encoding);
+    /**
+     * Stat a file syncronously
+     * @param {string} expr
+     * @param {number} flags
+     */
+    static statSync(expr, flags = 0) {
+        return driver.fileSystem.statSync(efuns, expr, flags);
+    }
+
+    /**
+     * Write content to a file
+     * @param {string} expr The file to write to
+     * @param {string|Buffer} content
+     * @param {number} flags
+     * @param {string} encoding
+     */
+    static async writeFileAsync(expr, content = '', flags = 0, encoding = 'utf8') {
+        return await driver.fileManager.writeFileAsync(efuns, expr, content, flags, encoding);
     }
 }
 

@@ -1,6 +1,8 @@
 ﻿{
   "$admin": [ "kriton" ],
   "$arch": [],
+  "$balance": [],
+  "$law": [],
   "$mudlib": [ "$admin" ],
   "$wizard": []
 }

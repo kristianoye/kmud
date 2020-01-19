@@ -23,6 +23,7 @@
  */
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
+    FileACL = require('./fs/FileACL'),
     { MudlibFileMount } = require('./config/MudlibFileSystem'),
     path = require('path');
 
@@ -182,13 +183,13 @@ class FileSystemRequest {
         return `${this.op}:${this.fullPath}`;
     }
 
-    valid(method) {
+    async valid(method) {
         if (method && !method.startsWith('valid'))
             method = 'valid' + method;
         let checkMethod = method || `valid${this.op}`;
         if (typeof this.securityManager[checkMethod] !== 'function')
             throw new Error(`Security method ${checkMethod} not found!`);
-        let result = this.securityManager[checkMethod](this.efuns, this.fullPath);
+        let result = await this.securityManager[checkMethod](this.efuns, this.fullPath);
         return result;
     }
 }
@@ -428,18 +429,42 @@ class FileManager extends MUDEventEmitter {
             .map(id => callback(this.fileSystems[id], id));
     }
 
+    /**
+     * Load/Create an Access Control List (ACL)
+     * @param {string} expr
+     */
+    async getFileACL(efuns, expr) {
+        let parts = expr.split('/'),
+            i = parts.length;
 
-    isDirectoryAsync(efuns, expr) {
+        while (i--) {
+            let dir = parts.slice(0, i).join('/');
+            let data = await this.readFileACL(efuns, dir);
+            if (!data) {
+                data = driver.driverCall('createAcl', dir);
+                if (data != null) {
+                    await data.save();
+                }
+            }
+            if (data)
+                return new FileACL(data);
+        }
+        return acl;
+    }
+
+    async readFileACL(efuns, expr) {
+        let req = this.createFileRequest('ReadFileACL', expr, false, 0, null, efuns);
+        return await req.fileSystem.getFileACL(req.relativePath);
+
+    }
+
+    async isDirectoryAsync(efuns, expr) {
         let req = this.createFileRequest('isDirectory', expr, true, 0, null, efuns);
 
-        return new Promise((resolve, reject) => {
-            if (!req.valid('validReadDirectory'))
-                reject(req.deny());
-            else
-                req.fileSystem.isDirectoryAsync(req.relativePath)
-                    .then(r => resolve(r))
-                    .catch(e => reject(e));
-        });
+        if (!req.valid('validReadDirectory'))
+            reject(req.deny());
+        else
+            await req.fileSystem.isDirectoryAsync(req.relativePath);
     }
 
     /**
@@ -556,7 +581,7 @@ class FileManager extends MUDEventEmitter {
         if (!req.valid('validReadFile'))
             return req.deny();
         else
-            return await req.fileSystem.readJsonFileAsync(req.fullPath);
+            return await req.fileSystem.readJsonFileAsync(req.relativePath);
     }
 
     /**
@@ -570,7 +595,7 @@ class FileManager extends MUDEventEmitter {
         if (!req.valid('validReadFile'))
             return req.deny();
         else
-            return req.fileSystem.readJsonFileSync(req.fullPath);
+            return req.fileSystem.readJsonFileSync(req.relativePath);
     }
 
     statAsync(efuns, expr, flags) {

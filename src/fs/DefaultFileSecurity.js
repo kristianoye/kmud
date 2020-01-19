@@ -133,8 +133,8 @@ class DefaultFileSecurity extends FileSecurity {
      * @param {EFUNProxy} efuns The proxy requesting the directory listing.
      * @param {FileSystemRequest} req The path expression to try and read.
      */
-    validReadDirectory(efuns, req) {
-        return this.validReadFile(efuns, req);
+    async validReadDirectory(efuns, req) {
+        return await this.validReadFile(efuns, req);
     }
 
     /**
@@ -143,8 +143,8 @@ class DefaultFileSecurity extends FileSecurity {
      * @param {string} filename The file to read from
      * @returns {boolean} True if the operation can proceed.
      */
-    validReadFile(efuns, filename) {
-        return driver.getExecution().guarded(f => driver.validRead(efuns, f, filename));
+    async validReadFile(efuns, filename) {
+        return await driver.getExecution().guarded(async f => await driver.validRead(efuns, f, filename));
     }
 
     /**

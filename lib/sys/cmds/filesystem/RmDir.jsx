@@ -7,26 +7,14 @@ const
     Base = require('Base'),
     Daemon = require('Daemon'),
     Command = require(Base.Command),
-    RMDIR_VERBOSE = 1 << 0,
-    RMDIR_PARENTS = 1 << 1;
+    RMDIR_RECURSIVE = 1 << 0,
+    RMDIR_VERBOSE = 1 << 1,
+    RMDIR_PARENTS = 1 << 2;
 
 class RmDir extends Command {
-    create(ctx) {
-        this.FileIndex = efuns.loadObjectSync(Daemon.FileIndex);
-    }
-
-    private get FileIndex() {
-        return unwrap(get(efuns.loadObjectSync(Daemon.FileIndex)));
-    }
-
-    private set FileIndex(value) {
-        set(value);
-    }
-
-    cmd(args, cmdline) {
+    async cmd(args, cmdline) {
         let player = thisPlayer,
             dirList = [],
-            options = 0,
             flags = 0;
 
         for (let i = 0; i < args.length; i++) {
@@ -37,18 +25,24 @@ class RmDir extends Command {
                 for (var j = 0; j < opts.length; j++) {
                     switch (opts[j]) {
                         case 'p': case '--parents':
-                            flags |= MUDFS.MkdirFlags.EnsurePath;
+                            flags |= RMDIR_PARENTS;
                             break;
+
+                        case 'r': case '--recursive':
+                            flags |= RMDIR_RECURSIVE;
+                            break;
+
                         case 'v': case '--verbose':
-                            options |= RMDIR_VERBOSE;
+                            flags |= RMDIR_VERBOSE;
                             break;
+
                         default:
                             return `Rmdir: Unknown option: ${opts[j]}`;
                     }
                 }
             }
             else {
-                if (flags & MUDFS.MkdirFlags.EnsurePath) {
+                if ((flags & RMDIR_PARENTS) > 0) {
                     let parts = opt.split('/');
                     while (parts.length) {
                         dirList.push(efuns.resolvePath(parts.join('/'), player.workingDirectory));
@@ -61,26 +55,25 @@ class RmDir extends Command {
         }
         if (dirList.length === 0)
             return 'Rmdir: Missing parameter';
-        this.removeDirectories(dirList, flags, options, cmdline);
-        return cmdline.complete;
+        return await this.removeDirectories(dirList, flags);
     }
 
     /**
      * Does the work of actually deleting the directories.
      * @param {string[]} dirList
-     * @param {number} flags
      * @param {number} options
-     * @param {MUDInputEvent} cmdline
      */
-    removeDirectories(dirList, flags, options, cmdline) {
+    async removeDirectories(dirList, options) {
         let dir = dirList.shift();
 
-        efuns.rmdir(dir, flags, (success, error) => {
+        for (let i = 0; i < dirList.length; i++) {
+            if (!await efuns.fs.isDirectoryAsync(dirList[i]))
+                return `rmdir: '${dirList[i]}' is not a directory`;
+            let success = - await efuns.fs.deleteDirectoryAsync(dirList[i], options);
             if (options & RMDIR_VERBOSE)
                 writeLine('Rmdir: ' + (success ? `Removed ${dir}` : `Failed: ${error.message}`));
-            if (dirList.length === 0) return cmdline.complete();
-            else this.removeDirectories(dirList, flags, options, cmdline);
-        });
+        }
+        return true;
     }
 }
 

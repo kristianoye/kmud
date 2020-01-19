@@ -302,9 +302,11 @@ class GameServer extends MUDEventEmitter {
             return this.applyCompileVirtual(filename, args);
     }
 
-    createMasterObject() {
-        this.driverCall('createMasterObject', () => {
-            let config = this.config.mudlib, gameMaster = this.compiler.compileObject(config.master.path);
+    async createMasterObject() {
+        return await this.driverCallAsync('createMasterObject', async () => {
+            let config = this.config.mudlib,
+                gameMaster = await this.compiler.compileObjectAsync(config.master.path);
+
             if (!gameMaster) {
                 throw new Error('In-game master could not be loaded; Abort!');
             }
@@ -316,6 +318,12 @@ class GameServer extends MUDEventEmitter {
                 throw new Error(`Failed to load master object (${config.master.path})`);
             }
 
+            /**
+             * Attempts to find an apply method in the master object.
+             * @param {string} name THe name of the apply to look for
+             * @param {boolean} required Is the apply absolutely required (true) or optional (false)
+             * @returns {function(...any)} The master object apply if it exists
+             */
             let locateApply = (name, required) => {
                 let func = this.masterObject[config.applyNames[name] || name];
                 if (typeof func !== 'function' && required === true)
@@ -328,10 +336,12 @@ class GameServer extends MUDEventEmitter {
             /* validate in-game master */
             this.applyCompileVirtual = locateApply('compileVirtualObject', false);
             this.applyConvertUnits = locateApply('convertUnits', false);
+            this.applyCreateFileACL = locateApply('createFileACL', false);
             this.applyErrorHandler = locateApply('errorHandler', false);
             this.applyGetPreloads = locateApply('getPreloads', false);
             this.applyLogError = locateApply('logError', false);
             this.applyRegisterServer = locateApply('registerServer', false);
+            this.applyStartup = locateApply('startup', false);
             this.applyValidDestruct = locateApply('validDestruct', false);
             this.applyValidExec = locateApply('validExec', false);
             this.applyValidObject = locateApply('validObject', false);
@@ -353,6 +363,19 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
+     * Attempt to load/create a directory-based ACL
+     * @param {string} directory
+     */
+    async createFileACL(directory) {
+        if (this.applyCreateFileACL === false)
+            return null;
+
+        return await this.driverCallAsync('applyCreateFileACL', async () => {
+            return await this.applyCreateFileACL(directory, frame.object || frame.file, frame.method);
+        });
+    }
+
+    /**
      * Initializes the filesystem.
      */
     async createFileSystems() {
@@ -366,20 +389,20 @@ class GameServer extends MUDEventEmitter {
     /**
      * Preload some common objects to decrease in-game load times while running.
      */
-    createPreloads() {
-        this.driverCall('createPreloads', ecc => {
+    async createPreloads() {
+        return await this.driverCallAsync('createPreloads', async ecc => {
             ecc.alarmTime = Number.MAX_SAFE_INTEGER;
             if (this.applyGetPreloads !== false) {
                 this.preloads = this.applyGetPreloads();
             }
             if (this.preloads.length > 0) {
                 logger.logIf(LOGGER_PRODUCTION, 'Creating preloads.');
-                this.preloads.forEach(file => {
+                await this.preloads.forEach(async file => {
                     let t0 = efuns.ticks, foo = false, err = false;
                     try {
                         foo = Array.isArray(file) ?
-                            this.compiler.compileObject({ file: file[0], args: file.slice(1) }) :
-                            this.compiler.compileObject({ file });
+                            await this.compiler.compileObjectAsync({ file: file[0], args: file.slice(1) }) :
+                            await this.compiler.compileObjectAsync({ file });
                     }
                     catch (e) {
                         err = e;
@@ -419,13 +442,13 @@ class GameServer extends MUDEventEmitter {
      * Create the simul efuns object.
      * @returns {EFUNProxy} The sealed simul efun object.
      */
-    createSimulEfuns() {
+    async createSimulEfuns() {
         let EFUNProxy = require('./EFUNProxy');
 
-        return this.driverCall('createSimulEfuns', () => {
+        return await this.driverCallAsync('createSimulEfuns', async () => {
             try {
                 if (this.simulEfunPath) {
-                    let module = this.compiler.compileObject({
+                    let module = await this.compiler.compileObjectAsync({
                         file: this.simulEfunPath,
                         noCreate: true,
                         altParent: require('./EFUNProxy'),
@@ -599,7 +622,7 @@ class GameServer extends MUDEventEmitter {
     /**
      * Expand the functionality of the driver by loading additional functionality.
      */
-    enableFeatures() {
+    async enableFeatures() {
         const
             MUDObject = require('./MUDObject'),
             EFUNProxy = require('./EFUNProxy');
@@ -822,10 +845,6 @@ class GameServer extends MUDEventEmitter {
         this.efuns = global.efuns = efuns;
     }
 
-    isVirtualPath(path) {
-        return this.virtualPrefix ? path.startsWith(this.virtualPrefix) : false;
-    }
-
     /**
      * Allow the in-game master object to handle an error.
      * @param {string} path The file to write logs to.
@@ -987,20 +1006,23 @@ class GameServer extends MUDEventEmitter {
         await this.createFileSystems();
         this.configureRuntime();
 
-        return this.driverCall('startup', () => {
+        return await this.driverCallAsync('startup', async () => {
             console.log('Loading driver and external features');
-            this.createSimulEfuns();
-            this.createMasterObject();
-            this.enableFeatures();
+            await this.createSimulEfuns();
+            await this.createMasterObject();
+            await this.enableFeatures();
             this.sealProtectedTypes();
-            this.runStarting();
+            await this.runStarting();
+
+            if (this.masterObject && this.applyStartup)
+                await this.applyStartup();
             if (callback)
                 callback.call(this);
             return this;
         });
     }
 
-    runStarting() {
+    async runStarting() {
         this.gameState = GAMESTATE_STARTING;
         this.createPreloads();
         if (this.config.skipStartupScripts === false) {
@@ -1129,11 +1151,6 @@ class GameServer extends MUDEventEmitter {
         Object.freeze(MUDObject.constructor.prototype);
     }
 
-    setLoginObject(path) {
-        this.loginObject = path;
-        return this;
-    }
-
     setServerAddress(addr) {
         if (!this.addressList[addr])
             throw new Error('Specified address ({0}) is not available; Possible choices are {1}'
@@ -1217,14 +1234,14 @@ class GameServer extends MUDEventEmitter {
      * @param {string} path The file that is to be read.
      * @returns {boolean} True if the read operation can proceed.
      */
-    validRead(efuns, frame, path) {
+    async validRead(efuns, frame, path) {
         //  No master object yet; We have no way of validating reads.
         if (!this.masterObject)
             return true;
         else if (frame.object === driver.masterObject || frame.object === driver)
             return true;
         else
-            return this.applyValidRead(path, frame.object || frame.file, frame.method);
+            return await this.applyValidRead(path, frame.object || frame.file, frame.method);
     }
 
     validRequire(efuns, moduleName) {

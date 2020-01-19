@@ -261,7 +261,7 @@ class ExecutionContext extends MUDEventEmitter {
      * @param {function(...any): any} [action] An optional action to perform
      * @returns {boolean} Returns true if the operation is permitted or false if it should fail.
      */
-    guarded(callback, action = false, rethrow = false) {
+    async guarded(callback, action = false, rethrow = false) {
         for (let i = 0, max = this.length, c = {}; i < max; i++) {
             let frame = this.getFrame(i);
             if (!frame.object && !frame.file)
@@ -272,7 +272,7 @@ class ExecutionContext extends MUDEventEmitter {
                 return true; // The master object always succeeds as well
             else if (c[frame.file])
                 continue;
-            else if ((c[frame.file] = callback(frame)) === false)
+            else if ((c[frame.file] = await callback(frame)) === false)
                 return false;
             if (frame.unguarded === true)
                 break;

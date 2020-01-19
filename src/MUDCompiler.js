@@ -455,12 +455,12 @@ class MUDCompiler {
                 }
 
                 module.isCompiling = true;
-                let result = driver.driverCall(
+                let result = await driver.driverCallAsync(
                     'runInContext',
-                    () => {
+                    async () => {
                         //  Clear previous exports in case they've changed
                         module.exports = false;
-                        VM.run(context, module);
+                        await VM.runAsync(context, module);
                     },
                     context.filename,
                     true);

@@ -1,0 +1,15 @@
+{
+  "/": "$admin,$arch:FULL $:rL",
+  "/base": "$mudlib:FULL $:rlL",
+  "/cmds": "$mudlib:FULL",
+  "/daemon": "$mudlib:FULL",
+  "/docs": "$mudlib:rwL $law:rwL",
+  "/log": "~$admin,$arch:rwdCDL $mudlib:rL",
+  "/realms": "$mudlib:rwlCDL",
+  "/realms/(?<user>[^/]+)": "~$admin,$arch:crwldCDL %0:crwldCDL",
+  "/sys": "~$admin:FULL, $arch:rlL",
+  "/sys/cmds": "$creators:rL $mudlib:crwlL",
+  "/sys/etc": "~$admin:FULL",
+  "/world": "$:rlL $arch,$admin:FULL",
+  "/world/(?<group>[^/]+)": "~$%group:crwldCDL $balance:rwL $mudlib:rwL $law:rwdL $admin,$arch:FULL"
+}
