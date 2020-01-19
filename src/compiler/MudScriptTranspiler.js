@@ -432,6 +432,12 @@ function parseElement(op, e, depth) {
                         propName = callee = parseElement(op, e.callee, depth + 1);
                         op.addCallerId('() => {}');
                     }
+                    else if (e.callee.type === 'CallExpression') {
+                        ret += parseElement(op, e.callee.callee, depth + 1);
+                        e.callee.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
+                        writeCallee = false;
+                        ret += '';
+                    }
                     else {
                         throw new Error(`Unexpected callee type ${e.callee.type}`);
                     }
@@ -887,6 +893,33 @@ class MudScriptTranspiler extends PipelineComponent {
         try {
             if (this.enabled) {
                 op.ast = this.parser.parse(op.source, op.acornOptions);
+                op.output += `__rmt("${op.filename}");`
+                op.ast.body.forEach(n => op.output += parseElement(op, n, 0));
+                op.output += op.readUntil(op.max);
+                op.output += op.appendText;
+                return context.update(PipeContext.CTX_RUNNING, op.finish());
+            }
+        }
+        catch (x) {
+            console.log('MudScriptTranspiler.run', x.message);
+            console.log(x.stack);
+            throw x;
+        }
+    }
+
+    async runAsync(context) {
+        let op = new JSXTranspilerOp({
+            acornOptions: Object.assign({}, this.acornOptions, context.acornOptions),
+            allowJsx: this.allowJsx,
+            allowLiteralCallouts: this.allowLiteralCallouts,
+            filename: context.basename,
+            context,
+            source: context.content
+        });
+        try {
+            if (this.enabled) {
+                let source = op.source = 'await (async (x) => { ' + op.source + ' })(42)';
+                op.ast = this.parser.parse(source, op.acornOptions);
                 op.output += `__rmt("${op.filename}");`
                 op.ast.body.forEach(n => op.output += parseElement(op, n, 0));
                 op.output += op.readUntil(op.max);

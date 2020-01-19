@@ -434,8 +434,8 @@ class MUDCompiler {
             else if (!pipeline.enabled)
                 throw new Error(`Could not load ${context.filename} [${pipeline.name} - not enabled]`);
 
-            driver.driverCall('compileObject', () => {
-                pipeline.execute(context);
+            await driver.driverCallAsync('compileObjectAsync', async () => {
+                await pipeline.executeAsync(context);
             }, context.filename, true);
 
             if (context.state === PipeContext.CTX_FINISHED) {

@@ -60,6 +60,43 @@ class CompilerPipeline
     }
 
 
+    /**
+     * 
+     * @param {PipelineContext} context The context to execute.
+     * @returns {PipeLineContext|false} The compiler context or false if the pipe was disabled.
+     */
+    async executeAsync(context) {
+        if (!this.enabled)
+            return false;
+
+        if (!context.exists && !context.isEval)
+            return false;
+
+        context.update(PipeContext.CTX_RUNNING);
+
+        for (var i = 0, max = this.pipeline.length; i < max; i++) {
+            var component = this.pipeline[i];
+
+            if (Array.isArray(component)) {
+                var componentType = component[0],
+                    componentArgs = component[1] || {};
+
+                component = new componentType(componentArgs);
+            }
+
+            try {
+                if (typeof component.runAsync === 'function')
+                    await component.runAsync(context);
+                else
+                    component.run(context);
+            }
+            catch (err) {
+                context.addError(err);
+                return context.update(PipeContext.CTX_ERRORED);
+            }
+        }
+        context.update(PipeContext.CTX_FINISHED);
+    }
 }
 
 module.exports = CompilerPipeline;
