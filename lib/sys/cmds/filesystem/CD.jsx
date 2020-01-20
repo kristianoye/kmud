@@ -8,9 +8,10 @@ const
     Command = require(Base.Command);
 
 class CDCommand extends Command {
-    cmd(args) {
+    async cmd(args) {
         var player = thisPlayer,
-            path = efuns.resolvePath(args[0] || '~', player.workingDirectory);
+            path = efuns.resolvePath(args[0] || '~', player.workingDirectory),
+            isDir = efuns.fs.isDirectoryAsync(path)
 
         if (efuns.isDirectorySync(path)) {
             player.workingDirectory = path;

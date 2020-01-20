@@ -780,6 +780,7 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="mudconfig.json" />
+    <Content Include="src\efuns\Acl.js" />
     <Content Include="src\fs\FileACL.js">
       <SubType>Code</SubType>
     </Content>

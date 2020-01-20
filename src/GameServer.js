@@ -397,7 +397,8 @@ class GameServer extends MUDEventEmitter {
             }
             if (this.preloads.length > 0) {
                 logger.logIf(LOGGER_PRODUCTION, 'Creating preloads.');
-                await this.preloads.forEach(async file => {
+                for (let i = 0; i < this.preloads.length; i++) {
+                    let file = this.preloads[i];
                     let t0 = efuns.ticks, foo = false, err = false;
                     try {
                         foo = Array.isArray(file) ?
@@ -412,7 +413,7 @@ class GameServer extends MUDEventEmitter {
                         logger.logIf(LOGGER_DEBUG,
                             `\tPreload: ${file}: ${(file, foo && !err ? '[OK]' : '[Failure]')} [${(t1 - t0)} ms; ${ecc.stack.length}]`);
                     }
-                });
+                }
             }
         });
     }
@@ -832,7 +833,7 @@ class GameServer extends MUDEventEmitter {
         return result;
     }
 
-    inGroup(target, groups) {
+    inGroup(target, ...groups) {
         if (this.gameState < GAMESTATE_RUNNING) return true;
         else return driver.masterObject.inGroup(target, [].slice.call(arguments, 1));
     }
@@ -1018,13 +1019,13 @@ class GameServer extends MUDEventEmitter {
                 await this.applyStartup();
             if (callback)
                 callback.call(this);
-            return this;
+            return this.runMain();
         });
     }
 
     async runStarting() {
         this.gameState = GAMESTATE_STARTING;
-        this.createPreloads();
+        await this.createPreloads();
         if (this.config.skipStartupScripts === false) {
             let runOnce = path.resolve(__dirname, '../runOnce.json');
             if (fs.existsSync(runOnce)) {
@@ -1082,7 +1083,6 @@ class GameServer extends MUDEventEmitter {
             startSeconds = startupTime / 1000;
 
         logger.log(`Startup took ${startSeconds} seconds [${startupTime} ms]`);
-        this.runMain();
     }
 
     runMain() {

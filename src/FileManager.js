@@ -463,11 +463,13 @@ class FileManager extends MUDEventEmitter {
 
         if (!req.valid('validReadDirectory'))
             reject(req.deny());
-        else
-            await req.fileSystem.isDirectoryAsync(req.relativePath);
+        else {
+            let result = await req.fileSystem.isDirectoryAsync(req.relativePath);
+            return result;
+        }
     }
 
-    /**
+    /**!
      * Check to see if the given expression is a directory,
      * @param {EFUNProxy} efuns The external proxy checking the directory.
      * @param {string} expr The path expression to evaluate.
@@ -676,6 +678,14 @@ class FileManager extends MUDEventEmitter {
             return req.deny();
         else
             return req.fileSystem.writeFileSync(req.relativePath, content, req.flags);
+    }
+
+    async writeJsonFileAsync(efuns, expr, content) {
+        let req = this.createFileRequest('WriteFile', expr, false, 0, null, efuns);
+        if (!req.valid())
+            return req.deny();
+        else
+            return await req.fileSystem.writeJsonFileAsync(req.relativePath, content, req.flags);
     }
 }
 

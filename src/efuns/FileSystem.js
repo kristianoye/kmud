@@ -40,8 +40,8 @@ class FileSystemHelper {
         return await driver.fileManager.getFileACL(efuns, expr);
     }
 
-    static isDirectoryAsync(expr) {
-        return driver.fileManager.isDirectoryAsync(efuns, expr);
+    static async isDirectoryAsync(expr) {
+        return await driver.fileManager.isDirectoryAsync(efuns, expr);
     }
 
     static readJsonFileAsync(expr) {

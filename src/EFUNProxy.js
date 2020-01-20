@@ -22,6 +22,7 @@ const
     PLURAL_CHOP = 2;
 
 const
+    AclHelper = require('./efuns/Acl'),
     ArrayHelper = require('./efuns/Arrays'),
     EnglishHelper = require('./efuns/English'),
     FileSystemHelper = require('./efuns/FileSystem'),
@@ -58,6 +59,10 @@ class EFUNProxy {
      */
     abs(n) {
         return Math.abs(n);
+    }
+
+    get acl() {
+        return AclHelper;
     }
 
     /**

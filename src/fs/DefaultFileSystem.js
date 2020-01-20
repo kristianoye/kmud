@@ -730,7 +730,7 @@ class DefaultFileSystem extends FileSystem {
      * @param {string} [encoding] The optional encoding to use
      * @returns {boolean} Returns true on success.
      */
-    writeFileAsync(expr, content, flag, encoding) {
+    async writeFileAsync(expr, content, flag, encoding) {
         let fullPath = this.translatePath(expr);
         return new Promise(resolve => {
             fs.writeFile(fullPath, 
@@ -766,6 +766,10 @@ class DefaultFileSystem extends FileSystem {
             /* eat the error */
         }
         return false;
+    }
+
+    async writeJsonFileAsync(expr, content, encoding = 'utf8') {
+        return await this.writeFileAsync(expr, JSON.stringify(content), 'w', encoding);
     }
 }
 
