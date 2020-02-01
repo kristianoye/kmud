@@ -173,7 +173,7 @@ declare class MUDPrompt {
     recapture: boolean;
 
     /** The text that will prompt the user for their next action */
-    text: string | function(): string;
+    text: string | (function(): string);
 
     /** Indicates the type of input to be captured (text, password, etc) */
     type: string;
@@ -209,6 +209,3 @@ declare namespace HelpSystem {
         validAccess(user: MUDObject): boolean;
     }
 }
-
-let MUDEVENT_STOP = 1 << 20;
-let MUDEVENT_REMOVELISTENER = 1 << 21;

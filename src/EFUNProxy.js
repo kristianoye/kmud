@@ -223,7 +223,7 @@ class EFUNProxy {
     cloneObject(file, ...args) {
         return driver
             .fileManager
-            .cloneObjectSync(this, this.resolvePath(file), args);
+            .cloneObjectSync(this.resolvePath(file), args);
     }
 
     /**
@@ -574,34 +574,28 @@ class EFUNProxy {
     async readDirectory(expr, flags, callback) {
         if (typeof flags === 'function') (callback = flags), (flags = 0);
         if (typeof callback === 'function') {
-            return driver.fileManager.readDirectory(this, this.resolvePath(expr), flags, callback);
+            return driver.fileManager.readDirectory(this.resolvePath(expr), flags, callback);
         }
         else if (callback === true)
-            return driver.fileManager.readDirectory(this, this.resolvePath(expr), flags, true);
+            return driver.fileManager.readDirectory(this.resolvePath(expr), flags, true);
         else
-            return driver.fileManager.readDirectory(this, this.resolvePath(expr), flags);
+            return driver.fileManager.readDirectory(this.resolvePath(expr), flags);
     }
 
     /**
      * Read a directory asyncronously.
      * @param {string} expr The path expression to read.
      * @param {number} flags Flags to indicate what type of information is being requested.
-     * @param {function(string[],Error):void} callback If specified, use callback-style async instead of returning a Promise
      * @returns {Promise<string[]>|void} Returns a Promise unless 
      */
-    readDirectoryAsync(expr, flags, callback) {
-        return driver.fileManager.readDirectoryAsync(
-            this,
-            this.resolvePath(expr, this.directory),
-            flags || 0,
-            callback || true);
+    async readDirectoryAsync(expr, flags = 0) {
+        return await driver.fileManager.readDirectoryAsync(
+            this.resolvePath(expr, this.directory), flags);
     }
 
-    readDirectorySync(expr, flags) {
+    readDirectorySync(expr, flags = 0) {
         return driver.fileManager.readDirectorySync(
-            this,
-            this.resolvePath(expr, this.directory),
-            flags || 0);
+            this.resolvePath(expr, this.directory), flags);
     }
 
     /**
@@ -675,7 +669,7 @@ class EFUNProxy {
      * @returns {boolean} True if the path resolves to a directory.
      */
     isDirectorySync(expr) {
-        return driver.fileManager.isDirectorySync(this, this.resolvePath(expr, this.directory));
+        return driver.fileManager.isDirectorySync(this.resolvePath(expr, this.directory));
     }
 
     /**
@@ -722,12 +716,12 @@ class EFUNProxy {
     }
 
     async isFileAsync(expr, flags) {
-        let stat = await driver.fileManager.statAsync(this, expr, flags || 0);
+        let stat = await driver.fileManager.statAsync(expr, flags || 0);
         return stat.isFile;
     }
 
     isFileSync(expr, flags) {
-        let stat = driver.fileManager.statSync(this, expr, flags || 0);
+        let stat = driver.fileManager.statSync(expr, flags || 0);
         return stat && stat.isFile;
     }
 
@@ -789,7 +783,7 @@ class EFUNProxy {
             else if (expr instanceof MUDObject)
                 return global.wrap(expr);
         }
-        return await driver.fileManager.loadObjectAsync(this, this.resolvePath(expr), args);
+        return await driver.fileManager.loadObjectAsync(this.resolvePath(expr), args);
     }
 
     /**
@@ -808,22 +802,7 @@ class EFUNProxy {
             else if (expr instanceof MUDObject)
                 return global.wrap(expr);
         }
-        return driver.fileManager.loadObjectSync(this, this.resolvePath(expr), args);
-    }
-
-    /**
-     * Move a directory I guess.  Seems like a bad idea, now.
-     * @param {string} source The file to move.
-     * @param {string} destination The destination for the new file.
-     * @param {MUDFS.MoveOptions} options Options related to the move operation.
-     * @param {function(boolean,Error):void} callback Optional callback indicates async mode.
-     * @returns {boolean} True on success.
-     */
-    movePath(source, destination, options, callback) {
-        return driver.fileManager.movePath(this,
-            this.resolvePath(source),
-            this.resolvePath(destination),
-            options);
+        return driver.fileManager.loadObjectSync(this.resolvePath(expr), args);
     }
 
     /**
@@ -835,7 +814,7 @@ class EFUNProxy {
      */
     log(file, message) {
         let logPath = path.posix.join(driver.config.mudlib.logDirectory, file);
-        return driver.fileManager.writeFileSync(this, logPath, message + this.eol, 'a');
+        return driver.fileManager.writeFileSync(logPath, message + this.eol, 'a');
     }
 
     merge(...o) {
@@ -904,7 +883,7 @@ class EFUNProxy {
      * @returns {boolean} True if the directory was created (or already exists)
      */
     mkdir(expr, opts) {
-        return driver.fileManager.createDirectorySync(this, expr, opts || 0);
+        return driver.fileManager.createDirectorySync(expr, opts || 0);
     }
 
     mudInfo() {
@@ -1460,7 +1439,7 @@ class EFUNProxy {
      * @returns {string} Reads the file contents if read synchronously.
      */
     readFileSync(filename) {
-        return driver.fileManager.readFileSync(this, this.resolvePath(filename));
+        return driver.fileManager.readFileSync(this.resolvePath(filename));
     }
 
     /**
@@ -1469,7 +1448,7 @@ class EFUNProxy {
      * @returns {object}
      */
     async readJsonFileAsync(filename) {
-        return await driver.fileManager.readJsonFileAsync(this, this.resolvePath(filename));
+        return await driver.fileManager.readJsonFileAsync(this.resolvePath(filename));
     }
 
     /**
@@ -1477,7 +1456,7 @@ class EFUNProxy {
      * @param {string} filename The file to try and read.
      */
     readJsonFileSync(filename) {
-        return driver.fileManager.readJsonFileSync(this, this.resolvePath(filename));
+        return driver.fileManager.readJsonFileSync(this.resolvePath(filename));
     }
 
     /**
@@ -1486,7 +1465,7 @@ class EFUNProxy {
      * @returns {boolean} Returns true if the object recompiled successfully.
      */
     reloadObjectSync(expr) {
-        return driver.fileManager.loadObjectSync(this, this.resolvePath(expr), undefined, 1);
+        return driver.fileManager.loadObjectSync(this.resolvePath(expr), undefined, 1);
     }
 
     /**
@@ -1636,7 +1615,7 @@ class EFUNProxy {
                 let $type = pathOrObject.$type,
                     ecc = driver.getExecution();
 
-                if (ecc.guarded(f => driver.validWrite(this, f, $type))) {
+                if (ecc.guarded(f => driver.validWrite(f, $type))) {
                     let clone = this.cloneObject($type),
                         store = driver.storage.get(clone);
                     return !!store && store.eventRestore(pathOrObject);
@@ -1782,7 +1761,7 @@ class EFUNProxy {
      * @returns {FileSystemStat} Information about the file.
      */
     stat(filepath, flags = 0) {
-        return driver.fileManager.statSync(this, this.join(this.directory, filepath), flags);
+        return driver.fileManager.statSync(this.join(this.directory, filepath), flags);
     }
 
     get err() {
@@ -2059,11 +2038,10 @@ class EFUNProxy {
      * Write text to file.
      * @param {string} filename The file to write to.
      * @param {string} content The content to write.
-     * @param {function(boolean,Error):void} callback Optional callback for async mode.
      * @returns {void}
      */
     writeFile(filename, content, callback) {
-        return driver.fileManager.writeFileSync(this,
+        return driver.fileManager.writeFileSync(
             this.resolvePath(filename),
             content,
             callback);

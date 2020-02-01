@@ -24,7 +24,7 @@ class PipelineContext {
         this.basename = n > -1 ? filename.slice(0, n) : filename;
         this.filename = filename;
         if ((this.isEval = isEval || false) === false)
-            this.realName = driver.fileManager.toRealPath(driver.efuns, this.filename);
+            this.realName = driver.fileManager.toRealPath(this.filename);
         this.resolvedName = false;
         this.content = '';
         this.errors = [];

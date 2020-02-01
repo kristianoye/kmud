@@ -4,7 +4,7 @@
  * Date: October 1, 2017
  */
 const
-    { FileSystem, FileSystemStat } = require('../FileSystem'),
+    { FileSystem, FileSystemStat, DirectoryObject } = require('../FileSystem'),
     FileManager = require('../FileManager'),
     FileACL = require('./FileACL'),
     async = require('async'),
@@ -20,7 +20,6 @@ class DefaultFileSystem extends FileSystem {
      */
     constructor(fm, options, mountPoint) {
         super(fm, options, mountPoint);
-
         this.mountPoint = mountPoint;
 
         /** @type {number} */
@@ -279,6 +278,17 @@ class DefaultFileSystem extends FileSystem {
         catch (e) {
         }
         return false;
+    }
+
+    /**
+     * Get a directory object
+     * @param {any} relativePath
+     * @returns {DirectoryObject}
+     */
+    async getDirectory(relativePath) {
+        let stat = await this.statAsync(relativePath);
+        if (stat.isDirectory)
+            return super.getDirectory()
     }
 
     async getFileACL(relativePath) {
@@ -644,9 +654,14 @@ class DefaultFileSystem extends FileSystem {
         return false;
     }
 
-    async statAsync(localPath, flags = 0) {
-        let fullPath = this.translatePath(localPath);
-
+    /**
+     * 
+     * @param {string} relativePath
+     * @param {number} flags
+     * @returns {FileSystemStat}
+     */
+    async statAsync(relativePath, flags = 0) {
+        let fullPath = this.translatePath(relativePath);
         return new Promise(async (resolve) => {
             try {
                 fs.stat(fullPath, async (err, stats) => {
@@ -656,8 +671,8 @@ class DefaultFileSystem extends FileSystem {
                     else {
                         let stat = Object.assign(stats, {
                             exists: true,
-                            name: localPath.slice(localPath.lastIndexOf('/') + 1),
-                            path: path.posix.join(this.mountPoint, localPath)
+                            name: relativePath.slice(relativePath.lastIndexOf('/') + 1),
+                            path: path.posix.join(this.mountPoint, relativePath)
                         });
                         if ((flags & MUDFS.StatFlags.Content) > 0) {
                             stat.content = await this.readFileAsync(fullPath);

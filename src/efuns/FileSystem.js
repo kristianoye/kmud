@@ -13,47 +13,47 @@ class FileSystemHelper {
     /**
      * Append content to a new or existing file.
      * @param {string} expr The filename expression
-     * @param {any} content The content to write to file
+     * @param {any} content The content to write to filecreateFile
      * @param {string} encoding The file encoding to use
      */
     static appendFileAsync(expr, content, encoding) {
-        return driver.fileManager.writeFileAsync(efuns, expr, content, 'a', encoding);
+        return driver.fileManager.writeFileAsync(expr, content, 'a', encoding);
     }
 
     static async createDirectoryAsync(expr, flags = 0) {
-        return await driver.fileManager.createDirectoryAsync(efuns, expr, flags);
+        return await driver.fileManager.createDirectoryAsync(expr, flags);
     }
 
     static createDirectorySync(expr, flags = 0) {
-        return driver.fileManager.createDirectorySync(efuns, expr, flags);
+        return driver.fileManager.createDirectorySync(expr, flags);
     }
 
     static async deleteDirectoryAsync(expr, flags = 0) {
-        return await driver.fileManager.deleteDirectory(efuns, expr, flags);
+        return await driver.fileManager.deleteDirectory(expr, flags);
     }
 
     static deleteDirectorySync(expr, flags = 0) {
-        return driver.fileManager.deleteDirectorySync(efuns, expr, flags);
+        return driver.fileManager.deleteDirectorySync(expr, flags);
     }
 
     static async getFileACL(expr) {
-        return await driver.fileManager.getFileACL(efuns, expr);
+        return await driver.fileManager.getFileACL(expr);
     }
 
     static async isDirectoryAsync(expr) {
-        return await driver.fileManager.isDirectoryAsync(efuns, expr);
+        return await driver.fileManager.isDirectoryAsync(expr);
     }
 
     static readJsonFileAsync(expr) {
-        return driver.fileManager.readJsonFileAsync(efuns, expr);
+        return driver.fileManager.readJsonFileAsync(expr);
     }
 
     static async readDirectoryAsync(expr, flags = 0) {
-        return await driver.fileManager.readDirectoryAsync(efuns, expr, flags);
+        return await driver.fileManager.readDirectoryAsync(expr, flags);
     }
 
     static readDirectorySync(expr, flags = 0) {
-        return driver.fileManager.readDirectorySync(efuns, expr, flags);
+        return driver.fileManager.readDirectorySync(expr, flags);
     }
 
     static relativePath(expr, cwd = false) {
@@ -69,7 +69,7 @@ class FileSystemHelper {
      * @param {number} [flags] Optional flags to use when fetching file data.
      */
     static async statAsync(expr, flags = 0) {
-        return await driver.fileManager.statAsync(this, expr, flags);
+        return await driver.fileManager.statAsync(expr, flags);
     }
 
     /**
@@ -78,7 +78,7 @@ class FileSystemHelper {
      * @param {number} flags
      */
     static statSync(expr, flags = 0) {
-        return driver.fileSystem.statSync(efuns, expr, flags);
+        return driver.fileSystem.statSync(expr, flags);
     }
 
     /**
@@ -89,7 +89,7 @@ class FileSystemHelper {
      * @param {string} encoding
      */
     static async writeFileAsync(expr, content = '', flags = 0, encoding = 'utf8') {
-        return await driver.fileManager.writeFileAsync(efuns, expr, content, flags, encoding);
+        return await driver.fileManager.writeFileAsync(expr, content, flags, encoding);
     }
 }
 

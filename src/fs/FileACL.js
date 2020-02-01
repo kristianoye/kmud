@@ -1,4 +1,4 @@
-/**
+/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
@@ -62,7 +62,7 @@ class AclNode {
      * @param {Object.<string,string>} data
      * @param {string} dir
      */
-    constructor(owner, data, dir) {
+    constructor(owner, data, dir, content = {}) {
         let parts = dir.split('/').filter(s => s.length);
         let raw = data[dir];
 
@@ -72,7 +72,7 @@ class AclNode {
         this.path = dir;
         this.depth = parts.length;
         /** @type {Object.<string,AclEntry>} */
-        this.files = {};
+        this.files = content.files || {};
         this.name = parts.pop() || '/';
         this.inherits = !raw.startsWith('~');
         if (this.name === '$token') {
@@ -90,14 +90,18 @@ class AclNode {
         if (this.isRegex) {
             this.regex = new RegExp('(' + this.name + ')');
         }
-        raw = raw.substring(data[dir].startsWith('+') || data[dir].startsWith('~') ? 1 : 0);
-        if (raw)
-            raw.split(/\s+/).forEach(c => {
-                let entry = c.split(':'),
-                    list = entry[0].split(',').filter(s => s),
-                    perms = FileACL.parsePerms(entry[1]);
-                list.forEach(id => this.permissions[id] = perms);
-            });
+        if (content.permissions)
+            this.permissions = content.permissions;
+        else {
+            raw = raw.substring(data[dir].startsWith('+') || data[dir].startsWith('~') ? 1 : 0);
+            if (raw)
+                raw.split(/\s+/).forEach(c => {
+                    let entry = c.split(':'),
+                        list = entry[0].split(',').filter(s => s),
+                        perms = FileACL.parsePerms(entry[1]);
+                    list.forEach(id => this.permissions[id] = perms);
+                });
+        }
     }
 
     addChild(node) {
@@ -131,7 +135,7 @@ class AclNode {
      * @param {AclNode|false} node
      */
     async insert(dir, data, node = false) {
-        node = node || new AclNode(this.owner, data, dir);
+        node = node || await AclNode.load(this.owner, data, dir);
 
         if (node.depth == this.depth) this.addChild(node);
         else if (node.depth === this.depth + 1) this.addChild(node);
@@ -155,6 +159,22 @@ class AclNode {
             let m = this.regex.exec(name);
             return m[1];
         }
+    }
+
+    static async load(owner, data, dir) {
+        let filename = `${dir}/.acl`;
+
+        return await driver.driverCallAsync('load', async () => {
+            try {
+                let content = await driver.fileManager.readJsonFileAsync(filename);
+                if (content)
+                    return new AclNode(owner, data, dir, content);
+            }
+            catch (e) {
+                console.log(`Acl load error: ${e.message}`);
+            }
+            return new AclNode(owner, data, dir);
+        });
     }
 
     async save() {
@@ -212,13 +232,13 @@ class AclTree {
                 });
             }
             else if (foo in node.files) {
-                return node.files[foo].effectivePermissions(username);
+                if (foo !== '.acl')
+                    return node.files[foo].effectivePermissions(username);
             }
         }
         return perms;
     }
 }
-
 
 class FileACL {
     constructor() {

@@ -144,7 +144,7 @@ class DefaultFileSecurity extends FileSecurity {
      * @returns {boolean} True if the operation can proceed.
      */
     async validReadFile(efuns, filename) {
-        return await driver.getExecution().guarded(async f => await driver.validRead(efuns, f, filename));
+        return await driver.getExecution().guarded(async f => await driver.validRead(f, filename));
     }
 
     /**
@@ -165,7 +165,7 @@ class DefaultFileSecurity extends FileSecurity {
      */
     validWriteFile(efuns, expr) {
         return driver.getExecution()
-            .guarded(f => driver.validWrite(efuns, f, expr));
+            .guarded(f => driver.validWrite(f, expr));
     }
 }
 

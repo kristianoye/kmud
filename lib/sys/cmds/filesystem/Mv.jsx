@@ -119,6 +119,7 @@ class MoveCommand extends Command {
     executeMove(evt, op) {
         op.source.forEach(files => {
             files.forEach(fi => {
+                // TODO: Fix this non-existant efun
                 efuns.movePath(fi.path, op.targetDirectory, op);
                 if (op.flags & MUDFS.MoveFlags.Verbose) {
                     writeLine(`mv: ${fi.path} -> ${fi.targetDirectory}`);

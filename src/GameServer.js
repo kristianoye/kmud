@@ -1229,12 +1229,11 @@ class GameServer extends MUDEventEmitter {
 
     /**
      *
-     * @param {EFUNProxy} efuns Contains the filename of the originating call
      * @param {ExecutionFrame} frame Contains a single frame to validate
      * @param {string} path The file that is to be read.
      * @returns {boolean} True if the read operation can proceed.
      */
-    async validRead(efuns, frame, path) {
+    async validRead(frame, path) {
         //  No master object yet; We have no way of validating reads.
         if (!this.masterObject)
             return true;
@@ -1263,14 +1262,11 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Check to see if a write operation should be permitted.
-     * @param {EFUNProxy} efuns Contains the filename of the originating call
      * @param {ExecutionFrame} frame Contains a single frame to validate
      * @param {string} writePath The file that is to be written to.
      */
-    validWrite(efuns, frame, writePath) {
+    validWrite(frame, writePath) {
         if (this.gameState < GAMESTATE_INITIALIZING)
-            return true;
-        else if (efuns.filename === '/')
             return true;
         else if (frame.object === this || frame.object === this.masterObject)
             return true;
