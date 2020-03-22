@@ -1,6 +1,5 @@
 ﻿const
     { FileSystem, FileSystemStat } = require('../FileSystem'),
-    FileManager = require('../FileManager'),
     mysql = require('mysql'),
     path = require('path'),
     fs = require('fs');

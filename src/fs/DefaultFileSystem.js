@@ -4,12 +4,11 @@
  * Date: October 1, 2017
  */
 const
-    { FileSystem, FileSystemStat, DirectoryObject } = require('../FileSystem'),
-    FileManager = require('../FileManager'),
-    FileACL = require('./FileACL'),
+    { FileACL, FileManager, FileSystem, FileSystemStat, StatFlags } = require('../FileSystem'),
     async = require('async'),
     path = require('path'),
-    fs = require('fs');
+    fs = require('fs'),
+    Dirent = fs.Dirent;
 
 class DefaultFileSystem extends FileSystem {
     /**
@@ -196,15 +195,40 @@ class DefaultFileSystem extends FileSystem {
                 if (!ensure) return false;
             }
             else if (i + 1 === max) {
-                fs.mkdirSync(dir);
+                try {
+                    fs.mkdirSync(dir);
+                }
+                catch (err) {
+                    if (!/EEXIST/.test(err.message))
+                        throw err;
+                }
                 return true;
             }
             else if (!ensure)
                 return false;
-            else
-                fs.mkdirSync(dir);
+            else {
+                try {
+                    fs.mkdirSync(dir);
+                }
+                catch (err) {
+                    if (!/EEXIST/.test(err.message))
+                        throw err;
+                }
+            }
         }
         return true;
+    }
+
+    /**
+     * Converts a pattern string into a Regex
+     * @param {string} expr
+     * @returns {RegExp} The pattern as a regex
+     */
+    createPattern(expr) {
+        expr = expr.replace(/\./g, '\\.');
+        expr = expr.replace(/\*/g, '.+');
+        expr = expr.replace(/\?/g, '.');
+        return new RegExp(expr);
     }
 
     /**
@@ -217,22 +241,14 @@ class DefaultFileSystem extends FileSystem {
             if (typeof statFunc === 'function') {
                 let stat = statFunc();
 
-                if (typeof stat.isDirectory === 'function')
-                    stat.isDirectory = stat.isDirectory();
-                if (typeof stat.isFile === 'function')
-                    stat.isFile = stat.isFile();
                 if (!stat.exists && (stat.atime > 0 || stat.isDirectory || stat.isFile))
                     stat.exists = true;
-                return Object.freeze(new FileSystemStat(stat, undefined, this.mountPoint));
+                return Object.freeze(new FileSystemStat(stat, this.mountPoint));
             }
             else if (typeof statFunc === 'object') {
-                if (typeof statFunc.isDirectory === 'function')
-                    statFunc.isDirectory = statFunc.isDirectory();
-                if (typeof statFunc.isFile === 'function')
-                    stat.isFile = stat.isFile();
                 if (!stat.exists && (stat.atime > 0 || stat.isDirectory || stat.isFile))
                     stat.exists = true;
-                return Object.freeze(new FileSystemStat(stat, undefined, this.mountPoint));
+                return Object.freeze(new FileSystemStat(stat, this.mountPoint));
             }
             else
                 throw new Error(`Bad argument 1 to createStat; Expected function or object, got ${typeof statFunc}`);
@@ -287,8 +303,9 @@ class DefaultFileSystem extends FileSystem {
      */
     async getDirectory(relativePath) {
         let stat = await this.statAsync(relativePath);
-        if (stat.isDirectory)
-            return super.getDirectory()
+        if (stat.isDirectory) {
+
+        }
     }
 
     async getFileACL(relativePath) {
@@ -314,6 +331,24 @@ class DefaultFileSystem extends FileSystem {
             return result;
         }
         return false;
+    }
+
+    /**
+     * Glob a directory
+     * @param {string} relativePath The directory to search
+     * @param {string} expr An expression to glob for
+     * @param {Glob} options Options to control the operation
+     * @returns {FileSystemStat[]} A collection of filesystem objects
+     */
+    async glob(relativePath, expr, options = 0) {
+        let fullPath = this.translatePath(relativePath);
+        let regex = this.createPattern(expr);
+
+        /** @type {fs.Dirent[]} */
+        let files = await this.readDirectory(fullPath);
+        return files
+            .filter(fi => regex.test(fi.name))
+            .map(fi => driver.fileManager.createObject(fi));
     }
 
     /**
@@ -428,6 +463,31 @@ class DefaultFileSystem extends FileSystem {
                 throw new Error(`Failed to load module ${fullPath}`);
         }
         return module.getInstanceWrapper(parts);
+    }
+
+    /**
+     * Read the contents of a directory
+     * @param {string} relativePath The relative or absolute path to read
+     * @param {Glob} [flags] Optional flags
+     * @returns {Promise<Dirent[]>} The files in the directory
+     */
+    readDirectory(relativePath, flags = 0) {
+        return new Promise((resolve, reject) => {
+            let isAbs = relativePath.startsWith(this.root),
+                fullPath = isAbs ? relativePath : this.translatePath(relativePath);
+
+            fs.readdir(fullPath, { encoding: this.encoding, withFileTypes: true }, (err, files) => {
+                try {
+                    if (err)
+                        reject(err);
+                    else
+                        resolve(files);
+                }
+                catch (ex) {
+                    reject(ex);
+                }
+            });
+        });
     }
 
     readDirectoryAsync(relativePath, fileName, flags) {
@@ -655,13 +715,38 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
-     * 
+     *
      * @param {string} relativePath
-     * @param {number} flags
+     * @param {StatFlags} flags
      * @returns {FileSystemStat}
      */
-    async statAsync(relativePath, flags = 0) {
+    async stat(relativePath, flags = 0) {
         let fullPath = this.translatePath(relativePath);
+        return new Promise(async (resolve) => {
+            try {
+                fs.stat(fullPath, async (err, stats) => {
+                    let stat = FileSystem.createObject(err, stats);
+                    if ((flags & StatFlags.Content) > 0) {
+                        stat.content = await this.readFileAsync(fullPath);
+                    }
+                    resolve(stat);
+                });
+            }
+            catch (ex) {
+                resolve(FileSystem.createObject(err, false));
+            }
+        });
+    }
+
+    /**
+     * 
+     * @param {string|FileSystemRequest} req
+     * @param {number} [flags] Flags associated with the request
+     * @returns {FileSystemStat}
+     */
+    async statAsync(req, flags = 0) {
+        let fullPath = this.translatePath(req.relativePath || req);
+
         return new Promise(async (resolve) => {
             try {
                 fs.stat(fullPath, async (err, stats) => {
@@ -671,13 +756,13 @@ class DefaultFileSystem extends FileSystem {
                     else {
                         let stat = Object.assign(stats, {
                             exists: true,
-                            name: relativePath.slice(relativePath.lastIndexOf('/') + 1),
-                            path: path.posix.join(this.mountPoint, relativePath)
+                            name: req.name || req.slice(req.lastIndexOf('/') + 1),
+                            path: path.posix.join(this.mountPoint, req)
                         });
                         if ((flags & MUDFS.StatFlags.Content) > 0) {
                             stat.content = await this.readFileAsync(fullPath);
                         }
-                        resolve(stat);
+                        resolve(FileManager.createFileObjectSync(stat));
                     }
                 });
             }
@@ -689,20 +774,32 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Stat a file syncronously.
-     * @param {string} localPath The path info to stat.
+     * @param {string|FileSystemRequest} req The path info to stat.
      * @param {number} flags Optional flags for additional control.
      * @returns {FileSystemStat} A filestat object (if possible)
      */
-    statSync(localPath, flags = 0) {
-        let fullPath = this.translatePath(localPath);
-        return this.createStat(() => {
-            let stat = fs.statSync(fullPath);
+    statSync(req, flags = 0) {
+        let fullPath = this.translatePath(req.relativePath || req);
+        let stat = undefined;
+        try {
+            stat = fs.statSync(fullPath);
+
+            stat.relativeName = req;
+            stat.name = req.split('/').pop();
 
             if ((flags & MUDFS.StatFlags.Content) > 0) {
-                stat.content = this.readFileSync(fullPath);
+                try {
+                    stat.content = this.readFileSync(fullPath);
+                }
+                catch (err) {
+                    stat.content = err;
+                }
             }
-            return stat;
-        });
+        }
+        catch (err) {
+            stat = FileManager.createDummyStats(err, req);
+        }
+        return FileManager.createFileObjectSync(stat);
     }
 
     /**

@@ -7,10 +7,8 @@
  */
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
-    MUDCreationContext = require('./MUDCreationContext'),
     ClientComponent = require('./ClientComponent'),
-    ClientCaps = require('./network/ClientCaps'),
-    CommandShell = require('./CommandShell');
+    ClientCaps = require('./network/ClientCaps');
 
 /**
  * Storage for MUD Objects.  In-game objects do not hold their data directly.
@@ -33,8 +31,7 @@ class MUDStorage extends MUDEventEmitter {
         this.$environment = null;
 
         this.filename = typeof owner === 'object' ?
-            owner.filename :
-            typeof owner === 'string' && owner;
+            owner.filename : typeof owner === 'string' && owner;
 
         this.flags = 0;
 

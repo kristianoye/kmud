@@ -20,7 +20,6 @@ const
 
 const
     FileSecurity = require('./FileSecurity'),
-    FileManager = require('./FileManager'),
     MUDStorage = require('./MUDStorage');
 
 var
@@ -1249,15 +1248,17 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Checks to see if a shutdown request is valid.
+     * @param {ExecutionFrame} frame The current execution frame to evaluate
      * @returns {boolean} Returns true if the shutdown may proceed.
      */
-    validShutdown(efuns) {
+    validShutdown(frame) {
         if (this.gameState !== GAMESTATE_RUNNING)
             return true;
         else if (!this.applyValidShutdown)
             return true;
-        else
-            return this.masterObject.validShutdown(efuns);
+        else {
+            return this.driverCall('validShutdown', () => this.masterObject.validShutdown(frame));
+        }
     }
 
     /**

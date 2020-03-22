@@ -28,13 +28,15 @@ class ArrayHelper {
      * Consolidates a number of short descriptions into an array to be used in a sentence.
      * @param {string[]|MUDObject[]} arr An array of strings and/or MUD Objects.
      * @returns {string[]} A considated array (e.g. ["two swords", "three buckets"])
+     * TODO: Make this a simulEfun
      */
-    static consolidateArray(arr) {
+    static consolidate(arr) {
         let shorts = {};
         arr.map(s => typeof s === 'string' && s || unwrap(uw => uw.shortDesc) || false)
             .filter(s => s !== false)
             .forEach(s => shorts[s] = (shorts[s] || 0) + 1);
-        return Object.keys(shorts).map(s => driver.efuns.consolidate(shorts[s], s).ucfirst());
+        return Object.keys(shorts)
+            .map(s => driver.efuns.consolidate(shorts[s], s).ucfirst());
     }
 }
 

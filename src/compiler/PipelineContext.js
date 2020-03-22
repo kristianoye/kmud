@@ -107,7 +107,12 @@ class PipelineContext {
 
     update(state, content) {
         if (state !== this.state && state === CTX_RUNNING && !this.content) {
-            this.content = driver.config.stripBOM(fs.readFileSync(this.resolvedName, 'utf8') || '');
+            try {
+                this.content = driver.config.stripBOM(fs.readFileSync(this.resolvedName, 'utf8') || '');
+            }
+            catch (e) {
+                console.log('update failure');
+            }
         }
         if(content) this.content = content;
         return (this.state = state), this;
@@ -122,8 +127,9 @@ class PipelineContext {
         if (!this.content) {
             if ((ext = ext || this.extension) === false)
                 return false;
-            let tryFilename = this.filename.endsWith(ext) ? this.filename : this.filename + ext,
-                stat = driver.efuns.stat(tryFilename, MUDFS.StatFlags.Content);
+            let tryFilename = this.filename.endsWith(ext) ? this.filename : this.filename + ext;
+            /** @type {FileSystemStat} */
+            let stat = driver.efuns.stat(tryFilename, MUDFS.StatFlags.Content);
             if (stat && stat.exists) {
                 if (stat.isFile) {
                     let n = this.filename.lastIndexOf('/');
@@ -133,7 +139,7 @@ class PipelineContext {
                     this.lastModified = stat.mtime;
                     this.exists = true;
                     this.directory = this.filename.slice(0, n);
-                    this.resolvedName = this.realName += ext;
+                    this.resolvedName = this.realName.endsWith(ext) ? this.realName : (this.realName += ext);
                     this.isEval = false;
                     this.content = stat.content;
 
@@ -165,7 +171,7 @@ class PipelineContext {
                     this.lastModified = stat.mtime;
                     this.exists = true;
                     this.directory = this.filename.slice(0, n);
-                    this.resolvedName = this.realName += ext;
+                    this.resolvedName = this.realName.endsWith(ext) ? this.realName : this.realName + ext;
                     this.isEval = false;
                     this.content = stat.content;
 

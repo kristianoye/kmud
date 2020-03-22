@@ -390,7 +390,7 @@ class EFUNProxy {
 
         let [oldBody, newBody] = unwrap([ptrOld, ptrNew]);
 
-        if (!ecc.guarded(f => driver.validExec(this, oldBody, newBody)))
+        if (!ecc.guarded(f => driver.validExec(f, oldBody, newBody)))
             throw new Error('Permission denied to efuns.exec()');
 
         return driver.driverCall('exec', () => {
@@ -723,6 +723,10 @@ class EFUNProxy {
     isFileSync(expr, flags) {
         let stat = driver.fileManager.statSync(expr, flags || 0);
         return stat && stat.isFile;
+    }
+
+    isFunction(expr) {
+        return expr && typeof expr === 'function';
     }
 
     /**
@@ -1833,8 +1837,9 @@ class EFUNProxy {
      * @param {number} errCode The error code associated with the shutdown.
      * @param {string} reason The reason given for the shutdown.
      */
-    shutdown(errCode, reason) {
-        if (driver.validShutdown(this, reason)) {
+    async shutdown(errCode, reason) {
+        let ecc = driver.getExecution();
+        if (await ecc.guarded(f => driver.validShutdown(f))) {
             process.exit(errCode || 0);
         }
     }

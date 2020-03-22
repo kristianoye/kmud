@@ -460,7 +460,8 @@ class MUDCompiler {
                     async () => {
                         //  Clear previous exports in case they've changed
                         module.exports = false;
-                        await VM.runAsync(context, module);
+                        let inner = await VM.runAsync(context, module);
+                        return inner;
                     },
                     context.filename,
                     true);

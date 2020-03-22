@@ -33,6 +33,12 @@ class MudlibFileSystem {
     constructor(config) {
         /** @type {string} */
         this.fileManager = config.fileManager || './FileManager';
+        this.fileManagerType = '';
+        let n = this.fileManager.indexOf('@');
+        if (n > -1) {
+            this.fileManagerType = this.fileManager.substring(0, n);
+            this.fileManager = this.fileManager.substring(n + 1);
+        }
 
         /** @type {Object.<string,any>} */
         this.fileManagerOptions = config.fileManagerOptions || {};
@@ -88,9 +94,19 @@ class MudlibFileSystem {
      * @param {GameServer} driver A reference to the driver instance.
      */
     createFileManager(driver) {
-        let manager = require(path.join(__dirname, '..', this.fileManager)),
-            result = new manager(driver, driver.config.mudlib.baseDirectory, this.fileManagerOptions);
-        return result.assertValid() || result;
+        let manager = undefined;
+
+        if (this.fileManagerType) {
+            let imports = require(path.join(__dirname, '..', this.fileManager));
+            manager = imports[this.fileManagerType];
+        }
+        else
+            manager = require(path.join(__dirname, '..', this.fileManager));
+
+        if (typeof manager.FileManager === 'object')
+            manager = manager.FileManager;
+
+        return manager.assertValid() && manager;
     }
 
     /**

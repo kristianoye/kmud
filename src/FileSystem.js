@@ -7,7 +7,14 @@
  */
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
+    { MudlibFileMount } = require('./config/MudlibFileSystem'),
     { NotImplementedError } = require('./ErrorTypes'),
+    { Glob } = require('./FileSystem'),
+    crypto = require('crypto'),
+    async = require('async'),
+    path = require('path');
+
+const
     FS_NONE = 0,            // No flags set
     FS_SYNC = 1 << 0,       // The filesystem supports syncronous I/O.
     FS_ASYNC = 1 << 2,      // The filesystem supports asyncronous I/O.
@@ -40,6 +47,11 @@ const
 
 // #region File ACL Objects
 
+/**
+ * Represents the permissions for a file or directory.  This contains both:
+ *   - The list of user permissions that can access/modify the object
+ *   - The list of permission groups this file/directory have been assigned
+ */
 class AclEntry {
     /**
      * Construct a file entry
@@ -61,7 +73,8 @@ class AclEntry {
     effectivePermissions(username) {
         let perms = this.inherits ? this.parent.effectivePermissions(username) : P_NONE;
         Object.keys(this.permissions).forEach(p => {
-            if (p.startsWith('$')) {
+            // $ = user groups, ~ = wizard-created group, ^ = domain-specific groups
+            if (p.startsWith('$') || p.startsWith('~') || p.startsWith('^')) {
                 if (driver.inGroup(username, p))
                     result |= this.permissions[p];
             }
@@ -280,7 +293,9 @@ class FileACL {
      * @param {Object.<string,string>} data 
      */
     static async parseAclTree(data) {
-        let tree = new AclTree(data), keys = Object.keys(data).filter(s => s !== '/');
+        let tree = new AclTree(data),
+            keys = Object.keys(data).filter(s => s !== '/');
+
         for (let i = 0; i < keys.length; i++) {
             let node = await tree.root.insert(keys[i], data);
             await node.save();
@@ -372,16 +387,34 @@ class FileACL {
 
 // #region File System Objects
 
+/**
+ * A file system object represents a single object on a filesystem.  This 
+ * may be a directory or a file or some other construct (possible a FIFO,
+ * symlink, etc).  A filesystem object MUST contain the following:
+ *   - A name (no slashes)
+ *   - An absolute MUD path from the root
+ *   - An AclNode object containing permission information
+ *   - A filesystem ID to denote which filesystem on which the object exists
+ *   - A parent file object
+ *   
+ */
 class FileSystemStat {
     /**
      * Construct a new stat
      * @param {FileSystemStat} data Config data
-     * @param {object} options Options from the config
      * @param {string} mountPoint The directory the filesystem is mounted to
+     * @param {Error} err Any error associated with fetching the object
      */
-    constructor(data, options, mountPoint) {
+    constructor(data, mountPoint, err) {
         Object.assign(this, data);
+
+        /** @type {AclEntry} */
+        this.acl = null;
+        this.content = data.content || '';
+        this.error = err;
+        this.fullPath = '';
         this.mountPoint = mountPoint;
+        this.name = '';
     }
 
     assertValid() {
@@ -465,11 +498,24 @@ class FileSystemStat {
 
         return this;
     }
+
+    /**
+     * Refresh cached data and return a new copy of the object
+     */
+    refresh() {
+        return new FileSystemStat(this);
+    }
 }
 
 class DirectoryObject extends FileSystemStat {
-    constructor() {
-        super();
+    /**
+     * Construct a new directory object
+     * @param {FileSystemStat} stat Stat data
+     * @param {string} mountPoint The directory the filesystem is mounted to
+     * @param {Error} err Any error associated with fetching the object
+     */
+    constructor(stat, mountPoint, err = undefined) {
+        super(stat, mountPoint, err);
     }
 }
 
@@ -477,10 +523,15 @@ class DirectoryObject extends FileSystemStat {
  * Represents a normal text file
  */
 class FileObject extends FileSystemStat {
-    get isFile() { return true; }
-
-    /** @type {'unknown'|'directory'|'file'|'objectData'} */
-    get objectType() { return 'file'; }
+    /**
+     * Construct a new file object
+     * @param {FileSystemStat} stat Stat data
+     * @param {string} mountPoint The directory the filesystem is mounted to
+     * @param {Error} err Any error associated with fetching the object
+     */
+    constructor(stat, mountPoint, err = undefined) {
+        super(stat, mountPoint, err);
+    }
 }
 
 /**
@@ -493,15 +544,16 @@ class ObjectDataFile extends FileSystemStat {
     get objectType() { return 'objectData'; }
 }
 
-/**
- * @param {FileSystemStat} result The spec to create a stat from.
- * @returns {FileSystemStat} An actual stat object.
- */
-FileSystemStat.create = function (result) {
-    return new FileSystemStat(result);
-};
-
 // #endregion
+
+/**
+ * @typedef {Object} FileSystemOptions
+ * @property {number} asyncReaderLimit The maximum number of allowed async operations per request (defaults to 10)
+ * @property {string} mountPoint The directory the filesystem is mounted to
+ * @property {string} encoding The encoding used by the filesystem (defaults to utf8)
+ * @property {string} root The root of the filesystem (if a block device)
+ * @property {string} type The type of filesystem (block, database, etc)
+ * @property {string} systemId The identifier assigned by the file manager */
 
 /**
  * @class
@@ -512,7 +564,7 @@ class FileSystem extends MUDEventEmitter {
     /**
      * 
      * @param {FileManager} fileManager
-     * @param {{ mountPoint: string, encoding: FileEncoding, flags: number, type: string, asyncReaderLimit: number, root: string }} opts Options passed from the configuration
+     * @param {FileSystemOptions} opts Options passed from the configuration
      */
     constructor(fileManager, opts) {
         super();
@@ -534,6 +586,8 @@ class FileSystem extends MUDEventEmitter {
 
         /** @type {FileSecurity} */
         this.securityManager = null;
+
+        this.systemId = opts.systemId;
 
         /** @type {string} */
         this.type = opts.type || 'unknown';
@@ -679,6 +733,16 @@ class FileSystem extends MUDEventEmitter {
      * @returns {string|false} The virtual path if the expression exists in this filesystem or false if not.
      */
     getVirtualPath(req) { return false; }
+
+    /**
+     * Glob a directory
+     * @param {string} dir The directory to search
+     * @param {string} expr An expression to glob for
+     * @param {Glob} options Options to control the operation
+     */
+    async glob(dir, expr, options = 0) {
+        throw new NotImplementedError('glob');
+    }
 
     /**
      * @returns {boolean} Returns true if the filesystem supports directory structures.
@@ -854,18 +918,16 @@ class FileSystem extends MUDEventEmitter {
     /**
      * Stat a file within the filesystem.
      * @param {FileSystemRequest} req The file expression to evaluate.s
-     * @param {function(FileSystemStat,Error):void} callback An optional callback for async mode.
      * @returns {FileSystemStat} The filesystem stat info.
      */
-    stat(req, callback) {
-        return typeof callback === 'function' ?
-            this.assertAsync() && this.statAsync(req, callback) :
-            this.assertSync() && this.statSync(req);
+    async stat(req) {
+        throw new NotImplementedError('stat');
     }
 
     /**
      * Stat a file asyncronously.
      * @param {string} relativePath The file expression to stat.
+     * @returns {Promise<FileSystemStat>} Returns a stat object.
      */
     async statAsync(relativePath) {
         throw new NotImplementedError('statAsync');
@@ -912,9 +974,7 @@ class FileSystem extends MUDEventEmitter {
     }
 }
 
-FileSystem.createObject = function () {
-
-};
+// #region Constants
 
 /**
  * Filesystem supports asyncronous operations.
@@ -951,12 +1011,829 @@ FileSystem.FS_SYNC = FS_SYNC;
  */
 FileSystem.FS_WILDCARDS = FS_WILDCARDS;
 
+// #endregion
+
+// #region FileManager 
+
+/**
+ * @typedef {Object} FileSystemRequestData 
+ * @property {FileSystem} fs The filesystem where the target exists
+ * @property {string|number} flags Flags to control the operation
+ * @property {string} op The operation being performed
+ * @property {string} expr The file expression
+ * @property {string} relPath The relative path to the root of the filesystem
+ * @property {boolean} isAsync Is the request asyncronous?
+ **/
+
+/**
+ * Contains all of the information needed to perform a filesystem operation.
+ */
+class FileSystemRequest {
+    /**
+     * Creates a filesystem request.
+     * @param {FileSystemRequestData} data The data to construct the request with
+     */
+    constructor(data) {
+        this.async = data.isAsync;
+        this.expr = data.expr;
+
+        /** @type {string} */
+        this.fileName = '';
+
+        /** @type {string} */
+        this.fullPath = '';
+
+        /** @type {string} */
+        this.relativePath = data.relPath || '';
+
+        /** @type {FileSystem} */
+        this.fileSystem = data.fs;
+
+        /** @type {number} */
+        this.flags = typeof data.flags === 'string' ? data.flags :
+            typeof data.flags === 'number' ? data.flags : 0;
+
+        /** @type {FileSystemStat} */
+        this.parent = null;
+
+        /** @type {string} */
+        this.pathFull = '';
+
+        /** @type {string} */
+        this.pathRel = '';
+
+        /** @type {boolean} */
+        this.resolved = false;
+
+        /** @type {string} */
+        this.op = data.op || 'unknown';
+
+        /** @type {FileSecurity} */
+        this.securityManager = data.fs.securityManager;
+
+        let expr = data.expr, relPath = data.relPath;
+
+        //  Best guess for now
+        if (!expr.endsWith('/')) {
+            let dir = expr.slice(0, expr.lastIndexOf('/')),
+                rel = relPath.slice(0, relPath.lastIndexOf('/'));
+
+            this.fileName = expr.slice(dir.length + 1);
+            this.fullPath = expr;
+            this.relativePath = relPath;
+            this.pathFull = dir + (dir.endsWith('/') ? '' : '/');
+            this.pathRel = rel + (rel.endsWith('/') ? '' : '/');
+        }
+        else {
+            this.fileName = '';
+            this.fullPath = expr;
+            this.relativePath = relPath;
+            this.pathFull = expr;
+            this.pathRel = relPath;
+        }
+    }
+
+    clone(init) {
+        let c = new FileSystemRequest({
+            fs: this.fileSystem,
+            flags: this.flags,
+            op: this.op,
+            expr: this.expr,
+            relPath: this.relativePath,
+            efuns: this.efuns
+        });
+        init(c);
+        return c;
+    }
+
+    deny() {
+        let procName = this.op.slice(0, 1).toLowerCase() +
+            this.op.slice(1) + (this.async ? 'Async' : 'Sync');
+        return this.securityManager.denied(procName, this.fullPath);
+    }
+
+    toString() {
+        return `${this.op}:${this.fullPath}`;
+    }
+
+    async valid(method) {
+        if (method && !method.startsWith('valid'))
+            method = 'valid' + method;
+        let checkMethod = method || `valid${this.op}`;
+        if (typeof this.securityManager[checkMethod] !== 'function')
+            throw new Error(`Security method ${checkMethod} not found!`);
+        let result = await this.securityManager[checkMethod](this.efuns, this.fullPath);
+        return result;
+    }
+}
+
+/**
+ * The file manager object receives external requests, creates internal requests,
+ * and dispatches those requests to the file and security systems.  It then sends
+ * the results back to the user (usually an efuns proxy instance).
+ */
+class FileManager extends MUDEventEmitter {
+    /**
+     * Construct the file manager
+     */
+    constructor() {
+        super();
+
+        /** 
+         * Contains a cache of previously accessed directories
+         * @type {Object.<string,DirectoryObject>} */
+        this.directoryCache = {};
+
+        /** @type {GameServer} */
+        this.driver = driver;
+
+        /** @type {Object.<string,FileSystem>} */
+        this.fileSystems = {};
+
+        /** @type {string} */
+        this.mudlibRoot = driver.config.mudlib.baseDirectory;
+
+        /** @type {string} */
+        this.mudlibAbsolute = path.resolve(__dirname, this.mudlibRoot);
+    }
+
+    /**
+     * Not needed by default file manager.
+     */
+    assertValid() {
+        return this;
+    }
+
+    /**
+     * Clone an object into existance.
+     * @param {string} expr The module to clone
+     * @param {any} args Constructor args for clone
+     * @returns {MUDWrapper} The wrapped instance.
+     */
+    cloneObjectSync(expr, args) {
+        let req = this.createFileRequest('cloneObject', expr, false);
+        if (!req.valid('LoadObject'))
+            return req.deny();
+        else
+            return req.fileSystem.cloneObjectSync(req.relativePath, args || []);
+    }
+
+    /**
+     * Create a directory asynchronously
+     * @param {string} expr The directory to create
+     * @param {number} flags Additional flags to control the operation
+     */
+    async createDirectoryAsync(expr, flags = 0) {
+        let req = this.createFileRequest('CreateDirectory', expr, false, flags);
+        if (!req.valid())
+            return req.deny();
+        else
+            return await req.fileSystem.createDirectoryAsync(req.relativePath, req.flags);
+    }
+
+    /**
+     * Create a directory in the MUD filesystem.
+     * @param {string} expr The path to create.
+     * @param {number} options Optional flags to pass to the mkdir method.
+     * @returns {boolean} True on success.
+     */
+    createDirectorySync(expr, options) {
+        let req = this.createFileRequest('CreateDirectory', expr, false, options.flags);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.createDirectorySync(req.relativePath, req.flags);
+    }
+
+    /**
+     * Create a filesystem object
+     * @param {FileSystemStat} data The raw stat object from the filesystem
+     * @param {Error} err Was there an error?
+     */
+    async createFileObjectAsync(data, err) {
+        let result = false;
+
+        if (efuns.isFunction(data.isDirectory))
+            data.isDirectory = data.isDirectory();
+        if (efuns.isFunction(data.isFile))
+            data.isFile = data.isFile();
+        if (efuns.isFunction(data.isBlockDevice))
+            data.isBlockDevice = data.isBlockDevice();
+        if (efuns.isFunction(data.isCharacterDevice))
+            data.isCharacterDevice = data.isCharacterDevice();
+        if (efuns.isFunction(data.isFIFO))
+            data.isFIFO = data.isFIFO();
+        if (efuns.isFunction(data.isSocket))
+            data.isSocket = data.isSocket();
+        if (efuns.isFunction(data.isSymbolicLink))
+            data.isSymbolicLink = data.isSymbolicLink();
+
+        if (data.isDirectory) {
+            result = new DirectoryObject(data, undefined, err);
+        }
+        else if (data.isFile) {
+            result = new FileObject(data, undefined, err);
+        }
+        else {
+            result = new FileSystemStat(data, undefined, err);
+        }
+        return result;
+    }
+
+    /**
+     * Create a filesystem object
+     * @param {FileSystemStat} data The raw stat object from the filesystem
+     * @param {Error} err Was there an error?
+     */
+    createFileObjectSync(data, err) {
+        let result = false;
+
+        if (efuns.isFunction(data.isDirectory))
+            data.isDirectory = data.isDirectory();
+        if (efuns.isFunction(data.isFile))
+            data.isFile = data.isFile();
+        if (efuns.isFunction(data.isBlockDevice))
+            data.isBlockDevice = data.isBlockDevice();
+        if (efuns.isFunction(data.isCharacterDevice))
+            data.isCharacterDevice = data.isCharacterDevice();
+        if (efuns.isFunction(data.isFIFO))
+            data.isFIFO = data.isFIFO();
+        if (efuns.isFunction(data.isSocket))
+            data.isSocket = data.isSocket();
+        if (efuns.isFunction(data.isSymbolicLink))
+            data.isSymbolicLink = data.isSymbolicLink();
+
+        if (data.isDirectory) {
+            result = new DirectoryObject(data, undefined, err);
+        }
+        else if (data.isFile) {
+            result = new FileObject(data, undefined, err);
+        }
+        else {
+            result = new FileSystemStat(data, undefined, err);
+        }
+        return result;
+    }
+
+    /**
+     * Create a request that describes the current operation.
+     * 
+     * @param {string} op The name of the file operation
+     * @param {string} expr THe filename expression being operated on
+     * @param {boolean} isAsync A flag indicating whether this is an async operation
+     * @param {string|number} flags Any numeric flags associated with the operation
+     * @param {function(): any} callback A defunct callback
+     * @returns {FileSystemRequest} The request to be fulfilled.
+     */
+    createFileRequest(op, expr, isAsync = false, flags = 0, callback = false) {
+        if (callback)
+            throw new Error('createFileRequest with callback is no longer supported');
+        let { FileSystem, Path } = this.getFilesystem(expr);
+        let result = new FileSystemRequest({
+            fs: FileSystem,
+            flags: flags,
+            op: op || '',
+            expr,
+            relPath: Path,
+            isAsync: isAsync === true
+        });
+        return result;
+    }
+
+    /**
+     * Create the specified filesystem.
+     * @param {MudlibFileMount} fsconfig The filesystem to mount.
+     */
+    async createFileSystem(fsconfig) {
+        let fileSystemType = require(path.join(__dirname, fsconfig.type)),
+            securityManagerType = require(path.join(__dirname, fsconfig.securityManager)),
+            systemId = crypto.createHash('md5').update(fsconfig.mountPoint).digest('hex'),
+            fileSystem = new fileSystemType(this, Object.assign({ systemId: systemId }, fsconfig.options), fsconfig.mountPoint),
+            securityManager = new securityManagerType(this, fileSystem, fsconfig.securityManagerOptions);
+        this.fileSystems[fsconfig.mountPoint] = fileSystem;
+        return fileSystem;
+    }
+
+    /**
+     * Generate a dummy stat.
+     * @param {Error} err An error that occurred.
+     * @param {FileSystemRequest} req The request associated with this stat
+     */
+    createDummyStats(err = false, req) {
+        let dt = new Date(0);
+
+        return new FileSystemStat({
+            absolutePath: req.fullPath,
+            atime: dt,
+            atimeMs: dt.getTime(),
+            birthtime: dt,
+            birthtimeMs: dt.getTime(),
+            blksize: 4096,
+            blocks: 0,
+            ctime: dt,
+            ctimeMs: dt.getTime(),
+            dev: -1,
+            error: err || new Error('Unknown error'),
+            exists: false,
+            gid: -1,
+            ino: -1,
+            nlink: -1,
+            uid: -1,
+            mode: -1,
+            mtime: dt,
+            mtimeMs: dt.getTime(),
+            name: req.fileName,
+            path: req.fullPath || '',
+            size: -1,
+            rdev: -1,
+            isBlockDevice: false,
+            isCharacterDevice: false,
+            isDirectory: false,
+            isFIFO: false,
+            isFile: false,
+            isSocket: false,
+            isSymbolicLink: false
+        });
+    }
+
+    /**
+     * Remove a directory from the filesystem.
+     * @param {string} expr The directory to remove.
+     * @param {{ flags: number }} options Any additional options.
+     */
+    deleteDirectoryAsync(expr, options) {
+        let req = this.createFileRequest('DeleteDirectory', expr, false, options.flags);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.deleteDirectoryAsync(req.relativePath, req.flags);
+    }
+
+    /**
+     * Remove a directory from the filesystem.
+     * @param {EFUNProxy} efuns The object requesting the deletion.
+     * @param {string} expr The directory to remove.
+     * @param {{ flags: number }} options Any additional options.
+     */
+    deleteDirectorySync(expr, options) {
+        let req = this.createFileRequest('DeleteDirectory', expr, false, options.flags);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.deleteDirectorySync(req.relativePath, req.flags);
+    }
+
+    /**
+     * Delete/unlink a file from the filesystem.
+     * @param {EFUNProxy} efuns The object requesting the deletion.
+     * @param {string} expr The path expression to remove.
+     */
+    deleteFile(efuns, expr) {
+        return this.createFileRequest('deleteFile', expr, typeof callback === 'function', 0, req => {
+            return req.securityManager.validDeleteFile(efuns, req) ?
+                req.fileSystem.deleteFile(req, callback) :
+                req.securityManager.denied('delete', req.fullPath);
+        });
+    }
+
+    /**
+     * Iterate over the filesystems and perform an action for each.
+     * @param {function(FileSystem,string):any[]} callback
+     * @returns {any[]} The result of all the actions taken, one element for each filesystem.
+     */
+    eachFileSystem(callback) {
+        return Object.keys(this.fileSystems)
+            .map(id => callback(this.fileSystems[id], id));
+    }
+
+    /**
+     * Locate the filesystem for the specified absolute path
+     * @param {string} expr The directory expression
+     * @returns {{FileSystem:FileSystem, Path:string}} Returns a filesystem or a filesystem and relative path if withRelativePath is true
+     */
+    getFilesystem(expr) {
+        let parts = expr.split('/'),
+            fileSystem = this.fileSystems['/'] || false;
+        let /** @type {string[]} */ relParts = [],
+            relPath = '/';
+
+        while (parts.length) {
+            let dir = parts.length === 1 && !parts[0] ? '/' : parts.join('/');
+            if (dir in this.fileSystems) {
+                relPath = relParts.join('/');
+                fileSystem = this.fileSystems[dir];
+                break;
+            }
+            relParts.unshift(parts.pop());
+        }
+
+        if (!fileSystem)
+            throw new Error('Fatal: Could not locate filesystem');
+        return { FileSystem: fileSystem, Path: relPath };
+    }
+
+    /**
+     * Locate file objects based on the given patterns.
+     * The expressions should always start from the root and contain:
+     *   - Double asterisk wildcard for recursive blooms
+     *   - Single asterisk wildcards
+     *   - Question marks for single characters
+     * @param {Glob} options
+     * @param {...string} expr One or more expressions to evaluate
+     * @returns {FileSystemStat[]} Returns a collection of filesystem objects
+     */
+    async glob(options = 0, ...expr) {
+        /** @type {string[]} */
+        let args = [].slice.apply(arguments);
+        /** @type {FileSystemStat[]} */
+        let results = [];
+
+        if (typeof args[0] === 'number')
+            options = args.shift();
+
+        //  For each expression provided...
+        for (let i = 0, mi = args.length; i < mi; i++) {
+            //  Split into directory parts...
+            let parts = args[i].split('/'), opts = options;
+
+            // for each part:
+            for (let j = 0, mj = parts.length; j < mj; j++) {
+                let pj = parts[j],
+                    dir = j > 0 ? parts.slice(0, j - 1).join('/') : '/',
+                    { FileSystem, Path } = this.getFilesystem(dir);
+
+                if (pj === '**') {
+                    //  At this point, get all files at or below this point of the tree
+                    //  and convert the remaining file tokens into a regex
+                    opts |= Glob.Recursive;
+
+                    /** An additional list of directories to fetch content for
+                     * @type {FileSystemStat[]} */
+                    let dirStack = [];
+
+                    let subset = await FileSystem.glob(Path, '*', opts);
+                }
+                else if (pj.indexOf('**') > -1)
+                    throw new Error('Double asterisk must be a standalone token in expression');
+
+                await FileSystem.glob(Path, pj, opts);
+            }
+        }
+        return results;
+    }
+
+    /**
+     * Load/Create an Access Control List (ACL)
+     * @param {string} expr
+     */
+    async getFileACL(expr) {
+        let parts = expr.split('/'),
+            i = parts.length;
+
+        while (i--) {
+            let dir = parts.slice(0, i).join('/');
+            let data = await this.readFileACL(dir);
+            if (!data) {
+                data = driver.driverCall('createAcl', dir);
+                if (data != null) {
+                    await data.save();
+                }
+            }
+            if (data)
+                return new FileACL(data);
+        }
+        return acl;
+    }
+
+    async readFileACL(expr) {
+        let req = this.createFileRequest('ReadFileACL', expr);
+        return await req.fileSystem.getFileACL(req.relativePath);
+
+    }
+
+    async isDirectoryAsync(expr) {
+        let req = this.createFileRequest('isDirectory', expr, true, 0);
+
+        if (!req.valid('validReadDirectory'))
+            reject(req.deny());
+        else {
+            let result = await req.fileSystem.isDirectoryAsync(req.relativePath);
+            return result;
+        }
+    }
+
+    /**!
+     * Check to see if the given expression is a directory,
+     * @param {string} expr The path expression to evaluate.
+     * @param {function(boolean,Error):void} callback Callback receives a boolean value indicating True if the expression is a directory.
+     * @returns {boolean} True if the expression is a directory.
+     */
+    isDirectorySync(expr) {
+        let req = this.createFileRequest('isDirectory', expr, false, 0);
+        if (!req.valid('validReadDirectory'))
+            return req.deny();
+        else
+            return req.fileSystem.isDirectorySync(req.relativePath);
+    }
+
+    /**
+     * Check to see if the given expression is a file,
+     * @param {string} expr The path expression to evaluate.
+     * @param {number} flags Additional flags for the operation
+     * @returns {boolean} True if the expression is a file.
+     */
+    isFile(expr, flags) {
+        let req = this.createFileRequest('isFile', expr);
+        if (!req.valid('validReadFile'))
+            return req.deny();
+        else
+            return req.fileSystem.isFileSync(req.relativePath, flags);
+    }
+
+    /**
+     * Load an object from disk.
+     * @param {string} expr Information about what is being requested.
+     * @param {any} args Data to pass to the constructor.
+     * @param {number} flags Flags to control the operation
+     * @returns {MUDObject} The loaded object... hopefully
+     */
+    async loadObjectAsync(expr, args, flags = 0) {
+        let req = this.createFileRequest('LoadObject', expr, false, flags);
+        if (!req.valid())
+            return req.deny();
+        else
+            return await req.fileSystem.loadObjectAsync(req.relativePath, args || [], req.flags);
+    }
+
+    /**
+     * Load an object from disk.
+     * @param {string} expr Information about what is being requested.
+     * @param {any} args Data to pass to the constructor.
+     * @param {number} flags Flags to control the operation
+     * @returns {MUDObject} The loaded object... hopefully
+     */
+    loadObjectSync(expr, args, flags = 0) {
+        let req = this.createFileRequest('LoadObject', expr, false, flags);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.loadObjectSync(req.relativePath, args || [], req.flags);
+    }
+
+    async readDirectoryAsync(expr, flags = 0) {
+        let req = this.createFileRequest('ReadDirectory', expr, false, flags);
+        if (!req.valid())
+            return req.deny();
+        else
+            return await req.fileSystem.readDirectoryAsync(req.pathRel, req.fileName, req.flags);
+    }
+
+    readDirectorySync(expr, flags = 0) {
+        let req = this.createFileRequest('ReadDirectory', expr, false, flags);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.readDirectorySync(req.pathRel, req.fileName, req.flags);
+    }
+
+    /**
+     * Reads a file from the filesystem.
+     * @param {string} expr The file to try and read.
+     * @returns {string} The content from the file.
+     */
+    readFileSync(expr) {
+        let req = this.createFileRequest('ReadFile', expr);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.readFileSync(req.relativePath);
+    }
+
+    /**
+     * Read structured data from the specified location.
+     * @param {string} expr The JSON file being read.
+     * @param {function=} callback An optional callback for async mode.
+     */
+    async readJsonFileAsync(expr) {
+        let req = this.createFileRequest('readJsonFile', expr);
+        if (!req.valid('validReadFile'))
+            return req.deny();
+        else
+            return await req.fileSystem.readJsonFileAsync(req.relativePath);
+    }
+
+    /**
+     * Read structured data from the specified location.
+     * @param {EFUNProxy} efuns The efuns instance making the call.
+     * @param {string} expr The JSON file being read.
+     * @param {function=} callback An optional callback for async mode.
+     */
+    readJsonFileSync(expr) {
+        let req = this.createFileRequest('readJsonFile', expr);
+        if (!req.valid('validReadFile'))
+            return req.deny();
+        else
+            return req.fileSystem.readJsonFileSync(req.relativePath);
+    }
+
+    async statAsync(expr, flags) {
+        let req = this.createFileRequest('stat', expr, false, flags);
+        if (!await req.valid('validReadFile'))
+            return req.deny();
+        else {
+            let result = this.directoryCache[req.fullPath];
+            try {
+                result = await req.fileSystem.statAsync(req.relativePath, req.flags);
+                if (result.isDirectory)
+                    this.directoryCache[req.fullPath] = result;
+            }
+            catch (err) {
+                result = this.createDummyStats(err, req);
+            }
+            result = Object.freeze(await this.createFileObjectAsync(result));
+            return result;
+        }
+    }
+
+    /**
+     * Stat a filesystem expression
+     * @param {string} expr The expression to stat
+     * @param {number} flags Flags to control the behavior
+     */
+    statSync(expr, flags) {
+        let req = this.createFileRequest('stat', expr, false, flags);
+        if (!req.valid('validReadFile'))
+            return req.deny();
+        else {
+            let result = undefined;
+            try {
+                result = req.fileSystem.statSync(req.relativePath, req.flags);
+                result.absolutePath = req.fullPath;
+                result.exists = true;
+            }
+            catch (err) {
+                result = this.createDummyStats(err, req.fullPath);
+                result.absolutePath = req.fullPath;
+            }
+            result = Object.freeze(this.createFileObjectSync(result));
+            return result;
+        }
+    }
+
+    /**
+     * Converts a real path into a virtual MUD path.
+     * @param {string} expr The absolute file path to translate.
+     * @returns {string} The virtual MUD path or false if not in the virtual filesystem.
+     */
+    toMudPath(expr) {
+        let fsn = Object.keys(this.fileSystems);
+        for (let i = 0; i < fsn.length; i++) {
+            let fso = this.fileSystems[fsn[i]],
+                result = fso.getVirtualPath(expr);
+            if (result) return fsn[i] + result;
+        }
+        return false;
+    }
+
+    /**
+     * Translates a virtual path into an absolute path (if filesystem supported)
+     * @param {string} expr The virtual directory to translate.
+     * @returns {string} The absolute path.
+     */
+    toRealPath(expr) {
+        let req = this.createFileRequest('toRealPath', expr);
+        return req.fileSystem.getRealPath(req.relativePath);
+    }
+
+    /**
+     * Write to a file asyncronously.
+     * @param {string} expr The file to write to.
+     * @param {string|Buffer} content The content to write to file.
+     * @param {string} flags Flags controlling the operation.
+     * @param {string} encoding The optional encoding to use
+     * @returns {Promise<boolean>} The promise for the operation.
+     */
+    async writeFileAsync(expr, content, flags, encoding) {
+        let req = this.createFileRequest('WriteFile', expr, true, flags || 'w');
+        return new Promise((resolve, reject) => {
+            try {
+                if (!req.valid())
+                    reject(req.deny());
+                else
+                    resolve(req.fileSystem.writeFileAsync(req.relativePath, content, req.flags, encoding));
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    writeFileSync(expr, content, flags) {
+        let req = this.createFileRequest('WriteFile', expr, false, flags);
+        if (!req.valid())
+            return req.deny();
+        else
+            return req.fileSystem.writeFileSync(req.relativePath, content, req.flags);
+    }
+
+    async writeJsonFileAsync(efuns, expr, content) {
+        let req = this.createFileRequest('WriteFile', expr, false, 0, null, efuns);
+        if (!req.valid())
+            return req.deny();
+        else
+            return await req.fileSystem.writeJsonFileAsync(req.relativePath, content, req.flags);
+    }
+}
+
+var
+    /** @type {FileManager} */
+    FileManagerInstance;
+
+global.MUDFS = {
+    GetDirFlags: {
+        // FileFlags
+        None: 0,
+        Verbose: 1 << 0,
+        Interactive: 1 << 1,
+
+        // StatFlags
+        Size: 1 << 9,
+        Perms: 1 << 10,
+        Content: 1 << 11,
+
+        Files: 1 << 13,
+        Dirs: 1 << 14,
+        Implicit: 1 << 15,
+        System: 1 << 16,
+        Hidden: 1 << 17,
+
+        GetChildren: 1 << 18,
+        FullPath: 1 << 19,
+
+        //  Size + Permissions
+        Details: 1 << 9 | 1 << 10,
+
+        //  Files + Dirs + Implicit
+        Defaults: (1 << 13) | (1 << 14) | (1 << 15)
+    },
+    MkdirFlags: {
+        None: 0,
+        Verbose: 1,
+        EnsurePath: 1 << 21,
+        ExplicitPerms: 1 << 22,
+        IgnoreExisting: 1 << 25
+    },
+    MoveFlags: {
+        // FileFlags enum
+        None: 0,
+        Verbose: 1 << 0,
+        Interactive: 1 << 1,
+
+        Backup: 1 << 21,
+        NoClobber: 1 << 22,
+        Update: 1 << 23,
+        SingleFile: 1 << 24
+    },
+    MoveOptions: {
+        backupSuffix: '~',
+        flags: 0,
+        prompt: false,
+        targetDirectory: '.'
+    },
+    StatFlags: {
+        None: 0,
+        Size: 1 << 9,
+        Perms: 1 << 10,
+        Content: 1 << 9 | 1 << 10
+    }
+};
+
+
+// #endregion
+
 module.exports = {
+    FileManager: new FileManager(),
     FileSystem,
     FileSystemStat,
     DirectoryObject,
     FileObject,
     ObjectDataFile,
-    FileACL
+    FileACL,
+    Glob: Object.freeze({
+        /** No options specified */
+        NoOptions: 0,
+        /** Recursive search */
+        Recursive: 1 << 1,
+        /** Stay on single filesystem */
+        SameFilesystem: 1 << 2,
+        /** Include hidden files */
+        IncludeHidden: 1 << 3
+    }),
+    StatFlags: Object.freeze({
+        None: 0,
+        Size: 1 << 9,
+        Perms: 1 << 10,
+        Content: 1 << 9 | 1 << 10
+    })
 };
 
