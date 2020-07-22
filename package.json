@@ -10,7 +10,7 @@
     "name": "Kristian Oye <kristianoye@gmail.com>"
   },
   "dependencies": {
-    "acorn": "^6.1.1",
+    "acorn": "^6.4.1",
     "acorn-jsx": "^5.0.1",
     "async": "^2.6.2",
     "bcrypt": "^3.0.7",
