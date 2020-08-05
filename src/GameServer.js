@@ -1239,7 +1239,7 @@ class GameServer extends MUDEventEmitter {
         else if (frame.object === driver.masterObject || frame.object === driver)
             return true;
         else
-            return await this.applyValidRead(path, frame.object || frame.file, frame.method);
+            return await this.applyValidRead(path, frame.object || frame.file, frame.method);            
     }
 
     validRequire(efuns, moduleName) {
@@ -1266,7 +1266,7 @@ class GameServer extends MUDEventEmitter {
      * @param {ExecutionFrame} frame Contains a single frame to validate
      * @param {string} writePath The file that is to be written to.
      */
-    validWrite(frame, writePath) {
+    async validWrite(frame, writePath) {
         if (this.gameState < GAMESTATE_INITIALIZING)
             return true;
         else if (frame.object === this || frame.object === this.masterObject)

@@ -4,8 +4,8 @@
  * Date: October 1, 2017
  */
 const
-    Base = require('Base'),
-    Command = require(Base.Command);
+    Base = await requireAsync('Base'),
+    Command = await requireAsync(Base.Command);
 
 /**
  * Moves/rename files.

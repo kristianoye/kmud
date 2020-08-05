@@ -4,8 +4,8 @@
  * Date: October 1, 2017
  */
 const
-    Base = require('Base'),
-    Room = require(Base.Room);
+    Base = await requireAsync('Base'),
+    Room = await requireAsync(Base.Room);
 
 /**
  * The base room of the example domain.

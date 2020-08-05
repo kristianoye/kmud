@@ -10,55 +10,7 @@ const
     { SecurityError } = require('../ErrorTypes');
 
 class DefaultFileSecurity extends FileSecurity {
-    /**
-     * Check to see if a directory exists.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
-     * @param {function(boolean,Error):void} callback
-     */
-    isDirectory(efuns, req, callback) {
-        return this.validReadDirectory(efuns, req) ?
-            this.fileSystem.isDirectory(req, callback) :
-            this.denied('isDirectory', req.fullPath);
-    }
-
-    /**
-     * Check to see if a directory exists.
-     * @param {any} efuns
-     * @param {any} req
-     * @param {any} callback
-     */
-    isFile(efuns, req, callback) {
-        return this.validReadFile(efuns, req) ?
-            this.fileSystem.isFile(req, callback) :
-            this.denied('isFile', req.fullPath);
-    }
-
-    /**
-     * Attempt to read a directory.
-     * @param {EFUNProxy} efuns The object requesting the operation.
-     * @param {FileSystemRequest} req The filesystem request.
-     * @param {function} [callback] A callback for non-Promise style async.
-     */
-    readDirectoryAsync(efuns, req, callback) {
-        return this.validReadDirectory(efuns, req) ?
-            this.fileSystem.readDirectoryAsync(req, callback) :
-            this.denied('readDirectoryAsync', req.fullPath, callback);
-    }
-
-    /**
-     * 
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
-     * @param {function(string,Error):void} callback
-     */
-    readFile(efuns, req, callback) {
-        return this.validReadFile(efuns, req) ?
-            this.fileSystem.readFile(req, callback) :
-            this.denied('read', expr);
-    }
-
-    /**
+   /**
      * Check to see if the caller may append to file.
      * @param {EFUNProxy} efuns
      * @param {FileSystemRequest} req
@@ -69,63 +21,57 @@ class DefaultFileSecurity extends FileSecurity {
 
     /**
      * Determine whether the caller is allowed to create a directory.
-     * @param {EFUNProxy} efuns The object attempting to create a directory.
-     * @param {FileSystemRequest} req The directory being created.
+     * @param {string} expr The directory being created.
      */
-    validCreateDirectory(efuns, req) {
-        return this.validWriteFile(efuns, req);
+    validCreateDirectory(expr) {
+        return this.validWriteFile(expr);
     }
 
     /**
      * Default security does not distinguish creating a file from writing.
-     * @param {any} efuns
-     * @param {FileSystemRequest} req
+     * @param {string} expr The expression to create
      */
-    validCreateFile(efuns, req) {
-        return this.validWriteFile(efuns, expr);
+    validCreateFile(expr) {
+        return this.validWriteFile( expr);
     }
 
     /**
      * Determine if the caller is permitted to remove a particular directory.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
+     * @param {string} expr The directory to delete
      */
-    validDeleteDirectory(efuns, req) {
-        return this.validWriteFile(efuns, req);
+    validDeleteDirectory(expr) {
+        return this.validWriteFile(expr);
     }
 
     /**
      * Default security does not distinguish deleting a file from writing.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
+     * @param {string} expr The path to delete
      */
-    validDeleteFile(efuns, req) {
-        return this.validWriteFile(efuns, expr);
+    validDeleteFile(expr) {
+        return this.validWriteFile(expr);
     }
 
     /**
      * Default security does not restrict object destruction.
-     * @param {any} efuns
      * @param {FileSystemRequest} expr
      */
-    validDestruct(efuns, expr) {
+    validDestruct(expr) {
         return true;
     }
 
     /**
      * Default security system does not support granting permissions.
      */
-    validGrant(efuns, expr) {
+    validGrant(expr) {
         throw new Error('Security system does not support the use of grant');
     }
 
     /**
      * Default security does not enforce object loading or cloning.
-     * @param {EFUNProxy} efuns External functions making the call.
-     * @param {FileSystemRequest} req The path to load the object from.
+     * @param {string} expr The path to load the object from.
      */
-    validLoadObject(efuns, req) {
-        return this.validReadFile(efuns, req);
+    validLoadObject(expr) {
+        return this.validReadFile(expr);
     }
 
     /**
@@ -133,37 +79,35 @@ class DefaultFileSecurity extends FileSecurity {
      * @param {EFUNProxy} efuns The proxy requesting the directory listing.
      * @param {FileSystemRequest} req The path expression to try and read.
      */
-    async validReadDirectory(efuns, req) {
-        return await this.validReadFile(efuns, req);
+    async validReadDirectory(req) {
+        return await this.validReadFile(req);
     }
 
     /**
      * Determine if the caller has permission to read a particular file.
-     * @param {EFUNProxy} efuns The object attempting to perform the read.
      * @param {string} filename The file to read from
      * @returns {boolean} True if the operation can proceed.
      */
-    async validReadFile(efuns, filename) {
-        return await driver.getExecution().guarded(async f => await driver.validRead(f, filename));
+    async validReadFile(filename) {
+        return await driver.getExecution()
+            .guarded(async f => await driver.validRead(f, filename));
     }
 
     /**
      * Default security treats filestat as a normal read operation.
-     * @param {EFUNProxy} efuns The object requesting the stat.
      * @param {string} filename The name of the file to stat
      * @returns {boolean} True if the operation can proceed.
      */
-    validStatFile(efuns, filename) {
-        return this.validReadFile(efuns, filename);
+    validStatFile(filename) {
+        return this.validReadFile(filename);
     }
 
     /**
      * Determine if the caller has permission to write to the filesystem.
-     * @param {EFUNProxy} efuns The object making the write request.
      * @param {string} expr The path to write to
      * @returns {boolean} Returns true if the operation is permitted.
      */
-    validWriteFile(efuns, expr) {
+    validWriteFile(expr) {
         return driver.getExecution()
             .guarded(f => driver.validWrite(f, expr));
     }

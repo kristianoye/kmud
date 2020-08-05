@@ -468,6 +468,7 @@ class MUDModule extends MUDEventEmitter {
      */
     recompiled() {
         this.emit('recompiled', this);
+        // TODO: Re-implement recompile logic
         //async.forEach(this.instances, (item, callback) => {
         //    var instanceId = item.instanceId;
         //    if (instanceId > 0) {

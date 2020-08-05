@@ -4,9 +4,9 @@
  * Date: October 1, 2017
  */
 const
-    Base = require('Base'),
-    Daemon = require('Daemon'),
-    Command = require(Base.Command),
+    Base = await requireAsync('Base'),
+    Daemon = await requireAsync('Daemon'),
+    Command = await requireAsync(Base.Command),
     RMDIR_RECURSIVE = 1 << 0,
     RMDIR_VERBOSE = 1 << 1,
     RMDIR_PARENTS = 1 << 2;

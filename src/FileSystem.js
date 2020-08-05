@@ -1122,7 +1122,7 @@ class FileSystemRequest {
         let checkMethod = method || `valid${this.op}`;
         if (typeof this.securityManager[checkMethod] !== 'function')
             throw new Error(`Security method ${checkMethod} not found!`);
-        let result = await this.securityManager[checkMethod](this.efuns, this.fullPath);
+        let result = await this.securityManager[checkMethod](this.fullPath);
         return result;
     }
 }

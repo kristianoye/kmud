@@ -4,10 +4,9 @@
  * Date: October 1, 2017
  */
 
-$include('InputTypes');
-
 const
-    Daemon = require('Daemon'),
+    Daemon = await requireAsync('Daemon'),
+    Inputs = await requireAsync('InputTypes'),
     validEmail = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
     PlayerDaemon = efuns.loadObjectSync(Daemon.Player),
     LoginTimeout = efuns.time.timespan('10 minutes');
@@ -48,7 +47,7 @@ class Login extends MUDObject {
     }
 
     private confirmTakeover(player) {
-        return prompt(InputTypeYesNo, `${(player.displayName)} is already connected; Do you wish to take over? `, resp => {
+        return prompt(Inputs.InputTypeYesNo, `${(player.displayName)} is already connected; Do you wish to take over? `, resp => {
             if (resp === 'yes') {
                 efuns.unguarded(() => {
                     eventSend({
@@ -72,7 +71,7 @@ class Login extends MUDObject {
 
     private enterPassword(name, playerData, opts = {}) {
         opts = Object.assign({ text: 'Enter password: ' }, opts);
-        return prompt(InputTypePassword, opts, (pwd) => {
+        return prompt(Inputs.InputTypePassword, opts, (pwd) => {
             if (pwd.length === 0) {
                 this.client.close();
             }
@@ -142,7 +141,7 @@ class Login extends MUDObject {
             minLengthError: 'Your username must be at least 3 characters'
         }, playerData);
 
-        return prompt(InputTypeText, opts, /** @param {string} name */ async (name) => {
+        return prompt(Inputs.InputTypeText, opts, /** @param {string} name */ async (name) => {
             if (name.length === 0) {
                 return efuns.destruct(this);
             }
@@ -151,7 +150,7 @@ class Login extends MUDObject {
                     this.enterUsername({ error: 'Something went wrong; Try another name or come back again later.' });
                 }
                 else if (!player) 
-                    prompt(InputTypeYesNo, { text: `Is ${name} the name you really want? `, default: 'yes' }, resp => {
+                    prompt(Inputs.InputTypeYesNo, { text: `Is ${name} the name you really want? `, default: 'yes' }, resp => {
                         if (resp !== 'yes') {
                             return this.enterUsername({ error: 'Enter the name you really want, then.' });
                         }
@@ -168,7 +167,7 @@ class Login extends MUDObject {
 
     private async selectPassword(playerData, opts = {}) {
         opts = Object.assign({ text: 'Select a password' }, opts);
-        prompt(InputTypePassword, opts, async (plain) => {
+        prompt(Inputs.InputTypePassword, opts, async (plain) => {
             try {
                 let errors, password = await efuns.createPasswordAsync(plain)
                     .catch(e => { errors = e });
@@ -188,7 +187,7 @@ class Login extends MUDObject {
     }
 
     private confirmPassword(playerData) {
-        prompt(InputTypePassword, 'Confirm password: ', pwd => {
+        prompt(Inputs.InputTypePassword, 'Confirm password: ', pwd => {
             if (playerData.plain !== pwd) {
                 this.selectPassword(playerData, { error: 'Passwords do not match; Please try again.' });
             }
@@ -210,7 +209,7 @@ class Login extends MUDObject {
             summary: ',',
             prompt: 'Gender'
         }, opts);
-        prompt(InputTypePickOne, opts, gender => {
+        prompt(Inputs.InputTypePickOne, opts, gender => {
             if (gender) {
                 this.enterEmailAddress(Object.assign(playerData, { gender }));
             }

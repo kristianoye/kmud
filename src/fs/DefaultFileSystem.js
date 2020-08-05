@@ -61,7 +61,7 @@ class DefaultFileSystem extends FileSystem {
      * Convert the virtual path to a real path.
      * @param {string} req The file expression to convert.
      * @returns {string} The absolute filesystem path.
-     */
+     */ 
     getRealPath(req) {
         return path.resolve(this.root, req);
     }
@@ -422,7 +422,7 @@ class DefaultFileSystem extends FileSystem {
         })
     }
 
-    async loadObjectAsync(req, args, callback) {
+    async loadObjectAsync(req, args, flags) {
         let fullPath = path.posix.join(this.mountPoint, '/', req),
             parts = driver.efuns.parsePath(fullPath),
             module = driver.cache.get(parts.file),

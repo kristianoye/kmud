@@ -434,10 +434,10 @@ class EFUNProxy {
      * @param {string} exp The module that contains the extension
      * 
      */
-    addMixin(target, exp) {
+    async addMixin(target, exp) {
         let filename = this.resolvePath(exp, this.directory),
             [moduleName, typeName] = filename.split('$', 2),
-            module = driver.compiler.compileObject({
+            module = await driver.compiler.compileObjectAsync({
                 file: moduleName,
                 isMixin: true,
                 reload: false,
@@ -816,9 +816,9 @@ class EFUNProxy {
      * @param {any} callback An optional callback
      * @returns {boolean} True on success.
      */
-    log(file, message) {
+    async log(file, message) {
         let logPath = path.posix.join(driver.config.mudlib.logDirectory, file);
-        return driver.fileManager.writeFileSync(logPath, message + this.eol, 'a');
+        return await driver.fileManager.writeFileAsync(logPath, message + this.eol, 'a');
     }
 
     merge(...o) {

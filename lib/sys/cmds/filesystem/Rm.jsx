@@ -4,8 +4,8 @@
  * Date: October 1, 2017
  */
 const
-    Base = require('Base'),
-    Command = require(Base.Command),
+    Base = await requireAsync('Base'),
+    Command = await requireAsync(Base.Command),
     RM_OPT_INTERACTIVE = 1 << 0,
     RM_OPT_RMEMPTYDIRS = 1 << 1,
     RM_OPT_SMARTPROMPT = 1 << 2,

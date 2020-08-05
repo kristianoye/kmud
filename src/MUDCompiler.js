@@ -481,7 +481,10 @@ class MUDCompiler {
                 if (isReload)
                     module.recompiled();
                 else
-                    module.loaded = true, driver.cache.store(module);
+                {
+                    module.loaded = true;
+                    driver.cache.store(module);
+                }
 
                 return module;
             }

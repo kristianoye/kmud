@@ -4,8 +4,8 @@
  * Date: October 1, 2017
  */
 const
-    Base = require('Base'),
-    Command = require(Base.Command);
+    Base = await requireAsync('Base'),
+    Command = await requireAsync(Base.Command);
 
 const
     LS_OPT_LONGFORMAT = 1 << 0, // Show output in long format
