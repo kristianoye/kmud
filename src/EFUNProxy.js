@@ -220,10 +220,10 @@ class EFUNProxy {
      * @param {...any} args Constructor args
      * @returns {MUDWrapper} The object if successfully cloned.
      */
-    cloneObject(file, ...args) {
-        return driver
+    async cloneObject(file, ...args) {
+        return await driver
             .fileManager
-            .cloneObjectSync(this.resolvePath(file), args);
+            .cloneObjectAsync(this.resolvePath(file), args);
     }
 
     /**
@@ -1609,18 +1609,22 @@ class EFUNProxy {
         return path.posix.join(expr2, expr);
     }
 
+    restoreObject(foo) {
+        throw new Error('deprecated call');
+    }
+
     /**
      * Restores the state of an object from file.
      * @param {string} pathOrObject The file to read properties from.
      */
-    restoreObject(pathOrObject) {
+    async restoreObjectAsync(pathOrObject) {
         try {
             if (this.isPOO(pathOrObject) && '$type' in pathOrObject) {
                 let $type = pathOrObject.$type,
                     ecc = driver.getExecution();
 
                 if (ecc.guarded(f => driver.validWrite(f, $type))) {
-                    let clone = this.cloneObject($type),
+                    let clone = await this.cloneObject($type),
                         store = driver.storage.get(clone);
                     return !!store && store.eventRestore(pathOrObject);
                 }

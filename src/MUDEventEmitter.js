@@ -36,7 +36,14 @@ class MUDEventEmitter {
         if (event) {
             for (let i = 0, max = event.length; i < max; i++) {
                 let listener = event[i],
-                    result = listener(...args); // listener.apply(this, args);
+                    isAsync = listener.toString().startsWith('async '),
+                    result = undefined;
+
+                if (isAsync) {
+                    setImmediate(async () => await listener(...args));
+                    continue;
+                }
+                listener(...args); // listener.apply(this, args);
 
                 // Check event state
                 if (typeof result === 'number') {

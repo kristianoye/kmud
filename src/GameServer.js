@@ -245,10 +245,10 @@ class GameServer extends MUDEventEmitter {
      * @returns {Error} The cleaned up error.
      */
     cleanError(e, sdf) {
-        if (e.clean)
+        if (e.clean || !e.stack)
             return e;
         let s = e.stack,
-            l = s.split('\n'),
+            l = s.split('\n').filter(s => s.length),
             mp = this.fileManager.mudlibAbsolute,
             dp = this.config.driver.driverPath,
             showDriverFrames = sdf || this.config.driver.showDriverFrames,
@@ -291,14 +291,14 @@ class GameServer extends MUDEventEmitter {
         this.executionContext = ecc.previous || false;
     }
 
-    compileVirtualObject(filename, args = []) {
+    async compileVirtualObject(filename, args = []) {
         if (!this.masterObject)
             throw new Error('FATAL: No master object has been loaded!');
         else if (!this.applyCompileVirtual)
             //  Virtual compiling is not enabled
             return false;
         else
-            return this.applyCompileVirtual(filename, args);
+            return await this.applyCompileVirtual(filename, args);
     }
 
     async createMasterObject() {
@@ -598,12 +598,19 @@ class GameServer extends MUDEventEmitter {
      * @param {string} fileName The optional filename
      * @returns {any} The result of the callback
      */
-    async driverCallAsync(method, callback, fileName, rethrow = false) {
-        let result, ecc = this.getExecution(
+    async driverCallAsync(method, callback, fileName, rethrow = false, newContext = false) {
+        let result,
+            prevContext = false,
+            ecc = this.getExecution(
             this.masterObject || this,
             method,
             fileName || this.masterFilename,
             false, 0);
+
+        if (newContext) {
+            prevContext = ecc;
+            this.executionContext = new ExecutionContext();
+        }
 
         try {
             result = await callback(ecc);
@@ -615,6 +622,7 @@ class GameServer extends MUDEventEmitter {
         }
         finally {
             ecc.pop(method);
+            prevContext && this.restoreContext(prevContext);
         }
         return result;
     }
@@ -678,7 +686,7 @@ class GameServer extends MUDEventEmitter {
                 trace: []
             }, firstFrame = true;
 
-            error.trace = err.stack.split('\n').map((line, index) => {
+            error.trace = err.stack && err.stack.split('\n').map((line, index) => {
                 let parts = line.split(/\s+/g).filter(s => s.length);
                 if (parts[0] === 'at') {
                     let func = parts[1].split('.'), inst = null;
@@ -850,14 +858,14 @@ class GameServer extends MUDEventEmitter {
      * @param {string} path The file to write logs to.
      * @param {Error} error The error to log.
      */
-    logError(path, error) {
+    async logError(path, error) {
         if (!this.applyLogError) {
             logger.log('Compiler Error: ' + error.message);
             logger.log(error.stack);
         }
         else {
-            this.driverCall('logError', () => {
-                this.applyLogError(path, error);
+            await this.driverCall('logError', async () => {
+                await this.applyLogError(path, error);
             })
         }
     }

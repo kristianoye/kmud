@@ -121,7 +121,7 @@ class RmCommand extends Command {
                                         break;
 
                                     default:
-                                        throw new Error(`Unrecognized condition for --interactive: ${when}`);
+                                        throw `Unrecognized condition for --interactive: ${when}`;
                                 }
                             }
                             break;

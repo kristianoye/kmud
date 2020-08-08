@@ -1170,12 +1170,12 @@ class FileManager extends MUDEventEmitter {
      * @param {any} args Constructor args for clone
      * @returns {MUDWrapper} The wrapped instance.
      */
-    cloneObjectSync(expr, args) {
+    async cloneObjectAsync(expr, args) {
         let req = this.createFileRequest('cloneObject', expr, false);
         if (!req.valid('LoadObject'))
             return req.deny();
         else
-            return req.fileSystem.cloneObjectSync(req.relativePath, args || []);
+            return await req.fileSystem.cloneObjectAsync(req.relativePath, args || []);
     }
 
     /**

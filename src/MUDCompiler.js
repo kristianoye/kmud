@@ -379,7 +379,7 @@ class MUDCompiler {
                     throw new Error('Could not load in-game master object!');
 
                 //  Attempt to compile a virtual object.
-                virtualResult = driver.driverCall('compileVirtual', ecc => {
+                virtualResult = await driver.driverCallAsync('compileVirtual', async ecc => {
                     try {
                         let args = options.args || [];
                         ecc.newContext = {
@@ -389,7 +389,7 @@ class MUDCompiler {
                             filename: context.filename
                         };
                         delete ecc.restoreContext;
-                        let virtualResult = driver.compileVirtualObject(ecc.newContext.filename, args);
+                        let virtualResult = await driver.compileVirtualObject(ecc.newContext.filename, args);
                         args.forEach(a => {
                             if (typeof a === 'object') {
                                 Object.keys(a).forEach(k => {
@@ -511,7 +511,7 @@ class MUDCompiler {
                 MUDCache.delete(context.filename);
             }
             this.driver.cleanError(cerr = err);
-            this.driver.logError(context.filename, err);
+            await this.driver.logError(context.filename, err);
             logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ERROR: ${cerr.message}]}`);
             logger.log(cerr.stack || cerr.trace);
             throw err;

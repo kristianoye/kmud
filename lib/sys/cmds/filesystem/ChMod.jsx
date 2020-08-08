@@ -12,7 +12,7 @@ class ChmodCommand extends Command {
         if (args.length === 0)
             return 'Usage: chmod [options] file(s)...';
         let path = efuns.resolvePath(args[0], thisPlayer().workingDirectory);
-        throw new Error('Not implemented');
+        throw 'Not implemented';
     }
 }
 

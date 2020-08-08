@@ -212,6 +212,58 @@ class MUDLoader {
                 }),
                 writable: false
             },
+            createAsync: {
+                value: async (callingFile, type, ...args) => {
+                    let fn = type.prototype && type.prototype.baseName || typeof type === 'string' && type,
+                        parts = fn && driver.efuns.parsePath(fn),
+                        ecc = driver.getExecution(callingFile, 'createAsync', parts.file, false);
+                    try {
+                        let result = undefined,
+                            constructorType = typeof type === 'function' && type,
+                            instanceData = false,
+                            module = false;
+
+                        if (!parts && !constructorType) {
+                            if (typeof type === 'string')
+                                parts = driver.efuns.parsePath(type);
+                            else
+                                throw new Error(`Unable to construct object from expression ${type}`);
+                        }
+                        if (parts) {
+                            module = driver.cache.get(parts.file);
+
+                            if (module) {
+                                instanceData = ecc.newContext = Object.assign(
+                                    module.getNewContext(parts.type),
+                                    ecc.newContext);
+
+                                if (!constructorType)
+                                    constructorType = module.getType(parts.type);
+                            }
+                            if (ecc.newContext.isVirtual)
+                                ecc.virtualParents.push(module);
+                        }
+                        if (!constructorType) {
+                            throw new Error(`Unable to load module for expression ${type}`);
+                        }
+                        if (instanceData) {
+                            result = await module.createAsync(constructorType, instanceData, instanceData.args);
+                        }
+                        else
+                            result = constructorType(...args);
+
+                        return result;
+                    }
+                    catch (err) {
+                        throw err;
+                    }
+                    finally {
+                        delete ecc.newContext;
+                        ecc && ecc.pop('createAsync');
+                    }
+                    return result;
+                }
+            },
             eval: {
                 value: (code) => {
                     let source = compiler.preprocess(code),

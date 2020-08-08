@@ -237,6 +237,37 @@ class MUDModule extends MUDEventEmitter {
         }
     }
 
+    async createAsync(type, instanceData, args = [], create = false) {
+        try {
+            // Storage needs to be set before starting...
+            let store = driver.storage.createForId(instanceData.filename),
+                ecc = driver.getExecution();
+
+            ecc.newContext = instanceData;
+            ecc.storage = store;
+
+            let instance = create ? create(type, ...args) : new type(...args);
+            this.finalizeInstance(instance, !instance.filename && instanceData);
+            if (typeof instance.create === 'function') {
+                driver.driverCall('create', () => {
+                    instance.create();
+                }, instance.filename, true);
+            }
+            if (typeof instance.createAsync === 'function') {
+                await driver.driverCallAsync('createAsync', async () => {
+                    return await instance.createAsync();
+                }, instance.filename, true);
+            }
+            store.owner = instance;
+            return instance;
+        }
+        catch (err) {
+            /* rollback object creation */
+            driver.storage.delete(instanceData.filename);
+            throw err;
+        }
+    }
+
     createInstances(isReload) {
         // TODO: Optionally flag to enable creating instance 0... seems silly, now
         //Object.keys(this.types).forEach(typeName => {

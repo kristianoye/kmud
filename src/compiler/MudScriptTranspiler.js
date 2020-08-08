@@ -148,11 +148,17 @@ class JSXTranspilerOp {
 
     /**
      * Read from the buffer from current position to specified index.
-     * @param {number} index The index to read to
+     * @param {number|string} index The index to read to
      * @param {boolean} peekOnly If true then the position remains unchanged
      * @returns {string} Returns the specified region of the buffer.
      */
     readUntil(index = 0, peekOnly = false) {
+        if (typeof index === 'string') {
+            let str = index;
+            index = this.source.indexOf(str, this.pos);
+            if (index < 0) return '';
+            index += str.length;
+        }
         if (index <= this.pos)
             return '';
         let result = this.source.slice(this.pos, index);
@@ -416,6 +422,15 @@ function parseElement(op, e, depth) {
                             writeCallee = false;
                             isCallout = true;
                             op.pos = e.end;
+                        }
+                        else if (propName === 'create' || propName === 'createAsync') {
+                            ret += callee;
+                            ret += `('${op.filename}'`;
+                            if (e.arguments.length) {
+                                ret += ', ';
+                                let foobar = op.readUntil('(');
+                            }
+                            writeCallee = false;
                         }
                         else
                             op.addCallerId(propName);
