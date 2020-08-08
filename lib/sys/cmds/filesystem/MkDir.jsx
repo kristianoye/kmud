@@ -91,4 +91,4 @@ class MkDirCommand extends Command {
     }
 }
 
-module.exports = new MkDirCommand();
+module.exports = await createAsync(MkDirCommand);

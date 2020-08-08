@@ -34,4 +34,4 @@ class ForceCommand extends Verb {
     }
 }
 
-module.exports = new ForceCommand();
+module.exports = await createAsync(ForceCommand);

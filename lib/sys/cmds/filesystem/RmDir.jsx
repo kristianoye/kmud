@@ -77,4 +77,4 @@ class RmDir extends Command {
     }
 }
 
-module.exports = new RmDir();
+module.exports = await createAsync(RmDir);

@@ -49,4 +49,4 @@ class MoreCommand extends Command {
     }
 }
 
-module.exports = new MoreCommand();
+module.exports = await createAsync(MoreCommand);

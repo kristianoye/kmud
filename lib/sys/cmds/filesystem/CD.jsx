@@ -24,4 +24,4 @@ class CDCommand extends Command {
     }
 }
 
-module.exports = new CDCommand();
+module.exports = await createAsync(CDCommand);

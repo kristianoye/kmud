@@ -162,4 +162,4 @@ class MoveCommand extends Command {
     }
 }
 
-module.exports = new MoveCommand();
+module.exports = await createAsync(MoveCommand);

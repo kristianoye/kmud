@@ -16,4 +16,4 @@ class ChmodCommand extends Command {
     }
 }
 
-module.exports = new ChmodCommand();
+module.exports = await createAsync(ChmodCommand);

@@ -56,4 +56,4 @@ class EditFileCommand extends Command {
     }
 }
 
-module.exports = new EditFileCommand();
+module.exports = await createAsync(EditFileCommand);

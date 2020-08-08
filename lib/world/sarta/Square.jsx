@@ -36,4 +36,4 @@ class Square extends Room {
     }
 }
 
-module.exports = new Square();
+module.exports = await createAsync(Square);

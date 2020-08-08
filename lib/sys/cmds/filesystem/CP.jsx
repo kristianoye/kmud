@@ -11,4 +11,4 @@ class CopyCommand extends Command {
 
 }
 
-module.exports = new CopyCommand();
+module.exports = await createAsync(CopyCommand);

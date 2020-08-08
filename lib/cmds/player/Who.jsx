@@ -94,4 +94,4 @@ class WhoCommand extends Command {
     }
 }
 
-module.exports = new WhoCommand();
+module.exports = await createAsync(WhoCommand);

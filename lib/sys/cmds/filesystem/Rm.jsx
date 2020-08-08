@@ -262,4 +262,4 @@ some of its contents, given sufficient expertise and/or time.`;
     }
 }
 
-module.exports = new RmCommand();
+module.exports = await createAsync(RmCommand);

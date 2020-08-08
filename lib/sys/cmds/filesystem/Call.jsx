@@ -44,4 +44,4 @@ class CallCommand extends Command {
     }
 }
 
-module.exports = new CallCommand();
+module.exports = await createAsync(CallCommand);

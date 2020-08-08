@@ -23,4 +23,4 @@ class UpdateCommand extends Command {
     }
 }
 
-module.exports = new UpdateCommand();
+module.exports = await createAsync(UpdateCommand);

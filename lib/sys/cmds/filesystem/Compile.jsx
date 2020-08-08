@@ -23,4 +23,4 @@ class CompileCommand extends Command {
     }
 }
 
-module.exports = new CompileCommand();
+module.exports = await createAsync(CompileCommand);

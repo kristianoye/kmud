@@ -48,7 +48,7 @@ class ListOptions {
     }
 }
 
-class Ls extends Command {
+class LsCommand extends Command {
     async cmd(text, cmdline) {
         let player = thisPlayer(),
             opts = new ListOptions(player),
@@ -403,4 +403,4 @@ class Ls extends Command {
     }
 }
 
-module.exports = new Ls();
+module.exports = await createAsync(LsCommand);
