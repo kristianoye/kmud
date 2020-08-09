@@ -301,6 +301,12 @@ class GameServer extends MUDEventEmitter {
             return await this.applyCompileVirtual(filename, args);
     }
 
+    async connect(port, type) {
+        return await this.driverCallAsync('connect', async () => {
+            return await this.applyConnect(port, type);
+        })
+    }
+
     async createMasterObject() {
         return await this.driverCallAsync('createMasterObject', async () => {
             let config = this.config.mudlib,
@@ -334,6 +340,7 @@ class GameServer extends MUDEventEmitter {
 
             /* validate in-game master */
             this.applyCompileVirtual = locateApply('compileVirtualObject', false);
+            this.applyConnect = locateApply('connect', false);
             this.applyConvertUnits = locateApply('convertUnits', false);
             this.applyCreateFileACL = locateApply('createFileACL', false);
             this.applyErrorHandler = locateApply('errorHandler', false);

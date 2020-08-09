@@ -215,14 +215,14 @@ ClientInstance.configureForRuntime = function(driver) {
  * @param {ClientInstance} client The client that controls the component
  * @param {Object.<string,any>} data Info Component registration details.
  */
-ClientInstance.registerComponent = function (client, data) {
+ClientInstance.registerComponent = async function (client, data) {
     let component = client.getComponentById(data.id) || new ClientComponent(client, data);
 
     if (component.requiresShell) {
         if (data.attachTo === 'newLogin') {
             try {
                 let shell = component.attachShell(new CommandShell(component, data.shellOptions));
-                let newLogin = driver.masterObject.connect(client.port, client.clientType);
+                let newLogin = await driver.connect(client.port, client.clientType);
 
                 if (newLogin) {
                     shell.attachPlayer(newLogin)
@@ -243,7 +243,7 @@ ClientInstance.registerComponent = function (client, data) {
             let credentials = client.endpoint.decryptAuthToken(data.auth);
             if (credentials != false) {
                 try {
-                    let [user, shellOptions] = driver.masterObject.connect(client.port, client.clientType, credentials);
+                    let [user, shellOptions] = driver.connect(client.port, client.clientType, credentials);
                     if (user) {
                         let shell = component.attachShell(new CommandShell(component, shellOptions));
                         shell.attachPlayer(user)

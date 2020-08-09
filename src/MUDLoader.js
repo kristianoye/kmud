@@ -217,6 +217,7 @@ class MUDLoader {
                     let fn = type.prototype && type.prototype.baseName || typeof type === 'string' && type,
                         parts = fn && driver.efuns.parsePath(fn),
                         ecc = driver.getExecution(callingFile, 'createAsync', parts.file, false);
+
                     try {
                         let result = undefined,
                             constructorType = typeof type === 'function' && type,

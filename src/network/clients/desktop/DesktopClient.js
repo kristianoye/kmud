@@ -114,7 +114,7 @@ class DesktopClient extends ClientInstance {
                     break;
 
                 case 'windowRegister':
-                    ClientInstance.registerComponent(this, event.data);
+                    await ClientInstance.registerComponent(this, event.data);
                     break;
 
                 default:

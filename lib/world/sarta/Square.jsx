@@ -28,9 +28,9 @@ class Square extends Room {
         this.addExit('south', 'streets/southmain01');
     }
 
-    reset() {
+    async resetAsync() {
         if (!efuns.present('harry')) {
-            let harry = efuns.cloneObject('mob/Harry');
+            let harry = await efuns.cloneObjectAsync('mob/Harry');
             harry().moveObject(this);
         }
     }

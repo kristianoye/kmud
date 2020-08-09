@@ -102,20 +102,28 @@ class EFUNProxy {
 
     get arrays() { return ArrayHelper; }
 
-    arrayToSentence(list, useOr, consolidate, useNumbers) {
+    /**
+     * Construct a string representation of multiple substrings
+     * @param {string[] | object[]} list The list of items to consolidate
+     * @param {boolean} [useOr] Use the word 'or' to construct the last sentence element
+     * @param {boolean} [consolidate] Consolidate instances of the same string into one
+     * @param {boolean} [useNumbers] Use digits instead of words to consolidate multiple instances
+     * @returns {string} The consolidated string
+     */
+    arrayToSentence(list, useOr = false, consolidate = true, useNumbers = false) {
         useOr = typeof useOr === 'boolean' ? useOr : false;
         consolidate = typeof consolidate === 'boolean' ? consolidate : true;
         useNumbers = typeof useNumbers === 'boolean' ? useNumbers : false;
 
-        list = list.map(function (o) {
-            var uw = unwrap(o);
-            return uw ? uw.shortDesc : o.toString();
+        list = list.map(o => {
+            let uw = unwrap(o);
+            return uw ? uw.toString() : o.toString();
         });
 
         if (consolidate) {
-            var uniq = {}, count = 0;
+            let uniq = {}, count = 0;
             list.forEach(s => {
-                if (!uniq[s]) { uniq[s] = 0; count++; }
+                if (s in uniq[s] === false) { uniq[s] = 0; count++; }
                 uniq[s]++;
             });
             if (count === 0) return '';
@@ -153,6 +161,7 @@ class EFUNProxy {
         let mxc = driver.currentContext,
             tob = mxc.thisObject,
             callback = typeof func === 'function' ? func : false;
+
         if (typeof func === 'string') {
             let method = tob[func];
             if (typeof method === 'function') {
@@ -171,6 +180,7 @@ class EFUNProxy {
                 ctx.release();
             }
         }, delay);
+        return handle;
     }
 
     /**
@@ -220,7 +230,7 @@ class EFUNProxy {
      * @param {...any} args Constructor args
      * @returns {MUDWrapper} The object if successfully cloned.
      */
-    async cloneObject(file, ...args) {
+    async cloneObjectAsync(file, ...args) {
         return await driver
             .fileManager
             .cloneObjectAsync(this.resolvePath(file), args);
@@ -1469,7 +1479,8 @@ class EFUNProxy {
      * @returns {boolean} Returns true if the object recompiled successfully.
      */
     reloadObjectSync(expr) {
-        return driver.fileManager.loadObjectSync(this.resolvePath(expr), undefined, 1);
+        return driver.fileManager
+            .loadObjectAsync(this.resolvePath(expr), undefined, 1);
     }
 
     /**
@@ -1624,7 +1635,7 @@ class EFUNProxy {
                     ecc = driver.getExecution();
 
                 if (ecc.guarded(f => driver.validWrite(f, $type))) {
-                    let clone = await this.cloneObject($type),
+                    let clone = await this.cloneObjectAsync($type),
                         store = driver.storage.get(clone);
                     return !!store && store.eventRestore(pathOrObject);
                 }

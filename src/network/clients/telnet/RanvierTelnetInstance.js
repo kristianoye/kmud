@@ -14,20 +14,15 @@ const
 class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, client) {
         super(endpoint, client, client.remoteAddress);
+        var mainWindow;
 
         this.caps = new ClientCaps(this);
 
-        let mainWindow = this.mainWindow = ClientInstance.registerComponent(this, {
-            type: 'MainWindow',
-            attachTo: 'newLogin',
-            id: uuidv1(),
-            requiresShell: true
-        });
-        this.client.on('data', (buffer) => {
+        this.client.on('data', async (buffer) => {
             this.emit('kmud', {
                 type: 'input',
                 data: buffer.toString('utf8'),
-                origin: mainWindow.id
+                origin: this.mainWindow.id
             });
         });
         this.client.on('close', () => this.remoteDisconnect());
@@ -77,6 +72,18 @@ class RanvierTelnetInstance extends ClientInstance {
     close() {
         this.closed = true;
         this.client.end();
+    }
+
+    async connect() {
+        if (!this.mainWindow) {
+            this.mainWindow = await ClientInstance.registerComponent(this, {
+                type: 'MainWindow',
+                attachTo: 'newLogin',
+                id: uuidv1(),
+                requiresShell: true
+            });
+        }
+        return this.mainWindow;
     }
 
     displayPrompt(evt) {

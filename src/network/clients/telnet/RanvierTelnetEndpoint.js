@@ -29,9 +29,11 @@ class RanvierTelnetEndpoint extends ClientEndpoint {
      * @returns {RanvierTelnetEndpoint} A reference to itself
      */
     bind() {
-        let server = new TelnetServer(socket => {
+        let server = new TelnetServer(async socket => {
             let client = new TelnetSocket(this.options).attach(socket);
             let wrapper = new RanvierTelnetInstance(this, client);
+
+            await wrapper.connect();
 
             this.emit('kmud.connection.new', client, 'telnet');
             this.emit('kmud.connection', wrapper);

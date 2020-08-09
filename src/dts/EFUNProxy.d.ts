@@ -63,7 +63,23 @@ declare interface EFUNProxy {
      */
     adminp(target: object): boolean;
 
+    /**
+     * Determines if the specified object is an arch
+     * @param target The target to check
+     * @returns True if the target is an arch or false if not
+     */
+    archp(target: object): boolean;
+
     static arrays: Helpers.Arrays;
+
+    /**
+     * 
+     * @param list The list of items to consolidate
+     * @param useOr Use the word 'or' to construct the last sentence element (e.g. "a, b, or c")
+     * @param consolidate Consolidate instances of the same substring (e.g. a, a, b, b, b, c becomes "two a's, three b's, and one c")
+     * @param useNumbers If consolidated then use numbers instead of words (e.g. a, a, b, b, b, c becomes "2 a's, 3 b's, and 1 c")
+     */
+    arrayToSentence(list: object[] | string[], useOr: boolean = false, consolidate: boolean = true, useNumbers: boolean = false): string;
 
     static inputs: Helpers.Inputs;
 }

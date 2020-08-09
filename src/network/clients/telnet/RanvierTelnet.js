@@ -491,9 +491,9 @@ class TelnetServer extends EventEmitter {
     constructor(listener) {
         super();
 
-        this.netServer = net.createServer({}, (socket) => {
+        this.netServer = net.createServer({}, async socket => {
             socket.fresh = true;
-            listener(socket);
+            await listener(socket);
         });
 
         this.netServer.on('error', error => {

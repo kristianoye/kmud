@@ -71,7 +71,7 @@ class Login extends MUDObject {
 
     private enterPassword(name, playerData, opts = {}) {
         opts = Object.assign({ text: 'Enter password: ' }, opts);
-        return prompt(Inputs.InputTypePassword, opts, (pwd) => {
+        return prompt(Inputs.InputTypePassword, opts, async (pwd) => {
             if (pwd.length === 0) {
                 this.client.close();
             }
@@ -111,7 +111,7 @@ class Login extends MUDObject {
                     }
                 }
                 else {
-                    player = efuns.restoreObject(playerData);
+                    player = await efuns.restoreObjectAsync(playerData);
                     player && efuns.unguarded(() => {
                         efuns.exec(this, player, () => {
                             logger.log('Switching from Login to Player Instance');
