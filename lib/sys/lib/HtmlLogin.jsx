@@ -46,10 +46,10 @@ class Login extends MUDObject {
         efuns.destruct(this);
     }
 
-    private confirmTakeover(player) {
-        return prompt(Inputs.InputTypeYesNo, `${(player.displayName)} is already connected; Do you wish to take over? `, resp => {
+    private async confirmTakeover(player) {
+        return await prompt(Inputs.InputTypeYesNo, `${(player.displayName)} is already connected; Do you wish to take over? `, async resp => {
             if (resp === 'yes') {
-                efuns.unguarded(() => {
+                await efuns.unguarded(async () => {
                     eventSend({
                         type: 'windowHint',
                         data: {
@@ -57,7 +57,7 @@ class Login extends MUDObject {
                             position: 'center'
                         }
                     });
-                    efuns.exec(this, player);
+                    await efuns.exec(this, player);
                     efuns.destruct(this);
                 });
             }
@@ -69,7 +69,7 @@ class Login extends MUDObject {
         });
     }
 
-    private enterPassword(name, playerData, opts = {}) {
+    private async enterPassword(name, playerData, opts = {}) {
         opts = Object.assign({ text: 'Enter password: ' }, opts);
         return prompt(Inputs.InputTypePassword, opts, async (pwd) => {
             if (pwd.length === 0) {
@@ -95,8 +95,8 @@ class Login extends MUDObject {
                         this.confirmTakeover(player);
                     }
                     else {
-                        efuns.unguarded(() => {
-                            efuns.exec(this, player, () => {
+                        await efuns.unguarded(async () => {
+                            await efuns.exec(this, player, async () => {
                                 eventSend({
                                     type: 'windowHint',
                                     data: {
@@ -112,9 +112,9 @@ class Login extends MUDObject {
                 }
                 else {
                     player = await efuns.restoreObjectAsync(playerData);
-                    player && efuns.unguarded(() => {
-                        efuns.exec(this, player, () => {
-                            logger.log('Switching from Login to Player Instance');
+                    player && await efuns.unguarded(async () => {
+                        logger.log('Switching from Login to Player Instance');
+                        await efuns.exec(this, player, async () => {
                             eventSend({
                                 type: 'windowHint',
                                 data: {
@@ -122,7 +122,7 @@ class Login extends MUDObject {
                                     position: 'center'
                                 }
                             });
-                            player.movePlayer(playerData.environment || '/world/sarta/Square', () => {
+                            await player.movePlayerAsync(playerData.environment || '/world/sarta/Square', () => {
                                 logger.log('Executing connect() on new player');
                             });
                         });
@@ -237,14 +237,14 @@ class Login extends MUDObject {
         });
     }
 
-    private createNewCharacter(playerData) {
+    private async createNewCharacter(playerData) {
         let player = PlayerDaemon().createNewCharacter(Object.assign({}, {
             name: playerData.keyId,
         }, playerData));
 
         if (player) {
             logger.log('Creating new player');
-            efuns.exec(this, player, (oldBody, newPlayer) => {
+            await efuns.exec(this, player, async (oldBody, newPlayer) => {
                 eventSend({
                     type: 'windowHint',
                     data: {
@@ -256,7 +256,7 @@ class Login extends MUDObject {
                     writeLine('Oops, sorry.  Your body was not ready for you!  Tell someone to fix this.');
                     return efuns.destruct(this);
                 }
-                newPlayer.movePlayer('/world/sarta/Square');
+                await newPlayer.movePlayerAsync('/world/sarta/Square');
             });
         }
     }

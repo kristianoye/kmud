@@ -243,7 +243,8 @@ ClientInstance.registerComponent = async function (client, data) {
             let credentials = client.endpoint.decryptAuthToken(data.auth);
             if (credentials != false) {
                 try {
-                    let [user, shellOptions] = driver.connect(client.port, client.clientType, credentials);
+                    let result = await driver.connect(client.port, client.clientType, credentials);
+                    let [user, shellOptions] = Array.isArray(result) ? result : [result, {}];
                     if (user) {
                         let shell = component.attachShell(new CommandShell(component, shellOptions));
                         shell.attachPlayer(user)

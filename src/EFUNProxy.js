@@ -392,7 +392,7 @@ class EFUNProxy {
      * @param {function(MUDObject,MUDObject):any} callback The callback to execute when the switch is complete.
      * @returns {boolean} True if the 
      */
-    exec(ptrOld, ptrNew, callback) {
+    async exec(ptrOld, ptrNew, callback) {
         let ecc = driver.getExecution();
 
         ptrOld = global.wrapper(ptrOld);
@@ -403,7 +403,7 @@ class EFUNProxy {
         if (!ecc.guarded(f => driver.validExec(f, oldBody, newBody)))
             throw new Error('Permission denied to efuns.exec()');
 
-        return driver.driverCall('exec', () => {
+        return await driver.driverCallAsync('exec', async ctx => {
             let oldStorage = driver.storage.get(oldBody),
                 component = oldStorage.component;
 
@@ -418,8 +418,8 @@ class EFUNProxy {
                 return false;
 
             try {
-                newStorage.eventExec(component);
-                let result = callback ? callback(oldBody, newBody) || true : true;
+                await newStorage.eventExec(component);
+                let result = await callback(oldBody, newBody) || true;
                 return result;
             }
             catch (e) {
@@ -1478,6 +1478,16 @@ class EFUNProxy {
      * @param {string} expr The object to reload.
      * @returns {boolean} Returns true if the object recompiled successfully.
      */
+    async reloadObjectAsync(expr) {
+        return await driver.fileManager
+            .loadObjectAsync(this.resolvePath(expr), undefined, 1);
+    }
+
+    /**
+     * Attempts to reload an object
+     * @param {string} expr The object to reload.
+     * @returns {boolean} Returns true if the object recompiled successfully.
+     */
     reloadObjectSync(expr) {
         return driver.fileManager
             .loadObjectAsync(this.resolvePath(expr), undefined, 1);
@@ -1637,7 +1647,7 @@ class EFUNProxy {
                 if (ecc.guarded(f => driver.validWrite(f, $type))) {
                     let clone = await this.cloneObjectAsync($type),
                         store = driver.storage.get(clone);
-                    return !!store && store.eventRestore(pathOrObject);
+                    return !!store && await store.eventRestore(pathOrObject);
                 }
                 return false;
             }
@@ -1650,7 +1660,7 @@ class EFUNProxy {
                     let data = this.readJsonFileSync(pathOrObject);
                     if (data) {
                         let store = driver.storage.get(thisOb);
-                        return store ? store.eventRestore(data) : false;
+                        return store ? await store.eventRestore(data) : false;
                     }
                 }
             }
@@ -1905,14 +1915,19 @@ class EFUNProxy {
      * @param {function} callback The code to execute in unguarded mode.
      * @returns {any} The result of the unguarded call.
      */
-    unguarded(callback) {
+    async unguarded(callback) {
+        if (typeof callback !== 'function')
+            throw new Error(`Bad argument 1 to unguarded; expected function got ${typeof callback}`);
         let ecc = driver.getExecution();
 
         ecc.push(ecc.thisObject, 'unguarded', this.fileName);
         ecc.stack[0].unguarded = true;
 
         try {
-            return callback();
+            if (this.isAsync(callback))
+                return await callback();
+            else
+                return callback();
         }
         finally {
             ecc.pop('unguarded');

@@ -280,7 +280,9 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
         }
 
         onDisconnect() {
-            this.$content.append($('<div class="cover" />'));
+            //  Do not apply more than one cover
+            if (this.$content.find('.cover').length === 0)
+                this.$content.append($('<div class="cover" />'));
             return true;
         }
 

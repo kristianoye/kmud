@@ -408,7 +408,7 @@ class HTTPServer extends events.EventEmitter {
         let resolvedFilename = this.fileSystem.createLocation(expr),
             stat = await resolvedFilename.stat();
 
-        if (stat.isDirectory()) {
+        if (stat.isDirectory === true|| stat.isDirectory()) {
             for (let i = 0; i < this.indexFiles.length; i++) {
                 let indexFile = resolvedFilename.resolveVirtual(this.indexFiles[i]);
                 let indexStat = await indexFile.stat();

@@ -24,7 +24,7 @@ declare interface FileSystem {
      * @param expr The file expression to evaluate
      * @param options 
      */
-    async glob(dir: string, expr: string, options: Glob): FileSystemStat[];
+    glob(dir: string, expr: string, options: Glob): FileSystemStat[];
 
     /** The mudlib path the filesystem is mounted to */
     mountPoint: string;
@@ -149,7 +149,7 @@ declare interface DirectoryObject extends FileSystemStat {
      * @param pattern An optional file pattern to match (defaults to all)
      * @param options Additional operations to control operation
      */
-    read(pattern: string = '*', options: Glob = Glob.NoOptions): FileSystemStat[];
+    read(pattern: string, options): FileSystemStat[];
 }
 
 declare enum Glob {

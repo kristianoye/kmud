@@ -440,7 +440,7 @@ class ExecutionContext extends MUDEventEmitter {
             oldShell = this.shell;
 
         if (methodName)
-            ecc.push(player, methodName, player.filename);
+            ecc.push(player, methodName, player.filename, true);
 
         try {
             this.player = player;

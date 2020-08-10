@@ -36,7 +36,7 @@ class MUDEventEmitter {
         if (event) {
             for (let i = 0, max = event.length; i < max; i++) {
                 let listener = event[i],
-                    isAsync = listener.toString().startsWith('async '),
+                    isAsync = driver.efuns.isAsync(listener),
                     result = undefined;
 
                 if (isAsync) {

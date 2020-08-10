@@ -139,7 +139,7 @@ class MUDStorage extends MUDEventEmitter {
      * Associate a component with this store and its related object.
      * @param {ClientComponent} component The client bound to this store and in-game object.
      */
-    eventExec(component, ...args) {
+    async eventExec(component, ...args) {
         try {
             if (component instanceof ClientComponent) {
                 let streams = false;
@@ -148,15 +148,19 @@ class MUDStorage extends MUDEventEmitter {
                 if (component.body) {
                     let store = driver.storage.get(component.body);
                     if (store) {
-                        driver.driverCall('disconnect', context => {
-                            store.connected = false;
-                            store.interactive = false;
-                            store.connected = false;
-                            store.lastActivity = 0;
-                            store.shell = false;
-                            context.withPlayer(store, player => player.disconnect());
-                            store.component = false;
-                            store.clientCaps = ClientCaps.DefaultCaps;
+                        await driver.driverCallAsync('disconnect', async context => {
+                            await context.withPlayerAsync(store, async player => {
+                                await driver.driverCallAsync('disconnect', async () => {
+                                    store.connected = false;
+                                    store.interactive = false;
+                                    store.connected = false;
+                                    store.lastActivity = 0;
+                                    store.shell = false;
+                                    await player.disconnect();
+                                    store.component = false;
+                                    store.clientCaps = ClientCaps.DefaultCaps;
+                                });
+                            });
                         });
                     }
                     else
@@ -178,39 +182,45 @@ class MUDStorage extends MUDEventEmitter {
 
                 //  Linkdeath
                 component.once('disconnected', () => {
-                    driver.driverCall('disconnect', ecc => {
-                        ecc.withPlayer(this, player => {
-                            player.disconnect()
+                    driver.driverCallAsync('disconnect', async ecc => {
+                        await ecc.withPlayerAsync(this, async player => {
+                            await player.disconnect()
                         });
                     });
                 });
 
                 //  Connect to the new body
-                driver.driverCall('connect', context => {
-                    let shellSettings = context.withPlayer(this, player => player.connect(...args), false);
-                    this.shell.update(shellSettings);
-                    context.whenCompleted(() => {
-                        this.shell.renderPrompt();
-                    });
+                await driver.driverCallAsync('connect', async context => {
+                    return await context.withPlayerAsync(this, async player => {
+                        return await driver.driverCallAsync('connect', async () => {
+                            let shellSettings = await player.connect(...args);
+                            this.shell.update(shellSettings);
+                            context.whenCompleted(() => this.shell.renderPrompt());
+                        });
+                    }, false);
                 });
                 return true;
             }
             else {
                 if (this.connected)
-                    driver.driverCall('disconnect', context => {
-                        if (this.shell) this.shell.flushAll();
-                        let component = this.component;
-                        this.connected = false;
+                    await driver.driverCallAsync('disconnect', async context => {
+                        await context.withPlayerAsync(this, async player => {
+                            await driver.driverCallAsync('disconnect', async () => {
+                                if (this.shell) this.shell.flushAll();
+                                let component = this.component;
+                                this.connected = false;
 
-                        //if (this.component)
-                        //    this.component.populateContext(true, context);
+                                //if (this.component)
+                                //    this.component.populateContext(true, context);
 
-                        try {
-                            context.withPlayer(this, player => player.disconnect(...args));
-                        }
-                        finally {
-                            component && component.localDisconnect();
-                        }
+                                try {
+                                    await player.disconnect(...args);
+                                }
+                                finally {
+                                    component && component.localDisconnect();
+                                }
+                            });
+                        });
                     });
                 if (this.component) this.component.body = false;
                 this.component = false;
@@ -225,8 +235,7 @@ class MUDStorage extends MUDEventEmitter {
             setTimeout(() => {
                 driver.driverCall('setClient', ecc => {
                     ecc.whenCompleted(() => {
-                        if (this.shell)
-                            this.shell.renderPrompt(false);
+                        // if (this.shell) this.shell.renderPrompt(false);
                     });
                 });
             }, 100);
@@ -254,7 +263,7 @@ class MUDStorage extends MUDEventEmitter {
      * TODO: Make all this async... sigh
      * @param {any} data
      */
-    eventRestore(data) {
+    async eventRestore(data) {
         if (data) {
             let owner = unwrap(this.owner);
 
@@ -263,12 +272,12 @@ class MUDStorage extends MUDEventEmitter {
                 return owner;
             }
 
-            return driver.driverCall('restoreObject', () => {
+            return await driver.driverCallAsync('eventRestore', async () => {
                 //  Restore inventory
                 data.inventory = data.inventory || [];
                 for (let i = 0; i < data.inventory.length; i++) {
                     try {
-                        let item = efuns.restoreObject(data.inventory[i]);
+                        let item = await efuns.restoreObjectAsync(data.inventory[i]);
                         item.moveObject(owner);
                     }
                     catch (e) {

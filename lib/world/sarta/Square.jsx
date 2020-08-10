@@ -31,7 +31,7 @@ class Square extends Room {
     async resetAsync() {
         if (!efuns.present('harry')) {
             let harry = await efuns.cloneObjectAsync('mob/Harry');
-            harry().moveObject(this);
+            await harry().moveObjectAsync(this);
         }
     }
 }

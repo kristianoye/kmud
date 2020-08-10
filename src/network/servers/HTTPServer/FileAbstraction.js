@@ -38,7 +38,7 @@ class FileLocation {
         if (typeof this._stat !== 'undefined')
             return this._stat;
 
-        return this._stat = await this.creator.stat(this.physicalPath);
+        return this._stat = await this.creator.stat(this.physicalPath, true);
     }
 }
 

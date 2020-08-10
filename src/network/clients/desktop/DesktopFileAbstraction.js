@@ -27,7 +27,7 @@ class DesktopFileAbstraction extends Abstraction.FileAbstractionDefault {
             return super.readDirectory(fileName, true);
         else
             return await this.driverCall('readDirectory', async () => {
-                return await driver.fileManager.readDirectoryAsync(driver.efuns, fileName);
+                return await driver.fileManager.readDirectoryAsync(fileName);
             });
     }
 
@@ -38,7 +38,7 @@ class DesktopFileAbstraction extends Abstraction.FileAbstractionDefault {
             return super.readFile(fileName, true);
         else
             return await this.driverCall('readFile', async () => {
-                return await driver.fileManager.readFile(driver.efuns, fileName);
+                return await driver.fileManager.readFile(fileName);
             });
     }
 
@@ -79,15 +79,17 @@ class DesktopFileAbstraction extends Abstraction.FileAbstractionDefault {
      * @returns {Promise<fs.Stats & { exists: boolean, path: string }>} Return information about a file.
      */
     async stat(expr, isMapped = undefined) {
-        for (let i = 0, m = this.fileMappingNames.length; i < m; i++) {
-            let mapName = this.fileMappingNames[i];
-            if (expr.startsWith(mapName)) {
+        if (isMapped !== true) {
+            for (let i = 0, m = this.fileMappingNames.length; i < m; i++) {
+                let mapName = this.fileMappingNames[i];
+                if (expr.startsWith(mapName)) {
 
+                }
             }
         }
 
-        let stat = await this.driverCall('statAsync', async () => {
-            return await driver.fileManager.statAsync(driver.efuns, expr);
+        let stat = await driver.driverCallAsync('statAsync', async () => {
+            return isMapped ? await super.stat(expr) : await driver.fileManager.statAsync(expr);
         });
 
         if (stat.exists)

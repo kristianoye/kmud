@@ -14,6 +14,8 @@ declare interface ObjectStackItem {
 
 declare interface ExecutionContext {
     guarded(check: (frame: ObjectStackItem) => boolean): boolean;
+
+    withPlayerAsync(store: MUDStorage, callback: (player: MUDObject) => any, restoreOldPlayer: boolean, methodName: string | false): any;
 }
 
 declare interface GameServer {
@@ -21,4 +23,4 @@ declare interface GameServer {
     getExecution(): ExecutionContext;
 }
 
-const driver: GameServer;
+declare const driver: GameServer;

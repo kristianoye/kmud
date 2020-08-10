@@ -157,10 +157,15 @@ class GameServer extends MUDEventEmitter {
                 endpoint = new handlerModule(this, binding);
 
             endpoint.on('error', (error, failedEndpoint) => {
-                if (error.code === 'EADDRINUSE') {
-                    logger.logIf(LOGGER_PRODUCTION, () =>
-                        `Port Error: ${failedEndpoint.name} reports address+port already in use (game already running?)`);
-                    process.exit(-111);
+                try {
+                    if (error.code === 'EADDRINUSE') {
+                        logger.logIf(LOGGER_PRODUCTION, () =>
+                            `Port Error: ${failedEndpoint.name} reports address+port already in use (game already running?)`);
+                        process.exit(-111);
+                    }
+                }
+                catch (ex) {
+                    logger.log(`Error binding endpoint: ${ex.message}`);
                 }
             });
 

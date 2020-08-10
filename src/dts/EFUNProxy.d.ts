@@ -22,7 +22,7 @@ declare enum InputType {
 }
 
 declare namespace Helpers {
-    declare interface Arrays {
+    interface Arrays {
         /**
          * Determine the intersection of two or more arrays
          * @param arrays
@@ -30,7 +30,7 @@ declare namespace Helpers {
         intersection(...arrays: any[]): any[];
     }
 
-    declare interface Inputs {
+    interface Inputs {
         /**
          * Render a prompt for the user and redirect the response to the specified callback
          * @param type The type of input to render
@@ -70,7 +70,7 @@ declare interface EFUNProxy {
      */
     archp(target: object): boolean;
 
-    static arrays: Helpers.Arrays;
+    arrays: Helpers.Arrays;
 
     /**
      * 
@@ -79,9 +79,10 @@ declare interface EFUNProxy {
      * @param consolidate Consolidate instances of the same substring (e.g. a, a, b, b, b, c becomes "two a's, three b's, and one c")
      * @param useNumbers If consolidated then use numbers instead of words (e.g. a, a, b, b, b, c becomes "2 a's, 3 b's, and 1 c")
      */
-    arrayToSentence(list: object[] | string[], useOr: boolean = false, consolidate: boolean = true, useNumbers: boolean = false): string;
+    arrayToSentence(list: object[] | string[], useOr: boolean, consolidate: boolean, useNumbers: boolean): string;
 
-    static inputs: Helpers.Inputs;
+    inputs: Helpers.Inputs;
 }
 
 declare const efuns: EFUNProxy;
+

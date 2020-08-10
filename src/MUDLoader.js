@@ -349,7 +349,7 @@ class MUDLoader {
             PUBLIC: {
                 value: 0,
                 writeable: false
-            },
+            }
         });
     }
 

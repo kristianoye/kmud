@@ -173,7 +173,7 @@ declare class MUDPrompt {
     recapture: boolean;
 
     /** The text that will prompt the user for their next action */
-    text: string | (function(): string);
+    text: string | function(): string;
 
     /** Indicates the type of input to be captured (text, password, etc) */
     type: string;
