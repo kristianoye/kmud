@@ -179,3 +179,21 @@ declare enum StatFlags {
     /** Return the object's content */
     Content = 1 << 9 | 1 << 10
 }
+
+declare interface FileManager {
+    /**
+     * Create a copy of an object
+     * @param expr The name of the object or an instance to clone
+     * @param args Arguments to supply to the constructor and creation process
+     */
+    cloneObjectAsync(expr: MUDObject | string, ...args: any[]): Promise<MUDObject>;
+
+    /**
+     * Writes JSON to a stream
+     * @param file The filename to write to
+     * @param content The content to write.
+     * @param flags Optional flags for the operation
+     * @param encoding The encoding to use when writing (defaults to utf8)
+     */
+    writeJsonAsync(file: string, content: any, flags: number, encoding: string): Promise<boolean>;
+}

@@ -1459,15 +1459,6 @@ class EFUNProxy {
     /**
      * Attempt to read JSON data from a file.
      * @param {string} filename The file to try and read.
-     * @returns {object}
-     */
-    async readJsonFileAsync(filename) {
-        return await driver.fileManager.readJsonFileAsync(this.resolvePath(filename));
-    }
-
-    /**
-     * Attempt to read JSON data from a file.
-     * @param {string} filename The file to try and read.
      */
     readJsonFileSync(filename) {
         return driver.fileManager.readJsonFileSync(this.resolvePath(filename));
@@ -1717,6 +1708,32 @@ class EFUNProxy {
                 if (!expr.endsWith(SaveExtension)) expr += SaveExtension;
                 this.writeJsonFile(expr, this.serialize(prev));
                 return true;
+            }
+        }
+        catch (err) {
+            logger.log('saveObject', err);
+        }
+        return false;
+    }
+
+    /**
+     * Saves an object state to the specified file
+     * @param {string} expr The path to save to.
+     * @param {string} [encoding] The encoding to use when serialize (defaults to utf8)
+     */
+    async saveObjectAsync(expr, encoding = 'utf8') {
+        try {
+            let ctx = driver.getExecution(),
+                prev = ctx.thisObject,
+                parts = this.parsePath(prev.filename);
+
+            expr = expr || parts.file;
+
+            if (prev) {
+                if (!expr.endsWith(SaveExtension))
+                    expr += SaveExtension;
+                let data = this.serialize(prev);
+                return await this.fs.writeJsonAsync(expr, data, 0, encoding);
             }
         }
         catch (err) {

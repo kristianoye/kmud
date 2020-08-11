@@ -195,7 +195,7 @@ class AclNode {
 
         return await driver.driverCallAsync('load', async () => {
             try {
-                let content = await driver.fileManager.readJsonFileAsync(driver.efuns, filename);
+                let content = await driver.fileManager.readJsonAsync(filename);
                 if (content)
                     return new AclNode(owner, data, dir, content);
             }
@@ -210,7 +210,7 @@ class AclNode {
         let filename = `${this.path}/.acl`;
         if (!this.isRegex && !this.isSpecial) {
             await driver.driverCallAsync('save', async () => {
-                await driver.fileManager.writeJsonFileAsync(driver.efuns, filename, {
+                await driver.fileManager.writeJsonAsync(driver.efuns, filename, {
                     permissions: this.permissions,
                     files: this.files
                 });
@@ -902,8 +902,8 @@ class FileSystem extends MUDEventEmitter {
      * @param {FileSystemRequest} req The file path expression to read from.
      * @param {function(string,Error):void} callback The callback that fires when the read is complete.
      */
-    async readJsonFileAsync(expr, callback) {
-        throw new NotImplementedError('readJsonFileAsync');
+    async readJsonAsync(expr, callback) {
+        throw new NotImplementedError('readJsonAsync');
     }
 
     /**
@@ -1614,12 +1614,12 @@ class FileManager extends MUDEventEmitter {
      * @param {string} expr The JSON file being read.
      * @param {function=} callback An optional callback for async mode.
      */
-    async readJsonFileAsync(expr) {
+    async readJsonAsync(expr) {
         let req = this.createFileRequest('readJsonFile', expr);
         if (!req.valid('validReadFile'))
             return req.deny();
         else
-            return await req.fileSystem.readJsonFileAsync(req.relativePath);
+            return await req.fileSystem.readJsonAsync(req.relativePath);
     }
 
     /**
@@ -1736,12 +1736,12 @@ class FileManager extends MUDEventEmitter {
             return req.fileSystem.writeFileSync(req.relativePath, content, req.flags);
     }
 
-    async writeJsonFileAsync(efuns, expr, content) {
-        let req = this.createFileRequest('WriteFile', expr, false, 0, null, efuns);
+    async writeJsonAsync(expr, content) {
+        let req = this.createFileRequest('WriteFile', expr, false, 0, null);
         if (!req.valid())
             return req.deny();
         else
-            return await req.fileSystem.writeJsonFileAsync(req.relativePath, content, req.flags);
+            return await req.fileSystem.writeJsonAsync(req.relativePath, content, req.flags);
     }
 }
 

@@ -300,7 +300,7 @@ class DefaultFileSystem extends FileSystem {
     async getFileACL(relativePath) {
         let aclFile = `${relativePath}/.acl`;
         if (await this.isFileAsync(aclFile)) {
-            let content = await this.readJsonFileAsync(aclFile);
+            let content = await this.readJsonAsync(aclFile);
             return new FileACL(content);
         }
         return undefined;
@@ -676,13 +676,13 @@ class DefaultFileSystem extends FileSystem {
      * Read a JSON file asynchronously
      * @param {any} expr
      */
-    async readJsonFileAsync(expr) {
+    async readJsonAsync(expr) {
         try {
             let content = await this.readFileAsync(expr)
             return JSON.parse(content);
         }
         catch (e) {
-            console.log(`readJsonFileAsync(): Error ${e.message}`);
+            console.log(`readJsonAsync(): Error ${e.message}`);
         }
         return undefined;
     }
@@ -869,7 +869,7 @@ class DefaultFileSystem extends FileSystem {
         return false;
     }
 
-    async writeJsonFileAsync(expr, content, encoding = 'utf8') {
+    async writeJsonAsync(expr, content, encoding = 'utf8') {
         return await this.writeFileAsync(expr, JSON.stringify(content), 'w', encoding);
     }
 }

@@ -524,7 +524,7 @@ class CommandShell extends MUDEventEmitter {
                                 await ecc.withPlayerAsync(this.storage, async player => {
                                     try {
                                         let pathExpr = path.posix.resolve(cwd, expr.value),
-                                            result = await driver.fileManager.readDirectoryAsync(driver.efuns, pathExpr, MUDFS.GetDirFlags.FullPath);
+                                            result = await driver.fileManager.readDirectoryAsync(pathExpr, MUDFS.GetDirFlags.FullPath);
 
                                         if (Array.isArray(result) && result.length > 0) {
                                             let lastSlash = expr.value.lastIndexOf('/'),

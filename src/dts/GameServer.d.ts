@@ -19,6 +19,9 @@ declare interface ExecutionContext {
 }
 
 declare interface GameServer {
+    /** The file manager object */
+    fileManager: FileManager;
+
     /** Get the execution context */
     getExecution(): ExecutionContext;
 }

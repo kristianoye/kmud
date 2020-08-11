@@ -166,7 +166,7 @@ class AclNode {
 
         return await driver.driverCallAsync('load', async () => {
             try {
-                let content = await driver.fileManager.readJsonFileAsync(filename);
+                let content = await driver.fileManager.readJsonAsync(filename);
                 if (content)
                     return new AclNode(owner, data, dir, content);
             }
@@ -181,7 +181,7 @@ class AclNode {
         let filename = `${this.path}/.acl`;
         if (!this.isRegex && !this.isSpecial) {
             await driver.driverCallAsync('save', async () => {
-                await driver.fileManager.writeJsonFileAsync(driver.efuns, filename, {
+                await driver.fileManager.writeJsonAsync(filename, {
                     permissions: this.permissions,
                     files: this.files
                 });

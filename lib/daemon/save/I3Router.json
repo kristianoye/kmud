@@ -3,5 +3,13 @@
   "environment": false,
   "flags": 0,
   "inventory": [],
-  "properties": {}
+  "properties": {
+    "/daemon/I3Router": {
+      "routerName": "*kmud",
+      "port": 8787,
+      "address": "192.168.1.100",
+      "mudList": {},
+      "mudListVersion": 1597124273
+    }
+  }
 }
