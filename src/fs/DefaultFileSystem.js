@@ -415,13 +415,13 @@ class DefaultFileSystem extends FileSystem {
         let fullPath = path.posix.join(this.mountPoint, '/', req),
             parts = driver.efuns.parsePath(fullPath),
             module = driver.cache.get(parts.file),
-            forceReload = !module || flags & 1 === 1;
+            forceReload = !module || (flags & 1 === 1);
 
         if (forceReload) {
             module = await driver.compiler.compileObjectAsync({
                 args,
                 file: parts.file,
-                reload: !!module
+                reload: forceReload
             });
             if (!module)
                 throw new Error(`Failed to load module ${fullPath}`);

@@ -141,7 +141,7 @@
     <Compile Include="lib\sys\cmds\creator\Force.jsx">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\filesystem\Ls.jsx">
+    <Compile Include="lib\sys\cmds\filesystem\Ls.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="lib\sys\cmds\filesystem\MkDir.jsx">

@@ -262,6 +262,7 @@ class ExecutionContext extends MUDEventEmitter {
      * @returns {boolean} Returns true if the operation is permitted or false if it should fail.
      */
     async guarded(callback, action = false, rethrow = false) {
+        let isAsync = driver.efuns.isAsync(callback);
         for (let i = 0, max = this.length, c = {}; i < max; i++) {
             let frame = this.getFrame(i);
             if (!frame.object && !frame.file)
@@ -272,14 +273,18 @@ class ExecutionContext extends MUDEventEmitter {
                 return true; // The master object always succeeds as well
             else if (c[frame.file])
                 continue;
-            else if ((c[frame.file] = await callback(frame)) === false)
+            else if (isAsync && (c[frame.file] = await callback(frame)) === false)
                 return false;
+            else if ((c[frame.file] = callback(frame)) === false)
             if (frame.unguarded === true)
                 break;
         }
         if (action) {
             try {
-                return action();
+                if (driver.efuns.isAsync(action))
+                    return await action();
+                else
+                    return action();
             }
             catch (err) {
                 if (rethrow) throw err;
@@ -465,89 +470,5 @@ class ExecutionContext extends MUDEventEmitter {
         }
     }
 }
-
-/**
- * Wraps an asyncronous bit of code for the MUD execution context
- * to keep track of its status and whether it was properly awaited.
- * 
- * @param {function(function(any):void, function(any)): any} asyncCode The method called if the async code succeeds
- * @param {number} [timeout=5000] The maximum amount of time this call is allowed to run for.
- * @param {function(any,Error): void} [callback=undefined] An optional function for old school callback hell.
- * @returns {Promise} Returns a promise wrapper that caps execution time and determines if results are used.
- */
-ExecutionContext.asyncWrapper = function (asyncCode, timeout = 5000, callback = false) {
-    let ecc = driver.getExecution(),    // Get current execution context
-        child = ecc.fork(),             // Spawn child context to monitor this call
-        finalValue = undefined,
-        timerId = false;                // Timer to ensure prompt resolution
-
-    let promise = new Promise(
-        (resolve, reject) => {
-            try {
-                let finished = (result, error) => {
-                    if (timerId) {
-                        clearTimeout(timerId), (timerId = false);
-                        // Node does not like uncaught rejections... easy enough!
-                        resolve(finalValue = { result, error });
-                        callback && callback(val, err);
-                    }
-                };
-                timerId = setTimeout(() => finished(undefined, new Error('Async call timeout expired')), timeout);
-
-                //  Make the actual call to do the stuff and get the thing
-                let result = asyncCode(
-                    val => finished(val, undefined),
-                    err => finished(undefined, err));
-
-                //  Unexpected, but we can do that too...
-                if (result instanceof Promise && timerId) {
-                    result
-                        .then(v => finished([v, undefined]))
-                        .catch(e => finished([undefined, e]));
-                }
-            }
-            catch (err) {
-                reject(err);
-                callback && callback(undefined, err);
-            }
-        })
-        .always(result => {
-            let cec = driver.getExecution();
-
-            //  Call finished syncronously
-            if (!cec || cec === ecc) {
-                if (child.frame) {
-                    ecc.stack.unshift(child.frame);
-                    delete child.frame;
-                    driver.restoreContext(ecc);
-                    child.complete();
-                }
-                else {
-                    if (ecc.stack.length === 0)
-                        for (let i = 0; i < child.stack.length; i++) {
-                            ecc.stack[i] = child.stack[i];
-                        }
-                    child.complete();
-                }
-            }
-            else
-                throw new Error('Fatal error: Wrong context is running');
-            return result;
-        });
-
-    Object.defineProperties(promise, {
-        completed: {
-            get: () => { return typeof finalValue !== 'undefined' }
-        },
-        handleId: {
-            get: () => child.handleId
-        },
-        result: {
-            get: () => finalValue
-        }
-    })
-
-    return Object.freeze(promise);
-};
 
 module.exports = ExecutionContext;

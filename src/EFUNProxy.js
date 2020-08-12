@@ -1560,7 +1560,7 @@ class EFUNProxy {
                     else if (module.isCompiling)
                         throw new Error(`Circular dependency detected: ${module.filename} <-> ${this.fileName}`);
 
-                    if (module.defaultExport)
+                    if (module.exports.length === 1)
                         return module.defaultExport;
                     else
                         return Object.assign({}, module.exports);
