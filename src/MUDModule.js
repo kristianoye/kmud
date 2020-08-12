@@ -35,15 +35,15 @@ class MUDModule extends MUDEventEmitter {
 
         this.context = null;
 
-        this.defaultExport = false;
+        this.$defaultExport = false;
 
         /** @type {string[]} */
         this.typeNames = [];
 
         /** @type {Object.<string,function>} */
-        this.types = {};
+        this.types = { length: 0 };
 
-        this.exports = false;
+        this.exports = { length: 0 };
 
         /** @type {Object.<string,MUDObject[]> */
         this.instanceMap = {};
@@ -71,7 +71,8 @@ class MUDModule extends MUDEventEmitter {
 
         this.singleton = false;
 
-        this.singletons = false;
+        /** @type {Object.<string,boolean> */
+        this.singletons = {};
 
         driver.preCompile(this);
 
@@ -82,6 +83,14 @@ class MUDModule extends MUDEventEmitter {
         }
     }
 
+    get defaultExport() {
+        return this.$defaultExport;
+    }
+
+    set defaultExport(val) {
+        this.$defaultExport = val;
+    }
+
     insertInstance(item, typeArg) {
         let instanceId = item.instanceId,
             typeName = typeArg ? typeArg.name : item.constructor.name,
@@ -90,96 +99,42 @@ class MUDModule extends MUDEventEmitter {
         this.instanceMap[typeName] = instances;
     }
 
+    addExportElement(val, key = false) {
+        if (!key) {
+            if (efuns.isClass(val)) key = val.name;
+            else if (val instanceof MUDObject) key = val.constructor.name;
+            else if (typeof val === 'function') key = val.name;
+        }
+
+        this.exports.length++;
+        this.singletons[key] = val instanceof MUDObject;
+
+        if (this.exports.length === 1)
+            this.defaultExport = val;
+        else if (key === this.name)
+            this.defaultExport = val;
+        else
+            this.defaultExport = false;
+
+        this.exports[key] = val;
+    }
+
     addExport(val) {
-        let singles = {},  // which types are singletons?
-            sc = 0,
-            prev = this.exports;
-
-        //  Step 1: Do we have exports already? In which case we need to create an export mapping
-        if (prev) {
-            let newExports = {};
-            if (typeof prev === 'object') {
-                if (this.efuns.isPOO(prev)) {
-                    newExports = Object.assign(newExports, prev);
-                }
-                else {
-                    let o = prev, c = o.constructor;
-                    if (c) {
-                        newExports[c.name] = o;
-                        singles[c.name] = ++sc;
-                        this.insertInstance(prev, c);
-                    }
-                }
-            }
-            else if (Array.isArray(prev)) {
-                prev.forEach(ex => {
-                    if (typeof ex === 'object') {
-                        let c = ex.constructor;
-                        if (c) {
-                            newExports[c.name] = ex;
-                            singles[c.name] = ++sc;
-                            this.insertInstance(ex, c);
-                        }
-                        else {
-                            newExports = Object.assign(newExports, ex);
-                        }
-                    }
-                    else if (typeof ex === 'function') {
-                        newExports[ex.name] = ex;
-                    }
-                    else
-                        throw new Error(`Illegal exports; Cannot merge exports of type ${typeof ex}`);
-                });
-            }
-            else if (prev === 'function') {
-                newExports[prev.name] = prev;
-                sc++;
-            }
-            else
-                throw new Error(`Unable to merge additional exports with type ${typeof this.exports}`);
-
-            if (typeof val === 'object') {
-                if (this.efuns.isPOO(val)) {
-                    newExports = Object.assign(newExports, val);
-                }
-                else {
-                    let c = val.constructor;
-                    this.classRef = this.classRef || c || false;
-                    this.singleton = this.singleton || c && true;
-
-                    if (c) {
-                        newExports[c.name] = val;
-                        this.insertInstance(val, c);
-                    }
-                }
-            }
-            this.exports = newExports;
+        if (Array.isArray(val)) {
+            val.forEach(a => this.addExportElement(a));
         }
-        //  Step 2: Create new exports entry
-        else {
-            this.exports = val;
-            if (typeof val === 'object') {
-                if (!this.efuns.isPOO(val)) {
-                    let c = val.constructor;
-                    singles[c.name] = ++sc;
-                    this.insertInstance(val, c);
-                }
-                else {
-                    Object.keys(this.exports).forEach(key => {
-                        let exp = this.exports[key];
-                        if (exp instanceof MUDObject) {
-                            let c = exp.constructor;
-                            singles[c.name] = ++sc;
-                            this.insertInstance(exp, c);
-                        }
-                    });
-                }
-            }
-            else if (this.efuns.isClass(val)) {
-                this.defaultExport = val;
-            }
+        else if (val instanceof MUDObject) {
+            this.addExportElement(val, val.constructor.name);
         }
-        this.singletons = sc > 0 && singles;
+        else if (typeof val === 'object') {
+            Object.keys(val).forEach(key => this.addExportElement(val[key], key));
+        }
+        else if (efuns.isClass(val)) {
+            this.addExportElement(val, val.name);
+        }
+        else if (typeof val === 'function') {
+            this.addExportElement(val, val.name);
+        }
     }
 
     createInstance(file, typeName, args) {
@@ -282,8 +237,6 @@ class MUDModule extends MUDEventEmitter {
         //        }
         //    }
         //});
-        if (this.typeNames.length === 1)
-            this.defaultExport = this.instanceMap[this.typeNames[0]][0];
     }
 
     createObject(id, creationContext) {
@@ -527,6 +480,14 @@ class MUDModule extends MUDEventEmitter {
         //        });
         //    }
         //});
+    }
+
+    resetModule() {
+        this.exports = { length: 0 };
+        this.singletons = {};
+        this.typeNames = [];
+        this.types = { length: 0 };
+        this.defaultExport = false;
     }
 
     /**

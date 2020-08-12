@@ -1559,7 +1559,11 @@ class EFUNProxy {
                         throw new Error(`Failed to load required module '${filename}'`);
                     else if (module.isCompiling)
                         throw new Error(`Circular dependency detected: ${module.filename} <-> ${this.fileName}`);
-                    return module.exports;
+
+                    if (module.defaultExport)
+                        return module.defaultExport;
+                    else
+                        return Object.assign({}, module.exports);
             }
         }
     }

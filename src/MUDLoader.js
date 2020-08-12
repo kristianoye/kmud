@@ -182,6 +182,9 @@ class MUDLoader {
                 //  Reset Module Types
                 value: function (fileName) {
                     let module = driver.cache.get(fileName);
+                    if (module) {
+                        module.resetModule();
+                    }
                     module.typeNames = [];
                     module.types = {};
 
