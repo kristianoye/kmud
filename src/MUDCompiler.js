@@ -196,12 +196,12 @@ class MUDCompiler {
                 virtualResult = driver.driverCall('compileVirtual', ecc => {
                     try {
                         let args = options.args || [];
-                        ecc.newContext = {
+                        ecc.addCreationContext({
                             args,
                             instanceId: 0,
                             isVirtual: true,
                             filename: context.filename
-                        };
+                        });
                         delete ecc.restoreContext;
                         let virtualResult = driver.compileVirtualObject(ecc.newContext.filename, args);
                         args.forEach(a => {
@@ -404,6 +404,7 @@ class MUDCompiler {
                     }
                     finally {
                         parentInfo = ecc.virtualParents.pop();
+                        ecc.popCreationContext();
                         delete driver.newContext;
                     }
                 }, context.filename);

@@ -196,7 +196,7 @@ class MUDModule extends MUDEventEmitter {
                 type = this.types[type];
             }
 
-            ecc.newContext = instanceData;
+            ecc.addCreationContext(instanceData);
             ecc.storage = store;
 
             let instance = create ? create(type, ...args) : new type(...args);
@@ -237,7 +237,7 @@ class MUDModule extends MUDEventEmitter {
             let store = driver.storage.createForId(instanceData.filename, instanceData.instanceId),
                 ecc = driver.getExecution();
 
-            ecc.newContext = instanceData;
+            ecc.addCreationContext(instanceData);
             ecc.storage = store;
 
             let instance = create ? create(type, ...args) : new type(...args);

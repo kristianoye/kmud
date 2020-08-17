@@ -82,6 +82,13 @@ class ExecutionContext extends MUDEventEmitter {
         }
     }
 
+    addCreationContext(ctx) {
+        if (!this.creationContexts)
+            this.creationContexts = [];
+        this.creationContexts.unshift(ctx);
+        return ctx;
+    }
+
     alarm() {
         if (this.alarmTime && efuns.ticks > this.alarmTime) {
             let err = new Error(`Maxiumum execution time exceeded`);
@@ -135,7 +142,6 @@ class ExecutionContext extends MUDEventEmitter {
         }
         return true;
     }
-
 
     asyncBegin() {
         let child = this.fork();
@@ -315,6 +321,19 @@ class ExecutionContext extends MUDEventEmitter {
         return this.stack.length;
     }
 
+    get newContext() {
+        if (Array.isArray(this.creationContexts))
+            return this.creationContexts[0];
+        return undefined;
+    }
+
+    set newContext(ctx) {
+        if (!Array.isArray(this.creationContexts))
+            this.creationContexts = [];
+        this.creationContexts[0] = ctx;
+        return ctx;
+    }
+
     /**
      * Pops a MUD frame off the stack
      * @param {any} method
@@ -332,6 +351,16 @@ class ExecutionContext extends MUDEventEmitter {
             return this.complete();
 
         return lastFrame;
+    }
+
+    popCreationContext() {
+        if (Array.isArray(this.creationContexts)) {
+            let ctx = this.creationContexts.shift();
+            if (this.creationContexts.length === 0)
+                delete this.creationContexts;
+            return ctx;
+        }
+        return undefined;
     }
 
     /**

@@ -1,5 +1,5 @@
 {
-   "$type": "/daemon/I3Daemon",
+   "$type": "/daemon/HelpSystem$HelpCategory#2",
    "environment": null,
    "flags": 0,
    "inventory": [],
@@ -10,7 +10,7 @@
                "$type": "/daemon/I3Daemon$I3RouterEntry",
                "$simpleType": true,
                "properties": {
-                  "createTime": 1597633611373,
+                  "createTime": 1597647267383,
                   "filename": "/daemon/I3Daemon$I3RouterEntry",
                   "instanceId": 0
                }

@@ -6,19 +6,10 @@
   "properties": {
     "/daemon/I3Router": {
       "routerName": "*kmud",
-      "$server": {
-        "_events": {},
-        "_eventsCount": 1,
-        "_connections": 10,
-        "_handle": {},
-        "_workers": [],
-        "_connectionKey": "4:0.0.0.0:8787"
-      },
       "address": "192.168.1.100",
       "port": 8787,
-      "$parser": {},
       "mudList": {},
-      "mudListVersion": 1597636222
+      "mudListVersion": 1597647288
     }
   }
 }

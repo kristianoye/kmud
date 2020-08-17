@@ -182,7 +182,7 @@ class MUDLoader {
                         return result;
                     }
                     finally {
-                        delete ecc.newContext;
+                        ecc.popCreationContext();
                         ecc && ecc.pop('constructor');
                     }
                     return result;
@@ -278,7 +278,7 @@ class MUDLoader {
                         throw err;
                     }
                     finally {
-                        delete ecc.newContext;
+                        ecc.popCreationContext();
                         ecc && ecc.pop('createAsync');
                     }
                     return result;

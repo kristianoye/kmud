@@ -48,7 +48,7 @@ class MUDObject extends MUDEventEmitter {
             }
         }
         finally {
-            delete ecc.newContext;
+            ecc.popCreationContext();
             ecc.pop('constructor');
             Object.freeze(this);
         }

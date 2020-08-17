@@ -1,4 +1,10 @@
+declare interface CreationContext {
+
+}
+
 declare interface ExecutionContext {
+    addCreationContext(ctx: CreationContext): CreationContext;
+
     /** Check to see if the current context has exceeded its execution limit */
     alarm(): ExecutionContext;
 
@@ -36,6 +42,8 @@ declare interface ExecutionContext {
      * @param method The method that should be expected on the top of the stack
      */
     pop(method: string);
+
+    popCreationContext(): CreationContext;
 
     /** Returns the previous object */
     previousObject(): MUDObject;

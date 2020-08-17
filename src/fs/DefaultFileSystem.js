@@ -96,7 +96,7 @@ class DefaultFileSystem extends FileSystem {
             logger.log('cloneObjectAsync() error:', err.message);
         }
         finally {
-            delete ecc.newContext;
+            ecc.popCreationContext();
         }
         return false;
     }

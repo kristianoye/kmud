@@ -1787,7 +1787,10 @@ class EFUNProxy {
                         return hive[key] = val;
                     else if (vt === 'object') {
                         hive = hive[key] = {};
-                        Object.keys(val).forEach(sk => serializeValue(hive, sk, val[sk]));
+                        Object.keys(val).forEach(sk => {
+                            if (!sk.startsWith('$'))
+                                serializeValue(hive, sk, val[sk]);
+                        });
                         return hive;
                     }
                     else if (vt === 'MudObject')
@@ -1837,9 +1840,6 @@ class EFUNProxy {
                 if (store === false) {
                     driver.driverCall('serialize', () => {
                         Object.getOwnPropertyNames(ob).forEach(p => {
-                            if (p.startsWith(':')) {
-                                return;
-                            }
                             if (!p.startsWith('$')) {
                                 serializeValue(result.properties, p, ob[p]);
                             }
@@ -1849,7 +1849,7 @@ class EFUNProxy {
                 else
                     Object.keys(store.properties).forEach(key => {
                         let val = store.properties[key];
-                        if (!key.startsWith(':') && !key.startsWith('$')) {
+                        if (!key.startsWith('$')) {
                             serializeValue(result.properties, key, val);
                         }
                     });
