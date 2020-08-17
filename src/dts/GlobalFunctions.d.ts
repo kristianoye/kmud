@@ -10,3 +10,9 @@ declare function createAsync<TType>(t: { new(): TType }): TType;
  * @param defaultValue
  */
 declare function get<T>(defaultValue: T): T;
+
+/**
+ * "Magic" function used in setters to set the property value
+ * @param newValue The new value to use
+ */
+declare function set<T>(newValue: T): T;

@@ -1,1 +1,6 @@
-{"permissions":{"$mudlib":1535},"files":{}}
+{
+   "permissions": {
+      "$mudlib": 1535
+   },
+   "files": {}
+}

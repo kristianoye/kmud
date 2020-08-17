@@ -1,1 +1,7 @@
-{"permissions":{"$mudlib":7,"$law":7},"files":{}}
+{
+   "permissions": {
+      "$mudlib": 7,
+      "$law": 7
+   },
+   "files": {}
+}

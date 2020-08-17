@@ -1,11 +1,21 @@
 {
-  "$type": "/daemon/I3Daemon",
-  "environment": false,
-  "flags": 0,
-  "inventory": [],
-  "properties": {
-    "/daemon/I3Daemon": {
-      "routers": {}
-    }
-  }
+   "$type": "/daemon/I3Daemon",
+   "environment": null,
+   "flags": 0,
+   "inventory": [],
+   "properties": {
+      "/daemon/I3Daemon": {
+         "routers": {
+            "*kmud": {
+               "$type": "/daemon/I3Daemon$I3RouterEntry",
+               "$simpleType": true,
+               "properties": {
+                  "createTime": 1597633611373,
+                  "filename": "/daemon/I3Daemon$I3RouterEntry",
+                  "instanceId": 0
+               }
+            }
+         }
+      }
+   }
 }

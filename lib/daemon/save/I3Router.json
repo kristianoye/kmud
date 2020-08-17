@@ -1,15 +1,24 @@
 {
   "$type": "/daemon/I3Router",
-  "environment": false,
+  "environment": null,
   "flags": 0,
   "inventory": [],
   "properties": {
     "/daemon/I3Router": {
       "routerName": "*kmud",
-      "port": 8787,
+      "$server": {
+        "_events": {},
+        "_eventsCount": 1,
+        "_connections": 10,
+        "_handle": {},
+        "_workers": [],
+        "_connectionKey": "4:0.0.0.0:8787"
+      },
       "address": "192.168.1.100",
+      "port": 8787,
+      "$parser": {},
       "mudList": {},
-      "mudListVersion": 1597219985
+      "mudListVersion": 1597636222
     }
   }
 }

@@ -29,6 +29,7 @@ class VM2Wrapper extends VMAbstraction {
             wrapper: 'none'
         });
         var result = vm.run(context.content);
+        return result;
     }
 }
 

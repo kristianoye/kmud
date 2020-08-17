@@ -777,6 +777,9 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="mudconfig.json" />
+    <Content Include="src\AsyncHelpers.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\efuns\Acl.js" />
     <Content Include="src\fs\FileACL.js">
       <SubType>Code</SubType>
@@ -1127,6 +1130,9 @@
     <TypeScriptCompile Include="src\dts\EFUNProxy.d.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\ExecutionContext.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\FileSystem.d.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>
@@ -1134,6 +1140,7 @@
     <TypeScriptCompile Include="src\dts\GlobalFunctions.d.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\MUDObject.d.ts" />
   </ItemGroup>
   <!-- Do not delete the following Import Project.  While this appears to do nothing it is a marker for setting TypeScript properties before our import that depends on them. -->
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TypeScript\Microsoft.TypeScript.targets" Condition="False" />

@@ -70,11 +70,12 @@ class DefaultFileSystem extends FileSystem {
      * Clone an object syncronously.
      * @param {string} req The request to clone an object.
      * @param {any[]} args Constructor args to pass to the new object.
-     * @returns {MUDObject} The newly cloned object.
+     * @returns {MUDObject|false} The newly cloned object.
      */
     async cloneObjectAsync(req, args) {
         if (!this.assert(FileSystem.FS_SYNC))
             return false;
+
         let fullPath = path.posix.join(this.mountPoint, '/',  req),
             { file, type, instance } = driver.efuns.parsePath(fullPath),
             module = driver.cache.get(file);
@@ -88,11 +89,11 @@ class DefaultFileSystem extends FileSystem {
                 module = await driver.compiler.compileObjectAsync({ file, args });
             }
             if (module) {
-                return module.createInstance(file, type, args);
+                return await module.createInstanceAsync(file, type, args);
             }
         }
         catch (err) {
-            logger.log('cloneObjectSync() error:', err.message);
+            logger.log('cloneObjectAsync() error:', err.message);
         }
         finally {
             delete ecc.newContext;
@@ -870,7 +871,7 @@ class DefaultFileSystem extends FileSystem {
     }
 
     async writeJsonAsync(expr, content, encoding = 'utf8') {
-        return await this.writeFileAsync(expr, JSON.stringify(content), 'w', encoding);
+        return await this.writeFileAsync(expr, JSON.stringify(content, null, 3), 'w', encoding);
     }
 }
 

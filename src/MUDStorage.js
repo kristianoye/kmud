@@ -260,7 +260,6 @@ class MUDStorage extends MUDEventEmitter {
 
     /**
      * Restore the storage object.  Is this used?
-     * TODO: Make all this async... sigh
      * @param {any} data
      */
     async eventRestore(data) {
@@ -277,57 +276,47 @@ class MUDStorage extends MUDEventEmitter {
                 data.inventory = data.inventory || [];
                 for (let i = 0; i < data.inventory.length; i++) {
                     try {
-                        let item = await efuns.restoreObjectAsync(data.inventory[i]);
-                        item.moveObject(owner);
+                        let item = await driver.efuns.restoreObjectAsync(data.inventory[i]);
+                        await item.moveObject(owner);
                     }
                     catch (e) {
                         this.shell.stderr.writeLine(`* Failed to load object ${data.inventory[i].$type}`);
                     }
                 }
 
-                let restoreData = (hive, key, value) => {
+                let restoreData = async (hive, key, value) => {
                     try {
-                        let type = typeof value;
+                        let type = driver.efuns.objectType(value);
 
                         if (['string', 'boolean', 'number'].indexOf(type) > -1) {
                             return hive ? hive[key] = value : value;
                         }
-                        else if (Array.isArray(value)) {
-                            if (hive)
-                                return hive[key] = value.map(v => restoreData(false, false, v));
-                            else
-                                return value.map(v => restoreData(false, false, v));
+                        else if (type === 'array') {
+                            let output = [];
+                            for (let i = 0; i < value.length; i++) {
+                                output[i] = await restoreData(false, false, value[i]);
+                            }
+                            return hive ? hive[key] = output : output;
                         }
                         else if (type === 'object') {
-                            let $type = value['$type'];
-                            if ($type) {
+                            if (value.$type) {
                                 try {
-                                    if (hive)
-                                        return hive[key] = efuns.restoreObject(value);
-                                    else
-                                        return efuns.restoreObject(value);
+                                    let result = await efuns.restoreObjectAsync(value);
+                                    return hive ? hive[key] = result : result;
                                 }
                                 catch (err) {
+                                    console.log(`Error in MUDStorage.eventRestore: ${err.message}`);
                                 }
                             }
-                            else if (!hive) {
-                                hive = {};
-                                Object.keys(value).forEach(key => {
-                                    restoreData(hive, key, value);
-                                });
-                                return hive;
-                            }
                             else {
-                                if (key in hive === false)
-                                    hive = hive[key] = {};
-                                else
-                                    hive = hive[key];
-
-                                Object.keys(value).forEach(key => {
-                                    restoreData(hive, key, value[key])
-                                });
-                                return hive;
+                                let keys = Object.keys(value),
+                                    isNewHive = hive ? false : (hive = {}, true);
+                                for (let i = 0; i < keys.length; i++) {
+                                    let key = keys[i];
+                                    hive[key] = await restoreData(false, false, value[keys[i]]);
+                                }
                             }
+                            return hive;
                         }
                     }
                     catch (err) {
@@ -337,16 +326,18 @@ class MUDStorage extends MUDEventEmitter {
                 if (typeof this.owner.applyRestore === 'function') {
                     this.owner.applyRestore();
                 }
-                if (!data.properties)
-                    logger.log('error: restored data has no properties');
-                else
-                    Object.keys(data.properties).forEach(filename => {
-                        if (this.properties.hasOwnProperty(filename) === false)
-                            this.properties[filename] = {};
-                        else if (typeof this.properties[filename] !== 'object')
-                            throw new Error(`Unable to restore object; Unexpected value for key ${filename}`);
-                        restoreData(this.properties, filename, data.properties[filename]);
-                    });
+                if (typeof data.properties === 'object') {
+                    let props = Object.keys(data.properties || {});
+                    for (let i = 0; i < props.length; i++) {
+                        let propName = props[i];
+
+                        if (['instanceId', 'filename'].indexOf(propName) > -1)
+                            continue;
+                        else if (typeof propName === 'string' && !propName.startsWith('$')) {
+                            this.properties[propName] = await restoreData({}, propName, data.properties[propName]);
+                        }
+                    }
+                }
                 return owner;
             });
         }
@@ -622,7 +613,11 @@ class MUDStorageContainer {
         return this.storage[ob.filename] = new MUDStorage(ob);
     }
 
-    createForId(filename) {
+    createForId(filename, instanceId = 0) {
+        if (instanceId > 0) {
+            if (filename.indexOf('#') === -1)
+                filename += `#${instanceId}`;
+        }
         return this.storage[filename] = new MUDStorage(filename);
     }
 
@@ -653,7 +648,16 @@ class MUDStorageContainer {
      */
     get(ob) {
         return unwrap(ob, target => {
-            return this.storage[target.filename];
+            let filename = target.filename;
+            if (!filename) {
+                let ecc = driver.getExecution(),
+                    ctx = ecc.newContext;
+                if (ctx) {
+                    filename = ctx.filename + (ctx.instanceId > 0 ? `#${ctx.instanceId}` : '');
+                }
+            }
+            let result = filename && this.storage[filename];
+            return result;
         });
     }
 

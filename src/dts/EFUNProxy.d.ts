@@ -82,6 +82,24 @@ declare interface EFUNProxy {
     arrayToSentence(list: object[] | string[], useOr: boolean, consolidate: boolean, useNumbers: boolean): string;
 
     inputs: Helpers.Inputs;
+
+    /**
+     * Determine the type of object
+     * @param arg
+     */
+    objectType(arg: any): 'array' | 'function' | 'string' | 'number' | 'MudObject' | 'SimpleObject' | 'boolean' | 'undefined' | 'object';
+
+    /**
+     * Parse a path into components (e.g. /some/module$TypeName#instance)
+     * @param arg
+     */
+    parsePath(arg: string): { file: string, type?: string, instance?: number };
+
+    /**
+     * Restore a MUD object
+     * @param dataOrFilename Either a file to restore from or data from a serialized object.
+     */
+    restoreObjectAsync(dataOrFilename: string | Object.<string, any>): MUDObject;
 }
 
 declare const efuns: EFUNProxy;

@@ -94,9 +94,6 @@ class MUDObject extends MUDEventEmitter {
      * @returns {boolean} True on a successful move
      */
     async moveObjectAsync(destination) {
-        let myStore = driver.storage.get(this),
-            oldEnvironment = myStore.environment;
-        
         return this.moveObject(await efuns.loadObjectAsync(destination));
     }
 

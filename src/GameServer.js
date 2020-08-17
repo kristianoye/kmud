@@ -404,13 +404,15 @@ class GameServer extends MUDEventEmitter {
         return await this.driverCallAsync('createPreloads', async ecc => {
             ecc.alarmTime = Number.MAX_SAFE_INTEGER;
             if (this.applyGetPreloads !== false) {
-                this.preloads = this.applyGetPreloads();
+                this.preloads = await this.driverCallAsync('getPreloads', async () => await this.applyGetPreloads());
             }
             if (this.preloads.length > 0) {
                 logger.logIf(LOGGER_PRODUCTION, 'Creating preloads.');
                 for (let i = 0; i < this.preloads.length; i++) {
                     let file = this.preloads[i];
-                    let t0 = efuns.ticks, foo = false, err = false;
+                    let t0 = efuns.ticks,
+                        foo = false,
+                        err = false;
                     try {
                         foo = Array.isArray(file) ?
                             await this.compiler.compileObjectAsync({ file: file[0], args: file.slice(1) }) :
@@ -531,10 +533,10 @@ class GameServer extends MUDEventEmitter {
                 }
                 else if (typeof target === 'function' && target.isWrapper === true) {
                     result = target();
-                    if (result instanceof MUDObject === false)
+                    if (!result || typeof result !== 'object' || result.constructor.name === 'Object')
                         result = defaultValue;
                 }
-                else if (typeof target === 'object' && target instanceof MUDObject) {
+                else if (typeof target === 'object' && result.constructor.name !== 'Object') {
                     result = target;
                 }
                 else if (typeof defaultValue === 'function')

@@ -1,1 +1,8 @@
-{"permissions":{"$arch":5,"$admin":1535,"$mudlib":14},"files":{}}
+{
+   "permissions": {
+      "$arch": 5,
+      "$admin": 1535,
+      "$mudlib": 14
+   },
+   "files": {}
+}

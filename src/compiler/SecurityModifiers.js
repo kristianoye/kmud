@@ -10,11 +10,7 @@ const acorn = require('acorn');
 
 const
     tt = acorn.tokTypes,
-    TokContext = acorn.TokContext,
     TokenType = acorn.TokenType;
-
-const
-    kmcCallOther = new TokContext('->', false);
 
 const
     tokenTypes = {
@@ -135,7 +131,6 @@ function plugin(options, Parser) {
 
 module.exports = function (optionsIn) {
     return function (Parser) {
-        let options = Object.assign({}, optionsIn);
         return plugin({
             allowAccessModifiers: true,
             allowCallOtherArrow: true,

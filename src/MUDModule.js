@@ -137,27 +137,34 @@ class MUDModule extends MUDEventEmitter {
         }
     }
 
-    createInstance(file, typeName, args) {
+    /**
+     * Create an instance of an object
+     * @param {string} file The module name to create from
+     * @param {string} [typeName] The type to construct
+     * @param {any} [args] Arguments to pass to the constructor
+     */
+    async createInstanceAsync(file, typeName, args) {
         //  Sanity check
         if (file !== this.filename)
             return false;
         //  No type name matching filename was found; Use first available if only one exists
-        else if (!typeName || !this.types[typeName]) {
+        else if (!typeName || typeName in this.types === false) {
+            if (this.defaultExport instanceof MUDObject)
+                return this.defaultExport;
             if (this.typeNames.length === 1) {
                 typeName = this.typeNames[0];
             }
-            else if (this.defaultExport instanceof MUDObject)
-                return this.defaultExport;
             else return false;
         }
         //  The module exported an instance of this type; This indicates the item cannot be cloned
-        if (this.singletons[typeName])
+        if (this.singletons[typeName] === true)
             throw new Error(`Type ${typeName} is a singleton and cannot be cloned.`);
 
         let type = this.types[typeName],
             createContext = this.getNewContext(typeName, true, args);
 
-        this.create(type, createContext, args);
+        await this.createAsync(type, createContext, args);
+
         return this.getInstanceWrapper({
             file,
             type: typeName,
@@ -169,8 +176,25 @@ class MUDModule extends MUDEventEmitter {
     create(type, instanceData, args = [], create = false) {
         try {
             // Storage needs to be set before starting...
-            let store = driver.storage.createForId(instanceData.filename),
-                ecc = driver.getExecution();
+            let store = driver.storage.createForId(instanceData.filename || instanceData.$type),
+                ecc = driver.getExecution(),
+                prev = ecc.previousObject;
+
+            if (typeof type === 'string') {
+                if (type in this.exports === false) {
+                    if (type in this.types === false) {
+                        throw new Error(`Unable to find type ${type}`);
+                    }
+                    else if (prev.filename !== this.filename) {
+                        throw new Error(`Access denied to non-exported type ${type} in module ${this.filename}`);
+                    }
+                }
+                if (typeof instanceData.instanceId !== 'number') {
+                    let instances = this.instanceMap[type];
+                    instanceData.instanceId = instances.length;
+                }
+                type = this.types[type];
+            }
 
             ecc.newContext = instanceData;
             ecc.storage = store;
@@ -194,8 +218,23 @@ class MUDModule extends MUDEventEmitter {
 
     async createAsync(type, instanceData, args = [], create = false) {
         try {
+            if (typeof type === 'string') {
+                if (type in this.exports === false) {
+                    if (type in this.types === false) {
+                        throw new Error(`Unable to find type ${type}`);
+                    }
+                    else if (prev.filename !== this.filename) {
+                        throw new Error(`Access denied to non-exported type ${type} in module ${this.filename}`);
+                    }
+                }
+                type = this.types[type];
+            }
+            if (typeof instanceData.instanceId !== "number") {
+                let instances = this.instanceMap[type.constructor.name];
+                instanceData.instanceId = instances.length;
+            }
             // Storage needs to be set before starting...
-            let store = driver.storage.createForId(instanceData.filename),
+            let store = driver.storage.createForId(instanceData.filename, instanceData.instanceId),
                 ecc = driver.getExecution();
 
             ecc.newContext = instanceData;
@@ -260,8 +299,9 @@ class MUDModule extends MUDEventEmitter {
 
         if (instance) {
             let store = driver.storage.get(instance);
-            if (store && !store.destroyed) return store.destroy();
             instances[parts.instance] = false;
+            if (store && !store.destroyed)
+                return store.destroy();
             return true;
         }
         return false;
@@ -280,7 +320,7 @@ class MUDModule extends MUDEventEmitter {
                     writable: false
                 },
                 filename: {
-                    value: instanceData.filename,
+                    value: instanceData.filename || instanceData.$type,
                     writable: false
                 },
                 instanceId: {
@@ -305,7 +345,11 @@ class MUDModule extends MUDEventEmitter {
      */
     getInstance(req) {
         if (typeof req === 'number') {
-            req = { type: this.name, instance: req, file: this.fullPath };
+            req = {
+                type: this.name,
+                instance: req,
+                file: this.fullPath
+            };
         }
         else if (!this.types[req.type]) {
             return req.instance === 0 && this.defaultExport;
@@ -410,7 +454,7 @@ class MUDModule extends MUDEventEmitter {
     }
 
     /**
-     * Get a type defined within the module.
+     * Get a type defined within the module. [questionable]
      * @param {string} name The name of the type to retrieve.
      * @returns {function} Returns the constructor for the specified type.
      */

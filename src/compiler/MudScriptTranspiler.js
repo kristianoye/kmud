@@ -916,8 +916,7 @@ class MudScriptTranspiler extends PipelineComponent {
             }
         }
         catch (x) {
-            console.log('MudScriptTranspiler.run', x.message);
-            console.log(x.stack);
+            console.log(`MudScriptTranspiler.run compiling ${context.basename}`, x.message);
             throw x;
         }
     }
@@ -943,8 +942,7 @@ class MudScriptTranspiler extends PipelineComponent {
             }
         }
         catch (x) {
-            console.log('MudScriptTranspiler.run', x.message);
-            console.log(x.stack);
+            console.log(`MudScriptTranspiler.run compiling ${context.basename}`, x.message);
             throw x;
         }
     }

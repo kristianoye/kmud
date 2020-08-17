@@ -1163,7 +1163,7 @@ class CommandShell extends MUDEventEmitter {
                 return token;
             }
             if (!command && token.type === TT.Word) {
-                if (this.options.allowAliases) {
+                if (this.options.allowAliases && typeof this.options.aliases === 'object') {
                     let alias = this.options.aliases[token.value] || false;
                     if (alias !== false && inAlias === false) {
                         let hasBackefs = alias && alias.indexOf('$') > -1;

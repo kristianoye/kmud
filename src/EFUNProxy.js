@@ -959,6 +959,27 @@ class EFUNProxy {
     }
 
     /**
+     * Determine the object type
+     * @param {any} arg
+     * @returns {'function'|'string'|'number'|'MudObject'|'SimpleObject'|'boolean'|'undefined'|'object'|'array'} Returns the type of object
+     */
+    objectType(arg) {
+        arg = unwrap(arg) || arg;
+
+        if (typeof arg === 'object') {
+            if (arg instanceof MUDObject) 
+                return 'MudObject';
+            else if (typeof arg.filename === 'string' && arg.constructor.name) 
+                return 'SimpleObject';
+            else if (Array.isArray(arg))
+                return 'array';
+            else 
+                return 'object';
+        }
+        return typeof arg;
+    }
+
+    /**
      * Determines whether a value is a player or not.
      * @param {any} target The value to check.
      * @returns {boolean} True if the value is a player or false.
@@ -1625,8 +1646,13 @@ class EFUNProxy {
         return path.posix.join(expr2, expr);
     }
 
-    restoreObject(foo) {
-        throw new Error('deprecated call');
+    restoreObject(data) {
+        let parts = this.parsePath(data.$type),
+            module = driver.cache.get(parts.file),
+            ctx = driver.getExecution(),
+            prev = ctx.previousObject;
+
+        return module.create(parts.type, data);
     }
 
     /**
@@ -1635,11 +1661,12 @@ class EFUNProxy {
      */
     async restoreObjectAsync(pathOrObject) {
         try {
-            if (this.isPOO(pathOrObject) && '$type' in pathOrObject) {
+            if (this.objectType(pathOrObject) === 'object' && '$type' in pathOrObject) {
                 let $type = pathOrObject.$type,
+                    parts = this.parsePath($type),
                     ecc = driver.getExecution();
 
-                if (ecc.guarded(f => driver.validWrite(f, $type))) {
+                if (ecc.guarded(f => driver.validRead(f, $type))) {
                     let clone = await this.cloneObjectAsync($type),
                         store = driver.storage.get(clone);
                     return !!store && await store.eventRestore(pathOrObject);
@@ -1648,11 +1675,13 @@ class EFUNProxy {
             }
             else {
                 let etc = driver.getExecution(),
-                    thisOb = etc.thisObject;
+                    thisOb = etc.thisObject,
+                    restoreFile = this.resolvePath(pathOrObject, thisOb.directory);
+
                 if (thisOb) {
-                    if (!pathOrObject.endsWith(SaveExtension))
-                        pathOrObject += SaveExtension;
-                    let data = this.readJsonFileSync(pathOrObject);
+                    if (!restoreFile.endsWith(SaveExtension))
+                        restoreFile += SaveExtension;
+                    let data = this.readJsonFileSync(restoreFile);
                     if (data) {
                         let store = driver.storage.get(thisOb);
                         return store ? await store.eventRestore(data) : false;
@@ -1729,15 +1758,14 @@ class EFUNProxy {
         try {
             let ctx = driver.getExecution(),
                 prev = ctx.thisObject,
-                parts = this.parsePath(prev.filename);
-
-            expr = expr || parts.file;
+                parts = this.parsePath(prev.filename),
+                savePath = this.resolvePath(expr || parts.file, prev.directory);
 
             if (prev) {
-                if (!expr.endsWith(SaveExtension))
-                    expr += SaveExtension;
+                if (!savePath.endsWith(SaveExtension))
+                    savePath += SaveExtension;
                 let data = this.serialize(prev);
-                return await this.fs.writeJsonAsync(expr, data, 0, encoding);
+                return await this.fs.writeJsonAsync(savePath, data, 0, encoding);
             }
         }
         catch (err) {
@@ -1747,46 +1775,90 @@ class EFUNProxy {
     }
 
     serialize(target) {
-        return unwrap(target, targetObject => {
-            let serializeMudObject, serializeValue = (hive, key, val) => {
-                let vt = typeof val;
-                hive = hive || {};
-                if (['number', 'string'].indexOf(vt) > -1)
-                    return hive[key] = val;
-                else if (vt === 'object' && this.isPOO(val)) {
-                    hive = hive[key] = {};
-                    Object.keys(val).forEach(sk => serializeValue(hive, sk, val[sk]));
-                    return hive;
-                }
-                else if (vt === 'object' && val.vilename)
-                    return hive[key] = serializeMudObject(val);
-                else if (Array.isArray(val)) {
-                    return hive[key] = val.map(v => serializeValue(false, false, v));
-                }
-            };
-            serializeMudObject = target => {
-                return unwrap(target, ob => {
-                    let store = driver.storage.get(ob),
-                        result = {
-                            $type: ob.filename,
-                            environment: unwrap(store.environment, e => e.filename),
-                            flags: store.flags,
-                            inventory: store.inventory.map(i => unwrap(i, item => serializeMudObject(item))),
-                            properties: {}
-                        };
+        let finalResult = unwrap(target, targetObject => {
+            let serializeMudObject,
+                serializeSimpleObject,
+                serializeValue = (hive, key, val) => {
+                    let vt = this.objectType(val);
 
+                    hive = hive || {};
+
+                    if (['number', 'string'].indexOf(vt) > -1)
+                        return hive[key] = val;
+                    else if (vt === 'object') {
+                        hive = hive[key] = {};
+                        Object.keys(val).forEach(sk => serializeValue(hive, sk, val[sk]));
+                        return hive;
+                    }
+                    else if (vt === 'MudObject')
+                        return hive[key] = serializeMudObject(val);
+                    else if (vt === 'SimpleObject')
+                        return hive[key] = serializeSimpleObject(val);
+                    else if (Array.isArray(val)) {
+                        return hive[key] = val.map(v => serializeValue(false, false, v));
+                    }
+                };
+
+            serializeSimpleObject = (val) => {
+                let result = {
+                    $type: val.filename,
+                    $simpleType: true,
+                    properties: {}
+                };
+
+                let props = Object.getOwnPropertyDescriptors(val);
+                driver.driverCall('serialize', () => {
+                    Object.keys(props).forEach(prop => {
+                        if (!prop.startsWith('$')) {
+                            let descriptor = props[prop], propVal;
+                            if (descriptor.get)
+                                propVal = descriptor.get.apply(val);
+                            else
+                                propVal = val[prop];
+                            if (typeof propVal !== 'undefined')
+                                serializeValue(result.properties, prop, propVal);
+                        }
+                    });
+                });
+                return result;
+            };
+
+            serializeMudObject = target => {
+                let ob = typeof target === 'function' ? unwrap(target) : target;
+                let store = driver.storage.get(ob),
+                    result = {
+                        $type: ob.filename,
+                        environment: store && unwrap(store.environment, e => e.filename),
+                        flags: store.flags,
+                        inventory: store && store.inventory.map(i => unwrap(i, item => serializeMudObject(item))) || {},
+                        properties: {}
+                    };
+
+                if (store === false) {
+                    driver.driverCall('serialize', () => {
+                        Object.getOwnPropertyNames(ob).forEach(p => {
+                            if (p.startsWith(':')) {
+                                return;
+                            }
+                            if (!p.startsWith('$')) {
+                                serializeValue(result.properties, p, ob[p]);
+                            }
+                        });
+                    });
+                }
+                else
                     Object.keys(store.properties).forEach(key => {
                         let val = store.properties[key];
-                        if (!key.startsWith(':')) {
+                        if (!key.startsWith(':') && !key.startsWith('$')) {
                             serializeValue(result.properties, key, val);
                         }
                     });
-                    return result;
-                });
+               return result;
             };
 
             return serializeMudObject(targetObject);
         });
+        return finalResult;
     }
 
     /**

@@ -335,6 +335,14 @@ class ExecutionContext extends MUDEventEmitter {
     }
 
     /**
+     * Returns the previous object
+     */
+    get previousObject() {
+        let prev = this.previousObjects;
+        return prev.length > 1 && prev[1];
+    }
+
+    /**
      * Returns the previous objects off the stack
      * @type {MUDObject[]}
      */
