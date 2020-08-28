@@ -1774,6 +1774,10 @@ class EFUNProxy {
         return false;
     }
 
+    /**
+     * Serialize an object for saving.
+     * @param {any} target
+     */
     serialize(target) {
         let finalResult = unwrap(target, targetObject => {
             let serializeMudObject,
