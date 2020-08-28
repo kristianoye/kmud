@@ -754,6 +754,7 @@
     <Content Include=".eslint">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="libman.json" />
     <Content Include="lib\cmds\admin\placeholder.txt">
       <SubType>Code</SubType>
     </Content>
