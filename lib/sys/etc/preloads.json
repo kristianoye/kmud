@@ -13,5 +13,6 @@
   "/base/Command",
   "/base/Verb",
   "/daemon/ChatDaemon",
-  "/sys/lib/TextLogin"
+  "/sys/lib/TextLogin",
+  "/base/Armor"
 ]

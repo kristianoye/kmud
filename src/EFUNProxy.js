@@ -480,14 +480,26 @@ class EFUNProxy {
         return false;
     }
 
+    /** Gets the default export for the module */
+    get defaultExport() {
+        let module = driver.cache.get(this.fullPath);
+        return module.defaultExport;
+    }
+
+    /** Sets the default export for the module */
+    set defaultExport(val) {
+        let module = driver.cache.get(this.fullPath);
+        module.addExport(val, true);
+    }
+
     /**
      * Old school ed() support.
      * @param {string} fileName The name of the file to edit.
      * @param {string|function} writeFunc 
      * @param {string|function} exitFunc
-     * @param {boolean} restrict
+     * @param {boolean} [restrict] Run the editor in restricted mode? (defaults to true)
      */
-    ed(fileName, writeFunc, exitFunc, restrict) {
+    ed(fileName, writeFunc, exitFunc, restrict = true) {
     }
 
     /**
@@ -510,7 +522,7 @@ class EFUNProxy {
 
     get exports() {
         let module = driver.cache.get(this.fullPath);
-        return module.exports;
+        return Object.assign({}, module.exports);
     }
 
     set exports(val) {

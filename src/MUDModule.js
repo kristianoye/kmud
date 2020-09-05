@@ -37,6 +37,9 @@ class MUDModule extends MUDEventEmitter {
 
         this.$defaultExport = false;
 
+        /** Has the default been explicitly set? */
+        this.explicitDefault = false;
+
         /** @type {string[]} */
         this.typeNames = [];
 
@@ -99,7 +102,7 @@ class MUDModule extends MUDEventEmitter {
         this.instanceMap[typeName] = instances;
     }
 
-    addExportElement(val, key = false) {
+    addExportElement(val, key = false, isDefault = false) {
         if (!key) {
             if (efuns.isClass(val)) key = val.name;
             else if (val instanceof MUDObject) key = val.constructor.name;
@@ -109,31 +112,48 @@ class MUDModule extends MUDEventEmitter {
         this.exports.length++;
         this.singletons[key] = val instanceof MUDObject;
 
-        if (this.exports.length === 1)
+        if (isDefault === false && this.explicitDefault === false) {
+            if (this.exports.length === 1)
+                this.defaultExport = val;
+            else if (key === this.name)
+                this.defaultExport = val;
+            else
+                this.defaultExport = false;
+        }
+        else if (isDefault === true) {
             this.defaultExport = val;
-        else if (key === this.name)
-            this.defaultExport = val;
-        else
-            this.defaultExport = false;
+            this.explicitDefault = true;
+        }
 
         this.exports[key] = val;
     }
 
-    addExport(val) {
+    /**
+     * Add an item to the module export list
+     * @param {any} val The item to export
+     * @param {boolean} [isDefault] If true, then the item is marked as the default export
+     */
+    addExport(val, isDefault = false) {
         if (Array.isArray(val)) {
-            val.forEach(a => this.addExportElement(a));
+            val.forEach(a => this.addExportElement(a, undefined, isDefault));
         }
         else if (val instanceof MUDObject) {
-            this.addExportElement(val, val.constructor.name);
+            this.addExportElement(val, val.constructor.name, isDefault);
         }
         else if (typeof val === 'object') {
-            Object.keys(val).forEach(key => this.addExportElement(val[key], key));
+            Object.keys(val)
+                .forEach(key => this.addExportElement(val[key], key));
+
+            if (isDefault === true) {
+                this.defaultExport = Object.assign({}, val);
+                this.explicitDefault = true;
+            }
         }
         else if (efuns.isClass(val)) {
-            this.addExportElement(val, val.name);
+            this.addExportElement(val, val.name, isDefault);
         }
         else if (typeof val === 'function') {
-            this.addExportElement(val, val.name);
+            this.addExportElement(val, val.name, isDefault);
         }
     }
 
@@ -532,6 +552,7 @@ class MUDModule extends MUDEventEmitter {
         this.typeNames = [];
         this.types = { length: 0 };
         this.defaultExport = false;
+        this.explicitDefault = false;
     }
 
     /**

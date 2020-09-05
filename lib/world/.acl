@@ -1,8 +1,0 @@
-{
-   "permissions": {
-      "$all": 13,
-      "$arch": 1535,
-      "$admin": 1535
-   },
-   "files": {}
-}

@@ -6,7 +6,6 @@
 const
     MUDObject = require('./MUDObject'),
     MUDHtml = require('./MUDHtml'),
-    ExecutionContext = require('./ExecutionContext'),
     { TimeoutError } = require('./ErrorTypes'),
     DriverApplies = [
         'connect',        // Called when a user connects with their body

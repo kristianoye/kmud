@@ -11,3 +11,4 @@ runAlways.json
 shadowfs/
 /KMUD.sln
 /.vs/KMUD/v15
+**/.acl

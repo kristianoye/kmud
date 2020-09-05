@@ -1123,8 +1123,10 @@
     <Folder Include="src\network\servers\HTTPServer\" />
     <Folder Include="src\network\servers\HTTPServer\errors\" />
     <Folder Include="src\network\servers\HTTPServer\handlers\" />
+    <Folder Include="src\tests\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
+    <Folder Include="src\tests\fs\" />
   </ItemGroup>
   <ItemGroup>
     <TypeScriptCompile Include="lib\wwwroot\dts\global.d.ts" />
