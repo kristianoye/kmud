@@ -30,6 +30,21 @@ declare namespace Helpers {
         intersection(...arrays: any[]): any[];
     }
 
+    interface FileSystem {
+        /**
+         * Create a directory
+         * @param expr The path to create
+         * @param flags Flags controlling the operation
+         */
+        createDirectoryAsync(expr: string, flags?: number): Promise<boolean>;
+
+        /**
+         * Check to see if an expression is a directory
+         * @param expr The path to check
+         */
+        isDirectoryAsync(expr: string): Promise<boolean>;
+    }
+
     interface Inputs {
         /**
          * Render a prompt for the user and redirect the response to the specified callback
@@ -38,6 +53,21 @@ declare namespace Helpers {
          * @param callback
          */
         addPrompt(type: InputType, options: any, callback: (input: string) => void): void;
+    }
+
+    interface Objects {
+        /**
+         * Get all modules loaded in memory
+         * @param filter A method by which to filter names
+         */
+        getLoadededModules(filter: (name: string) => boolean): string[];
+
+        /**
+         * Reload an object
+         * @param expr
+         * @param flags
+         */
+        reloadObjectAsync(expr: string, flags?: number): MUDObject;
     }
 }
 
@@ -81,7 +111,14 @@ declare interface EFUNProxy {
      */
     arrayToSentence(list: object[] | string[], useOr: boolean, consolidate: boolean, useNumbers: boolean): string;
 
-    inputs: Helpers.Inputs;
+    /** Various file I/O helpers */
+    readonly fs: Helpers.FileSystem;
+
+    /** Various helpers for user I/O */
+    readonly inputs: Helpers.Inputs;
+
+    /** Various object helper methods */
+    readonly objects: Helpers.Objects;
 
     /**
      * Determine the type of object

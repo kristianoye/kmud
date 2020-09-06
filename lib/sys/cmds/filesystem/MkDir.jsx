@@ -26,7 +26,7 @@ class MkDirCommand extends Command {
      * @param {string[]} args
      * @param {MUDInputEvent} cmdline
      */
-    cmd(args, cmdline) {
+    async cmd(args, cmdline) {
         let player = thisPlayer,
             dirList = [],
             options = 0,
@@ -64,30 +64,40 @@ class MkDirCommand extends Command {
         }
         if (dirList.length === 0)
             return 'Mkdir: Missing parameter';
-        this.createDirectories(dirList, flags, options, cmdline);
-        return cmdline.complete;
+
+        await this.createDirectories(dirList, flags, options, cmdline);
+        return true;
     }
 
     /**
      * 
-     * @param {string[]} dirList
-     * @param {number} flags
-     * @param {number} options
-     * @param {MUDInputEvent} cmdline
+     * @param {string[]} dirList A list of directories waiting to be created
+     * @param {number} flags Flags controlling the operation
+     * @param {number} options Options controlling output 
+     * @param {MUDInputEvent} cmdline The command line options sent by the user
      */
-    createDirectories(dirList, flags, options, cmdline) {
-        let dir = dirList.shift();
+    private async createDirectories(dirList, flags, options, cmdline) {
+        try {
+            let dir = dirList.shift();
 
-        efuns.mkdir(dir, flags, (success, error) => {
+            let result = await efuns.fs.createDirectoryAsync(dir, flags)
+                .catch(err => { throw err });
+
             if (options & MKDIR_VERBOSE)
                 writeLine('Mkdir: ' + (success ? `Created ${dir}` : `Failed: ${error.message}`));
-            if (dirList.length === 0) return cmdline.complete();
-            else this.createDirectories(dirList, flags, options, cmdline);
-        });
+            if (dirList.length === 0)
+                return cmdline.complete();
+            else
+                return await this.createDirectories(dirList, flags, options, cmdline);
+        }
+        catch (err) {
+            writeLine(`MkDir error: ${err.message}`);
+            return cmdline.complete;
+        }
     }
 
     help() {
-
+        return 'No help yet';
     }
 }
 

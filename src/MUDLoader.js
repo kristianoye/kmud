@@ -253,8 +253,7 @@ class MUDLoader {
 
                             if (module) {
                                 instanceData = ecc.newContext = Object.assign(
-                                    module.getNewContext(parts.type),
-                                    ecc.newContext);
+                                    module.getNewContext(parts.type));
 
                                 if (!constructorType)
                                     constructorType = module.getType(parts.type);

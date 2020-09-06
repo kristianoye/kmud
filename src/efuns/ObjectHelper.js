@@ -46,6 +46,19 @@ class ObjectHelper {
 
         return result;
     }
+
+    /**
+     * Load or reload an object.
+     * @param {string} expr The path expression to load
+     * @param {number} flags Additional flags to control the operation
+     */
+    static reloadObjectAsync(expr, flags = 0) {
+
+    }
 }
+
+Object.defineProperties(ObjectHelper, {
+    OB_RELOAD: { value: 1 }
+});
 
 module.exports = ObjectHelper;

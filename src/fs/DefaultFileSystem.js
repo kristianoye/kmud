@@ -139,7 +139,7 @@ class DefaultFileSystem extends FileSystem {
             let dir = path.join(this.root, path.sep, ...parts.slice(0, i + 1)),
                 stat = await this.statAsync(dir);
 
-            if (stat.exists && !stat.isDirectory())
+            if (stat.exists && !stat.isDirectory)
                 return false;
 
             if (i + 1 === max) {
@@ -153,7 +153,7 @@ class DefaultFileSystem extends FileSystem {
                 else
                     throw result;
             }
-            else if (stat.isDirectory())
+            else if (stat.isDirectory)
                 continue;
 
             else if (!ensure)

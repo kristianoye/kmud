@@ -11,9 +11,9 @@ class CDCommand extends Command {
     async cmd(args) {
         var player = thisPlayer,
             path = efuns.resolvePath(args[0] || '~', player.workingDirectory),
-            isDir = efuns.fs.isDirectoryAsync(path)
+            isDir = await efuns.fs.isDirectoryAsync(path)
 
-        if (efuns.isDirectorySync(path)) {
+        if (isDir === true) {
             player.workingDirectory = path;
             writeLine('Directory changed');
         }

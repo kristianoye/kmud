@@ -40,6 +40,11 @@ class FileSystemHelper {
         return await driver.fileManager.getFileACL(expr);
     }
 
+    /**
+     * Check to see if the file expression is a directory
+     * @param {string} expr The path to check
+     * @returns {Promise<boolean>} Returns promise to check directory status
+     */
     static async isDirectoryAsync(expr) {
         return await driver.fileManager.isDirectoryAsync(expr);
     }
