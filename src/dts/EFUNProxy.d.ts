@@ -39,10 +39,26 @@ declare namespace Helpers {
         createDirectoryAsync(expr: string, flags?: number): Promise<boolean>;
 
         /**
+         * Deletes a directory
+         * @param expr The path to delete
+         * @param flags Flags controlling the operation
+         */
+        deleteDirectoryAsync(expr: string, flags?: number): Promise<boolean>;
+
+        /**
          * Check to see if an expression is a directory
          * @param expr The path to check
          */
         isDirectoryAsync(expr: string): Promise<boolean>;
+
+        /**
+         * Writes JSON to a stream
+         * @param file The filename to write to
+         * @param content The content to write.
+         * @param flags Optional flags for the operation
+         * @param encoding The encoding to use when writing (defaults to utf8)
+         */
+        writeJsonAsync(file: string, content: any, flags?: number, encoding?: string): Promise<boolean>;
     }
 
     interface Inputs {

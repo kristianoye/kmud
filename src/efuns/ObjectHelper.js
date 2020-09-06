@@ -58,7 +58,7 @@ class ObjectHelper {
 }
 
 Object.defineProperties(ObjectHelper, {
-    OB_RELOAD: { value: 1 }
+    OB_RELOAD: { value: 1, writable: false }
 });
 
 module.exports = ObjectHelper;

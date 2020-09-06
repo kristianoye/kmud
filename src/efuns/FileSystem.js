@@ -10,6 +10,7 @@ const
     path = require('path');
 
 class FileSystemHelper {
+
     /**
      * Append content to a new or existing file.
      * @param {string} expr The filename expression
@@ -24,16 +25,8 @@ class FileSystemHelper {
         return await driver.fileManager.createDirectoryAsync(expr, flags);
     }
 
-    static createDirectorySync(expr, flags = 0) {
-        return driver.fileManager.createDirectorySync(expr, flags);
-    }
-
     static async deleteDirectoryAsync(expr, flags = 0) {
         return await driver.fileManager.deleteDirectory(expr, flags);
-    }
-
-    static deleteDirectorySync(expr, flags = 0) {
-        return driver.fileManager.deleteDirectorySync(expr, flags);
     }
 
     static async getFileACL(expr) {
@@ -57,13 +50,8 @@ class FileSystemHelper {
         return await driver.fileManager.readDirectoryAsync(expr, flags);
     }
 
-    static readDirectorySync(expr, flags = 0) {
-        return driver.fileManager.readDirectorySync(expr, flags);
-    }
-
     static relativePath(expr, cwd = false) {
         let tp = driver.efuns.thisPlayer();
-        let currentPath = cwd || !!tp && tp.applyGetWorkingDir();
 
         return path.posix.relative(expr, cwd);
     }

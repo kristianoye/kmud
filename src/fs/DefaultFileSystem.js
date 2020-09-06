@@ -167,49 +167,6 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
-     * Create a directory syncronously.
-     * @param {string} expr The directory expression to create.
-     * @param {number} flags Additional options for createDirectory.
-     * @returns {string} The full path to the newly created directory.
-     */
-    createDirectorySync(expr, flags) {
-        let fullPath = this.translatePath(expr);
-        let parts = path.relative(this.root, fullPath).split(path.sep),
-            ensure = (flags & MUDFS.MkdirFlags.EnsurePath) === MUDFS.MkdirFlags.EnsurePath;
-
-        for (let i = 0, max = parts.length; i < max; i++) {
-            let dir = path.join(this.root, path.sep, ...parts.slice(0, i)),
-                stat = this.statSync(dir);
-
-            if (stat && stat.exists) {
-                if (!ensure) return false;
-            }
-            else if (i + 1 === max) {
-                try {
-                    fs.mkdirSync(dir);
-                }
-                catch (err) {
-                    if (!/EEXIST/.test(err.message))
-                        throw err;
-                }
-                return true;
-            }
-            else if (!ensure)
-                return false;
-            else {
-                try {
-                    fs.mkdirSync(dir);
-                }
-                catch (err) {
-                    if (!/EEXIST/.test(err.message))
-                        throw err;
-                }
-            }
-        }
-        return true;
-    }
-
-    /**
      * Converts a pattern string into a Regex
      * @param {string} expr
      * @returns {RegExp} The pattern as a regex
@@ -268,22 +225,6 @@ class DefaultFileSystem extends FileSystem {
                 else resolve(true);
             });
         });
-    }
-
-    /**
-     * Removes a directory from the filesystem.
-     * @param {string} relativePath The path of the directory to remove.
-     * @param {number} flags TBD
-     */
-    deleteDirectorySync(relativePath, flags) {
-        let fullPath = this.translatePath(relativePath);
-        try {
-            fs.rmdirSync(fullPath, { recursive: flags & 1 > 0 });
-            return true;
-        }
-        catch (e) {
-        }
-        return false;
     }
 
     /**
@@ -834,10 +775,14 @@ class DefaultFileSystem extends FileSystem {
      */
     async writeFileAsync(expr, content, flag, encoding) {
         let fullPath = this.translatePath(expr);
+
         return new Promise(resolve => {
             fs.writeFile(fullPath, 
                 content,
-                { flag: flag || 'w', encoding: encoding || this.encoding || 'utf8' },
+                {
+                    flag: flag || 'w',
+                    encoding: encoding || this.encoding
+                },
                 err => {
                     if (err)
                         resolve(err);

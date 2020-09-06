@@ -69,7 +69,9 @@ class RmDir extends Command {
         for (let i = 0; i < dirList.length; i++) {
             if (!await efuns.fs.isDirectoryAsync(dirList[i]))
                 return `rmdir: '${dirList[i]}' is not a directory`;
+
             let success = - await efuns.fs.deleteDirectoryAsync(dirList[i], options);
+
             if (options & RMDIR_VERBOSE)
                 writeLine('Rmdir: ' + (success ? `Removed ${dir}` : `Failed: ${error.message}`));
         }

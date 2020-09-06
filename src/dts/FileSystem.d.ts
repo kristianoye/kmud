@@ -31,6 +31,15 @@ declare interface FileSystem {
 
     /** For physical drives, the root is the native location of the root */
     root?: string;
+
+    /**
+     * Writes JSON to a stream
+     * @param file The filename to write to
+     * @param content The content to write.
+     * @param flags Optional flags for the operation
+     * @param encoding The encoding to use when writing (defaults to utf8)
+     */
+    writeJsonAsync(file: string, content: any, flags: number, encoding: string): Promise<boolean>;
 }
 
 declare interface FileSystemRequest {
@@ -189,11 +198,18 @@ declare interface FileManager {
     cloneObjectAsync(expr: MUDObject | string, ...args: any[]): Promise<MUDObject>;
 
     /**
+     * Deletes a directory
+     * @param expr The path to delete
+     * @param flags Flags controlling the operation
+     */
+    deleteDirectoryAsync(expr: string, flags?: number): Promise<boolean>;
+
+    /**
      * Writes JSON to a stream
      * @param file The filename to write to
      * @param content The content to write.
      * @param flags Optional flags for the operation
      * @param encoding The encoding to use when writing (defaults to utf8)
      */
-    writeJsonAsync(file: string, content: any, flags: number, encoding: string): Promise<boolean>;
+    writeJsonAsync(file: string, content: any, flags?: number, encoding?: string): Promise<boolean>;
 }

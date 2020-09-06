@@ -615,11 +615,6 @@ class EFUNProxy {
             this.resolvePath(expr, this.directory), flags);
     }
 
-    readDirectorySync(expr, flags = 0) {
-        return driver.fileManager.readDirectorySync(
-            this.resolvePath(expr, this.directory), flags);
-    }
-
     /**
      * Converts a numeric storage size into a human-friendly form.
      * @param {number} n A number of bytes
@@ -900,16 +895,6 @@ class EFUNProxy {
             }
         }
         return true;
-    }
-
-    /**
-     * Create a directory in the MUD filesystem.
-     * @param {string} expr The file expression to turn into a directory.
-     * @param {MkDirOptions} opts Optional flags to pass to createDirectory.
-     * @returns {boolean} True if the directory was created (or already exists)
-     */
-    mkdir(expr, opts) {
-        return driver.fileManager.createDirectorySync(expr, opts || 0);
     }
 
     mudInfo() {
@@ -1523,38 +1508,7 @@ class EFUNProxy {
      * @returns {any} The results of the import.
      */
     require(moduleName) {
-        if (typeof moduleName === 'string') {
-            switch (moduleName) {
-                case 'lpc':
-                    return require('./LPCCompat');
-
-                case 'path':
-                    return path.posix;
-
-                case 'async':
-                case 'net':
-                    return require(moduleName);
-
-                default:
-                    let isInclude = moduleName.indexOf('/') === -1,
-                        filename = isInclude ?
-                            this.resolveInclude(moduleName) :
-                            this.resolvePath(moduleName, this.directoryName(this.filename)),
-                        module = driver.cache.get(filename);
-
-                    if (!module)
-                        module = driver.compiler.compileObject({
-                            file: filename,
-                            reload: false,
-                            relativePath: this.directory
-                        });
-                    if (!module)
-                        throw new Error(`Failed to load required module '${filename}'`);
-                    else if (module.isCompiling)
-                        throw new Error(`Circular dependency detected: ${module.filename} <-> ${this.fileName}`);
-                    return module.exports;
-            }
-        }
+        throw new Error('Method require is obsolete; Please use await requireAsync()');
     }
 
     /**
@@ -1578,8 +1532,8 @@ class EFUNProxy {
                 default:
                     let isInclude = moduleName.indexOf('/') === -1,
                         filename = isInclude ?
-                            this.resolveInclude(moduleName) :
-                            this.resolvePath(moduleName, this.directoryName(this.filename)),
+                            await this.resolveIncludeAsync(moduleName) :
+                            await this.resolvePath(moduleName, this.directoryName(this.filename)),
                         module = driver.cache.get(filename);
 
                     if (!module)
@@ -1606,14 +1560,17 @@ class EFUNProxy {
      * @param {string} file The include file to locate.
      * @returns {string|false} Returns the path name of the file or false if not found.
      */
-    resolveInclude(file, ignoreCache) {
+    async resolveIncludeAsync(file, ignoreCache) {
         let result = !ignoreCache && IncludeCache[file];
 
         if (!result) {
             for (let i = 0, max = driver.includePath.length; i < max; i++) {
                 try {
                     let p = driver.includePath[i],
-                        files = this.readDirectorySync(path.posix.join(p, file) + '.*', MUDFS.GetDirFlags.FullPath);
+                        files = await this.fs.readDirectoryAsync(
+                            path.posix.join(p, file) + '.*',
+                            MUDFS.GetDirFlags.FullPath);
+
                     if (files.length === 1) {
                         return IncludeCache[file] = files[0];
                     }

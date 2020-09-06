@@ -654,15 +654,6 @@ class FileSystem extends MUDEventEmitter {
     }
 
     /**
-     * Create a directory in the filesystem.
-     * @param {FileSystemRequest} req The directory expression to create.
-     * @param {MkDirOptions} opts Optional flags for createDirectory()
-     */
-    createDirectorySync(req, opts) {
-        throw new NotImplementedError('createDirectorySync');
-    }
-
-    /**
      * @returns {FileSystemStat} The final stat object.
      */
     createPermsResult(req, perms, parent) {
@@ -680,24 +671,6 @@ class FileSystem extends MUDEventEmitter {
      */
     async deleteDirectoryAsync(req, flags) {
         throw new NotImplementedError('deleteDirectoryAsync');
-    }
-
-    /**
-     * Removes a directory from the filesystem.
-     * @param {string} req The path of the directory to remove.
-     * @param {number} flags TBD
-     */
-    deleteDirectorySync(req, flags) {
-        throw new NotImplementedError('createDirectorySync');
-    }
-
-    /**
-     * Removes a directory from the filesystem.
-     * @param {string} req The path of the directory to remove.
-     * @param {number} flags TBD
-     */
-    deleteDirectorySync(req, flags) {
-        throw new NotImplementedError('deleteDirectorySync');
     }
 
     deleteFile(req, callback) {
@@ -845,28 +818,8 @@ class FileSystem extends MUDEventEmitter {
      * @param {FileSystemRequest} req The directory part of the request.
      * @param {function(string[], Error):void} callback Optional callback for async mode.
      */
-    readDirectory(req, callback) {
-        return typeof callback === 'function' ?
-            this.assertAsync() && this.readDirectoryAsync(req, callback) :
-            this.assertSync() && this.readDirectorySync(req);
-    }
-
-    /**
-     * Reads a directory listing from the disk.
-     * @param {FileSystemRequest} req The directory part of the request.
-     * @param {function(string[], Error):void} callback Optional callback for async mode.
-     */
     readDirectoryAsync(req, callback) {
         throw new NotImplementedError('readDirectoryAsync');
-    }
-
-    /**
-     * Reads a directory listing from the disk.
-     * @param {FileSystemRequest} req The directory part of the request.
-     * @param {function(string[], Error):void} callback Optional callback for async mode.
-     */
-    readDirectorySync(req) {
-        throw new NotImplementedError('readDirectorySync');
     }
 
     /**
@@ -1192,20 +1145,6 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
-     * Create a directory in the MUD filesystem.
-     * @param {string} expr The path to create.
-     * @param {number} options Optional flags to pass to the mkdir method.
-     * @returns {boolean} True on success.
-     */
-    createDirectorySync(expr, options) {
-        let req = this.createFileRequest('CreateDirectory', expr, false, options.flags);
-        if (!req.valid())
-            return req.deny();
-        else
-            return req.fileSystem.createDirectorySync(req.relativePath, req.flags);
-    }
-
-    /**
      * Create a filesystem object
      * @param {FileSystemStat} data The raw stat object from the filesystem
      * @param {Error} err Was there an error?
@@ -1367,20 +1306,6 @@ class FileManager extends MUDEventEmitter {
             return req.deny();
         else
             return req.fileSystem.deleteDirectoryAsync(req.relativePath, req.flags);
-    }
-
-    /**
-     * Remove a directory from the filesystem.
-     * @param {EFUNProxy} efuns The object requesting the deletion.
-     * @param {string} expr The directory to remove.
-     * @param {{ flags: number }} options Any additional options.
-     */
-    deleteDirectorySync(expr, options) {
-        let req = this.createFileRequest('DeleteDirectory', expr, false, options.flags);
-        if (!req.valid())
-            return req.deny();
-        else
-            return req.fileSystem.deleteDirectorySync(req.relativePath, req.flags);
     }
 
     /**
@@ -1736,7 +1661,13 @@ class FileManager extends MUDEventEmitter {
             return req.fileSystem.writeFileSync(req.relativePath, content, req.flags);
     }
 
-    async writeJsonAsync(expr, content) {
+    /**
+     * 
+     * @param {string} expr The location to write data to
+     * @param {string} content The block of JSON data to write
+     * @returns {Promise<boolean>} An indication of success or failure
+     */
+    async writeJsonAsync(expr, content, flags = 0) {
         let req = this.createFileRequest('WriteFile', expr, false, 0, null);
         if (!req.valid())
             return req.deny();
