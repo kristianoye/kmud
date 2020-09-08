@@ -29,6 +29,15 @@ class FileSystemHelper {
         return await driver.fileManager.deleteDirectory(expr, flags);
     }
 
+    /**
+     * Get a directory object
+     * @param {string} expr The directory expression to fetch
+     * @param {any} flags Flags to control the operation
+     */
+    static async getDirectoryAsync(expr, flags = 0) {
+        return await driver.fileManager.getDirectoryAsync(expr, flags);
+    }
+
     static async getFileACL(expr) {
         return await driver.fileManager.getFileACL(expr);
     }
@@ -42,12 +51,32 @@ class FileSystemHelper {
         return await driver.fileManager.isDirectoryAsync(expr);
     }
 
+    /**
+     * Read JSON from a stream
+     * @param {string} expr The location to read from
+     * @returns {Promise<object>} The resulting object
+     */
     static readJsonAsync(expr) {
         return driver.fileManager.readJsonAsync(expr);
     }
 
+    /**
+     * Read a directory
+     * @param {string} expr The path expression to read
+     * @param {number} flags Flags to control the operation
+     */
     static async readDirectoryAsync(expr, flags = 0) {
         return await driver.fileManager.readDirectoryAsync(expr, flags);
+    }
+
+    /**
+     * Read a file
+     * @param {string} expr Read the contents of a file
+     * @param {string} [encoding] The optional encoding to use
+     * @param {number} [flags] 
+     */
+    static async readFileAsync(expr, encoding = 'utf8', flags = 0) {
+        return await driver.fileManager.readFileAsync(expr);
     }
 
     static relativePath(expr, cwd = false) {
@@ -63,15 +92,6 @@ class FileSystemHelper {
      */
     static async statAsync(expr, flags = 0) {
         return await driver.fileManager.statAsync(expr, flags);
-    }
-
-    /**
-     * Stat a file syncronously
-     * @param {string} expr
-     * @param {number} flags
-     */
-    static statSync(expr, flags = 0) {
-        return driver.fileSystem.statSync(expr, flags);
     }
 
     /**

@@ -110,10 +110,16 @@ class DefaultFileSystem extends FileSystem {
         return req.fileName && req.fileName.match(/[\*\?]+/);
     }
 
+    /**
+     * Creates a directory
+     * @param {any} expr
+     * @param {any} flags
+     */
     async createDirectoryAsync(expr, flags) {
         let fullPath = this.translatePath(expr);
         let parts = path.relative(this.root, fullPath).split(path.sep),
             ensure = (flags & MUDFS.MkdirFlags.EnsurePath) === MUDFS.MkdirFlags.EnsurePath;
+
         let mkdir = async (dir) => {
             return new Promise((resolve) => {
                 try {
@@ -229,14 +235,11 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Get a directory object
-     * @param {any} relativePath
-     * @returns {DirectoryObject}
+     * @param {string} expr The directory expression to fetch
+     * @param {any} flags Flags to control the operation
      */
-    async getDirectory(relativePath) {
-        let stat = await this.statAsync(relativePath);
-        if (stat.isDirectory) {
+    async getDirectoryAsync(expr, flags = 0) {
 
-        }
     }
 
     async getFileACL(relativePath) {
@@ -285,7 +288,7 @@ class DefaultFileSystem extends FileSystem {
     /**
      * Check to see if the expression is a directory.
      * @param {string} relativePath The filesystem request.
-     * @returns {void} Nothing for async
+     * @returns {Promise<boolean|Error>} Returns true or false or an error
      */
     isDirectoryAsync(relativePath) {
         let fullPath = this.translatePath(relativePath);
@@ -293,32 +296,15 @@ class DefaultFileSystem extends FileSystem {
             try {
                 fs.stat(fullPath, (err, stat) => {
                     if (err)
-                        reject(err);
+                        resolve(err);
                     else
                         resolve(stat.isDirectory());
                 });
             }
             catch (err) {
-                resolve(false);
+                resolve(err);
             }
         });
-    }
-
-    /**
-     * Check to see if the expression is a directory.
-     * @param {string} relativePath The filesystem request.
-     * @returns {boolean} True or false depending on whether the expression is a directory.
-     */
-    isDirectorySync(relativePath) {
-        let absPath = this.translatePath(relativePath);
-
-        try {
-            let stat = fs.statSync(absPath);
-            return stat && stat.isDirectory();
-        }
-        catch (e) {
-        }
-        return false;
     }
 
     /**
@@ -402,25 +388,6 @@ class DefaultFileSystem extends FileSystem {
      * @param {Glob} [flags] Optional flags
      * @returns {Promise<Dirent[]>} The files in the directory
      */
-    readDirectory(relativePath, flags = 0) {
-        return new Promise((resolve, reject) => {
-            let isAbs = relativePath.startsWith(this.root),
-                fullPath = isAbs ? relativePath : this.translatePath(relativePath);
-
-            fs.readdir(fullPath, { encoding: this.encoding, withFileTypes: true }, (err, files) => {
-                try {
-                    if (err)
-                        reject(err);
-                    else
-                        resolve(files);
-                }
-                catch (ex) {
-                    reject(ex);
-                }
-            });
-        });
-    }
-
     readDirectoryAsync(relativePath, fileName, flags) {
         return new Promise(resolve => {
             try {
@@ -793,30 +760,16 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
-     * Write to a file
-     * @param {string} expr The virtual MUD path.
-     * @param {string|Buffer} content The content to write to file
-     * @param {string|number} [flags] A flag indicating mode, etc
-     * @param {string} [encoding] The optional encoding to use
-     * @returns {boolean} Returns true on success.
+     * 
+     * @param {string} expr The file to write to
+     * @param {object|string} content The content to write
+     * @param {string} [encoding] The file encoding to use
+     * @param {number} [indent] The amount to indent by (for pretty JSON)
      */
-    writeFileSync(expr, content, flags, encoding) {
-        let fullPath = this.translatePath(expr);
-        try {
-            fs.writeFileSync(fullPath, content, {
-                encoding: encoding || this.encoding || 'utf8',
-                flag: flags || 'w'
-            });
-            return true;
-        }
-        catch (err) {
-            /* eat the error */
-        }
-        return false;
-    }
-
-    async writeJsonAsync(expr, content, encoding = 'utf8') {
-        return await this.writeFileAsync(expr, JSON.stringify(content, null, 3), 'w', encoding);
+    async writeJsonAsync(expr, content, encoding = 'utf8', indent = 3) {
+        if (typeof content !== 'string')
+            content = JSON.stringify(content, undefined, indent || undefined);
+        return await this.writeFileAsync(expr, content, 'w', encoding);
     }
 }
 

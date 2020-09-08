@@ -9,17 +9,23 @@ const
 
 class UpdateCommand extends Command {
     async cmd(text, input) {
-        if (!input.args.length === 0) {
+        if (input.args.length === 0) {
             let env = unwrap(thisPlayer().environment);
             if (!env)
                 return error('You do not have an environment!');
-            input.args.shift(env.filename);
+            input.args.unshift(env.filename);
         }
-        for (let i = 0; i.input.args.length; i++) {
-            let fn = input.args[i],
-                path = efuns.resolvePath(fn, thisPlayer().workingDirectory),
-                result = efuns.objects.reloadObjectAsync(path)
-            writeLine(`Update ${path}: ${(result ? '[OK]' : '[Failure]')}`);
+        for (let i = 0; i < input.args.length; i++) {
+            try {
+                let fn = input.args[i],
+                    path = efuns.resolvePath(fn, thisPlayer().workingDirectory),
+                    result = await efuns.objects.reloadObjectAsync(path);
+
+                writeLine(`Update ${path}: ${(result ? '[OK]' : '[Failure]')}`);
+            }
+            catch (err) {
+                writeLine(`Update ${path}: Failure: ${err.message}`);
+            }
         }
         input.args.forEach(fn => {
             let path = efuns.resolvePath(fn, thisPlayer().workingDirectory);

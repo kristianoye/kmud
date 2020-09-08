@@ -543,10 +543,12 @@ MUDCompiler.configureForRuntime = function (driver) {
             break;
 
         default:
-            throw new Error(`Unrecognized virtual machine type: ${driver.config.driver.compiler.virtualMachine}`);
+            implementation = require(driver.config.driver.compiler.virtualMachine);
+            break;
     }
     VM = new implementation(driver.config.driver.compiler.virtualMachineOptions || {});
     implementation.configureForRuntime(driver);
+    if (driver) driver.vm = VM;
     return MUDCompiler;
 };
 

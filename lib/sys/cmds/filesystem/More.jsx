@@ -8,7 +8,7 @@ const
     Command = await requireAsync(Base.Command);
 
 class MoreCommand extends Command {
-    cmd(args, cmdline) {
+    async cmd(args, cmdline) {
         try {
             let fileName = args.trim();
             if (!fileName) 'Usage: more <filename>';
@@ -18,10 +18,10 @@ class MoreCommand extends Command {
             if (fileName === 'here')
                 fullpath = thisPlayer().environment.filename + '.js';
 
-            if (!efuns.isFile(fullpath))
+            if (!await efuns.fs.isFileAsync(fullpath))
                 return fullpath + ' is not a file.';
 
-            let content = efuns.readFileSync(fullpath);
+            let content = await efuns.fs.readFileAsync(fullpath);
             efuns.text.more(content);
             return true;
         }

@@ -106,13 +106,15 @@ class ExecutionContext extends MUDEventEmitter {
      * @param {string} fileName The file this 
      */
     assertAccess(thisObject, access, method, fileName) {
-        if (!this.thisObject) // static method?
+        let to = this.thisObject;
+
+        if (!to) // static method?
             throw new Error(`Cannot access ${access} method '${method}'`);
 
-        if (this.thisObject === thisObject)
+        if (to === thisObject)
             return true;
 
-        if (this.thisObject === driver || this.thisObject === driver.masterObject)
+        if (to === driver || this.thisObject === driver.masterObject)
             return true;
 
         if (access === "private")
@@ -132,10 +134,9 @@ class ExecutionContext extends MUDEventEmitter {
                     throw new Error(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
             }
             else if (access === "protected") {
-                if (thisObject instanceof MUDObject &&
-                    this.thisObject instanceof MUDObject) {
+                if (thisObject instanceof MUDObject && to instanceof MUDObject) {
                     let thisType = thisObject.constructor;
-                    if (this.thisObject instanceof thisType === false)
+                    if (to instanceof thisType === false)
                         throw new Error(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
                 }
             }
@@ -411,9 +412,13 @@ class ExecutionContext extends MUDEventEmitter {
     get thisObject() {
         for (let i = 0, m = this.stack.length; i < m; i++) {
             let ob = this.stack[i].object;
-            if (ob instanceof MUDObject) return ob;
+            if (ob instanceof MUDObject)
+                return ob;
+
             // NEVER expose the driver directly to the game, use master instead
-            if (ob === driver) return driver.masterObject;
+            if (ob === driver)
+                // The only exception is when loading the masterObject itself
+                return driver.masterObject || driver; 
         }
         return false;
     }

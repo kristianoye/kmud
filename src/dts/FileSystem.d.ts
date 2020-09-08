@@ -42,6 +42,29 @@ declare interface FileSystem {
     writeJsonAsync(file: string, content: any, flags: number, encoding: string): Promise<boolean>;
 }
 
+declare interface FileSystemOptions {
+    /** The maximum number of allows async operations per request */
+    asyncReaderLimit: number;
+
+    /** The MUD directory this filesystem is mounted to */
+    mountPoint: string;
+
+    /** The default encoding type for the filesystem */
+    encoding: string;
+
+    /** Flags indicating what operations the filesystem supports  */
+    flags?: number;
+
+    /** The physical root of this filesystem (valid only block devices) */
+    root: string;
+
+    /** The type of underlying filesystem (e.g. disk, database, block, etc) */
+    type: string;
+
+    /** The unique ID assigned to this filesystem */
+    systemId: string;
+}
+
 declare interface FileSystemRequest {
     /** Additional flags passed during the request */
     flags: number;
@@ -189,27 +212,5 @@ declare enum StatFlags {
     Content = 1 << 9 | 1 << 10
 }
 
-declare interface FileManager {
-    /**
-     * Create a copy of an object
-     * @param expr The name of the object or an instance to clone
-     * @param args Arguments to supply to the constructor and creation process
-     */
-    cloneObjectAsync(expr: MUDObject | string, ...args: any[]): Promise<MUDObject>;
-
-    /**
-     * Deletes a directory
-     * @param expr The path to delete
-     * @param flags Flags controlling the operation
-     */
-    deleteDirectoryAsync(expr: string, flags?: number): Promise<boolean>;
-
-    /**
-     * Writes JSON to a stream
-     * @param file The filename to write to
-     * @param content The content to write.
-     * @param flags Optional flags for the operation
-     * @param encoding The encoding to use when writing (defaults to utf8)
-     */
-    writeJsonAsync(file: string, content: any, flags?: number, encoding?: string): Promise<boolean>;
+declare interface FileManager extends Helpers.FileSystem {
 }

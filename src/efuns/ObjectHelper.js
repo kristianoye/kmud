@@ -52,8 +52,8 @@ class ObjectHelper {
      * @param {string} expr The path expression to load
      * @param {number} flags Additional flags to control the operation
      */
-    static reloadObjectAsync(expr, flags = 0) {
-
+    static async reloadObjectAsync(expr, flags = 0) {
+        return await driver.efuns.fs.loadObjectAsync(expr, flags);
     }
 }
 

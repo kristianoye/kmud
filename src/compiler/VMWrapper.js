@@ -142,6 +142,31 @@ class VMWrapper extends VMAbstraction {
         }
         return undefined;
     }
+
+    /**
+     * Eval support
+     * @param {string} content The code to execute
+     * @param {MUDLoader} context The context in which to run the code
+     * @param {any} optionsIn
+     */
+    async runCodeAsync(content, context, optionsIn) {
+        try {
+            let options = Object.assign({
+                filename: context.resolvedName.toLowerCase(),
+                lineOffset: 0,
+                produceCachedData: false,
+                displayErrors: true
+            }, optionsIn);
+            let result = this.makeQuerablePromise(vm.runInContext(content, context, options));
+            if (result.isPending())
+                return await result;
+            return result;
+        }
+        catch (e) {
+            console.log(`Error in runCodeAsync(): ${e.message}`);
+        }
+        return undefined;
+    }
 }
 
 VMWrapper.configureForRuntime = function (driver) {

@@ -8,18 +8,18 @@ const
     Command = await requireAsync(Base.Command);
 
 class EditFileCommand extends Command {
-    cmd(args, evt) {
+    async cmd(args, evt) {
         var fullPath = efuns.resolvePath(args[0], thisPlayer().workingDirectory),
             fileName = fullPath.slice(fullPath.lastIndexOf('/') + 1),
             options = {},
-            newFile = !efuns.isFile(fullPath);
+            newFile = await !efuns.fs.isFileAsync(fullPath);
 
         if (args[0] === '-web') {
             args.shift();
             return this.webcmd(args, evt);
         }
 
-        if (efuns.isDirectorySync(fullPath))
+        if (await efuns.fs.isDirectoryAsync(fullPath) === true)
             return 'You cannot edit a directory!';
 
         if (!efuns.driverFeature('editor')) {
@@ -28,19 +28,19 @@ class EditFileCommand extends Command {
         else if (efuns.queryEditorMode() !== -1) {
             return 'You are already in edit mode!';
         }
-        options.mode = efuns.isFile(fullPath) ? /* command mode */ 2 : /* insert mode */ 1;
+        options.mode = await efuns.fs.isFileAsync(fullPath) ? /* command mode */ 2 : /* insert mode */ 1;
         writeLine('Starting editor.');
         efuns.editorStart(fullPath, !efuns.wizardp(thisPlayer), options);
         evt.prompt.text = efuns.thisPlayer().getEditorPrompt();
         return true;
     }
 
-    webcmd(args, data) {
-        var fullPath = efuns.resolvePath(args[0], thisPlayer().workingDirectory),
+    async webcmd(args, data) {
+        let fullPath = efuns.resolvePath(args[0], thisPlayer().workingDirectory),
             fileName = fullPath.slice(fullPath.lastIndexOf('/') + 1),
-            newFile = !efuns.isFile(fullPath);
+            newFile = await !efuns.fs.isFileAsync(fullPath);
 
-        if (efuns.isDirectorySync(fullPath))
+        if (await efuns.fs.isDirectoryAsync(fullPath) === true)
             return 'You cannot edit a directory!';
 
         eventSend({
@@ -49,7 +49,7 @@ class EditFileCommand extends Command {
                 fullPath,
                 fileName,
                 newFile,
-                source: !newFile ? efuns.readFileSync(fullPath) : ''
+                source: !newFile ? await efuns.readFileAsync(fullPath) : ''
             }
         });
         return true;

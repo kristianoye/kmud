@@ -231,14 +231,14 @@ class Login extends MUDObject {
         });
     }
 
-    private enterRealName(playerData) {
-        prompt('text', 'Enter real name (optional): ', name => {
-            this.createNewCharacter(Object.assign(playerData, { realName: name }));
+    private async enterRealName(playerData) {
+        await prompt('text', 'Enter real name (optional): ', async name => {
+            await this.createNewCharacterAsync(Object.assign(playerData, { realName: name }));
         });
     }
 
     private async createNewCharacter(playerData) {
-        let player = PlayerDaemon().createNewCharacter(Object.assign({}, {
+        let player = await PlayerDaemon().createNewCharacter(Object.assign({}, {
             name: playerData.keyId,
         }, playerData));
 

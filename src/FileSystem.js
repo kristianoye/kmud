@@ -517,6 +517,10 @@ class DirectoryObject extends FileSystemStat {
     constructor(stat, mountPoint, err = undefined) {
         super(stat, mountPoint, err);
     }
+
+    read() {
+
+    }
 }
 
 /**
@@ -547,16 +551,6 @@ class ObjectDataFile extends FileSystemStat {
 // #endregion
 
 /**
- * @typedef {Object} FileSystemOptions
- * @property {number} asyncReaderLimit The maximum number of allowed async operations per request (defaults to 10)
- * @property {string} mountPoint The directory the filesystem is mounted to
- * @property {string} encoding The encoding used by the filesystem (defaults to utf8)
- * @property {string} root The root of the filesystem (if a block device)
- * @property {string} type The type of filesystem (block, database, etc)
- * @property {string} systemId The identifier assigned by the file manager */
-
-/**
- * @class
  * Provides a filesystem abstraction to allow implementation of
  * multiple filesystem types (disk-based, SQL-based, ... whatever).
  */
@@ -582,7 +576,7 @@ class FileSystem extends MUDEventEmitter {
         this.manager = fileManager;
 
         /** @type {string} */
-        this.mp = this.mountPoint = opts.mountPoint || '';
+        this.mp = this.mountPoint = opts.mountPoint;
 
         /** @type {FileSecurity} */
         this.securityManager = null;
@@ -632,18 +626,6 @@ class FileSystem extends MUDEventEmitter {
     }
 
     /**
-     * Clone an object
-     * @param {FileSystemRequest} req The clone request
-     * @param {any} args Constructor args
-     * @param {function(MUDObject,Error):void} callback Callback for async cloneObject() request
-     */
-    cloneObject(req, args, callback) {
-        return typeof callback !== 'undefined' ?
-            this.cloneObjectAsync(req, args, callback) :
-            this.cloneObjectSync(req, args);
-    }
-
-    /**
      * Create a directory in the filesystem.
      * @param {FileSystemRequest} req The directory expression to create.
      * @param {MkDirOptions} opts Optional flags for createDirectory()
@@ -673,22 +655,17 @@ class FileSystem extends MUDEventEmitter {
         throw new NotImplementedError('deleteDirectoryAsync');
     }
 
-    deleteFile(req, callback) {
-        return typeof callback === 'function' ?
-            this.assertAsync() && this.deleteFileAsync(req, callback) :
-            this.assertSync() && this.deleteFileSync(req);
-    }
-
-    deleteFileAsync(req, callback) {
+    async deleteFileAsync(req, callback) {
         throw new NotImplementedError('deleteFileAsync');
     }
 
-    deleteFileSync(req) {
-        throw new NotImplementedError('deleteFileSync');
-    }
-
-    async getDirectory(relativePath) {
-        throw new NotImplementedError('deleteFileSync');
+    /**
+     * Get a directory object
+     * @param {string} expr The directory expression to fetch
+     * @param {any} flags Flags to control the operation
+     */
+    getDirectoryAsync(expr, flags = 0) {
+        throw new NotImplementedError('getDirectoryAsync');
     }
 
     /**
@@ -705,7 +682,9 @@ class FileSystem extends MUDEventEmitter {
      * @param {FileSystemRequest} req The absolute path to translate.
      * @returns {string|false} The virtual path if the expression exists in this filesystem or false if not.
      */
-    getVirtualPath(req) { return false; }
+    getVirtualPath(req) {
+        return false;
+    }
 
     /**
      * Glob a directory
@@ -727,18 +706,8 @@ class FileSystem extends MUDEventEmitter {
     /**
      * @returns {boolean} Returns true if the filesystem supports asyncronous I/O
      */
-    get isAsync() { return (this.flags & FS_ASYNC) > 0; }
-
-    /**
-     * Checks to see if the expression is a directory.
-     * @param {FileSystemRequest} req
-     * @param {function(boolean, Error):void} callback
-     */
-    isDirectory(req, callback) {
-        this.assertDirectories();
-        return typeof callback === 'function' ?
-            this.assertAsync() && this.isDirectoryAsync(req, callback) :
-            this.assertSync() && this.isDirectorySync(req);
+    get isAsync() {
+        return (this.flags & FS_ASYNC) > 0;
     }
 
     /**
@@ -751,24 +720,6 @@ class FileSystem extends MUDEventEmitter {
 
     /**
      * @param {FileSystemRequest} req
-     */
-    isDirectorySync(req) {
-        throw new NotImplementedError('isDirectorySync');
-    }
-
-    /**
-     * Checks to see if the expression is a directory.
-     * @param {FileSystemRequest} req
-     * @param {function(boolean, Error):void} callback
-     */
-    isFile(req, callback) {
-        return typeof callback === 'function' ?
-            this.assertAsync() && this.isFileAsync(req, callback) :
-            this.assertSync() && this.isFileSync(req);
-    }
-
-    /**
-     * @param {FileSystemRequest} req
      * @param {function(boolean,Error):void} callback
      */
     isFileAsync(req, callback) {
@@ -776,21 +727,18 @@ class FileSystem extends MUDEventEmitter {
     }
 
     /**
-     * @param {FileSystemRequest} req
-     */
-    isFileSync(req) {
-        throw new NotImplementedError('isFileSync');
-    }
-
-    /**
      * @returns {boolean} Returns true if the filesystem is read-only.
      */
-    get isReadOnly() { return (this.flags & FS_READONLY) > 0; }
+    get isReadOnly() {
+        return (this.flags & FS_READONLY) > 0;
+    }
 
     /**
      * @returns {boolean} Returns true if the filesystem supports syncronous I/O
      */
-    get isSync() { return (this.flags & FS_SYNC) > 0; }
+    get isSync() {
+        return (this.flags & FS_SYNC) > 0;
+    }
 
     /**
      * Loads an object from storage.
@@ -800,17 +748,6 @@ class FileSystem extends MUDEventEmitter {
      */
     loadObjectAsync(req, args, callback) {
         throw new NotImplementedError('loadObjectAsync');
-    }
-
-    /**
-     * Loads an object from storage.
-     * @param {FileSystemRequest} req The path to load the object from.
-     * @param {PathExpr} expr The path split into parts.
-     * @param {any} args Optional constructor args.
-     * @param {function(MUDObject):any} callback An optional callback
-     */
-    loadObjectSync(req, expr, args, callback) {
-        throw new NotImplementedError('loadObjectSync');
     }
 
     /**
@@ -827,27 +764,8 @@ class FileSystem extends MUDEventEmitter {
      * @param {FileSystemRequest} req The file path expression to read from.
      * @param {function(string,Error):void} callback The callback that fires when the read is complete.
      */
-    readFile(req, callback) {
-        return typeof callback === 'function' ?
-            this.assertAsync() && this.readFileAsync(req, callback) :
-            this.assertSync() && this.readFileSync(req);
-    }
-
-    /**
-     * Read a file from the filesystem.
-     * @param {FileSystemRequest} req The file path expression to read from.
-     * @param {function(string,Error):void} callback The callback that fires when the read is complete.
-     */
     readFileAsync(req, callback) {
         throw new NotImplementedError('readFileAsync');
-    }
-
-    /**
-     * Read a file from the filesystem.
-     * @param {FileSystemRequest} req The file path expression to read from.
-     */
-    readFileSync(req) {
-        throw new NotImplementedError('readFileSync');
     }
 
     /**
@@ -860,50 +778,12 @@ class FileSystem extends MUDEventEmitter {
     }
 
     /**
-     * Read a file from the filesystem.
-     * @param {FileSystemRequest} req The file path expression to read from.
-     * @param {function(string,Error):void} callback The callback that fires when the read is complete.
-     */
-    readJsonFileSync(expr) {
-        throw new NotImplementedError('readJsonFileSync');
-    }
-
-    /**
-     * Stat a file within the filesystem.
-     * @param {FileSystemRequest} req The file expression to evaluate.s
-     * @returns {FileSystemStat} The filesystem stat info.
-     */
-    async stat(req) {
-        throw new NotImplementedError('stat');
-    }
-
-    /**
      * Stat a file asyncronously.
      * @param {string} relativePath The file expression to stat.
      * @returns {Promise<FileSystemStat>} Returns a stat object.
      */
     async statAsync(relativePath) {
         throw new NotImplementedError('statAsync');
-    }
-
-    /**
-     * Stat a file syncronously.
-     * @param {FileSystemRequest} req The file expression to stat.
-     */
-    statSync(req) {
-        throw new NotImplementedError('statSync');
-    }
-
-    /**
-     * Write content to a file.
-     * @param {FileSystemRequest} req
-     * @param {string|Buffer} content
-     * @param {function(boolean, Error):void} callback
-     */
-    writeFile(req, content, callback) {
-        return typeof callback === 'function' ?
-            this.assertAsync() && this.writeFileAsync(req, content, callback) :
-            this.assertSync() && this.writeFileSync(req, content);
     }
 
     /**
@@ -915,15 +795,6 @@ class FileSystem extends MUDEventEmitter {
      */
     writeFileAsync(req, content, flags, encoding) {
         throw new NotImplementedError('writeFileAsync');
-    }
-
-    /**
-     * Write content to a file.
-     * @param {FileSystemRequest} req
-     * @param {string|Buffer} content
-     */
-    writeFileSync(req, content) {
-        throw new NotImplementedError('writeFileSync');
     }
 }
 
@@ -1066,15 +937,18 @@ class FileSystemRequest {
     }
 
     toString() {
-        return `${this.op}:${this.fullPath}`;
+        return `FileSystemRequest[${this.op}:${this.fullPath}]`;
     }
 
     async valid(method) {
         if (method && !method.startsWith('valid'))
             method = 'valid' + method;
+
         let checkMethod = method || `valid${this.op}`;
+
         if (typeof this.securityManager[checkMethod] !== 'function')
             throw new Error(`Security method ${checkMethod} not found!`);
+
         let result = await this.securityManager[checkMethod](this.fullPath);
         return result;
     }
@@ -1124,7 +998,7 @@ class FileManager extends MUDEventEmitter {
      * @returns {MUDWrapper} The wrapped instance.
      */
     async cloneObjectAsync(expr, args) {
-        let req = this.createFileRequest('cloneObject', expr, false);
+        let req = this.createFileRequest('cloneObject', expr);
         if (!req.valid('LoadObject'))
             return req.deny();
         else
@@ -1137,7 +1011,7 @@ class FileManager extends MUDEventEmitter {
      * @param {number} flags Additional flags to control the operation
      */
     async createDirectoryAsync(expr, flags = 0) {
-        let req = this.createFileRequest('CreateDirectory', expr, false, flags);
+        let req = this.createFileRequest('CreateDirectory', expr, flags);
         if (!req.valid())
             return req.deny();
         else
@@ -1219,22 +1093,18 @@ class FileManager extends MUDEventEmitter {
      * 
      * @param {string} op The name of the file operation
      * @param {string} expr THe filename expression being operated on
-     * @param {boolean} isAsync A flag indicating whether this is an async operation
      * @param {string|number} flags Any numeric flags associated with the operation
-     * @param {function(): any} callback A defunct callback
      * @returns {FileSystemRequest} The request to be fulfilled.
      */
-    createFileRequest(op, expr, isAsync = false, flags = 0, callback = false) {
-        if (callback)
-            throw new Error('createFileRequest with callback is no longer supported');
+    createFileRequest(op, expr, flags = 0) {
         let { FileSystem, Path } = this.getFilesystem(expr);
+
         let result = new FileSystemRequest({
             fs: FileSystem,
             flags: flags,
             op: op || '',
             expr,
-            relPath: Path,
-            isAsync: isAsync === true
+            relPath: Path
         });
         return result;
     }
@@ -1300,25 +1170,18 @@ class FileManager extends MUDEventEmitter {
      * @param {string} expr The directory to remove.
      * @param {{ flags: number }} options Any additional options.
      */
-    deleteDirectoryAsync(expr, options) {
-        let req = this.createFileRequest('DeleteDirectory', expr, false, options.flags);
-        if (!req.valid())
-            return req.deny();
-        else
-            return req.fileSystem.deleteDirectoryAsync(req.relativePath, req.flags);
+    async deleteDirectoryAsync(expr, options) {
+        let req = this.createFileRequest('deleteDirectoryAsync', expr, options.flags);
+        return req.valid('deleteDirectory') && await req.fileSystem.deleteDirectoryAsync(req.relativePath, req.flags);
     }
 
     /**
      * Delete/unlink a file from the filesystem.
-     * @param {EFUNProxy} efuns The object requesting the deletion.
      * @param {string} expr The path expression to remove.
      */
-    deleteFile(efuns, expr) {
-        return this.createFileRequest('deleteFile', expr, typeof callback === 'function', 0, req => {
-            return req.securityManager.validDeleteFile(efuns, req) ?
-                req.fileSystem.deleteFile(req, callback) :
-                req.securityManager.denied('delete', req.fullPath);
-        });
+    async deleteFileAsync(expr, options = 0) {
+        let req = this.createFileRequest('deleteFileAsync', expr, options.flags);
+        return req.valid('validDeleteFile') && await req.fileSystem.deleteFileAsync(req);
     }
 
     /**
@@ -1332,6 +1195,16 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
+     * Get a directory object
+     * @param {string} expr The directory expression to fetch
+     * @param {number} flags Flags to control the operation
+     */
+    async getDirectoryAsync(expr, flags = 0) {
+        let req = this.createFileRequest('getDirectoryAsync', expr, options.flags);
+        return req.valid('validGetDirectory') && await req.fileSystem.getDirectoryAsync(req);
+    }
+
+    /**
      * Locate the filesystem for the specified absolute path
      * @param {string} expr The directory expression
      * @returns {{FileSystem:FileSystem, Path:string}} Returns a filesystem or a filesystem and relative path if withRelativePath is true
@@ -1340,12 +1213,12 @@ class FileManager extends MUDEventEmitter {
         let parts = expr.split('/'),
             fileSystem = this.fileSystems['/'] || false;
         let /** @type {string[]} */ relParts = [],
-            relPath = '/';
+            relativePath = '/';
 
         while (parts.length) {
             let dir = parts.length === 1 && !parts[0] ? '/' : parts.join('/');
             if (dir in this.fileSystems) {
-                relPath = relParts.join('/');
+                relativePath = relParts.join('/');
                 fileSystem = this.fileSystems[dir];
                 break;
             }
@@ -1354,7 +1227,7 @@ class FileManager extends MUDEventEmitter {
 
         if (!fileSystem)
             throw new Error('Fatal: Could not locate filesystem');
-        return { FileSystem: fileSystem, Path: relPath };
+        return { FileSystem: fileSystem, Path: relativePath };
     }
 
     /**
@@ -1438,27 +1311,7 @@ class FileManager extends MUDEventEmitter {
 
     async isDirectoryAsync(expr) {
         let req = this.createFileRequest('isDirectory', expr, true, 0);
-
-        if (!req.valid('validReadDirectory'))
-            reject(req.deny());
-        else {
-            let result = await req.fileSystem.isDirectoryAsync(req.relativePath);
-            return result;
-        }
-    }
-
-    /**!
-     * Check to see if the given expression is a directory,
-     * @param {string} expr The path expression to evaluate.
-     * @param {function(boolean,Error):void} callback Callback receives a boolean value indicating True if the expression is a directory.
-     * @returns {boolean} True if the expression is a directory.
-     */
-    isDirectorySync(expr) {
-        let req = this.createFileRequest('isDirectory', expr, false, 0);
-        if (!req.valid('validReadDirectory'))
-            return req.deny();
-        else
-            return req.fileSystem.isDirectorySync(req.relativePath);
+        return req.valid('validReadDirectory') && await req.fileSystem.isDirectoryAsync(req.relativePath);
     }
 
     /**
@@ -1483,7 +1336,7 @@ class FileManager extends MUDEventEmitter {
      * @returns {MUDObject} The loaded object... hopefully
      */
     async loadObjectAsync(expr, args, flags = 0) {
-        let req = this.createFileRequest('LoadObject', expr, false, flags);
+        let req = this.createFileRequest('LoadObject', expr, flags);
         if (!req.valid())
             return req.deny();
         else
@@ -1498,7 +1351,7 @@ class FileManager extends MUDEventEmitter {
      * @returns {MUDObject} The loaded object... hopefully
      */
     loadObjectSync(expr, args, flags = 0) {
-        let req = this.createFileRequest('LoadObject', expr, false, flags);
+        let req = this.createFileRequest('LoadObject', expr, flags);
         if (!req.valid())
             return req.deny();
         else
@@ -1506,19 +1359,8 @@ class FileManager extends MUDEventEmitter {
     }
 
     async readDirectoryAsync(expr, flags = 0) {
-        let req = this.createFileRequest('ReadDirectory', expr, false, flags);
-        if (!req.valid())
-            return req.deny();
-        else
-            return await req.fileSystem.readDirectoryAsync(req.pathRel, req.fileName, req.flags);
-    }
-
-    readDirectorySync(expr, flags = 0) {
-        let req = this.createFileRequest('ReadDirectory', expr, false, flags);
-        if (!req.valid())
-            return req.deny();
-        else
-            return req.fileSystem.readDirectorySync(req.pathRel, req.fileName, req.flags);
+        let req = this.createFileRequest('ReadDirectory', expr, flags);
+        return req.valid('validReadDirectory') && await req.fileSystem.readDirectoryAsync(req.pathRel, req.fileName, req.flags);
     }
 
     /**
@@ -1526,12 +1368,9 @@ class FileManager extends MUDEventEmitter {
      * @param {string} expr The file to try and read.
      * @returns {string} The content from the file.
      */
-    readFileSync(expr) {
-        let req = this.createFileRequest('ReadFile', expr);
-        if (!req.valid())
-            return req.deny();
-        else
-            return req.fileSystem.readFileSync(req.relativePath);
+    async readFileAsync(expr) {
+        let req = this.createFileRequest('readFileAsync', expr);
+        return req.valid('validReadFile') && await req.fileSystem.readFileSync(req.relativePath);
     }
 
     /**
@@ -1541,10 +1380,7 @@ class FileManager extends MUDEventEmitter {
      */
     async readJsonAsync(expr) {
         let req = this.createFileRequest('readJsonFile', expr);
-        if (!req.valid('validReadFile'))
-            return req.deny();
-        else
-            return await req.fileSystem.readJsonAsync(req.relativePath);
+        return req.valid('validReadFile') && await req.fileSystem.readJsonAsync(req.relativePath);
     }
 
     /**
@@ -1561,9 +1397,14 @@ class FileManager extends MUDEventEmitter {
             return req.fileSystem.readJsonFileSync(req.relativePath);
     }
 
+    /**
+     * Stat a file
+     * @param {any} expr
+     * @param {any} flags
+     */
     async statAsync(expr, flags) {
-        let req = this.createFileRequest('stat', expr, false, flags);
-        if (!await req.valid('validReadFile'))
+        let req = this.createFileRequest('stat', expr, flags);
+        if (!req.valid('validStatFile'))
             return req.deny();
         else {
             let result = this.directoryCache[req.fullPath];
@@ -1586,7 +1427,7 @@ class FileManager extends MUDEventEmitter {
      * @param {number} flags Flags to control the behavior
      */
     statSync(expr, flags) {
-        let req = this.createFileRequest('stat', expr, false, flags);
+        let req = this.createFileRequest('stat', expr, flags);
         if (!req.valid('validReadFile'))
             return req.deny();
         else {
@@ -1639,7 +1480,7 @@ class FileManager extends MUDEventEmitter {
      * @returns {Promise<boolean>} The promise for the operation.
      */
     async writeFileAsync(expr, content, flags, encoding) {
-        let req = this.createFileRequest('WriteFile', expr, true, flags || 'w');
+        let req = this.createFileRequest('WriteFile', expr, flags || 'w');
         return new Promise((resolve, reject) => {
             try {
                 if (!req.valid())
@@ -1651,14 +1492,6 @@ class FileManager extends MUDEventEmitter {
                 reject(err);
             }
         });
-    }
-
-    writeFileSync(expr, content, flags) {
-        let req = this.createFileRequest('WriteFile', expr, false, flags);
-        if (!req.valid())
-            return req.deny();
-        else
-            return req.fileSystem.writeFileSync(req.relativePath, content, req.flags);
     }
 
     /**

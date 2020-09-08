@@ -283,14 +283,27 @@ class MUDLoader {
                 }
             },
             eval: {
-                value: (code) => {
+                value: (code) => { throw new Error('eval() is obsolete; Use evalAsync() instead'); },
+                writable: false
+            },
+            evalAsync: {
+                value: async (code) => {
                     let source = compiler.preprocess(code),
-                        maxEvalTime = driver.config.driver.maxEvalTime || 10000;
-                    return vm.runInContext(source, this, {
-                        filename: 'eval',
-                        displayErrors: true,
-                        timeout: maxEvalTime
-                    });
+                        maxEvalTime = driver.config.driver.maxEvalTime || 10000,
+                        result = undefined;
+
+                    try {
+                        result = await driver.vm.runCodeAsync(source, this, {
+                            filename: 'evalAsync',
+                            displayErrors: true,
+                            timeout: maxEvalTime
+                        });
+                    }
+                    catch (err) {
+                        throw err;
+                    }
+
+                    return result;
                 },
                 writable: false
             },

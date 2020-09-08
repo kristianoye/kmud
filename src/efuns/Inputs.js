@@ -17,7 +17,7 @@ const
     OP_INPUT = '<';
 
 const
-    T_BG = 'BG',
+    T_BACKGROUND = 'BG',
     T_IO = 'IO',
     T_INPUT = 'INPUT',
     T_OPERATOR = 'OP',
@@ -183,7 +183,7 @@ class InputHelper {
                             }
                             else if (source.charAt(i + 1) !== '>') {
                                 if (settings.allowAsyncCommands)
-                                    return sendToken({ type: T_BG, value: 'true', pos: i });
+                                    return sendToken({ type: T_BACKGROUND, value: 'true', pos: i });
                                 result.value += c;
                                 break;
                             }
@@ -207,7 +207,7 @@ class InputHelper {
 
                                 if (mode === '&') {
                                     if (settings.allowAsyncCommands)
-                                        return sendToken({ type: T_BG, value: 'true', pos: i });
+                                        return sendToken({ type: T_BACKGROUND, value: 'true', pos: i });
                                     else {
                                         result.value += c;
                                         break;
@@ -471,7 +471,7 @@ class InputHelper {
                 let result = false, token;
                 while (token = nextToken()) {
                     switch (token.type) {
-                        case T_BG:
+                        case T_BACKGROUND:
                             if (!result)
                                 throw new Error(`-kmsh: Unexpected token (&) at position ${token.pos}; Expected command.`);
                             result.background = true;

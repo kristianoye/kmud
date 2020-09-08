@@ -60,6 +60,14 @@ class DefaultFileSecurity extends FileSecurity {
     }
 
     /**
+     * Determine if the user has access to the specified directory.
+     * @param {any} expr
+     */
+    validGetDirectory(expr) {
+        return true;
+    }
+
+    /**
      * Default security system does not support granting permissions.
      */
     validGrant(expr) {

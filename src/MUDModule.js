@@ -263,14 +263,7 @@ class MUDModule extends MUDEventEmitter {
             let instance = create ? create(type, ...args) : new type(...args);
             this.finalizeInstance(instance, !instance.filename && instanceData);
             if (typeof instance.create === 'function') {
-                driver.driverCall('create', () => {
-                    instance.create();
-                }, instance.filename, true);
-            }
-            if (typeof instance.createAsync === 'function') {
-                await driver.driverCallAsync('createAsync', async () => {
-                    return await instance.createAsync();
-                }, instance.filename, true);
+                await driver.driverCallAsync('create', async () => await instance.create());
             }
             store.owner = instance;
             return instance;

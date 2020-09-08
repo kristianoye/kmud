@@ -32,6 +32,13 @@ declare namespace Helpers {
 
     interface FileSystem {
         /**
+         * Create a copy of an object
+         * @param expr The name of the object or an instance to clone
+         * @param args Arguments to supply to the constructor and creation process
+         */
+        cloneObjectAsync(expr: MUDObject | string, ...args: any[]): Promise<MUDObject>;
+
+        /**
          * Create a directory
          * @param expr The path to create
          * @param flags Flags controlling the operation
@@ -46,10 +53,58 @@ declare namespace Helpers {
         deleteDirectoryAsync(expr: string, flags?: number): Promise<boolean>;
 
         /**
+         * Deletes a single file from the filesystem
+         * @param expr The path to delete
+         * @param flags The optional flags controlling the operation
+         */
+        deleteFileAsync(expr: string, flags?: number): Promise<boolean>;
+
+        /**
+         * Get a directory object
+         * @param {string} expr The directory expression to fetch
+         * @param {number} flags Flags to control the operation
+         */
+        getDirectoryAsync(expr: string, flags?: number): Promise<stromg[]>;
+
+        /**
          * Check to see if an expression is a directory
          * @param expr The path to check
          */
         isDirectoryAsync(expr: string): Promise<boolean>;
+
+        /**
+         * Check to see if the path expression is a regular file
+         * @param expr The path to check
+         */
+        isFileAsync(expr: string): Promise<boolean>;
+
+        /**
+         * Attempt to load an object
+         * @param expr The path expression to load from
+         * @param flags Optional flags to control the operation
+         */
+        loadObjectAsync(expr: string, flags?: number): Promise<MUDObject>;
+
+        /**
+         * Read the contents of a directory
+         * @param expr The path to read from
+         * @param flags Flags to control the operation
+         */
+        readDirectoryAsync(expr: string, flags?: number): Promise<string[]>;
+
+        /**
+         * Read the contents of a file
+         * @param expr The path expression to read from
+         * @param encoding The optional encoding to use when reading
+         */
+        readFileAsync(expr: string, encoding?: string): Promise<string> | Promise<Buffer>;
+
+        /**
+        * Read JSON from a stream
+        * @param {string} expr The location to read from
+        * @returns {Promise<object>} The resulting object
+        */
+        readJsonAsync(expr: string): Promise<object>;
 
         /**
          * Writes JSON to a stream
@@ -147,6 +202,14 @@ declare interface EFUNProxy {
      * @param arg
      */
     parsePath(arg: string): { file: string, type?: string, instance?: number };
+
+    /**
+     * Attempt to convert a partial MUD path into a fully-qualified MUD path.
+     * @param expr The expression to resolve.
+     * @param relativeToPath The relative directory to resolve from.
+     * @returns The resolved directory
+     */
+    resolvePath(expr: string, relativeToPath?: string): string;
 
     /**
      * Restore a MUD object

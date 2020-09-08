@@ -8,18 +8,18 @@ const
     Command = await requireAsync(Base.Command);
 
 class CallCommand extends Command {
-    cmd(args, cmdline) {
+    async cmd(args, cmdline) {
         try {
-            var input = cmdline.input,
+            let input = cmdline.input,
                 endOfTarget = input.indexOf('.'),
                 target = endOfTarget > 0 ? input.slice(0, endOfTarget) : false,
                 call = endOfTarget > 0 ? input.slice(endOfTarget + 1) : false,
                 resolved = this.resolveTarget(target),
-                source = `(function() { var o = efuns.loadObjectSync("${resolved}"); return unwrap(o, ob => ob.${call}  ); })()`;
+                source = `await (async () { let o = await efuns.loadObjectAsync("${resolved}"); return unwrap(o, ob => ob.${call}); })()`;
             writeLine(source);
 
-            var
-                result = eval(source);
+            let
+                result = await evalAsync(source);
 
             writeLine("result = " + efuns.identify(result));
             return true;
@@ -36,6 +36,7 @@ class CallCommand extends Command {
             return thisPlayer().environment.filename;
         else if (spec === 'me' || spec === 'self')
             return thisPlayer().filename;
+
         let player = efuns.living.findPlayer(spec);
         if (player) return unwrap(player).filename;
         let fn = efuns.resolvePath(spec, thisPlayer().workingDirectory);

@@ -681,15 +681,6 @@ class EFUNProxy {
     }
 
     /**
-     * Determines whether the specified path expression is a directory.
-     * @param {string} expr The path expression to check.
-     * @returns {boolean} True if the path resolves to a directory.
-     */
-    isDirectorySync(expr) {
-        return driver.fileManager.isDirectorySync(this.resolvePath(expr, this.directory));
-    }
-
-    /**
      * Checks to see if the value is a class.
      * @param {any} o The value to check.
      * @returns {boolean} True if the value is a class reference.
@@ -735,11 +726,6 @@ class EFUNProxy {
     async isFileAsync(expr, flags) {
         let stat = await driver.fileManager.statAsync(expr, flags || 0);
         return stat.isFile;
-    }
-
-    isFileSync(expr, flags) {
-        let stat = driver.fileManager.statSync(expr, flags || 0);
-        return stat && stat.isFile;
     }
 
     isFunction(expr) {
@@ -1589,13 +1575,13 @@ class EFUNProxy {
      * Attempt to convert a partial MUD path into a fully-qualified MUD path.
      * TODO: Rewrite this ugly method to be more like path.resolve()
      * @param {string} expr The expression to resolve.
-     * @param {string} expr2 The relative directory to resolve from.
+     * @param {string} relativeToPath The relative directory to resolve from.
      * @returns {string} The resolved directory
      */
-    resolvePath(expr, expr2) {
-        expr2 = typeof expr2 === 'string' && expr2 || this.directory;
+    resolvePath(expr, relativeToPath) {
+        relativeToPath = typeof relativeToPath === 'string' && relativeToPath || this.directory;
         if (typeof expr !== 'string')
-            throw new Error('Bad argument 1 to resolvePath');
+            throw new Error(`Bad argument 1 to resolvePath; Expected string got ${(typeof expr)}`);
         if (expr[0] === '/')
             return expr;
         if (expr[0] === '~') {
@@ -1612,7 +1598,7 @@ class EFUNProxy {
                 expr = '/realms/' + expr.slice(1);
             }
         }
-        return path.posix.join(expr2, expr);
+        return path.posix.join(relativeToPath, expr);
     }
 
     restoreObject(data) {
@@ -1662,33 +1648,6 @@ class EFUNProxy {
             logger.log('restoreObject', err);
         }
         return false;
-    }
-
-    /**
-     * Removes a file from the filesystem.
-     * @param {string} expr The file to unlink from the filesystem.
-     * @param {function(boolean,Error):void} callback Optional callback for async mode.
-     * @returns {boolean|void}
-     */
-    rm(expr, callback) {
-        return driver.fileManager.deleteFile(expr, callback);
-    }
-
-    /**
-     * Delete a directory from the filesystem.
-     * @param {string} expr
-     * @param {any} opts Future use options
-     * @param {function(boolean, Error):void} callback Callback for async deletion.
-     */
-    rmdir(expr, opts, callback) {
-        if (typeof opts === 'function') {
-            callback = opts;
-            opts = { flags: 0 };
-        }
-        else if (typeof opts === 'number') {
-            opts = { flags: opts };
-        }
-        return driver.fileManager.deleteDirectory(this, expr, opts || {}, callback);
     }
 
     get saveExtension() {
@@ -1847,16 +1806,6 @@ class EFUNProxy {
             }
             driver.registerResetTime(ob, efuns.ticks + interval);
         });
-    }
-
-    /**
-     * Determines whether the path expression represents a normal file.
-     * @param {string} filepath The file expression to check.
-     * @param {number} flags Optional flags to request additional details.
-     * @returns {FileSystemStat} Information about the file.
-     */
-    stat(filepath, flags = 0) {
-        return driver.fileManager.statSync(this.join(this.directory, filepath), flags);
     }
 
     get err() {
