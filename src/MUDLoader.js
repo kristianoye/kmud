@@ -33,8 +33,8 @@ if (typeof Promise.prototype.always !== 'function') {
     };
 }
 
-if (typeof Array.prototype.forEachAsync !== 'function') {
-    Array.prototype.forEachAsync = async (callback) => {
+if (typeof global.Array.prototype.forEachAsync !== 'function') {
+    global.Array.prototype.forEachAsync = async (callback) => {
         if (!driver.efuns.isAsync(callback))
             throw new Error('Bad argument 1 to forEachAsync(): Callback must be async');
         let promises = [];
@@ -52,6 +52,8 @@ class MUDLoader {
     constructor(compiler) {
         let _loopCounter = loopsPerAssert;
         this.console = console;
+
+        console.log('MUDLoad.constructor');
 
         Object.defineProperties(this, {
             __cat: {
@@ -81,41 +83,42 @@ class MUDLoader {
             __bfc: {
                 //  Begin Function Call
                 value: function (ob, access, method, fileName, isAsync, lineNumber, type) {
-                    let mec = driver.getExecution(), newContext = false;
+                    let ecc = driver.getExecution(),
+                        newContext = false;
 
                     if (method.length === 0) {
                         method = '(MAIN)';
                     }
 
-                    if (!mec) {
-                        if (!ob)
+                    if (!ecc) {
+                        if (!ob) // Crasher?
                             throw new Error('What, no execution context?!');
-                        mec = driver.getExecution(ob, method, fileName, isAsync, lineNumber);
+                        ecc = driver.getExecution(ob, method, fileName, isAsync, lineNumber);
                         newContext = true;
                     }
                     else if (!access) {
                         //  This is (or should be) an arrow function so the stack needs
                         //  to be incremented prior to checking method access
-                        mec
+                        ecc
                             .alarm()
                             .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync);
                     }
-                    access && access !== "public" && mec.assertAccess(ob, access, method, fileName);
+                    access && access !== "public" && ecc.assertAccess(ob, access, method, fileName);
                     if (false) {
                         //  Optional security check to prevent non-driver calls to driver applies
                         if (method && DriverApplies.indexOf(method) > -1) {
-                            if (!mec.isValidApplyCall(method, ob))
+                            if (!ecc.isValidApplyCall(method, ob))
                                 throw new Error(`Illegal call to driver apply '${method}'`);
                         }
                     }
                     //  Check access prior to pushing the new frame to the stack
                     if (access && !newContext)
-                        return mec
+                        return ecc
                             .alarm()
                             //  Previously only allowed objects inheriting from MUDObject to be allowed on stack
                             .push(/* ob instanceof MUDObject && */ ob, method || '(undefined)', fileName, isAsync);
 
-                    return mec;
+                    return ecc;
                 },
                 enumerable: false,
                 writable: false
@@ -283,7 +286,9 @@ class MUDLoader {
                 }
             },
             eval: {
-                value: (code) => { throw new Error('eval() is obsolete; Use evalAsync() instead'); },
+                value: (code) => {
+                    throw new Error('eval() is obsolete; Use evalAsync() instead');
+                },
                 writable: false
             },
             evalAsync: {
@@ -384,7 +389,8 @@ class MUDLoader {
     }
 
     createEfuns() {
-        let ctx = driver.getExecution(), fn = ctx.currentFileName;
+        let ctx = driver.getExecution(),
+            fn = ctx.currentFileName;
         return driver.createEfunInstance(fn);
     }
 

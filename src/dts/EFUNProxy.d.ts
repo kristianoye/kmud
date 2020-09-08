@@ -64,7 +64,13 @@ declare namespace Helpers {
          * @param {string} expr The directory expression to fetch
          * @param {number} flags Flags to control the operation
          */
-        getDirectoryAsync(expr: string, flags?: number): Promise<stromg[]>;
+        getDirectoryAsync(expr: string, flags?: number): Promise<string[]>;
+
+        /**
+         * Get a filesystem based on its systemId
+         * @param id The systemId to retrieve
+         */
+        getFileSystemById(id: string): FileSystem;
 
         /**
          * Check to see if an expression is a directory
@@ -105,6 +111,12 @@ declare namespace Helpers {
         * @returns {Promise<object>} The resulting object
         */
         readJsonAsync(expr: string): Promise<object>;
+
+        /**
+         * Stat the filesystem
+         * @param expr The path expression to read.
+         */
+        statAsync(expr: string): Promise<FileSystemStat>;
 
         /**
          * Writes JSON to a stream
@@ -171,6 +183,7 @@ declare interface EFUNProxy {
      */
     archp(target: object): boolean;
 
+    /** Array methods */
     arrays: Helpers.Arrays;
 
     /**

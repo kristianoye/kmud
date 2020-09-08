@@ -173,7 +173,7 @@ class PipelineContext {
                     this.directory = this.filename.slice(0, n);
                     this.resolvedName = this.realName.endsWith(ext) ? this.realName : this.realName + ext;
                     this.isEval = false;
-                    this.content = stat.content;
+                    this.content = await stat.readAsync(undefined, true);
 
                     return true;
                 }

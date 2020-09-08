@@ -121,7 +121,8 @@ class VMWrapper extends VMAbstraction {
             ' })()'].join('');
 
         if (!module.context.initialized) {
-            let content = module.context.constructor.getInitialization && module.context.constructor.getInitialization();
+            let content = module.context.constructor.getInitialization &&
+                module.context.constructor.getInitialization();
             content && vm.runInContext(content, module.context);
             module.context.initialized = true;
 

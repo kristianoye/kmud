@@ -80,6 +80,12 @@ declare interface FileSystemRequest {
 
     /** The path relative to the root of the filesystem */
     readonly relativePath: string;
+
+    /**
+     * Determine if the specified bitflag is active
+     * @param flag The flag to test for
+     */
+    hasFlag(flag: number): boolean;
 }
 
 /** Base file system object */
@@ -168,11 +174,20 @@ declare interface FileSystemStat {
     /** The full MUD file path to this item */
     path: string;
 
+    /** Path relative to the root of the filesystem */
+    relativePath: string;
+
     /** The size of the file object in bytes (-1 = does not exist, -2 = directory) */
     size: number;
 
     /** The user Id who owns the file */
     uid: number;
+
+    deleteAsync(flags: number): Promise<boolean>;
+
+    getParent(): Promise<FileSystemStat>;
+
+    readAsync(): string | string[] | FileSystemStat[];
 }
 
 declare interface DirectoryObject extends FileSystemStat {
@@ -181,7 +196,7 @@ declare interface DirectoryObject extends FileSystemStat {
      * @param pattern An optional file pattern to match (defaults to all)
      * @param options Additional operations to control operation
      */
-    read(pattern: string, options): FileSystemStat[];
+    readAsync(pattern?: string, options?: number): FileSystemStat[];
 }
 
 declare enum Glob {

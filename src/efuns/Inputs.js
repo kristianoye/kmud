@@ -63,7 +63,7 @@ class InputHelper {
      * @param {SplitCommandOptions} [options] Options when parsing
      * @returns {MUDInputEvent[]} One or more command statements prepared for execution
      */
-    static splitCommand(source, options = {}) {
+    static async splitCommand(source, options = {}) {
         let settings = Object.assign(
             {
                 allowAsyncCommands: false,
@@ -467,7 +467,7 @@ class InputHelper {
                     return sendToken();
                 throw new Error(`Unexpected end of input at position ${i} / ${m}`);
             },
-            nextCommandOrOperator = () => {
+            nextCommandOrOperator = async () => {
                 let result = false, token;
                 while (token = nextToken()) {
                     switch (token.type) {
@@ -523,7 +523,7 @@ class InputHelper {
 
                             if (token.hasWildcards && settings.allowFileExpressions) {
                                 let pathExpression = efuns.resolvePath(token.value.trim(), settings.cwd),
-                                    files = efuns.readDirectorySync(pathExpression);
+                                    files = await efuns.fs.readDirectoryAsync(pathExpression);
 
                                 if (files.length > 0) {
                                     let ep = token.value.lastIndexOf('/');
@@ -577,14 +577,14 @@ class InputHelper {
                 return result;
             };
 
-        while (cmd = nextCommandOrOperator()) {
+        while (cmd = await nextCommandOrOperator()) {
             if (cmd.verb) {
                 cmds.push(prev = cmd);
             }
             else if (cmd.type == T_OPERATOR) {
                 let op = cmd;
 
-                cmd = nextCommandOrOperator();
+                cmd = await nextCommandOrOperator();
 
                 switch (op.value) {
                     case OP_AND:

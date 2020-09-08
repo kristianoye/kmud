@@ -4,13 +4,137 @@
  * Date: October 1, 2017
  */
 const
-    { FileACL, FileManager, FileSystem, FileSystemStat, StatFlags } = require('../FileSystem'),
+    { FileACL, FileManager, FileSystem, FileSystemStat, StatFlags, DirectoryObject, FileObject } = require('../FileSystem'),
     async = require('async'),
     path = require('path'),
     fs = require('fs'),
     Dirent = fs.Dirent;
 
-class DefaultFileSystem extends FileSystem {
+class DiskDirectoryObject extends DirectoryObject {
+    constructor(stat, request) {
+        super(stat, request);
+    }
+
+    /**
+     * Read from the directory
+     * @param {string} [pattern] Optional file pattern to match on
+     * @returns {FileSystemStat[]>} Returns contents of the directory
+     */
+    async readAsync(pattern = undefined, flags = 0) {
+        return new Promise(async (resolve, reject) => {
+            let fileSystem = driver.fileManager.getFileSystemById(this.fileSystemId),
+                fullPath = fileSystem.getRealPath(this.relativePath);
+
+            fs.readdir(fullPath, async (err, files) => {
+                let regex = pattern && DiskFileSystem.createPattern(pattern);
+                if (err)
+                    reject(err);
+                let results = files.filter(f => !regex || regex.test(f));
+
+                for (let i = 0; i < results.length; i++) {
+                    let expr = path.posix.join(this.path, results[i]);
+                    results[i] = await driver.fileManager.statAsync(expr);
+                }
+                if (driver.efuns.checkFlags(flags, MUDFS.GetDirFlags.FullPath))
+                    return resolve(results = results.map(f => f.path));
+                else if (driver.efuns.checkFlags(flags, MUDFS.GetDirFlags.Details)) 
+                    return resolve(results);
+                else
+                    results = results.map(f => f.name);
+                resolve(results);
+            });
+        });
+    }
+}
+
+class DiskFileObject extends FileObject {
+    constructor(stat, request) {
+        super(stat, request);
+    }
+
+    /**
+     * Copy the object to another location
+     * @param {string} target The location to copy to
+     * @param {number} [flags] Flags to control the copy
+     */
+    async copyAsync(target, flags = 0) {
+        return new Promise(async (resolve, reject) => {
+            let fileManager = driver.fileManager.getFileSystemById(this.fileSystemId),
+                fullPath = fileManager.getRealPath(this.relativePath),
+                destination = await driver.fileManager.statAsync(target);
+
+            fs.copyFile(fullPath, destination.path, err => err ? reject(err) : resolve(true));
+        });
+    }
+
+    /**
+     * Delete the file
+     */
+    async deleteAsync() {
+        if (this.exists) {
+            return new Promise((resolve, reject) => {
+                //  TODO: Security checks
+                let fileSystem = driver.fileManager.getFileSystemById(this.fileSystemId),
+                    fullPath = fileSystem.getRealPath(this.relativePath);;
+
+                fs.unlink(fullPath, err => err ? reject(err) : resolve(true));
+            });
+        }
+        return false;
+    }
+
+    async moveAsync(target, flags = 0) {
+
+    }
+
+    /**
+     * Read the file
+     * @param {string} [encoding] The specific encoding to use
+     * @param {boolean} [stripBOM] Strip byte order mark?
+     */
+    async readAsync(encoding, stripBOM = false) {
+        if (this.exists) {
+            return new Promise((resolve, reject) => {
+                //  TODO: Security checks
+                let fileManager = driver.fileManager.getFileSystemById(this.fileSystemId),
+                    fullPath = fileManager.getRealPath(this.relativePath);
+
+                encoding = encoding === 'buffer' ? undefined : encoding || fileManager.encoding;
+
+                fs.readFile(fullPath, encoding, (err, content) => {
+                    if (err)
+                        reject(err);
+
+                    if (fileManager.autoStripBOM || stripBOM === true) {
+                        if (typeof content=== 'string') {
+                            if (content.charCodeAt(0) === 0xFEFF) 
+                                content = content.slice(1);
+                        }
+                        else if (content.buffer[0] === 0xFEFF)
+                            content = content.slice(1);
+                    }
+                    resolve(content);
+                });
+            });
+        }
+        return undefined;
+    }
+
+    /**
+     * Read the object as JSON data
+     * @param {string} encoding The specific encoding to use
+     * @param {boolean} stripBOM Strip byte order mark?
+     */
+    async readJsonAsync(encoding, stripBOM = false) {
+        if (this.exists) {
+            let result = await this.readAsync(encoding, stripBOM);
+            return JSON.parse(result);
+        }
+        return undefined;
+    }
+}
+
+class DiskFileSystem extends FileSystem {
     /**
      * 
      * @param {FileManager} fm The filemanager instance
@@ -112,13 +236,13 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Creates a directory
-     * @param {any} expr
+     * @param {FileSystemRequest} request
      * @param {any} flags
      */
-    async createDirectoryAsync(expr, flags) {
-        let fullPath = this.translatePath(expr);
+    async createDirectoryAsync(request, flags) {
+        let fullPath = this.translatePath(request.relativePath);
         let parts = path.relative(this.root, fullPath).split(path.sep),
-            ensure = (flags & MUDFS.MkdirFlags.EnsurePath) === MUDFS.MkdirFlags.EnsurePath;
+            ensure = request.hasFlag(MUDFS.MkdirFlags.EnsurePath);
 
         let mkdir = async (dir) => {
             return new Promise((resolve) => {
@@ -143,7 +267,7 @@ class DefaultFileSystem extends FileSystem {
 
         for (let i = 0, max = parts.length; i < max; i++) {
             let dir = path.join(this.root, path.sep, ...parts.slice(0, i + 1)),
-                stat = await this.statAsync(dir);
+                stat = await driver.fileManager.statAsync(dir);
 
             if (stat.exists && !stat.isDirectory)
                 return false;
@@ -177,44 +301,49 @@ class DefaultFileSystem extends FileSystem {
      * @param {string} expr
      * @returns {RegExp} The pattern as a regex
      */
-    createPattern(expr) {
+    static createPattern(expr) {
         expr = expr.replace(/\./g, '\\.');
         expr = expr.replace(/\*/g, '.+');
         expr = expr.replace(/\?/g, '.');
-        return new RegExp(expr);
+        return new RegExp('^' + expr + '$');
     }
 
     /**
      * Create a strongly-typed filesystem stat object.
-     * @param {function(): FileSystemStat|object} statFunc
-     * @returns {FileSystemStat}
+     * @param {FileSystemStat} data The base stat object returned by Node
+     * @param {FileSystemRequest} request The request that resulted in the stat
+     * @returns {DiskDirectoryObject|DiskFileObject} Only files and directories are supported at the moment
      */
-    createStat(statFunc) {
+    createStatObject(data, request) {
         try {
-            if (typeof statFunc === 'function') {
-                let stat = statFunc();
+            data = Object.assign(data, {
+                exists: true,
+                name: data.name || request.fileName,
+                path: path.posix.join(this.mountPoint, request.relativePath)
+            });
 
-                if (!stat.exists && (stat.atime > 0 || stat.isDirectory || stat.isFile))
-                    stat.exists = true;
-                return Object.freeze(new FileSystemStat(stat, this.mountPoint));
-            }
-            else if (typeof statFunc === 'object') {
-                if (!stat.exists && (stat.atime > 0 || stat.isDirectory || stat.isFile))
-                    stat.exists = true;
-                return Object.freeze(new FileSystemStat(stat, this.mountPoint));
-            }
-            else
-                throw new Error(`Bad argument 1 to createStat; Expected function or object, got ${typeof statFunc}`);
+            data.isDirectory = data.isDirectory();
+            data.isFile = data.isFile();
+            data.isBlockDevice = data.isBlockDevice();
+            data.isCharacterDevice = data.isCharacterDevice();
+            data.isFIFO = data.isFIFO();
+            data.isSocket = data.isSocket();
+            data.isSymbolicLink = data.isSymbolicLink();
+
+            if (data.isDirectory)
+                return new DiskDirectoryObject(data, request);
+            else if (data.isFile)
+                return new DiskFileObject(data, request);
         }
         catch (err) {
-            Object.freeze(FileSystemStat.create({
+            Object.freeze(this.createStatObject({
                 error: err,
                 exists: false,
                 isDirectory: false,
                 isFile: false,
                 parent: null,
                 size: -3
-            }));
+            }, request));
         }
     }
 
@@ -235,11 +364,25 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Get a directory object
-     * @param {string} expr The directory expression to fetch
+     * @param {FileSystemRequest} request The directory expression to fetch
      * @param {any} flags Flags to control the operation
+     * @returns {Promise<DiskDirectoryObject>} A directory object
      */
-    async getDirectoryAsync(expr, flags = 0) {
-
+    async getDirectoryAsync(request, flags = 0) {
+        return new Promise(resolve => {
+            let fullPath = this.translatePath(request.relativePath);
+            try {
+                fs.stat(fullPath, (err, stats) => {
+                    if (err)
+                        resolve(FileSystemStat.createDummyStats(request, err));
+                    else if (stats.isDirectory())
+                        resolve(this.createStatObject(stats, request));
+                });
+            }
+            catch (err) {
+                resolve(FileSystemStat.createDummyStats(request, err));
+            }
+        });
     }
 
     async getFileACL(relativePath) {
@@ -276,7 +419,7 @@ class DefaultFileSystem extends FileSystem {
      */
     async glob(relativePath, expr, options = 0) {
         let fullPath = this.translatePath(relativePath);
-        let regex = this.createPattern(expr);
+        let regex = DiskFileSystem.createPattern(expr);
 
         /** @type {fs.Dirent[]} */
         let files = await this.readDirectory(fullPath);
@@ -287,63 +430,33 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Check to see if the expression is a directory.
-     * @param {string} relativePath The filesystem request.
+     * @param {FileSystemRequest} request The filesystem request.
      * @returns {Promise<boolean|Error>} Returns true or false or an error
      */
-    isDirectoryAsync(relativePath) {
-        let fullPath = this.translatePath(relativePath);
-        return new Promise((resolve, reject) => {
-            try {
-                fs.stat(fullPath, (err, stat) => {
-                    if (err)
-                        resolve(err);
-                    else
-                        resolve(stat.isDirectory());
-                });
-            }
-            catch (err) {
-                resolve(err);
-            }
-        });
+    async isDirectoryAsync(request) {
+        let stat = await this.statAsync(request);
+        return stat.isDirectory;
     }
 
     /**
-     * @param {FileSystemRequest} req The filesystem request.
-     * @param {function(boolean,Error):void} callback
-     * @returns {void} Nothing for async.
+     * Check to see if the expression is a regular file
+     * @param {FileSystemRequest} request The filesystem request.
+     * @returns {Promise<boolean|Error}
      */
-    async isFileAsync(relativePath) {
-        let absPath = this.translatePath(relativePath);
-        return new Promise(resolve => {
-            try {
-                fs.stat(absPath, (err, stats) => {
-                    if (err) resolve(false);
-                    else if (!stats) resolve(false);
-                    else resolve(stats.isFile());
-                });
-            }
-            catch (err) {
-                resolve(false);
-            }
-        });
+    async isFileAsync(request) {
+        let stat = await this.statAsync(request);
+        return stat.isFile;
     }
 
     /**
-     * @param {FileSystemRequest} req The filesystem request.
-     * @returns {boolean} True or false depending on if expression is a file.
+     * Load an object
+     * @param {FileSystemRequest} request
+     * @param {any} args
      */
-    isFileSync(req) {
-        return this.translatePath(req.relativePath, fullPath => {
-            let stat = this.statSync(fullPath);
-            return stat.isFile;
-        })
-    }
-
-    async loadObjectAsync(req, args, flags) {
-        let fullPath = path.posix.join(this.mountPoint, '/', req),
-            parts = driver.efuns.parsePath(fullPath),
+    async loadObjectAsync(request, args) {
+        let parts = driver.efuns.parsePath(request.fullPath),
             module = driver.cache.get(parts.file),
-            forceReload = !module || (flags & 1 === 1);
+            forceReload = !module || request.hasFlag(1);
 
         if (forceReload) {
             module = await driver.compiler.compileObjectAsync({
@@ -358,49 +471,34 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
-     * Loads an object instance from storage.
-     * @param {string} expr The path split into parts.
-     * @param {any} args Optional constructor args.
-     * @param {number} flags Optional flags to change the behavior of the method.
-     * @returns {MUDWrapper} Returns the MUD object wrapper if successful.
-     */
-    loadObjectSync(expr, args, flags) {
-        let fullPath = path.posix.join(this.mountPoint, '/', expr),
-            parts = driver.efuns.parsePath(fullPath),
-            module = driver.cache.get(parts.file),
-            forceReload = !module || flags & 1 === 1;
-
-        if (forceReload) {
-            module = driver.compiler.compileObject({
-                args,
-                file: parts.file,
-                reload: !!module
-            });
-            if (!module)
-                throw new Error(`Failed to load module ${fullPath}`);
-        }
-        return module.getInstanceWrapper(parts);
-    }
-
-    /**
      * Read the contents of a directory
-     * @param {string} relativePath The relative or absolute path to read
+     * @param {FileSystemRequest} request The relative or absolute path to read
      * @param {Glob} [flags] Optional flags
      * @returns {Promise<Dirent[]>} The files in the directory
      */
-    readDirectoryAsync(relativePath, fileName, flags) {
+    async readDirectoryAsync(request, fileName, flags) {
+        let stat = await this.getDirectoryAsync(request);
+
+        if (!stat.isDirectory) {
+            let parent = await stat.getParent();
+            return await parent.readAsync(stat.name || request.fileName, request.flags);
+        }
+        else
+            return await stat.readAsync(undefined, request.flags);
+
         return new Promise(resolve => {
             try {
-                let fullPath = this.translatePath(relativePath), isAbs = relativePath.startsWith(this.root);
-                let showFullPath = (flags & MUDFS.GetDirFlags.FullPath) === MUDFS.GetDirFlags.FullPath,
-                    details = (flags & MUDFS.GetDirFlags.Details) === MUDFS.GetDirFlags.Details,
-                    pattern = fileName &&
-                        new RegExp('^' + fileName
+                let fullPath = this.translatePath(request.relativePath),
+                    isAbs = request.relativePath.startsWith(this.root);
+
+                let showFullPath = request.hasFlag(MUDFS.GetDirFlags.FullPath),
+                    details = request.hasFlag(MUDFS.GetDirFlags.Details),
+                    pattern = request.name && new RegExp('^' + request.name
                             .replace(/\./g, '\\.')
                             .replace(/\?/g, '.')
                             .replace(/\*/g, '.+') + '$');
 
-                if (flags & MUDFS.GetDirFlags.ImplicitDirs && !fullPath.endsWith(path.sep))
+                if (request.hasFlag(MUDFS.GetDirFlags.ImplicitDirs) && !fullPath.endsWith(path.sep))
                     fullPath += path.sep;
 
                 fs.readdir(fullPath, { encoding: this.encoding, withFileTypes: true }, (err, filesIn) => {
@@ -418,19 +516,19 @@ class DefaultFileSystem extends FileSystem {
                         };
 
                         if (!details)
-                            return resolve(showFullPath ? filesIn.map(fn => this.mountPoint + relativePath + fn) : filesIn);
+                            return resolve(showFullPath ? filesIn.map(fn => this.mountPoint + request.relativePath + fn) : filesIn);
 
                         async.eachLimit(filesIn, 10, (fn, cb) => {
                             return new Promise((res, rej) => {
                                 try {
-                                    fs.stat(path.join(this.root, relativePath, fn), (err, stat) => {
+                                    fs.stat(path.join(this.root, request.relativePath, fn), (err, stat) => {
                                         try {
                                             if (err) {
                                                 rej(err);
                                                 pushResult(err.message || err);
                                             }
 
-                                            stat.name = showFullPath ? (isAbs ? '' : this.mountPoint) + relativePath + fn : fn;
+                                            stat.name = showFullPath ? (isAbs ? '' : this.mountPoint) + request.relativePath + fn : fn;
                                             res(stat);
                                             pushResult(stat);
                                         }
@@ -452,7 +550,7 @@ class DefaultFileSystem extends FileSystem {
 
                         let files = filesIn
                             .filter(st => !pattern || pattern.test(st.name))
-                            .map(fn => showFullPath ? (isAbs ? '' : this.mountPoint) + relativePath + fn.name : fn.name),
+                            .map(fn => showFullPath ? (isAbs ? '' : this.mountPoint) + request.relativePath + fn.name : fn.name),
                             result = [];
 
                         if (!details) {
@@ -463,20 +561,20 @@ class DefaultFileSystem extends FileSystem {
                             let fn = fd.name;
 
                             if (!fn) {
-                                console.log(`WARNING: readDirectoryAsync(${relativePath}): File entry has no name`);
+                                console.log(`WARNING: readDirectoryAsync(${request.relativePath}): File entry has no name`);
                                 return false;
                             }
 
                             //  Is the file hidden?
-                            if ((flags & MUDFS.GetDirFlags.Hidden) === 0 && fn.startsWith('.'))
+                            if (request.hasFlag(MUDFS.GetDirFlags.Hidden) && fn.startsWith('.'))
                                 return false;
 
                             // Do we need to stat?
-                            if ((flags & MUDFS.GetDirFlags.Defaults) > 0) {
-                                if (fd.isDirectory() && (flags & MUDFS.GetDirFlags.Dirs) === 0)
+                            if (request.hasFlag(MUDFS.GetDirFlags.Defaults)) {
+                                if (fd.isDirectory() && !request.hasFlag(MUDFS.GetDirFlags.Dirs))
                                     return false;
 
-                                if (fd.isFile() && (flags & MUDFS.GetDirFlags.Files) === 0)
+                                if (fd.isFile() && !request.hasFlag(MUDFS.GetDirFlags.Files))
                                     return false;
 
                                 result.push(fd);
@@ -495,67 +593,6 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
-     * Reads a directory listing from the disk.
-     * @param {string} relativePath The local path to read.
-     * @param {string} fileName THe filename part of the path expression.
-     * @param {number} flags Flags the control the read operation
-     * @returns {any[]} Returns information about the directory/contents
-     */
-    readDirectorySync(relativePath, fileName, flags) {
-        try {
-            let fullPath = this.translatePath(relativePath), isAbs = relativePath.startsWith(this.root);
-            let showFullPath = (flags & MUDFS.GetDirFlags.FullPath) === MUDFS.GetDirFlags.FullPath,
-                details = (flags & MUDFS.GetDirFlags.Details) === MUDFS.GetDirFlags.Details,
-                pattern = fileName &&
-                    new RegExp('^' + fileName
-                        .replace(/\./g, '\\.')
-                        .replace(/\?/g, '.')
-                        .replace(/\*/g, '.+') + '$');
-
-            if (flags & MUDFS.GetDirFlags.ImplicitDirs && !fullPath.endsWith(path.sep))
-                fullPath += path.sep;
-
-            let files = fs.readdirSync(fullPath, { encoding: this.encoding })
-                .filter(fn => !pattern || pattern.test(fn))
-                .map(fn => showFullPath ? (isAbs ? '' : this.mountPoint) + relativePath + fn : fn),
-                result = [];
-
-            if (!details)
-                return files;
-
-            files.forEach(fn => {
-                let fd = this.createStat({
-                    exists: true,
-                    name: fn,
-                    parent: fullPath
-                });
-
-                //  Is the file hidden?
-                if ((flags & MUDFS.GetDirFlags.Hidden) === 0 && fn.startsWith('.'))
-                    return false;
-
-                // Do we need to stat?
-                if ((relativePath.flags & MUDFS.GetDirFlags.Defaults) > 0) {
-                    let stat = fs.statSync(fullPath + '/' + fn);
-
-                    if ((fd.isDirectory = stat.isDirectory()) && (relativePath.flags & MUDFS.GetDirFlags.Dirs) === 0)
-                        return false;
-
-                    if ((fd.isFile = stat.isFile()) && (relativePath.flags & MUDFS.GetDirFlags.Files) === 0)
-                        return false;
-
-                    fd.merge(stat);
-                }
-                result.push(fd);
-            });
-            return result;
-        }
-        catch (err) {
-            throw err;
-        }
-    }
-
-    /**
      * Read a file asynchronously.
      * @param {string} req The file being requested.
      * @returns {Promise<string>}
@@ -568,17 +605,6 @@ class DefaultFileSystem extends FileSystem {
                 else resolve(this.stripBOM(data));
             });
         });
-    }
-
-    /**
-     * Read a file syncronously from the filesystem.
-     * @param {FileSystemRequest} req The file request.
-     * @returns {string} The contents of the file.
-     */
-    readFileSync(req) {
-        let fullPath = this.translatePath(req),
-            result = this.stripBOM(fs.readFileSync(fullPath, { encoding: this.encoding || 'utf8' }));
-        return result;
     }
 
     /**
@@ -597,107 +623,42 @@ class DefaultFileSystem extends FileSystem {
     }
 
     /**
-     * Read JSON/structured data from a file asyncronously.
-     * @param {string} req The path to read from.
-     * @returns {any} Structured data.
-     */
-    readJsonFileSync(req) {
-        let fullPath = this.translatePath(req);
-        try {
-            return JSON.parse(this.readFileSync(fullPath));
-        }
-        catch (err) {
-            /* eat the error */
-        }
-        return false;
-    }
-
-    /**
-     *
-     * @param {string} relativePath
-     * @param {StatFlags} flags
-     * @returns {FileSystemStat}
-     */
-    async stat(relativePath, flags = 0) {
-        let fullPath = this.translatePath(relativePath);
-        return new Promise(async (resolve) => {
-            try {
-                fs.stat(fullPath, async (err, stats) => {
-                    let stat = FileSystem.createObject(err, stats);
-                    if ((flags & StatFlags.Content) > 0) {
-                        stat.content = await this.readFileAsync(fullPath);
-                    }
-                    resolve(stat);
-                });
-            }
-            catch (ex) {
-                resolve(FileSystem.createObject(err, false));
-            }
-        });
-    }
-
-    /**
      * 
-     * @param {string|FileSystemRequest} req
+     * @param {FileSystemRequest} request
      * @param {number} [flags] Flags associated with the request
      * @returns {FileSystemStat}
      */
-    async statAsync(req, flags = 0) {
-        let fullPath = this.translatePath(req.relativePath || req);
+    async statAsync(request) {
+        let fullPath = this.translatePath(request.relativePath);
 
         return new Promise(async (resolve) => {
+            let result, stat = {
+                exists: false,
+                name: request.fileName,
+                path: path.posix.join(this.mountPoint, request.relativePath)
+            };
+
             try {
-                fs.stat(fullPath, async (err, stats) => {
+                fs.stat(fullPath, async (err, data) => {
                     if (err) {
-                        resolve(driver.fileManager.createDummyStats(err, fullPath));
+                        result = Object.assign(stat, FileSystemStat.createDummyStats(request, err));
                     }
                     else {
-                        let stat = Object.assign(stats, {
+                        stat = Object.assign(data, {
                             exists: true,
-                            name: req.name || req.slice(req.lastIndexOf('/') + 1),
-                            path: path.posix.join(this.mountPoint, req)
+                            name: request.fileName,
+                            path: path.posix.join(this.mountPoint, request.relativePath)
                         });
-                        if ((flags & MUDFS.StatFlags.Content) > 0) {
-                            stat.content = await this.readFileAsync(fullPath);
-                        }
-                        resolve(FileManager.createFileObjectSync(stat));
+                        result = this.createStatObject(stat, request);
                     }
+                    resolve(result);
                 });
             }
             catch (err) {
-                resolve(driver.fileManager.createDummyStats(err, fullPath));
+                stat = Object.assign(stat, FileSystemStat.createDummyStats(request, err));
+                resolve(stat);
             }
         });
-    }
-
-    /**
-     * Stat a file syncronously.
-     * @param {string|FileSystemRequest} req The path info to stat.
-     * @param {number} flags Optional flags for additional control.
-     * @returns {FileSystemStat} A filestat object (if possible)
-     */
-    statSync(req, flags = 0) {
-        let fullPath = this.translatePath(req.relativePath || req);
-        let stat = undefined;
-        try {
-            stat = fs.statSync(fullPath);
-
-            stat.relativeName = req;
-            stat.name = req.split('/').pop();
-
-            if ((flags & MUDFS.StatFlags.Content) > 0) {
-                try {
-                    stat.content = this.readFileSync(fullPath);
-                }
-                catch (err) {
-                    stat.content = err;
-                }
-            }
-        }
-        catch (err) {
-            stat = FileManager.createDummyStats(err, req);
-        }
-        return FileManager.createFileObjectSync(stat);
     }
 
     /**
@@ -716,32 +677,35 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * Translates a virtual path into an absolute path
-     * @param {FileSystemRequest|string} req The virtual MUD path.
+     * @param {FileSystemRequest|string} request The virtual MUD path.
      * @param {function(string):void=} callback  An optional callback... this is depricated.
      * @returns {string} The absolute filesystem path.
      */
-    translatePath(req, callback) {
-        if (typeof req === 'string') {
-            if (req.startsWith(this.root) && req.indexOf('..') === -1)
-                return callback ? callback(req) : req;
-            let result = path.join(this.root, req);
+    translatePath(request, callback) {
+        if (typeof request === 'string') {
+            if (request.startsWith(this.root) && request.indexOf('..') === -1)
+                return callback ? callback(request) : request;
+            let result = path.join(this.root, request);
             if (!result.startsWith(this.root))
                 throw new Error('Access violation');
             return callback ? callback(result) : result;
         }
-        else return this.translatePath(req.relativePath, callback);
+        else if (!request)
+            throw new Error('Something went wrong');
+        else
+            return this.translatePath(request.relativePath, callback);
     }
 
     /**
      * Write to a file
-     * @param {string} expr The virtual MUD path.
+     * @param {FileSystemRequest} request The virtual MUD path.
      * @param {string|Buffer} content The content to write to file
      * @param {string|number} [flag] A flag indicating mode, etc
      * @param {string} [encoding] The optional encoding to use
      * @returns {boolean} Returns true on success.
      */
-    async writeFileAsync(expr, content, flag, encoding) {
-        let fullPath = this.translatePath(expr);
+    async writeFileAsync(request, content, flag, encoding) {
+        let fullPath = this.translatePath(request.relativePath);
 
         return new Promise(resolve => {
             fs.writeFile(fullPath, 
@@ -761,16 +725,16 @@ class DefaultFileSystem extends FileSystem {
 
     /**
      * 
-     * @param {string} expr The file to write to
+     * @param {FileSystemRequest} request The file to write to
      * @param {object|string} content The content to write
      * @param {string} [encoding] The file encoding to use
      * @param {number} [indent] The amount to indent by (for pretty JSON)
      */
-    async writeJsonAsync(expr, content, encoding = 'utf8', indent = 3) {
+    async writeJsonAsync(request, content, encoding = 'utf8', indent = 3) {
         if (typeof content !== 'string')
             content = JSON.stringify(content, undefined, indent || undefined);
-        return await this.writeFileAsync(expr, content, 'w', encoding);
+        return await this.writeFileAsync(request, content, 'w', encoding);
     }
 }
 
-module.exports = DefaultFileSystem;
+module.exports = DiskFileSystem;

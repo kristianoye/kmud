@@ -184,6 +184,16 @@ class EFUNProxy {
     }
 
     /**
+     * Check to see if the specified flag is set
+     * @param {number} flags The flags to check
+     * @param {number} flag The specific flag(s) to check for
+     * @returns {boolean} Returns true if the specified flag is set
+     */
+    checkFlags(flags = 0, flag = 0) {
+        return (flags & flag) === flag ? true : false;
+    }
+
+    /**
      * Validate a password.
      * @param {string} plain The plain text entered as a password.
      * @param {string} crypto The encrypted password to check against.
@@ -1452,23 +1462,6 @@ class EFUNProxy {
     }
 
     /**
-     * Attempt to read a plain file.
-     * @param {string} filename The name of the file to read.
-     * @returns {string} Reads the file contents if read synchronously.
-     */
-    readFileSync(filename) {
-        return driver.fileManager.readFileSync(this.resolvePath(filename));
-    }
-
-    /**
-     * Attempt to read JSON data from a file.
-     * @param {string} filename The file to try and read.
-     */
-    readJsonFileSync(filename) {
-        return driver.fileManager.readJsonFileSync(this.resolvePath(filename));
-    }
-
-    /**
      * Attempts to reload an object
      * @param {string} expr The object to reload.
      * @returns {boolean} Returns true if the object recompiled successfully.
@@ -1636,7 +1629,7 @@ class EFUNProxy {
                 if (thisOb) {
                     if (!restoreFile.endsWith(SaveExtension))
                         restoreFile += SaveExtension;
-                    let data = this.readJsonFileSync(restoreFile);
+                    let data = await this.fs.readJsonAsync(restoreFile);
                     if (data) {
                         let store = driver.storage.get(thisOb);
                         return store ? await store.eventRestore(data) : false;

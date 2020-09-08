@@ -402,10 +402,10 @@ class FileSystemStat {
     /**
      * Construct a new stat
      * @param {FileSystemStat} data Config data
-     * @param {string} mountPoint The directory the filesystem is mounted to
+     * @param {FileSystemRequest} request The directory the filesystem is mounted to
      * @param {Error} err Any error associated with fetching the object
      */
-    constructor(data, mountPoint, err) {
+    constructor(data, request, err) {
         Object.assign(this, data);
 
         /** @type {AclEntry} */
@@ -413,8 +413,12 @@ class FileSystemStat {
         this.content = data.content || '';
         this.error = err;
         this.fullPath = '';
-        this.mountPoint = mountPoint;
-        this.name = '';
+        this.mountPoint = request.fileSystem.mountPoint;
+        this.fileSystemId = request.fileSystem.systemId;
+
+        /** Path relative to the root of the filesystem */
+        this.relativePath = request.relativePath;
+        this.name = data.name || request.fileName;
     }
 
     assertValid() {
@@ -439,6 +443,89 @@ class FileSystemStat {
         });
 
         return result;
+    }
+
+    async copyAsync() {
+        throw new Error(`copyAsync() is not implemented in ${this.constructor.name}`);
+    }
+
+    /**
+     * Generate a dummy stat.
+     * @param {Error} err An error that occurred.
+     * @param {FileSystemRequest} request The request associated with this stat
+     * @param {Error} err Any error associated with this request
+     * @returns {FileSystemStat}} A dummy stat file
+     */
+    static createDummyStats(request, err = false) {
+        let dt = new Date(0);
+
+        return new FileSystemStat({
+            absolutePath: request.fullPath,
+            atime: dt,
+            atimeMs: dt.getTime(),
+            birthtime: dt,
+            birthtimeMs: dt.getTime(),
+            blksize: 4096,
+            blocks: 0,
+            ctime: dt,
+            ctimeMs: dt.getTime(),
+            dev: -1,
+            error: err || new Error('Unknown error'),
+            exists: false,
+            gid: -1,
+            ino: -1,
+            nlink: -1,
+            uid: -1,
+            mode: -1,
+            mtime: dt,
+            mtimeMs: dt.getTime(),
+            name: request.fileName,
+            path: request.fullPath || '',
+            size: -1,
+            rdev: -1,
+            isBlockDevice: false,
+            isCharacterDevice: false,
+            isDirectory: false,
+            isFIFO: false,
+            isFile: false,
+            isSocket: false,
+            isSymbolicLink: false
+        }, request);
+    }
+
+    async deleteAsync() {
+        throw new Error(`deleteAsync() is not implemented in ${this.constructor.name}`);
+    }
+
+    /** 
+     *  Get the parent of this object.
+     * @returns {Promise<FileSystemStat>}  Returns the parent object
+     */
+    async getParent() {
+        if (this.path === '/')
+            return undefined;
+        let parentPath = path.posix.resolve(this.path, '..');
+        return await driver.fileManager.statAsync(parentPath);
+    }
+
+    async getPermissions() {
+        if (this.isFile) {
+            let parent = await this.getParent();
+            return await parent.getPermissions(this.name);
+        }
+        else if (this.isDirectory) {
+            let aclFile = path.posix.resolve(this.path, '.acl'),
+                aclStat = await driver.fileManager.statAsync(aclFile);
+
+            if (aclStat.exists) {
+                let aclData = await aclStat.readJsonAsync();
+                return aclData;
+            }
+            else {
+                let parent = await this.getParent();
+                return await parent.getPermissions();
+            }
+        }
     }
 
     /**
@@ -499,6 +586,10 @@ class FileSystemStat {
         return this;
     }
 
+    async readAsync() {
+        throw new Error(`readAsync() is not implemented in ${this.constructor.name}`);
+    }
+
     /**
      * Refresh cached data and return a new copy of the object
      */
@@ -511,11 +602,11 @@ class DirectoryObject extends FileSystemStat {
     /**
      * Construct a new directory object
      * @param {FileSystemStat} stat Stat data
-     * @param {string} mountPoint The directory the filesystem is mounted to
+     * @param {string} request The directory the filesystem is mounted to
      * @param {Error} err Any error associated with fetching the object
      */
-    constructor(stat, mountPoint, err = undefined) {
-        super(stat, mountPoint, err);
+    constructor(stat, request, err = undefined) {
+        super(stat, request, err);
     }
 
     read() {
@@ -530,11 +621,11 @@ class FileObject extends FileSystemStat {
     /**
      * Construct a new file object
      * @param {FileSystemStat} stat Stat data
-     * @param {string} mountPoint The directory the filesystem is mounted to
+     * @param {FileSystemRequest} request The directory the filesystem is mounted to
      * @param {Error} err Any error associated with fetching the object
      */
-    constructor(stat, mountPoint, err = undefined) {
-        super(stat, mountPoint, err);
+    constructor(stat, request, err = undefined) {
+        super(stat, request, err);
     }
 }
 
@@ -711,18 +802,17 @@ class FileSystem extends MUDEventEmitter {
     }
 
     /**
-     * @param {FileSystemRequest} req
+     * @param {FileSystemRequest} request
      * @returns {Promise<boolean>}
      */
-    isDirectoryAsync(req) {
+    async isDirectoryAsync(request) {
         throw new NotImplementedError('isDirectoryAsync');
     }
 
     /**
-     * @param {FileSystemRequest} req
-     * @param {function(boolean,Error):void} callback
+     * @param {FileSystemRequest} request
      */
-    isFileAsync(req, callback) {
+    async isFileAsync(request) {
         throw new NotImplementedError('isFileAsync');
     }
 
@@ -761,10 +851,9 @@ class FileSystem extends MUDEventEmitter {
 
     /**
      * Read a file from the filesystem.
-     * @param {FileSystemRequest} req The file path expression to read from.
-     * @param {function(string,Error):void} callback The callback that fires when the read is complete.
+     * @param {FileSystemRequest} request The file path expression to read from.
      */
-    readFileAsync(req, callback) {
+    async readFileAsync(request) {
         throw new NotImplementedError('readFileAsync');
     }
 
@@ -936,6 +1025,14 @@ class FileSystemRequest {
         return this.securityManager.denied(procName, this.fullPath);
     }
 
+    /**
+     * Determine if a particular bitflag is set
+     * @param {number} flag The flag to test
+     */
+    hasFlag(flag = 0) {
+        return driver.efuns.checkFlags(this.flags, flag);
+    }
+
     toString() {
         return `FileSystemRequest[${this.op}:${this.fullPath}]`;
     }
@@ -977,6 +1074,9 @@ class FileManager extends MUDEventEmitter {
         /** @type {Object.<string,FileSystem>} */
         this.fileSystems = {};
 
+        /** @type {Object.<string,FileSystem>} */
+        this.fileSystemsById = {};
+
         /** @type {string} */
         this.mudlibRoot = driver.config.mudlib.baseDirectory;
 
@@ -1011,11 +1111,8 @@ class FileManager extends MUDEventEmitter {
      * @param {number} flags Additional flags to control the operation
      */
     async createDirectoryAsync(expr, flags = 0) {
-        let req = this.createFileRequest('CreateDirectory', expr, flags);
-        if (!req.valid())
-            return req.deny();
-        else
-            return await req.fileSystem.createDirectoryAsync(req.relativePath, req.flags);
+        let request = this.createFileRequest('CreateDirectory', expr, flags);
+        return request.valid('validReadDirectory') && await request.fileSystem.createDirectoryAsync(request);
     }
 
     /**
@@ -1119,7 +1216,10 @@ class FileManager extends MUDEventEmitter {
             systemId = crypto.createHash('md5').update(fsconfig.mountPoint).digest('hex'),
             fileSystem = new fileSystemType(this, Object.assign({ systemId: systemId }, fsconfig.options), fsconfig.mountPoint),
             securityManager = new securityManagerType(this, fileSystem, fsconfig.securityManagerOptions);
+
         this.fileSystems[fsconfig.mountPoint] = fileSystem;
+        this.fileSystemsById[systemId] = fileSystem;
+
         return fileSystem;
     }
 
@@ -1231,6 +1331,14 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
+     * Get a filesystem based on its system id
+     * @param {string} id The ID to fetch
+     */
+    getFileSystemById(id) {
+        return id in this.fileSystemsById === true && this.fileSystemsById[id];
+    }
+
+    /**
      * Locate file objects based on the given patterns.
      * The expressions should always start from the root and contain:
      *   - Double asterisk wildcard for recursive blooms
@@ -1310,8 +1418,8 @@ class FileManager extends MUDEventEmitter {
     }
 
     async isDirectoryAsync(expr) {
-        let req = this.createFileRequest('isDirectory', expr, true, 0);
-        return req.valid('validReadDirectory') && await req.fileSystem.isDirectoryAsync(req.relativePath);
+        let request = this.createFileRequest('isDirectory', expr, true, 0);
+        return request.valid('validReadDirectory') && await request.fileSystem.isDirectoryAsync(request);
     }
 
     /**
@@ -1320,12 +1428,9 @@ class FileManager extends MUDEventEmitter {
      * @param {number} flags Additional flags for the operation
      * @returns {boolean} True if the expression is a file.
      */
-    isFile(expr, flags) {
-        let req = this.createFileRequest('isFile', expr);
-        if (!req.valid('validReadFile'))
-            return req.deny();
-        else
-            return req.fileSystem.isFileSync(req.relativePath, flags);
+    async isFileAsync(expr, flags = 0) {
+        let request = this.createFileRequest('isFileAsync', expr);
+        return request.valid('validRead') && await request.fileSystem.isFileAsync(request);
     }
 
     /**
@@ -1336,31 +1441,13 @@ class FileManager extends MUDEventEmitter {
      * @returns {MUDObject} The loaded object... hopefully
      */
     async loadObjectAsync(expr, args, flags = 0) {
-        let req = this.createFileRequest('LoadObject', expr, flags);
-        if (!req.valid())
-            return req.deny();
-        else
-            return await req.fileSystem.loadObjectAsync(req.relativePath, args || [], req.flags);
-    }
-
-    /**
-     * Load an object from disk.
-     * @param {string} expr Information about what is being requested.
-     * @param {any} args Data to pass to the constructor.
-     * @param {number} flags Flags to control the operation
-     * @returns {MUDObject} The loaded object... hopefully
-     */
-    loadObjectSync(expr, args, flags = 0) {
-        let req = this.createFileRequest('LoadObject', expr, flags);
-        if (!req.valid())
-            return req.deny();
-        else
-            return req.fileSystem.loadObjectSync(req.relativePath, args || [], req.flags);
+        let request = this.createFileRequest('loadObjectAsync', expr, flags);
+        return request.valid('validLoadObject') && await request.fileSystem.loadObjectAsync(request, args || []);
     }
 
     async readDirectoryAsync(expr, flags = 0) {
-        let req = this.createFileRequest('ReadDirectory', expr, flags);
-        return req.valid('validReadDirectory') && await req.fileSystem.readDirectoryAsync(req.pathRel, req.fileName, req.flags);
+        let request = this.createFileRequest('readDirectoryAsync', expr, flags);
+        return request.valid('validReadDirectory') && await request.fileSystem.readDirectoryAsync(request);
     }
 
     /**
@@ -1370,7 +1457,7 @@ class FileManager extends MUDEventEmitter {
      */
     async readFileAsync(expr) {
         let req = this.createFileRequest('readFileAsync', expr);
-        return req.valid('validReadFile') && await req.fileSystem.readFileSync(req.relativePath);
+        return req.valid('validReadFile') && await req.fileSystem.readFileAsync(req.relativePath);
     }
 
     /**
@@ -1384,64 +1471,25 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
-     * Read structured data from the specified location.
-     * @param {EFUNProxy} efuns The efuns instance making the call.
-     * @param {string} expr The JSON file being read.
-     * @param {function=} callback An optional callback for async mode.
-     */
-    readJsonFileSync(expr) {
-        let req = this.createFileRequest('readJsonFile', expr);
-        if (!req.valid('validReadFile'))
-            return req.deny();
-        else
-            return req.fileSystem.readJsonFileSync(req.relativePath);
-    }
-
-    /**
      * Stat a file
      * @param {any} expr
      * @param {any} flags
      */
-    async statAsync(expr, flags) {
-        let req = this.createFileRequest('stat', expr, flags);
-        if (!req.valid('validStatFile'))
-            return req.deny();
+    async statAsync(expr, flags = 0) {
+        let request = this.createFileRequest('stat', expr, flags);
+        if (!request.valid('validStatFile'))
+            return request.deny();
         else {
-            let result = this.directoryCache[req.fullPath];
+            let result = this.directoryCache[request.fullPath];
             try {
-                result = await req.fileSystem.statAsync(req.relativePath, req.flags);
+                result = await request.fileSystem.statAsync(request);
                 if (result.isDirectory)
-                    this.directoryCache[req.fullPath] = result;
+                    this.directoryCache[request.fullPath] = result;
             }
             catch (err) {
-                result = this.createDummyStats(err, req);
+                result = FileSystemStat.createDummyStats(request, err);
             }
-            result = Object.freeze(await this.createFileObjectAsync(result));
-            return result;
-        }
-    }
-
-    /**
-     * Stat a filesystem expression
-     * @param {string} expr The expression to stat
-     * @param {number} flags Flags to control the behavior
-     */
-    statSync(expr, flags) {
-        let req = this.createFileRequest('stat', expr, flags);
-        if (!req.valid('validReadFile'))
-            return req.deny();
-        else {
-            let result = undefined;
-            try {
-                result = req.fileSystem.statSync(req.relativePath, req.flags);
-                result.absolutePath = req.fullPath;
-                result.exists = true;
-            }
-            catch (err) {
-                result = this.createDummyStats(err, req.fullPath);
-                result.absolutePath = req.fullPath;
-            }
-            result = Object.freeze(this.createFileObjectSync(result));
+            result = Object.freeze(result);
             return result;
         }
     }
@@ -1480,18 +1528,8 @@ class FileManager extends MUDEventEmitter {
      * @returns {Promise<boolean>} The promise for the operation.
      */
     async writeFileAsync(expr, content, flags, encoding) {
-        let req = this.createFileRequest('WriteFile', expr, flags || 'w');
-        return new Promise((resolve, reject) => {
-            try {
-                if (!req.valid())
-                    reject(req.deny());
-                else
-                    resolve(req.fileSystem.writeFileAsync(req.relativePath, content, req.flags, encoding));
-            }
-            catch (err) {
-                reject(err);
-            }
-        });
+        let request = this.createFileRequest('writeFileAsync', expr, flags || 'w');
+        return request.valid('validWriteFile') && request.fileSystem.writeFileAsync(request);
     }
 
     /**
@@ -1501,11 +1539,8 @@ class FileManager extends MUDEventEmitter {
      * @returns {Promise<boolean>} An indication of success or failure
      */
     async writeJsonAsync(expr, content, flags = 0) {
-        let req = this.createFileRequest('WriteFile', expr, false, 0, null);
-        if (!req.valid())
-            return req.deny();
-        else
-            return await req.fileSystem.writeJsonAsync(req.relativePath, content, req.flags);
+        let request = this.createFileRequest('writeJsonAsync', expr, false, 0, null);
+        return request.valid('validWriteFile') && await request.fileSystem.writeJsonAsync(request, content);
     }
 }
 

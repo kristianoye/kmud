@@ -31,7 +31,7 @@ class MUDEventEmitter {
      * @param {string} eventName The name of the event being fired.
      * @param {...any[]} args Arguments related to the event.
      */
-    emit(eventName, ...args) {
+    async emit(eventName, ...args) {
         let event = this.events[eventName];
         if (event) {
             for (let i = 0, max = event.length; i < max; i++) {
@@ -40,10 +40,10 @@ class MUDEventEmitter {
                     result = undefined;
 
                 if (isAsync) {
-                    setImmediate(async () => await listener(...args));
-                    continue;
+                    result = await listener(...args);
                 }
-                listener(...args); // listener.apply(this, args);
+                else
+                    result = listener(...args); // listener.apply(this, args);
 
                 // Check event state
                 if (typeof result === 'number') {

@@ -1040,7 +1040,7 @@ class GameServer extends MUDEventEmitter {
                 await this.applyStartup();
             if (callback)
                 callback.call(this);
-            return this.runMain();
+            return await this.runMain();
         });
     }
 
@@ -1106,11 +1106,11 @@ class GameServer extends MUDEventEmitter {
         logger.log(`Startup took ${startSeconds} seconds [${startupTime} ms]`);
     }
 
-    runMain() {
+    async runMain() {
         let ecc = this.getExecution(this.masterObject, 'onReady', this.masterObject.filename);
         this.gameState = GAMESTATE_RUNNING;
         try {
-            this.masterObject.emit('ready', this.masterObject);
+            await this.masterObject.emit('ready', this.masterObject);
         }
         catch (err) {
             /* do nothing */

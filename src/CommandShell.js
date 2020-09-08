@@ -1096,7 +1096,6 @@ class CommandShell extends MUDEventEmitter {
                             token.value += c;
                         break;
 
-
                     default:
                         if (/\s/.test(c)) {
                             if (token.value) {
