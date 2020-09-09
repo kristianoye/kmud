@@ -6,7 +6,7 @@
 class MudlibFileMount {
     constructor(mountAs, config, index) {
         /** @type {string} */
-        this.type = config.type || './fs/DefaultFileSystem';
+        this.type = config.type || './fs/DiskFileSystem';
 
         /** @type {number} */
         this.index = index;

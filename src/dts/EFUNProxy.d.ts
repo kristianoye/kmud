@@ -21,6 +21,30 @@ declare enum InputType {
     YesNoCancel = 'yes-no-cancel'
 }
 
+declare namespace flags {
+    declare namespace fs {
+        enum DirFlags {
+            /** No flags specified */
+            None = 0,
+
+            /** Only return filenames */
+            FileNamesOnly = 1,
+
+            /** Return full paths */
+            FullNames = 1 << 1,
+
+            /** Return file objects */
+            FileObjects = 1 << 2,
+
+            /** Recurse into subdirectories */
+            Recursive = 1 << 3,
+
+            /** Do not recurse into other filesystems */
+            SingleFilesystem = 1 << 4
+        }
+    }
+}
+
 declare namespace Helpers {
     interface Arrays {
         /**

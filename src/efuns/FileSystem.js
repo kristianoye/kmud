@@ -8,6 +8,7 @@
 
 const
     path = require('path');
+const FileSystemStat = require('../fs/FileSystemStat');
 
 class FileSystemHelper {
 
@@ -21,10 +22,22 @@ class FileSystemHelper {
         return driver.fileManager.writeFileAsync(expr, content, 'a', encoding);
     }
 
+    /**
+     * Create a directory on the filesystem
+     * @param {string} expr The path expression to create
+     * @param {number} flags Flags to control the operation
+     * @returns {Promise<boolean>} Returns true if successful
+     */
     static async createDirectoryAsync(expr, flags = 0) {
         return await driver.fileManager.createDirectoryAsync(expr, flags);
     }
 
+    /**
+     * Delete a directory from the filesystem
+     * @param {string} expr The path to delete
+     * @param {number} flags Flags to control the operation
+     * @returns {Promise<boolean>} Returns true if successful
+     */
     static async deleteDirectoryAsync(expr, flags = 0) {
         return await driver.fileManager.deleteDirectory(expr, flags);
     }
@@ -64,6 +77,7 @@ class FileSystemHelper {
      * Read a directory
      * @param {string} expr The path expression to read
      * @param {number} flags Flags to control the operation
+     * @returns {Promise<string[]> | Promise<FileSystemStat[]>} Returns directory contents
      */
     static async readDirectoryAsync(expr, flags = 0) {
         return await driver.fileManager.readDirectoryAsync(expr, flags);

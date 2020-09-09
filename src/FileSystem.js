@@ -596,6 +596,14 @@ class FileSystemStat {
     refresh() {
         return new FileSystemStat(this);
     }
+
+    /**
+     * Perform security constraints using the specified method
+     * @param {string} checkName The method to invoke within the security manager
+     */
+    async valid(checkName) {
+        return await driver.fileManager.securityManager[checkName](this);
+    }
 }
 
 class DirectoryObject extends FileSystemStat {
@@ -609,8 +617,17 @@ class DirectoryObject extends FileSystemStat {
         super(stat, request, err);
     }
 
-    read() {
+    /**
+     * Maps a path relative to this object
+     * @param {any} expr
+     */
+    mapPath(expr) {
+        let test = path.posix.resolve(this.path, expr);
+        return path.posix.join(this.path, expr);
+    }
 
+    async readAsync() {
+        throw new Error('readAsync() not implemented');
     }
 }
 
@@ -1219,6 +1236,7 @@ class FileManager extends MUDEventEmitter {
 
         this.fileSystems[fsconfig.mountPoint] = fileSystem;
         this.fileSystemsById[systemId] = fileSystem;
+        this.securityManager = securityManager;
 
         return fileSystem;
     }
@@ -1336,6 +1354,16 @@ class FileManager extends MUDEventEmitter {
      */
     getFileSystemById(id) {
         return id in this.fileSystemsById === true && this.fileSystemsById[id];
+    }
+
+    /**
+     * SHOULD NEVER BE EXPOSED TO THE MUDLIB
+     * Fetches a system file to be used within the driver.
+     * @param {string} expr The file to load
+     */
+    async getSystemFileAsync(expr) {
+        let request = this.createFileRequest('getSystemFileAsync', expr);
+        return await request.fileSystem.getSystemFileAsync(request);
     }
 
     /**

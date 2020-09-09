@@ -518,9 +518,6 @@
     <Compile Include="src\FileSystem.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="src\fs\DefaultFileSystem.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="src\fs\DefaultFileSecurity.js" />
     <Compile Include="src\fs\FileSystemStat.js">
       <SubType>Code</SubType>
@@ -782,6 +779,8 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="src\efuns\Acl.js" />
+    <Content Include="src\fs\AclFileSecurity.js" />
+    <Content Include="src\fs\DiskFileSystem.js" />
     <Content Include="src\fs\FileACL.js">
       <SubType>Code</SubType>
     </Content>

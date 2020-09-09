@@ -54,7 +54,7 @@
       "securityManager": "./fs/DefaultFileSecurity",
       "fileSystemTable": {
         "/": {
-          "type": "./fs/DefaultFileSystem",
+          "type": "./fs/DiskFileSystem",
           "options": {
             "path": "./",
             "readOnly": false

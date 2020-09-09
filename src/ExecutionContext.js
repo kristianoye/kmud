@@ -283,6 +283,7 @@ class ExecutionContext extends MUDEventEmitter {
             else if (isAsync && (c[frame.file] = await callback(frame)) === false)
                 return false;
             else if ((c[frame.file] = callback(frame)) === false)
+                return false;
             if (frame.unguarded === true)
                 break;
         }
