@@ -10,6 +10,25 @@ const
     path = require('path');
 const FileSystemStat = require('../fs/FileSystemStat');
 
+class DeleteDirectoryOptions {
+    /**
+     * 
+     * @param {number} flags
+     */
+    constructor(flags) {
+        this.flags = flags;
+    }
+
+    /** Confirm each delete */
+    static get PromptConfirm() { return 1 << 1; }
+
+    /** Recursively delete */
+    static get Recursive() { return 1 << 0; }
+
+    /** Print out what is happening */
+    static get Verbose() { return 1 << 2; }
+}
+
 class FileSystemHelper {
 
     /**
@@ -34,12 +53,17 @@ class FileSystemHelper {
 
     /**
      * Delete a directory from the filesystem
-     * @param {string} expr The path to delete
-     * @param {number} flags Flags to control the operation
+     * @param {string} expr The path to delete^
+     * @param {number|DeleteDirectoryOptions} flags Flags to control the operation
      * @returns {Promise<boolean>} Returns true if successful
      */
     static async deleteDirectoryAsync(expr, flags = 0) {
         return await driver.fileManager.deleteDirectory(expr, flags);
+    }
+
+    /** Options object for deleting directories */
+    static get DeleteDirectoryOptions() {
+        return DeleteDirectoryOptions;
     }
 
     /**
@@ -65,15 +89,6 @@ class FileSystemHelper {
     }
 
     /**
-     * Read JSON from a stream
-     * @param {string} expr The location to read from
-     * @returns {Promise<object>} The resulting object
-     */
-    static readJsonAsync(expr) {
-        return driver.fileManager.readJsonAsync(expr);
-    }
-
-    /**
      * Read a directory
      * @param {string} expr The path expression to read
      * @param {number} flags Flags to control the operation
@@ -91,6 +106,23 @@ class FileSystemHelper {
      */
     static async readFileAsync(expr, encoding = 'utf8', flags = 0) {
         return await driver.fileManager.readFileAsync(expr);
+    }
+
+    /**
+     * Read JSON from a stream
+     * @param {string} expr The location to read from
+     * @returns {Promise<object>} The resulting object
+     */
+    static readJsonAsync(expr) {
+        return driver.fileManager.readJsonAsync(expr);
+    }
+
+    /**
+     * Read a YAML file 
+     * @param {string} expr The file to read from
+     */
+    static readYamlAsync(expr) {
+        return driver.fileManager.readYamlAsync(expr);
     }
 
     static relativePath(expr, cwd = false) {

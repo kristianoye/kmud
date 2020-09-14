@@ -216,6 +216,10 @@ class MUDOSLoader extends MUDLoader {
 
     pointerp(arg) { return Array.isArray(arg); }
 
+    query_privs(target = false) {
+        return driver.efuns.objects.getGroups(target);
+    }
+
     sort_array() {
         var args = [].slice.call(arguments),
             arr = args.shift(),
@@ -260,7 +264,7 @@ class MUDOSLoader extends MUDLoader {
         }
     }
 
-    this_player(flag) {
+    this_player(flag = undefined) {
         return efuns.thisPlayer(flag);
     }
 

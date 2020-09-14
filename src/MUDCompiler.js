@@ -18,16 +18,16 @@ var
 class MUDCompiler {
     /**
      * Construct the in-game script compiler.
-     * @param {GameServer} driver A reference to the game driver/server
+     * @param {GameServer} driverInstance A reference to the game driver/server
      * @param {any} config Optional settings from the config file.
      */
-    constructor(driver, config) {
+    constructor(driverInstance, config) {
         var comps = 0,
             self = this,
             vm = false;
 
         this.components = {};
-        this.driver = driver;
+        this.driver = driverInstance;
         /** @type {Object.<string,MUDLoader>} */
         this.loaders = {};
         this.pipelines = {};
@@ -196,14 +196,13 @@ class MUDCompiler {
                 virtualResult = driver.driverCall('compileVirtual', ecc => {
                     try {
                         let args = options.args || [];
-                        ecc.addCreationContext({
+                        let parentInfo = ecc.addCreationContext({
                             args,
                             instanceId: 0,
                             isVirtual: true,
                             filename: context.filename
                         });
-                        delete ecc.restoreContext;
-                        let virtualResult = driver.compileVirtualObject(ecc.newContext.filename, args);
+                        let virtualResult = driver.compileVirtualObject(parentInfo.filename, args);
                         args.forEach(a => {
                             if (typeof a === 'object') {
                                 Object.keys(a).forEach(k => {
@@ -217,8 +216,7 @@ class MUDCompiler {
                         return virtualResult;
                     }
                     finally {
-                        parentInfo = ecc.virtualParents.pop();
-                        delete driver.newContext;
+                        ecc.popCreationContext();
                     }
                 }, context.filename);
                 if (!virtualResult)
@@ -318,7 +316,8 @@ class MUDCompiler {
                 module.stats.errors++;
             }
             if (module && !module.loaded) {
-                MUDCache.delete(context.filename);
+                //  If the module previously loaded then leave it alone
+                driver.cache.delete(context.filename);
             }
             this.driver.cleanError(cerr = err);
             this.driver.logError(context.filename, err);
@@ -374,55 +373,56 @@ class MUDCompiler {
             }
 
             if (!context.exists) {
-                let parentInfo = false;
+                let parentInfo = false, virtualContext;
+
                 if (!this.driver.masterObject)
                     throw new Error('Could not load in-game master object!');
 
                 //  Attempt to compile a virtual object.
                 virtualResult = await driver.driverCallAsync('compileVirtual', async ecc => {
                     try {
+                        module = this.driver.cache.getOrCreate(
+                            context.filename,
+                            context.filename, 
+                            context.filename.slice(0, context.filename.lastIndexOf('/')),
+                            true);
+
                         let args = options.args || [];
-                        ecc.newContext = {
-                            args,
+
+                        virtualContext = ecc.addVirtualCreationContext({
                             instanceId: 0,
                             isVirtual: true,
-                            filename: context.filename
-                        };
-                        delete ecc.restoreContext;
-                        let virtualResult = await driver.compileVirtualObject(ecc.newContext.filename, args);
+                            filename: context.filename,
+                            module
+                        });
+
+                        let virtualResult = await driver.compileVirtualObject(virtualContext.filename, args);
+
                         args.forEach(a => {
                             if (typeof a === 'object') {
-                                Object.keys(a).forEach(k => {
-                                    driver.driverCall('setProperty', eccInner => {
-                                        if (k in virtualResult)
-                                            virtualResult[k] = a[k];
+                                driver.driverCall('setProperty', eccInner => {
+                                    Object.keys(a).forEach(k => {
+                                        if (k in virtualResult) virtualResult[k] = a[k];
                                     });
                                 });
                             }
                         });
-                        return virtualResult;
+
+                        return module.defaultExport = virtualResult;
+                    }
+                    catch (err) {
+                        console.log(`compileVirtual() error: ${err.message}`);
+                        driver.cache.delete()
                     }
                     finally {
-                        parentInfo = ecc.virtualParents.pop();
                         ecc.popCreationContext();
-                        delete driver.newContext;
                     }
-                }, context.filename);
+                }, context.filename)
+                    .catch(err => { throw err; })
+
                 if (!virtualResult)
                     throw new Error(`Could not load ${context.filename} [File not found]`);
 
-                module = this.driver.cache.getOrCreate(
-                    context.filename,
-                    parentInfo.fullPath,
-                    context.filename.slice(0, context.filename.lastIndexOf('/')),
-                    true,
-                    false,
-                    parentInfo);
-
-                if (virtualResult instanceof MUDObject) {
-                    module.insertInstance(virtualResult, { name: module.name });
-                    module.defaultExport = virtualResult;
-                }
                 module.loaded = true;
                 return module;
             }
@@ -509,7 +509,7 @@ class MUDCompiler {
                 module.stats.errors++;
             }
             if (module && !module.loaded) {
-                MUDCache.delete(context.filename);
+                driver.cache.delete(context.filename);
             }
             this.driver.cleanError(cerr = err);
             await this.driver.logError(context.filename, err);

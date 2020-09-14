@@ -35,7 +35,15 @@ class MUDStorage extends MUDEventEmitter {
 
         this.flags = 0;
 
-        /** @type {MUDObject[]}} All of the inventory contained with the object */
+        /** 
+         * What group permissions have been assigned to this object
+         * @type {string[]} */
+        this.$groups = [];
+
+        /** 
+         * A collection of objects contained within this object
+         * @type {MUDObject[]}} 
+         */
         this.$inventory = [];
 
         /** @type {number|false} */
@@ -77,14 +85,14 @@ class MUDStorage extends MUDEventEmitter {
 
     /**
      * Execute a command from the shell.
-     * @param {any} rawcmd
+     * @param {any} clientCommand
      */
-    async eventCommand(rawcmd) {
+    async eventCommand(clientCommand) {
         return await driver.driverCallAsync('executeCommand', async (context) => {
             let cmd = {
-                verb: rawcmd.verb.value,
-                args: rawcmd.args.map(a => a.hasOwnProperty('value') ? a.value : a),
-                text: rawcmd.text
+                verb: clientCommand.verb.value,
+                args: clientCommand.args.map(a => a.hasOwnProperty('value') ? a.value : a),
+                text: clientCommand.text
             };
 
             return await context.withPlayerAsync(this, async (player) => {
@@ -258,6 +266,15 @@ class MUDStorage extends MUDEventEmitter {
         this.owner.heartbeat(total, ticks);
     }
 
+    async eventInitialize(ownerObject) {
+        if (ownerObject instanceof MUDObject) {
+            this.owner = ownerObject;
+            this.$groups = await driver.getGroups(ownerObject);
+            return true;
+        }
+        return false;
+    }
+
     /**
      * Restore the storage object.  Is this used?
      * @param {any} data
@@ -376,6 +393,11 @@ class MUDStorage extends MUDEventEmitter {
 
     set environment(value) {
         this.$environment = wrapper(value);
+    }
+
+    /** Get a copy of the group assignments */
+    get groups() {
+        return this.$groups.slice(0);
     }
 
     get heartbeat() {
@@ -644,11 +666,12 @@ class MUDStorageContainer {
     /**
      * Fetch storage for the specified argument.
      * @param {MUDObject} ob The file to fetch storage for.
+     * @param {string} altkey An alternate key to use if the object is still being constructed.
      * @returns {MUDStorage} The storage object for the item or false.
      */
-    get(ob) {
+    get(ob, altKey = false) {
         return unwrap(ob, target => {
-            let filename = target.filename;
+            let filename = target.filename || altKey;
             if (!filename) {
                 let ecc = driver.getExecution(),
                     ctx = ecc.newContext;

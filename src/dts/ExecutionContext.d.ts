@@ -1,9 +1,43 @@
 declare interface CreationContext {
+    /** Arguments for the constructor */
+    readonly args: any[];
 
+    /** The object filename */
+    readonly filename: string;
+
+    /** The unique instance ID */
+    readonly instanceId: string | number;
+
+    /** Is this a virtual object? */
+    readonly isVirtual: boolean;
+}
+
+declare interface ObjectStackItem {
+    /** The file the object lives in */
+    file: string;
+
+    /** Is the call asynchronous? */
+    isAsync?: boolean;
+
+    /** The method executing in the object */
+    method: string;
+
+    /** A reference to the object */
+    object: object;
 }
 
 declare interface ExecutionContext {
+    /**
+     * Add a creation context to the stack during object creation
+     * @param ctx
+     */
     addCreationContext(ctx: CreationContext): CreationContext;
+
+    /**
+     * Add a virtual creation context to the stack during object creation
+     * @param ctx
+     */
+    addVirtualCreationContext(ctx: CreationContext): CreationContext;
 
     /** Check to see if the current context has exceeded its execution limit */
     alarm(): ExecutionContext;

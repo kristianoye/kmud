@@ -10,18 +10,10 @@ global.logger = require('./MUDLogger');
 const
     fs = require('fs'),
     path = require('path'),
-    ErrorTypes = require('./ErrorTypes');
-
-//const GameSetup = require('./setup/GameSetup');
-
-const
+    ErrorTypes = require('./ErrorTypes'),
     MudSection = require('./config/MudSection'),
     DriverSection = require('./config/DriverSection'),
-    MudlibSection = require('./config/MLibSection'),
-    MUDPasswordPolicy = require('./config/MUDPasswordPolicy');
-
-var
-    configInstance = false;
+    MudlibSection = require('./config/MLibSection');
 
 class MUDConfig {
     constructor() {
@@ -101,6 +93,11 @@ class MUDConfig {
 
     createRunOnce(data) {
         fs.writeFileSync(path.resolve(__dirname, '../runOnce.json'), JSON.stringify(data), { flags: 'a', encoding: 'utf8' });
+    }
+
+    /** Returns the config singleton */
+    static get() {
+        return configInstance;
     }
 
     loadFallback() {
@@ -221,22 +218,6 @@ Where options include:
 }
 
 /**
- * Returns the active instance of the config.
- * @returns {MUDConfig}
- */
-MUDConfig.get = function () {
-    return configInstance;
-};
-
-/**
- * Strip off the utf8 byte order mark if it exists.
- * @param {string} s A string.
- * @returns {string} The string without the BOM. */
-MUDConfig.stripBOM = function (s) {
-    return s && s.charCodeAt(0) === 0xFEFF ? s.slice(1) : s;
-}
-
-/**
  * Indicates the game is starting but has not begun to initialize
  * @type {number}  */
 MUDConfig.GAMESTATE_STARTING = global.GAMESTATE_STARTING = GAMESTATE_STARTING;
@@ -254,5 +235,7 @@ MUDConfig.GAMESTATE_RUNNING = global.GAMESTATE_RUNNING = GAMESTATE_RUNNING;
  * @type {number} */
 MUDConfig.GAMESTATE_SHUTDOWN = global.GAMESTATE_SHUTDOWN = GAMESTATE_SHUTDOWN;
 
-module.exports = MUDConfig;
+/** @type {MUDConfig} */
+var configInstance;
 
+module.exports = MUDConfig;

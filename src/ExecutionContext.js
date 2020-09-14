@@ -8,6 +8,7 @@
  * current object, etc).
  */
 const
+    CreationContext = require('./CreationContext'),
     MUDEventEmitter = require('./MUDEventEmitter'),
     uuidv1 = require('uuid/v1');
 
@@ -77,16 +78,32 @@ class ExecutionContext extends MUDEventEmitter {
             this.originalFrame = false;
             this.player = false;
             this.truePlayer = false;
-
             this.virtualParents = [];
         }
     }
 
-    addCreationContext(ctx) {
+    /**
+     * Add a new constructor context to the LIFO stack
+     * @param {CreationContext} creationContext Details of the object being constructed
+     * @returns {CreationContext} Returns the newly created context
+     */
+    addCreationContext(creationContext) {
         if (!this.creationContexts)
             this.creationContexts = [];
-        this.creationContexts.unshift(ctx);
-        return ctx;
+        this.creationContexts.unshift(new CreationContext(creationContext));
+        return this.creationContexts[0];
+    }
+
+    /**
+     * Add a new constructor context to the LIFO stack
+     * @param {CreationContext} creationContext Details of the object being constructed
+     * @returns {CreationContext} Returns the newly created context
+     */
+    addVirtualCreationContext(creationContext) {
+        if (!this.virtualCreationContexts)
+            this.virtualCreationContexts = [];
+        this.virtualCreationContexts.unshift(new CreationContext(creationContext, true));
+        return this.virtualCreationContexts[0];
     }
 
     alarm() {
@@ -253,7 +270,7 @@ class ExecutionContext extends MUDEventEmitter {
      * Registers a new async call on this execution context.
      * @returns {ExecutionContext} Returns a child context to be used once the async code continues.
      */
-    fork(detached=false) {
+    fork(detached = false) {
         if (!detached) this.asyncChildren.length++;
         return new ExecutionContext(this, false, detached);
     }
@@ -365,6 +382,16 @@ class ExecutionContext extends MUDEventEmitter {
         return undefined;
     }
 
+    popVirtualCreationContext() {
+        if (Array.isArray(this.virtualCreationContexts)) {
+            let ctx = this.virtualCreationContexts.shift();
+            if (this.virtualCreationContexts.length === 0)
+                delete this.virtualCreationContexts;
+            return ctx;
+        }
+        return undefined;
+    }
+
     /**
      * Returns the previous object
      */
@@ -419,11 +446,17 @@ class ExecutionContext extends MUDEventEmitter {
             // NEVER expose the driver directly to the game, use master instead
             if (ob === driver)
                 // The only exception is when loading the masterObject itself
-                return driver.masterObject || driver; 
+                return driver.masterObject || driver;
         }
         return false;
     }
 
+    get virtualContext() {
+        if (!this.virtualCreationContexts)
+            return false;
+        else
+            return this.virtualCreationContexts[0];
+    }
     /**
      * Adds a listener to the complete queue
      * @param {function(ExecutionContext):void} callback The callback to fire when execution is complete.
@@ -515,3 +548,4 @@ class ExecutionContext extends MUDEventEmitter {
 }
 
 module.exports = ExecutionContext;
+

@@ -7,6 +7,7 @@ const
     { FileACL, FileManager, FileSystem, FileSystemStat, StatFlags, DirectoryObject, FileObject } = require('../FileSystem'),
     async = require('async'),
     path = require('path'),
+    yaml = require('js-yaml'),
     fs = require('fs'),
     Dirent = fs.Dirent;
 
@@ -130,10 +131,7 @@ class DiskFileObject extends FileObject {
      */
     async readJsonAsync(encoding, stripBOM = false) {
         if (this.exists) {
-            let result = await this.readAsync(encoding, stripBOM)
-                .catch(err => {
-                    throw err;
-                });
+            let result = await this.readAsync(encoding, stripBOM);
             return JSON.parse(result);
         }
         return undefined;
@@ -198,16 +196,13 @@ class DiskFileSystem extends FileSystem {
 
     /**
      * Clone an object syncronously.
-     * @param {string} req The request to clone an object.
+     * @param {FileSystemRequest} request The request to clone an object.
      * @param {any[]} args Constructor args to pass to the new object.
      * @returns {MUDObject|false} The newly cloned object.
      */
-    async cloneObjectAsync(req, args) {
-        if (!this.assert(FileSystem.FS_SYNC))
-            return false;
-
-        let fullPath = path.posix.join(this.mountPoint, '/',  req),
-            { file, type, instance } = driver.efuns.parsePath(fullPath),
+    async cloneObjectAsync(request, args) {
+        let fullPath = this.translatePath(request.relativePath),
+            { file, type, instance } = driver.efuns.parsePath(request.fullPath),
             module = driver.cache.get(file);
 
         if (instance > 0)
@@ -219,7 +214,9 @@ class DiskFileSystem extends FileSystem {
                 module = await driver.compiler.compileObjectAsync({ file, args });
             }
             if (module) {
-                return await module.createInstanceAsync(file, type, args);
+                if (module.isVirtual)
+                    return module.defaultExport;
+                return await module.createInstanceAsync(type, false, args);
             }
         }
         catch (err) {
@@ -609,11 +606,12 @@ class DiskFileSystem extends FileSystem {
 
     /**
      * Read a file asynchronously.
-     * @param {string} req The file being requested.
+     * @param {FileSystemRequest} request The file being requested.
      * @returns {Promise<string>}
      */
-    readFileAsync(req) {
-        let fullPath = this.translatePath(req);
+    readFileAsync(request) {
+        let fullPath = this.translatePath(request.relativePath);
+
         return new Promise((resolve, reject) => {
             fs.readFile(fullPath, { encoding: this.encoding || 'utf8' }, (err, data) => {
                 if (err) reject(err);
@@ -624,17 +622,26 @@ class DiskFileSystem extends FileSystem {
 
     /**
      * Read a JSON file asynchronously
-     * @param {any} expr
+     * @param {FileSystemRequest} request
      */
-    async readJsonAsync(expr) {
+    async readJsonAsync(request) {
         try {
-            let content = await this.readFileAsync(expr)
+            let content = await this.readFileAsync(request)
             return JSON.parse(content);
         }
         catch (e) {
             console.log(`readJsonAsync(): Error ${e.message}`);
         }
         return undefined;
+    }
+
+    /**
+     * Read some YAML
+     * @param {FileSystemRequest} request
+     */
+    async readYamlAsync(request) {
+        let content = await this.readFileAsync(request);
+        return yaml.safeLoad(content);
     }
 
     /**

@@ -11,7 +11,7 @@ const
     PlayerDaemon = efuns.loadObjectSync(Daemon.Player),
     LoginTimeout = efuns.time.timespan('10 minutes');
 
-class Login extends MUDObject {
+class HtmlLogin extends MUDObject {
     get allowInputEscape() { return false; }
 
     private applyInputError(error) {
@@ -262,5 +262,5 @@ class Login extends MUDObject {
     }
 }
 
-module.exports = Login;
+module.defaultExport = HtmlLogin;
 

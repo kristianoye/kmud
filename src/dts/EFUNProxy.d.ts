@@ -21,31 +21,9 @@ declare enum InputType {
     YesNoCancel = 'yes-no-cancel'
 }
 
-declare namespace flags {
-    declare namespace fs {
-        enum DirFlags {
-            /** No flags specified */
-            None = 0,
-
-            /** Only return filenames */
-            FileNamesOnly = 1,
-
-            /** Return full paths */
-            FullNames = 1 << 1,
-
-            /** Return file objects */
-            FileObjects = 1 << 2,
-
-            /** Recurse into subdirectories */
-            Recursive = 1 << 3,
-
-            /** Do not recurse into other filesystems */
-            SingleFilesystem = 1 << 4
-        }
-    }
-}
-
 declare namespace Helpers {
+
+    /** Helpers for dealing with arrays */
     interface Arrays {
         /**
          * Determine the intersection of two or more arrays
@@ -54,7 +32,16 @@ declare namespace Helpers {
         intersection(...arrays: any[]): any[];
     }
 
+    /** Various filesystem helpers */
     interface FileSystem {
+        /**
+         * Appends content to the end of a file
+         * @param expr The path expression to write to
+         * @param content The content to append to the file
+         * @param encoding The optional encoding to use when writing
+         */
+        appendFileAsync(expr: string, content: string | Buffer, encoding?: string): Promise<boolean>;
+
         /**
          * Create a copy of an object
          * @param expr The name of the object or an instance to clone
@@ -137,6 +124,12 @@ declare namespace Helpers {
         readJsonAsync(expr: string): Promise<object>;
 
         /**
+         * Attempt to read a file as YAML markup
+         * @param expr The file to read
+         */
+        readYamlAsync(expr: string): Promise<object>;
+
+        /**
          * Stat the filesystem
          * @param expr The path expression to read.
          */
@@ -152,6 +145,7 @@ declare namespace Helpers {
         writeJsonAsync(file: string, content: any, flags?: number, encoding?: string): Promise<boolean>;
     }
 
+    /** Helpers to collect info from user */
     interface Inputs {
         /**
          * Render a prompt for the user and redirect the response to the specified callback
@@ -162,6 +156,7 @@ declare namespace Helpers {
         addPrompt(type: InputType, options: any, callback: (input: string) => void): void;
     }
 
+    /** Object helpers */
     interface Objects {
         /**
          * Get all modules loaded in memory
@@ -224,6 +219,12 @@ declare interface EFUNProxy {
 
     /** Various helpers for user I/O */
     readonly inputs: Helpers.Inputs;
+
+    /**
+     * Converts a display name into a normalized name (all lower case, no special characters)
+     * @param name The name to convert
+     */
+    normalizeName(name: string): string;
 
     /** Various object helper methods */
     readonly objects: Helpers.Objects;

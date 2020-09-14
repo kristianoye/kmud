@@ -4,29 +4,19 @@
  * Date: October 1, 2017
  */
 const
-    MUDConfig = require('./MUDConfig'),
     ExecutionContext = require('./ExecutionContext'),
-    { NetUtil, NetworkInterface } = require('./network/NetUtil'),
+    { NetUtil } = require('./network/NetUtil'),
     { LinkedList, LinkedListWithID, LinkedListWithLookup } = require('./LinkedList'),
     semver = require('semver'),
-    async = require('async');
-
+    async = require('async'),
+    MUDObject = require('./MUDObject');
 
 const
     fs = require('fs'),
     path = require('path'),
     os = require('os'),
-    MUDEventEmitter = require('./MUDEventEmitter');
-
-const
-    FileSecurity = require('./FileSecurity'),
-    MUDStorage = require('./MUDStorage');
-
-var
-    Instance,
-    MUDObject,
-    ResetInterval = 1000 * 60 * 60 * 2,
-    UseLazyResets = false;
+    MUDEventEmitter = require('./MUDEventEmitter'),
+    FileSecurity = require('./FileSecurity');
 
 class GameServer extends MUDEventEmitter {
     /**
@@ -36,7 +26,7 @@ class GameServer extends MUDEventEmitter {
     constructor(config) {
         super();
 
-        global.driver = Instance = this;
+        global.driver = this;
 
         this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
         /** @type {EFUNProxy} */
@@ -351,6 +341,7 @@ class GameServer extends MUDEventEmitter {
             this.applyErrorHandler = locateApply('errorHandler', false);
             this.applyGetPreloads = locateApply('getPreloads', false);
             this.applyLogError = locateApply('logError', false);
+            this.applyGetGroups = locateApply('getPermissionGroups', false);
             this.applyRegisterServer = locateApply('registerServer', false);
             this.applyStartup = locateApply('startup', false);
             this.applyValidDestruct = locateApply('validDestruct', false);
@@ -502,7 +493,6 @@ class GameServer extends MUDEventEmitter {
                 MUDStorage = require('./MUDStorage'),
                 MUDLoader = require('./MUDLoader');
 
-            MUDObject = require('./MUDObject');
             EFUNProxy.configureForRuntime();
             MUDCompiler.configureForRuntime(this);
             MUDLoader.configureForRuntime(this);
@@ -511,6 +501,7 @@ class GameServer extends MUDEventEmitter {
             MUDStorage.configureForRuntime(this);
 
             global.MUDObject = MUDObject;
+
             this.cache = new MUDCache();
             this.compiler = new MUDCompiler(this, this.config.driver.compiler);
 
@@ -616,10 +607,11 @@ class GameServer extends MUDEventEmitter {
         let result,
             prevContext = false,
             ecc = this.getExecution(
-            this.masterObject || this,
-            method,
-            fileName || this.masterFilename,
-            false, 0);
+                this.masterObject || this,
+                method,
+                fileName || this.masterFilename,
+                false,
+                0);
 
         if (newContext) {
             prevContext = ecc;
@@ -646,7 +638,6 @@ class GameServer extends MUDEventEmitter {
      */
     async enableFeatures() {
         const
-            MUDObject = require('./MUDObject'),
             EFUNProxy = require('./EFUNProxy');
 
         logger.logIf(LOGGER_DEBUG, 'Bootstrap: Initializing driver features');
@@ -817,6 +808,12 @@ class GameServer extends MUDEventEmitter {
             this.executionContext = new ExecutionContext();
         }
         return this.executionContext.push(ob, method, fileName, isAsync, lineNumber, callString || method);
+    }
+
+    async getGroups(target) {
+        if (!this.masterObject)
+            return ['$BACKBONE', '$ADMIN']; // Replace with config later
+        else return await this.applyGetGroups(target);
     }
 
     /**
@@ -1298,10 +1295,7 @@ class GameServer extends MUDEventEmitter {
     }
 }
 
-/**
- * @returns {GameServer} The dreiver instance. */
-GameServer.get = function () {
-    return Instance;
-};
+var ResetInterval = 1000 * 60 * 60 * 2,
+    UseLazyResets = false;
 
 module.exports = GameServer;

@@ -389,362 +389,7 @@
     <Compile Include="lib\wwwroot\monaco\min\vs\language\typescript\src\mode.js" />
     <Compile Include="lib\wwwroot\monaco\min\vs\language\typescript\src\worker.js" />
     <Compile Include="lib\wwwroot\monaco\min\vs\loader.js" />
-    <Compile Include="src\ClientComponent.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\CommandShell.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\compiler\LPCPreprocessor.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\compiler\PipelineContext.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\compiler\SecurityModifiers.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\compiler\VM2Wrapper.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\compiler\VMAbstraction.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\compiler\VMWrapper.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\ConfigUtil.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\ConfigApp.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\Dialog.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\DriverCompilerComponent.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\DriverCompilerLanguage.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\DriverCompiler.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\DriverFeature.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\DriverSection.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\MLibSection.js" />
-    <Compile Include="src\config\MudlibFileSystem.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\MudlibMasterObject.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\DriverCompilerLoader.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\DriverNetworking.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\MUDPasswordPolicy.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\MudPort.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\config\MudSection.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\DBManager.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\db\Database.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\db\MySqlDb.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\db\orm\ActiveRecordBase.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\EFUNProxy.js" />
-    <Compile Include="src\efuns\Arrays.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\efuns\English.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\efuns\FileSystem.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\efuns\Inputs.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\efuns\Livings.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\efuns\MathHelper.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\efuns\ObjectHelper.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\efuns\TextHelper.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\efuns\Time.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\ErrorTypes.js" />
-    <Compile Include="src\features\DomainStats.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\features\FeatureBase.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\features\SecurityFileACL.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\features\MUDEditor.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\FileSecurity.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\FileSystem.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\fs\DefaultFileSecurity.js" />
-    <Compile Include="src\fs\FileSystemStat.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\fs\MySqlFilesystem.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\GameServer.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\inputs\BaseInput.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\inputs\FormInput.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\inputs\PickOne.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\inputs\TextInput.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\inputs\YesNoInput.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\LinkedList.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\LPCCompat.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDCache.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDCompiler.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDConfig.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\ExecutionContext.js" />
-    <Compile Include="src\MUDCreationContext.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDEventEmitter.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDHtml.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDLoader.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDLogger.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDModule.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDObject.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDOSLoader.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDPromise.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\MUDStorage.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\ClientCaps.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\ClientEndpoint.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\ClientInstance.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="server.js" />
-    <Compile Include="src\network\clients\desktop\client\desktop\js\client.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\clients\desktop\client\desktop\js\components\InputRenderer.js" />
-    <Compile Include="src\network\clients\desktop\client\desktop\js\components\MainWindow.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\clients\desktop\client\desktop\js\jquery-3.3.1.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\clients\desktop\client\desktop\js\ventus.js" />
-    <Compile Include="src\network\clients\desktop\client\desktop\js\ventus.min.js" />
-    <Compile Include="src\network\clients\desktop\DesktopClient.js" />
-    <Compile Include="src\network\clients\desktop\DesktopServer.js" />
-    <Compile Include="src\network\clients\http\HTTPClientInstance.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\clients\http\HTTPClientEndpoint.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\ansi\TerminalColorAnsi.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\kmud\KmudHtmlSupport.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\kmud\KmudSoundSupport.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\kmud\KmudVideoSupport.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\kmud\KmudColorSupport.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\ClientImplementation.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\MudRoomImplementation.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\MudHtmlImplementation.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\MudSoundImplementation.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\MudColorImplementation.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\MudVideoImplementation.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\xterm\TerminalColorXterm.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\zmud\MudSoundProtocol.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\zmud\MXPSupport.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\zmud\TerminalColorZmud.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\zmud\MXPRoomSupport.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\impl\zmud\ZmudHtmlSupport.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\clients\desktop\DesktopFileAbstraction.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\servers\HTTPServer\AuthManager.js" />
-    <Compile Include="src\network\servers\HTTPServer\FileAbstraction.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\servers\HTTPServer\handlers\BaseContentHandler.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\servers\HTTPServer\handlers\KMTemplateHandler.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\servers\HTTPServer\handlers\MVCHandler.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\servers\HTTPServer\handlers\StaticContentHandler.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\servers\HTTPServer\HTTPContext.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\servers\HTTPServer\HTTPUri.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\servers\HTTPServer\index.js" />
-    <Compile Include="src\network\servers\HTTPServer\KnownMimeTypes.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\servers\HTTPServer\RouteTable.js" />
-    <Compile Include="src\StandardIO.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\NetUtil.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\clients\telnet\RanvierTelnet.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\clients\telnet\RanvierTelnetEndpoint.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\network\clients\telnet\RanvierTelnetInstance.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\compiler\CompilerPipeline.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\compiler\PipelineComponent.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\features\VerbSystem.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\setup\general\AdminSetup.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\setup\general\NetBindingSetup.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\setup\MudSetupTypes.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\setup\GameSetup.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\compiler\MudScriptTranspiler.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\setup\GeneralMudSettings.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\setup\SectionSetup.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="TestApp.js">
       <SubType>Code</SubType>
     </Compile>
@@ -771,52 +416,167 @@
     <Content Include="lib\sys\etc\acls.json">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\sys\etc\groups.yaml">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="lib\sys\etc\singletons.json">
       <SubType>Code</SubType>
     </Content>
     <Content Include="mudconfig.json" />
-    <Content Include="src\AsyncHelpers.js">
-      <SubType>Code</SubType>
-    </Content>
+    <Content Include="src\AsyncHelpers.js" />
+    <Content Include="src\ClientComponent.js" />
+    <Content Include="src\CommandShell.js" />
+    <Content Include="src\compiler\CompilerPipeline.js" />
+    <Content Include="src\compiler\LPCPreprocessor.js" />
+    <Content Include="src\compiler\MudScriptTranspiler.js" />
+    <Content Include="src\compiler\PipelineComponent.js" />
+    <Content Include="src\compiler\PipelineContext.js" />
+    <Content Include="src\compiler\SecurityModifiers.js" />
+    <Content Include="src\compiler\VM2Wrapper.js" />
+    <Content Include="src\compiler\VMAbstraction.js" />
+    <Content Include="src\compiler\VMWrapper.js" />
+    <Content Include="src\ConfigUtil.js" />
+    <Content Include="src\config\ConfigApp.js" />
+    <Content Include="src\config\DriverCompiler.js" />
+    <Content Include="src\config\DriverCompilerComponent.js" />
+    <Content Include="src\config\DriverCompilerLanguage.js" />
+    <Content Include="src\config\DriverCompilerLoader.js" />
+    <Content Include="src\config\DriverFeature.js" />
+    <Content Include="src\config\DriverNetworking.js" />
+    <Content Include="src\config\DriverSection.js" />
+    <Content Include="src\config\MLibSection.js" />
+    <Content Include="src\config\MudlibFileSystem.js" />
+    <Content Include="src\config\MudlibMasterObject.js" />
+    <Content Include="src\config\MUDPasswordPolicy.js" />
+    <Content Include="src\config\MudPort.js" />
+    <Content Include="src\config\MudSection.js" />
+    <Content Include="src\CreationContext.js" />
+    <Content Include="src\DBManager.js" />
+    <Content Include="src\db\Database.js" />
+    <Content Include="src\db\MySqlDb.js" />
+    <Content Include="src\db\orm\ActiveRecordBase.js" />
+    <Content Include="src\Dialog.js" />
+    <Content Include="src\EFUNProxy.js" />
     <Content Include="src\efuns\Acl.js" />
+    <Content Include="src\efuns\Arrays.js" />
+    <Content Include="src\efuns\English.js" />
+    <Content Include="src\efuns\FileSystem.js" />
+    <Content Include="src\efuns\Inputs.js" />
+    <Content Include="src\efuns\Livings.js" />
+    <Content Include="src\efuns\MathHelper.js" />
+    <Content Include="src\efuns\ObjectHelper.js" />
+    <Content Include="src\efuns\TextHelper.js" />
+    <Content Include="src\efuns\Time.js" />
+    <Content Include="src\ErrorTypes.js" />
+    <Content Include="src\ExecutionContext.js" />
+    <Content Include="src\Extensions.js" />
+    <Content Include="src\features\DomainStats.js" />
+    <Content Include="src\features\FeatureBase.js" />
+    <Content Include="src\features\MUDEditor.js" />
+    <Content Include="src\features\SecurityFileACL.js" />
+    <Content Include="src\features\VerbSystem.js" />
+    <Content Include="src\FileSecurity.js" />
+    <Content Include="src\FileSystem.js" />
     <Content Include="src\fs\AclFileSecurity.js" />
+    <Content Include="src\fs\DefaultFileSecurity.js" />
     <Content Include="src\fs\DiskFileSystem.js" />
-    <Content Include="src\fs\FileACL.js">
-      <SubType>Code</SubType>
-    </Content>
+    <Content Include="src\fs\FileACL.js" />
+    <Content Include="src\fs\FileSystemStat.js" />
+    <Content Include="src\fs\MySqlFilesystem.js" />
+    <Content Include="src\GameServer.js" />
+    <Content Include="src\inputs\BaseInput.js" />
+    <Content Include="src\inputs\FormInput.js" />
+    <Content Include="src\inputs\PickOne.js" />
+    <Content Include="src\inputs\TextInput.js" />
+    <Content Include="src\inputs\YesNoInput.js" />
+    <Content Include="src\LinkedList.js" />
+    <Content Include="src\LPCCompat.js" />
+    <Content Include="src\MUDCache.js" />
+    <Content Include="src\MUDCompiler.js" />
+    <Content Include="src\MUDConfig.js" />
+    <Content Include="src\MUDCreationContext.js" />
+    <Content Include="src\MUDEventEmitter.js" />
+    <Content Include="src\MUDHtml.js" />
+    <Content Include="src\MUDLoader.js" />
+    <Content Include="src\MUDLogger.js" />
+    <Content Include="src\MUDModule.js" />
+    <Content Include="src\MUDObject.js" />
+    <Content Include="src\MUDOSLoader.js" />
+    <Content Include="src\MUDPromise.js" />
+    <Content Include="src\MUDStorage.js" />
+    <Content Include="src\network\ClientCaps.js" />
+    <Content Include="src\network\ClientEndpoint.js" />
+    <Content Include="src\network\ClientInstance.js" />
     <Content Include="src\network\clients\desktop\client\desktop\css\client.css" />
     <Content Include="src\network\clients\desktop\client\desktop\css\client.min.css" />
-    <Content Include="src\network\clients\desktop\client\desktop\css\client.scss">
-      <SubType>Code</SubType>
-    </Content>
+    <Content Include="src\network\clients\desktop\client\desktop\css\client.scss" />
     <Content Include="src\network\clients\desktop\client\desktop\css\ventus.css" />
-    <Content Include="src\network\clients\desktop\client\desktop\css\_mainWindow.scss">
-      <SubType>Code</SubType>
-    </Content>
+    <Content Include="src\network\clients\desktop\client\desktop\css\_mainWindow.scss" />
     <Content Include="src\network\clients\desktop\client\desktop\img\desktop-bg-1.jpg" />
     <Content Include="src\network\clients\desktop\client\desktop\img\desktop-bg-2.jpg" />
     <Content Include="src\network\clients\desktop\client\desktop\img\desktop-bg-3.jpg" />
     <Content Include="src\network\clients\desktop\client\desktop\img\desktop-bg-4.jpg" />
     <Content Include="src\network\clients\desktop\client\desktop\img\new_connection.png" />
-    <Content Include="src\network\clients\desktop\client\index.html">
-      <SubType>Code</SubType>
-    </Content>
+    <Content Include="src\network\clients\desktop\client\desktop\js\client.js" />
+    <Content Include="src\network\clients\desktop\client\desktop\js\components\InputRenderer.js" />
+    <Content Include="src\network\clients\desktop\client\desktop\js\components\MainWindow.js" />
+    <Content Include="src\network\clients\desktop\client\desktop\js\jquery-3.3.1.js" />
+    <Content Include="src\network\clients\desktop\client\desktop\js\jquery-3.3.1.min.map" />
+    <Content Include="src\network\clients\desktop\client\desktop\js\ventus.js" />
     <Content Include="src\network\clients\desktop\client\desktop\js\ventus.js.map" />
-    <Content Include="src\network\servers\HTTPServer\errors\200.html">
-      <SubType>Code</SubType>
-    </Content>
-    <Content Include="src\network\servers\HTTPServer\errors\403.html">
-      <SubType>Code</SubType>
-    </Content>
-    <Content Include="src\network\servers\HTTPServer\errors\404.html">
-      <SubType>Code</SubType>
-    </Content>
-    <Content Include="src\network\servers\HTTPServer\errors\500.html">
-      <SubType>Code</SubType>
-    </Content>
-    <Content Include="src\setup\BaseConfig.json">
-      <SubType>Code</SubType>
-    </Content>
+    <Content Include="src\network\clients\desktop\client\desktop\js\ventus.min.js" />
+    <Content Include="src\network\clients\desktop\client\index.html" />
+    <Content Include="src\network\clients\desktop\DesktopClient.js" />
+    <Content Include="src\network\clients\desktop\DesktopFileAbstraction.js" />
+    <Content Include="src\network\clients\desktop\DesktopServer.js" />
+    <Content Include="src\network\clients\http\HTTPClientEndpoint.js" />
+    <Content Include="src\network\clients\http\HTTPClientInstance.js" />
+    <Content Include="src\network\clients\telnet\RanvierTelnet.js" />
+    <Content Include="src\network\clients\telnet\RanvierTelnetEndpoint.js" />
+    <Content Include="src\network\clients\telnet\RanvierTelnetInstance.js" />
+    <Content Include="src\network\impl\ansi\TerminalColorAnsi.js" />
+    <Content Include="src\network\impl\ClientImplementation.js" />
+    <Content Include="src\network\impl\kmud\KmudColorSupport.js" />
+    <Content Include="src\network\impl\kmud\KmudHtmlSupport.js" />
+    <Content Include="src\network\impl\kmud\KmudSoundSupport.js" />
+    <Content Include="src\network\impl\kmud\KmudVideoSupport.js" />
+    <Content Include="src\network\impl\MudColorImplementation.js" />
+    <Content Include="src\network\impl\MudHtmlImplementation.js" />
+    <Content Include="src\network\impl\MudRoomImplementation.js" />
+    <Content Include="src\network\impl\MudSoundImplementation.js" />
+    <Content Include="src\network\impl\MudVideoImplementation.js" />
+    <Content Include="src\network\impl\xterm\TerminalColorXterm.js" />
+    <Content Include="src\network\impl\zmud\MudSoundProtocol.js" />
+    <Content Include="src\network\impl\zmud\MXPRoomSupport.js" />
+    <Content Include="src\network\impl\zmud\MXPSupport.js" />
+    <Content Include="src\network\impl\zmud\TerminalColorZmud.js" />
+    <Content Include="src\network\impl\zmud\ZmudHtmlSupport.js" />
+    <Content Include="src\network\MVCSupport.js" />
+    <Content Include="src\network\NetUtil.js" />
+    <Content Include="src\network\servers\HTTPServer\AuthManager.js" />
+    <Content Include="src\network\servers\HTTPServer\errors\200.html" />
+    <Content Include="src\network\servers\HTTPServer\errors\403.html" />
+    <Content Include="src\network\servers\HTTPServer\errors\404.html" />
+    <Content Include="src\network\servers\HTTPServer\errors\500.html" />
+    <Content Include="src\network\servers\HTTPServer\FileAbstraction.js" />
+    <Content Include="src\network\servers\HTTPServer\handlers\BaseContentHandler.js" />
+    <Content Include="src\network\servers\HTTPServer\handlers\KMTemplateHandler.js" />
+    <Content Include="src\network\servers\HTTPServer\handlers\MVCHandler.js" />
+    <Content Include="src\network\servers\HTTPServer\handlers\StaticContentHandler.js" />
+    <Content Include="src\network\servers\HTTPServer\HTTPContext.js" />
+    <Content Include="src\network\servers\HTTPServer\HTTPUri.js" />
+    <Content Include="src\network\servers\HTTPServer\index.js" />
+    <Content Include="src\network\servers\HTTPServer\KnownMimeTypes.js" />
+    <Content Include="src\network\servers\HTTPServer\MachineKey.dat" />
+    <Content Include="src\network\servers\HTTPServer\RouteTable.js" />
+    <Content Include="src\setup\BaseConfig.json" />
+    <Content Include="src\setup\GameSetup.js" />
+    <Content Include="src\setup\GeneralMudSettings.js" />
+    <Content Include="src\setup\general\AdminSetup.js" />
+    <Content Include="src\setup\general\NetBindingSetup.js" />
+    <Content Include="src\setup\MudSetupTypes.js" />
+    <Content Include="src\setup\SectionSetup.js" />
+    <Content Include="src\StandardIO.js" />
     <Content Include="TODO.md">
       <SubType>Code</SubType>
     </Content>
@@ -1005,9 +765,6 @@
     </Content>
     <Content Include="package.json" />
     <Content Include="README.md" />
-    <Content Include="src\Extensions.js">
-      <SubType>Code</SubType>
-    </Content>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="lib\" />
@@ -1093,17 +850,23 @@
     <Folder Include="lib\wwwroot\sound\ogg\sword\" />
     <Folder Include="lib\wwwroot\templates\" />
     <Folder Include="src\" />
-    <Folder Include="src\db\orm\" />
-    <Folder Include="src\network\" />
     <Folder Include="src\compiler\" />
     <Folder Include="src\config\" />
+    <Folder Include="src\db\" />
+    <Folder Include="src\db\orm\" />
+    <Folder Include="src\dts\" />
+    <Folder Include="src\efuns\" />
     <Folder Include="src\features\" />
+    <Folder Include="src\fs\" />
+    <Folder Include="src\inputs\" />
+    <Folder Include="src\network\" />
+    <Folder Include="src\network\clients\" />
     <Folder Include="src\network\clients\desktop\" />
     <Folder Include="src\network\clients\desktop\client\" />
+    <Folder Include="src\network\clients\desktop\client\desktop\" />
+    <Folder Include="src\network\clients\desktop\client\desktop\css\" />
     <Folder Include="src\network\clients\desktop\client\desktop\img\" />
     <Folder Include="src\network\clients\desktop\client\desktop\js\" />
-    <Folder Include="src\network\clients\desktop\client\desktop\css\" />
-    <Folder Include="src\network\clients\desktop\client\desktop\" />
     <Folder Include="src\network\clients\desktop\client\desktop\js\components\" />
     <Folder Include="src\network\clients\http\" />
     <Folder Include="src\network\clients\telnet\" />
@@ -1112,37 +875,27 @@
     <Folder Include="src\network\impl\kmud\" />
     <Folder Include="src\network\impl\xterm\" />
     <Folder Include="src\network\impl\zmud\" />
-    <Folder Include="src\fs\" />
-    <Folder Include="src\dts\" />
-    <Folder Include="src\db\" />
-    <Folder Include="src\efuns\" />
-    <Folder Include="src\inputs\" />
-    <Folder Include="src\network\clients\" />
     <Folder Include="src\network\servers\" />
     <Folder Include="src\network\servers\HTTPServer\" />
     <Folder Include="src\network\servers\HTTPServer\errors\" />
     <Folder Include="src\network\servers\HTTPServer\handlers\" />
-    <Folder Include="src\tests\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
+    <Folder Include="src\tests\" />
     <Folder Include="src\tests\fs\" />
   </ItemGroup>
   <ItemGroup>
     <TypeScriptCompile Include="lib\wwwroot\dts\global.d.ts" />
-    <TypeScriptCompile Include="src\dts\EFUNProxy.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
-    <TypeScriptCompile Include="src\dts\ExecutionContext.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
-    <TypeScriptCompile Include="src\dts\FileSystem.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\EFUNProxy.d.ts" />
+    <TypeScriptCompile Include="src\dts\ExecutionContext.d.ts" />
+    <TypeScriptCompile Include="src\dts\FileSystem.d.ts" />
     <TypeScriptCompile Include="src\dts\GameServer.d.ts" />
-    <TypeScriptCompile Include="src\dts\GlobalFunctions.d.ts">
+    <TypeScriptCompile Include="src\dts\GlobalFunctions.d.ts" />
+    <TypeScriptCompile Include="src\dts\MUDModule.d.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\MUDObject.d.ts" />
+    <TypeScriptCompile Include="src\dts\Storage.d.ts" />
   </ItemGroup>
   <!-- Do not delete the following Import Project.  While this appears to do nothing it is a marker for setting TypeScript properties before our import that depends on them. -->
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TypeScript\Microsoft.TypeScript.targets" Condition="False" />

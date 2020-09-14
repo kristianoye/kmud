@@ -5,7 +5,6 @@
  */
 const
     MUDModule = require('./MUDModule'),
-    GameServer = require('./GameServer'),
     path = require('path');
 
 /**
@@ -87,17 +86,15 @@ class MUDCache {
             throw new Error(`Bad argument 0 to normalize; Expected string got ${(typeof filename)}`);
         }
         filename = (filename || '').replace(/\/{2,}/g, '/');
-        if (filename.endsWith('.js')) filename = filename.slice(0, filename.length - 3);
+        if (filename.endsWith('.js'))
+            filename = filename.slice(0, filename.length - 3);
         return filename;
     }
 
-    addInstance(filename, inst) {
-        return this;
-    }
-
     /**
-     * 
+     * Resolve a module from the cache
      * @param {string} file
+     * @returns {MUDModule}
      */
     resolve(file) {
         let expr = driver.fileManager.toMudPath(file) || file,
@@ -118,36 +115,7 @@ class MUDCache {
  * @param {GameServer} driver 
  */
 MUDCache.configureForRuntime = function (driver) {
-    /**
-     * Delete a module entry from the cache.
-     * @param {string} name The module to delete from the cache.
-     */
-    MUDCache.delete = function (name) {
-        return driver.cache.delete(name);
-    };
-
-    /**
-     * Returns the singleton instance of the MUD cache.
-     * @param {string} name The name of the module to fetch.
-     * @returns {MUDModule} */
-    MUDCache.get = function (name) {
-        return driver.cache.get(name);
-    };
-
-    /**
-     * Passthru
-     */
-    MUDCache.getOrCreate = function (filename, fullPath, muddir, isVirtual) {
-        return driver.cache.getOrCreate(filename, fullPath, muddir, isVirtual);
-    };
-
-    /**
-     * Stores a compiled module.
-     * @param {MUDModule} module The module to store.
-     */
-    MUDCache.store = function (module) {
-        return driver.cache.store(module);
-    };
+    /* nothing to do atm */
 };
 
 module.exports = MUDCache;

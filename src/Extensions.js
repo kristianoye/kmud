@@ -5,12 +5,30 @@
  *
  * Description: This module contains core game functionality.
  */
+
 function extendPrototype(pt, spec) {
     Object.keys(spec).forEach(fn => {
         if (typeof pt[fn] !== 'function') { pt[fn] = spec[fn]; }
     });
 }
 
+if (typeof Array.prototype.forEachAsync !== 'function')
+    Array.prototype.forEachAsync = async (callback, limit = 10) => {
+        try {
+            if (typeof callback !== 'function' || !/^async /.test(callback.toString()))
+                throw new Error(`Bad argument 1 to forEachAsync(); Callback must be async function`);
+
+            for (let i = 0; i < this.length; i += limit) {
+                let batch = this.slice(i, i + limit).map((val, index) => callback(val, index));
+                console.log('Running ', ...batch);
+                await Promise.all(batch);
+            }
+        }
+        catch (err) {
+            console.log(`Error in forEachAsync(): ${err.message}`);
+        }
+        return this;
+    };
 //  Extend Array
 (function (pt) {
     extendPrototype(pt, {

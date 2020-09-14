@@ -141,47 +141,15 @@ class MUDLoader {
                 }
             },
             __pcc: {
-                //  Perform Constructor Call
+                //  Perform Constructor Call -- Only used by built-in types
                 value: function (thisObject, type, file, method, con) {
                     let ecc = driver.getExecution(thisObject, 'constructor', file, false);
+
                     try {
-                        let result = undefined, 
-                            fn = type.prototype && type.prototype.baseName,
-                            parts = fn && driver.efuns.parsePath(fn),
-                            constructorType = typeof type === 'function' && type,
-                            instanceData = false,
-                            module = false;
-
-                        if (!parts && !constructorType) {
-                            if (typeof type === 'string')
-                                parts = driver.efuns.parsePath(type);
-                            else
-                                throw new Error(`Unable to construct object from expression ${type}`);
-                        }
-                        if (parts) {
-                            module = driver.cache.get(parts.file);
-
-                            if (module) {
-                                instanceData = ecc.newContext = Object.assign(
-                                    module.getNewContext(parts.type),
-                                    ecc.newContext);
-
-                                if (!constructorType)
-                                    constructorType = module.getType(parts.type);
-                            }
-                            if (ecc.newContext.isVirtual)
-                                ecc.virtualParents.push(module);
-                        }
-                        if (!constructorType) {
-                            throw new Error(`Unable to load module for expression ${type}`);
-                        }
-                        if (instanceData) {
-                            result = module.create(constructorType, instanceData, instanceData.args, con);
-                        }
+                        if (type.prototype && type.prototype.baseName)
+                            throw new Error(`Mudlib objects must be created with createAsync(...)`);
                         else
-                            result = con(constructorType);
-
-                        return result;
+                            return con(type);
                     }
                     finally {
                         ecc.popCreationContext();
@@ -235,55 +203,37 @@ class MUDLoader {
             },
             createAsync: {
                 value: async (callingFile, type, ...args) => {
-                    let fn = type.prototype && type.prototype.baseName || typeof type === 'string' && type,
-                        parts = fn && driver.efuns.parsePath(fn),
-                        ecc = driver.getExecution(callingFile, 'createAsync', parts.file, false);
-
-                    try {
-                        let result = undefined,
-                            constructorType = typeof type === 'function' && type,
-                            instanceData = false,
-                            module = false;
-
-                        if (!parts && !constructorType) {
-                            if (typeof type === 'string')
-                                parts = driver.efuns.parsePath(type);
-                            else
-                                throw new Error(`Unable to construct object from expression ${type}`);
-                        }
-                        if (parts) {
+                    if (typeof type === 'string') {
+                        let parts = driver.efuns.parsePath(type),
                             module = driver.cache.get(parts.file);
 
-                            if (module) {
-                                instanceData = ecc.newContext = Object.assign(
-                                    module.getNewContext(parts.type));
+                        if (!module) 
+                            module = await driver.compiler.compileObjectAsync({ file, args });
 
-                                if (!constructorType)
-                                    constructorType = module.getType(parts.type);
-                            }
-                            if (ecc.newContext.isVirtual)
-                                ecc.virtualParents.push(module);
-                        }
-                        if (!constructorType) {
-                            throw new Error(`Unable to load module for expression ${type}`);
-                        }
-                        if (instanceData) {
-                            result = await module.createAsync(constructorType, instanceData, instanceData.args);
-                        }
+                        if (module && module.isVirtual === true) 
+                            return module.defaultExport;
                         else
-                            result = constructorType(...args);
+                            return await driver.efuns.objects.cloneObjectAsync(type, ...args);
+                    }
+                    else if (type.prototype && typeof type.prototype.baseName === 'string') {
+                        let parts = driver.efuns.parsePath(type.prototype.baseName),
+                            ecc = driver.getExecution(callingFile, 'createAsync', parts.file, false),
+                            module = driver.cache.get(parts.file);
 
-                        return result;
+                        try {
+                            return await module.createInstanceAsync(parts.type, false, args, false, callingFile);
+                        }
+                        finally {
+                            ecc && ecc.pop('createAsync');
+                        }
                     }
-                    catch (err) {
-                        throw err;
+                    else if (typeof type === 'function') {
+                        return new type(...args);
                     }
-                    finally {
-                        ecc.popCreationContext();
-                        ecc && ecc.pop('createAsync');
-                    }
-                    return result;
-                }
+                    else
+                        throw new Error(`Bad argument 1 to createAsync(); Expected string or type but got ${typeof type}`);
+                },
+                writable: false
             },
             eval: {
                 value: (code) => {
@@ -499,7 +449,15 @@ class MUDLoader {
      * @returns {boolean} Returns true on success.
      */
     set(definingType, propertyName, value) {
-        let store = driver.storage.get(this);
+        let key = this.filename;
+
+        if (!key) {
+            let ecc = driver.getExecution(),
+                cct = ecc.newContext;
+            key = cct && cct.filename;
+            if (!key) return false;
+        }
+        let store = driver.storage.get(this, key);
         return store && store.set(definingType, propertyName, value);
     }
 

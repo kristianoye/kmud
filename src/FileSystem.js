@@ -851,9 +851,8 @@ class FileSystem extends MUDEventEmitter {
      * Loads an object from storage.
      * @param {FileSystemRequest} req The path to load the object from.
      * @param {any} args Optional constructor args.
-     * @param {function(MUDModule,Error):void} callback Callback that fires if load object was async.
      */
-    loadObjectAsync(req, args, callback) {
+    loadObjectAsync(req, args) {
         throw new NotImplementedError('loadObjectAsync');
     }
 
@@ -1114,12 +1113,12 @@ class FileManager extends MUDEventEmitter {
      * @param {any} args Constructor args for clone
      * @returns {MUDWrapper} The wrapped instance.
      */
-    async cloneObjectAsync(expr, args) {
-        let req = this.createFileRequest('cloneObject', expr);
-        if (!req.valid('LoadObject'))
-            return req.deny();
+    async cloneObjectAsync(expr, args = []) {
+        let request = this.createFileRequest('cloneObject', expr);
+        if (!request.valid('LoadObject'))
+            return request.deny();
         else
-            return await req.fileSystem.cloneObjectAsync(req.relativePath, args || []);
+            return await request.fileSystem.cloneObjectAsync(request, args);
     }
 
     /**
@@ -1484,18 +1483,23 @@ class FileManager extends MUDEventEmitter {
      * @returns {string} The content from the file.
      */
     async readFileAsync(expr) {
-        let req = this.createFileRequest('readFileAsync', expr);
-        return req.valid('validReadFile') && await req.fileSystem.readFileAsync(req.relativePath);
+        let request = this.createFileRequest('readFileAsync', expr);
+        return request.valid('validReadFile') && await request.fileSystem.readFileAsync(request);
     }
 
     /**
      * Read structured data from the specified location.
-     * @param {string} expr The JSON file being read.
+     * @param {FileSystemRequest} expr The JSON file being read.
      * @param {function=} callback An optional callback for async mode.
      */
     async readJsonAsync(expr) {
-        let req = this.createFileRequest('readJsonFile', expr);
-        return req.valid('validReadFile') && await req.fileSystem.readJsonAsync(req.relativePath);
+        let request = this.createFileRequest('readJsonFile', expr);
+        return request.valid('validReadFile') && await request.fileSystem.readJsonAsync(request);
+    }
+
+    async readYamlAsync(expr) {
+        let request = this.createFileRequest('readYamlFile', expr);
+        return request.valid('validReadFile') && await request.fileSystem.readYamlAsync(request);
     }
 
     /**
@@ -1557,7 +1561,7 @@ class FileManager extends MUDEventEmitter {
      */
     async writeFileAsync(expr, content, flags, encoding) {
         let request = this.createFileRequest('writeFileAsync', expr, flags || 'w');
-        return request.valid('validWriteFile') && request.fileSystem.writeFileAsync(request);
+        return request.valid('validWriteFile') && request.fileSystem.writeFileAsync(request, content);
     }
 
     /**

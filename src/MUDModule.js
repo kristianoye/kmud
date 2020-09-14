@@ -80,7 +80,7 @@ class MUDModule extends MUDEventEmitter {
         driver.preCompile(this);
 
         if (parent) {
-            parent.on('recompile', () => {
+            parent.on && parent.on('recompile', () => {
                 /* the module should rebuild all instances */
             });
         }
@@ -158,39 +158,17 @@ class MUDModule extends MUDEventEmitter {
     }
 
     /**
-     * Create an instance of an object
-     * @param {string} file The module name to create from
-     * @param {string} [typeName] The type to construct
-     * @param {any} [args] Arguments to pass to the constructor
+     * Add a virtual type
+     * @param {MUDModule} parent The parent module
+     * @param {function} type The type to add
      */
-    async createInstanceAsync(file, typeName, args) {
-        //  Sanity check
-        if (file !== this.filename)
-            return false;
-        //  No type name matching filename was found; Use first available if only one exists
-        else if (!typeName || typeName in this.types === false) {
-            if (this.defaultExport instanceof MUDObject)
-                return this.defaultExport;
-            if (this.typeNames.length === 1) {
-                typeName = this.typeNames[0];
-            }
-            else return false;
-        }
-        //  The module exported an instance of this type; This indicates the item cannot be cloned
-        if (this.singletons[typeName] === true)
-            throw new Error(`Type ${typeName} is a singleton and cannot be cloned.`);
-
-        let type = this.types[typeName],
-            createContext = this.getNewContext(typeName, true, args);
-
-        await this.createAsync(type, createContext, args);
-
-        return this.getInstanceWrapper({
-            file,
-            type: typeName,
-            instance: createContext.instanceId
-        });
-
+    addVirtualType(parent, type) {
+        this.isVirtual = true;
+        this.parent = parent;
+        this.types[type.name] = type;
+        this.types.length++;
+        this.instanceMap[type.name] = {};
+        return true;
     }
 
     create(type, instanceData, args = [], create = false) {
@@ -236,7 +214,14 @@ class MUDModule extends MUDEventEmitter {
         }
     }
 
-    async createAsync(type, instanceData, args = [], create = false) {
+    /**
+     * Create an object asynchronously
+     * @param {string} type The specific type to create
+     * @param {CreationContext} instanceData Information for the newly defined object
+     * @param {any[]} args Arguments to pass to the object constructor and/or create method
+     * @param {function(type,...any):MUDObject}factory A custom factory method
+     */
+    async createAsync(type, instanceData, args = [], factory = false) {
         try {
             if (typeof type === 'string') {
                 if (type in this.exports === false) {
@@ -260,12 +245,13 @@ class MUDModule extends MUDEventEmitter {
             ecc.addCreationContext(instanceData);
             ecc.storage = store;
 
-            let instance = create ? create(type, ...args) : new type(...args);
+            let instance = factory ? factory(type, ...args) : new type(...args);
             this.finalizeInstance(instance, !instance.filename && instanceData);
             if (typeof instance.create === 'function') {
                 await driver.driverCallAsync('create', async () => await instance.create());
             }
-            store.owner = instance;
+            await driver.driverCallAsync('initStorage', async () => await store.eventInitialize(instance));
+
             return instance;
         }
         catch (err) {
@@ -289,6 +275,59 @@ class MUDModule extends MUDEventEmitter {
         //        }
         //    }
         //});
+    }
+
+    async createInstanceAsync(type, instanceData, args, factory = false, callingFile = false) {
+        try {
+            if (typeof type === 'string') {
+                if (type in this.exports === false) {
+                    //  Always allow module to create its own types
+                    if (callingFile === this.filename) {
+                        type = this.types[type];
+                    }
+                    else if (type in this.types === false) {
+                        throw new Error(`Unable to find type ${type}`);
+                    }
+                    else if (prev.filename !== this.filename) {
+                        throw new Error(`Access denied to non-exported type ${type} in module ${this.filename}`);
+                    }
+                }
+                else
+                    type = this.types[type];
+            }
+            let ecc = driver.getExecution(),
+                virtualContext = ecc.popVirtualCreationContext();
+
+            if (virtualContext) {
+                virtualContext.module.addVirtualType(this, type);
+                return await virtualContext.module.createInstanceAsync(type, virtualContext, args);
+            }
+            if (!instanceData)
+                instanceData = this.getNewContext(type, false, args);
+            if (typeof instanceData.instanceId !== "number") {
+                let instances = this.instanceMap[type.constructor.name];
+                instanceData.instanceId = instances.length;
+            }
+            // Storage needs to be set before starting...
+            let store = driver.storage.createForId(instanceData.filename, instanceData.instanceId);
+
+            ecc.addCreationContext(instanceData);
+            ecc.storage = store;
+
+            let instance = factory ? factory(type, ...args) : new type(...args);
+            this.finalizeInstance(instance, !instance.filename && instanceData);
+            if (typeof instance.create === 'function') {
+                await driver.driverCallAsync('create', async () => await instance.create(...args));
+            }
+            await driver.driverCallAsync('initStorage', async () => await store.eventInitialize(instance));
+
+            return instance;
+        }
+        catch (err) {
+            /* rollback object creation */
+            driver.storage.delete(instanceData.filename);
+            throw err;
+        }
     }
 
     createObject(id, creationContext) {
@@ -453,6 +492,7 @@ class MUDModule extends MUDEventEmitter {
 
         let instanceId = typeof idArg === 'number' ? idArg : (this.instanceMap[typeName] || []).length,
             filename = this.filename + (this.name !== typeName ? '$' + typeName : '');
+
         if (instanceId > 0) {
             if (this.singletons[typeName]) {
                 if (!this.isCompiling)
@@ -463,7 +503,14 @@ class MUDModule extends MUDEventEmitter {
             else
                 filename += '#' + instanceId;
         }
-        return { filename, instanceId, args: args || [] };
+        
+        return {
+            args: args || [],
+            constructor: this.types[type] || type,
+            filename,
+            instanceId,
+            module: this
+        };
     }
 
     /**
