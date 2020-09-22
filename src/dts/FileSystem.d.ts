@@ -19,12 +19,26 @@ declare interface FileSystem {
     encoding: FileEncoding;
 
     /**
+     * Get a directory object based on the file expression
+     * @param expr The file expression to resolve into a directory
+     * @param flags Flags associated with the operation
+     */
+    getDirectoryAsync(expr: string, flags?: number): Promise<DirectoryObject>;
+
+    /**
+     * Get a directory object based on the provided expression.
+     * @param expr The expression to evaluate
+     * @param flags Flags to control the operation
+     */
+    getFileAsync(expr: string, flags?: number): Promise<FileSystemObject>;
+
+    /**
      * Perform a glob operation with the given relative path/expression
      * @param dir The relative base directory to search from
      * @param expr The file expression to evaluate
      * @param options 
      */
-    glob(dir: string, expr: string, options: Glob): FileSystemStat[];
+    glob(dir: string, expr: string, options: Glob): FileSystemObject[];
 
     /** The mudlib path the filesystem is mounted to */
     mountPoint: string;
@@ -89,7 +103,7 @@ declare interface FileSystemRequest {
 }
 
 /** Base file system object */
-declare interface FileSystemStat {
+declare interface FileSystemObject {
     /** The access timestamp */
     atime: Date;
 
@@ -169,7 +183,7 @@ declare interface FileSystemStat {
     owner: string;
 
     /** The parent file object */
-    parent: FileSystemStat;
+    parent: FileSystemObject;
 
     /** The full MUD file path to this item */
     path: string;
@@ -185,18 +199,18 @@ declare interface FileSystemStat {
 
     deleteAsync(flags: number): Promise<boolean>;
 
-    getParent(): Promise<FileSystemStat>;
+    getParent(): Promise<FileSystemObject>;
 
-    readAsync(): string | string[] | FileSystemStat[];
+    readAsync(): string | string[] | FileSystemObject[];
 }
 
-declare interface DirectoryObject extends FileSystemStat {
+declare interface DirectoryObject extends FileSystemObject {
     /**
      * Read the content of the directory
      * @param pattern An optional file pattern to match (defaults to all)
      * @param options Additional operations to control operation
      */
-    readAsync(pattern?: string, options?: number): FileSystemStat[];
+    readAsync(pattern?: string, options?: number): FileSystemObject[];
 }
 
 declare enum Glob {
@@ -227,5 +241,7 @@ declare enum StatFlags {
     Content = 1 << 9 | 1 << 10
 }
 
+/** The primary means of gaining access to the filesystem */
 declare interface FileManager extends Helpers.FileSystem {
+
 }

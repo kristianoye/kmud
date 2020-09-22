@@ -21,8 +21,10 @@ const
         'reset'           // Called periodically to reset the object state
     ],
     BaseInput = require('./inputs/BaseInput'),
-    vm = require('vm'),
     loopsPerAssert = 10000;
+
+const
+    FileSystemFlags = require('./fs/FileSystemFlags');
 
 if (typeof Promise.prototype.always !== 'function') {
     Promise.prototype.always = function (onResolveOrReject) {
@@ -53,7 +55,9 @@ class MUDLoader {
         let _loopCounter = loopsPerAssert;
         this.console = console;
 
-        console.log('MUDLoad.constructor');
+        // Prepare system namespace
+        global.system = {};
+        FileSystemFlags(global.system);
 
         Object.defineProperties(this, {
             __cat: {
@@ -396,6 +400,10 @@ class MUDLoader {
     get(definingType, propertyName, initialValue) {
         let store = driver.storage.get(this);
         return !!store && store.get(definingType, propertyName, initialValue);
+    }
+
+    get system() {
+        return global.system;
     }
 
     inc(usingType, file, key, value = 0, access = 2) {

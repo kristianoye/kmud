@@ -26,7 +26,7 @@ class MoveCommand extends Command {
      * @param {string[]} args
      * @param {MUDInputEvent} evt
      */
-    cmd(args, evt) {
+    async cmd(args, evt) {
         let flags = 0,
             fileList = [],
             op = this.createMoveRequest();
@@ -162,4 +162,4 @@ class MoveCommand extends Command {
     }
 }
 
-module.exports = await createAsync(MoveCommand);
+module.defaultExport = await createAsync(MoveCommand);

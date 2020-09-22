@@ -52,9 +52,9 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
 
     /**
      * Prompts the user for input
-     * @param {Object} opts Options to include in the prompt request.
-     * @param {String} opts.type The type of prompt.  May be 'text' or 'password'.
-     * @param {String} opts.text The text to display to the user when prompting.
+     * @param {Object.<string,any>} opts Options to include in the prompt request.
+     * @param {string} opts.type The type of prompt.  May be 'text' or 'password'.
+     * @param {string} opts.text The text to display to the user when prompting.
      * @param {function(string):void} callback A function that catches the user's input.
      * @returns {ClientInstance} A reference to the client interface.
      */

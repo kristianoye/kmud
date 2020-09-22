@@ -6,21 +6,25 @@
 const
     BaseFileSecurity = require('./BaseFileSecurity');
 
-class DirectoryAcl {
+class FilePermissions {
     constructor(stat, acl) {
         this.inherits = typeof acl.inherits === 'boolean' ? acl.inherits : true;
-        this.permissions = acl.permissions || {};
-        this.files = acl.files || {};
+        this.owner = acl.owner;
+        this.group = acl.group;
+        this.ownerPermissions = acl.ownerPermissions;
+        this.groupPermissions = acl.groupPermissions;
+        this.otherPermissions = acl.otherPermissions;
         this.path = stat.path;
     }
 }
 
-class AclFileSecurity extends BaseFileSecurity {
+/** Mimics UNIX-like file-based permissions */
+class UnixSecurityManager extends BaseFileSecurity {
     constructor(fileManager, fileSystem, options) {
         super(fileManager, fileSystem, options);
 
-        /** @type {Object.<string, DirectoryAcl>} */
-        this.aclCache = {};
+        /** @type {Object.<string, FilePermissions>} */
+        this.permsCache = {};
     }
 
     /**
@@ -34,8 +38,8 @@ class AclFileSecurity extends BaseFileSecurity {
             return parentAcl;
         }
         else if (stat.isDirectory) {
-            if (stat.path in this.aclCache)
-                return this.aclCache[stat.path];
+            if (stat.path in this.permsCache)
+                return this.permsCache[stat.path];
 
             let aclData = await driver.fileManager.getSystemFileAsync(stat.mapPath('.acl'), 1);
             if (!aclData.exists) {
@@ -43,15 +47,15 @@ class AclFileSecurity extends BaseFileSecurity {
                 if (parent) return await this.getAcl(parent);
             }
             let data = await aclData.readJsonAsync();
-            return this.aclCache[stat.path] = new DirectoryAcl(aclData, data);
+            return this.permsCache[stat.path] = new FilePermissions(aclData, data);
         }
     }
 
-   /**
-     * Check to see if the caller may append to file.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
-     */
+    /**
+      * Check to see if the caller may append to file.
+      * @param {EFUNProxy} efuns
+      * @param {FileSystemRequest} req
+      */
     validAppendFile(efuns, req) {
         return this.validWriteFile(efuns, req);
     }
@@ -69,7 +73,7 @@ class AclFileSecurity extends BaseFileSecurity {
      * @param {string} expr The expression to create
      */
     validCreateFile(expr) {
-        return this.validWriteFile( expr);
+        return this.validWriteFile(expr);
     }
 
     /**
@@ -171,4 +175,4 @@ class AclFileSecurity extends BaseFileSecurity {
     }
 }
 
-module.exports = AclFileSecurity;
+module.exports = UnixSecurityManager;

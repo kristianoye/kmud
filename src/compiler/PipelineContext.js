@@ -128,7 +128,7 @@ class PipelineContext {
             if ((ext = ext || this.extension) === false)
                 return false;
             let tryFilename = this.filename.endsWith(ext) ? this.filename : this.filename + ext;
-            /** @type {FileSystemStat} */
+            /** @type {FileSystemObject} */
             let stat = driver.efuns.stat(tryFilename, MUDFS.StatFlags.Content);
             if (stat && stat.exists) {
                 if (stat.isFile) {

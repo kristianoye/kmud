@@ -13,13 +13,17 @@ declare interface MUDModule {
     /** True if the default was explicitly set in the module */
     explicitDefault: boolean;
 
-    exports: Object.<string, any>;
+    /** A collection of exported values */
+    exports: Dictionary<string, any>;
 
     /** The file this module represents */
     filename: string;
 
     /** Duplicate of filename? */
     fullPath: string;
+
+    /** The collection of object instances */
+    instanceMap: Dictionary<string, ArrayLike<MUDObject>>;
 
     /** Was the module compiled virtually? */
     isVirtual: boolean;

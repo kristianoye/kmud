@@ -4,13 +4,15 @@
  * Date: October 1, 2017
  */
 const
-    { FileACL, FileManager, FileSystem, FileSystemStat, StatFlags, DirectoryObject, FileObject } = require('../FileSystem'),
+    BaseFileSystem = require('./BaseFileSystem'),
+    { DirectoryObject, FileObject, FileSystemObject, ObjectNotFound } = require('./FileSystemObject'),
     async = require('async'),
     path = require('path'),
     yaml = require('js-yaml'),
     fs = require('fs'),
     Dirent = fs.Dirent;
 
+/** Represents a directory on a disk */
 class DiskDirectoryObject extends DirectoryObject {
     constructor(stat, request) {
         super(stat, request);
@@ -19,7 +21,7 @@ class DiskDirectoryObject extends DirectoryObject {
     /**
      * Read from the directory
      * @param {string} [pattern] Optional file pattern to match on
-     * @returns {FileSystemStat[]>} Returns contents of the directory
+     * @returns {FileSystemObject[]>} Returns contents of the directory
      */
     async readAsync(pattern = undefined, flags = 0) {
         if (!await this.valid('validReadDirectoryAsync'))
@@ -49,8 +51,18 @@ class DiskDirectoryObject extends DirectoryObject {
             });
         });
     }
+
+    /**
+     * Fetch a single file from the directory
+     * @param {FileSystemRequest} request The filesystem request
+     * @returns {Promise<DiskFileObject>} Returns the file object if found.
+     */
+    async readFile(request) {
+
+    }
 }
 
+/** Represents a single file on a disk */
 class DiskFileObject extends FileObject {
     constructor(stat, request) {
         super(stat, request);
@@ -79,7 +91,7 @@ class DiskFileObject extends FileObject {
             return new Promise((resolve, reject) => {
                 //  TODO: Security checks
                 let fileSystem = driver.fileManager.getFileSystemById(this.fileSystemId),
-                    fullPath = fileSystem.getRealPath(this.relativePath);;
+                    fullPath = fileSystem.getRealPath(this.relativePath);
 
                 fs.unlink(fullPath, err => err ? reject(err) : resolve(true));
             });
@@ -138,7 +150,28 @@ class DiskFileObject extends FileObject {
     }
 }
 
-class DiskFileSystem extends FileSystem {
+class DiskObjectNotFound extends ObjectNotFound{
+    /**
+     * Actually create the non-existent directory
+     * @param {FileSystemRequest} request
+     * @returns {Promise<boolean>} Returns true on success
+     */
+    async createDirectoryAsync(request) {
+        return new Promise(resolve => {
+            try {
+                let fileSystem = driver.fileManager.getFileSystemById(this.fileSystemId),
+                    fullPath = fileSystem.getRealPath(this.relativePath);
+                fs.mkdir(fullPath, err => resolve(!err));
+            }
+            catch (err) {
+                resolve(false);
+            }
+        });
+    }
+}
+
+/** Represents a disk-based filesystem */
+class DiskFileSystem extends BaseFileSystem {
     /**
      * 
      * @param {FileManager} fm The filemanager instance
@@ -156,14 +189,14 @@ class DiskFileSystem extends FileSystem {
         this.root = path.resolve(fm.mudlibRoot, options.path);
 
         /** @type {number} */
-        this.flags = FileSystem.FS_ASYNC |
-            FileSystem.FS_SYNC |
-            FileSystem.FS_DIRECTORIES |
-            FileSystem.FS_OBJECTS | 
-            FileSystem.FS_WILDCARDS;
+        this.flags = BaseFileSystem.FS_ASYNC |
+            BaseFileSystem.FS_SYNC |
+            BaseFileSystem.FS_DIRECTORIES |
+            BaseFileSystem.FS_OBJECTS | 
+            BaseFileSystem.FS_WILDCARDS;
 
         if (options.readOnly === true)
-            this.flags |= FileSystem.FS_READONLY;
+            this.flags |= BaseFileSystem.FS_READONLY;
 
         /** @type {boolean} */
         this.autoStripBOM = typeof options.autoStripBOM === 'boolean' ?
@@ -313,7 +346,7 @@ class DiskFileSystem extends FileSystem {
 
     /**
      * Create a strongly-typed filesystem stat object.
-     * @param {FileSystemStat} data The base stat object returned by Node
+     * @param {FileSystemObject} data The base stat object returned by Node
      * @param {FileSystemRequest} request The request that resulted in the stat
      * @returns {DiskDirectoryObject|DiskFileObject} Only files and directories are supported at the moment
      */
@@ -368,33 +401,49 @@ class DiskFileSystem extends FileSystem {
     /**
      * Get a directory object
      * @param {FileSystemRequest} request The directory expression to fetch
-     * @param {any} flags Flags to control the operation
      * @returns {Promise<DiskDirectoryObject>} A directory object
      */
-    async getDirectoryAsync(request, flags = 0) {
+    async getDirectoryAsync(request) {
         return new Promise(resolve => {
             let fullPath = this.translatePath(request.relativePath);
             try {
                 fs.stat(fullPath, (err, stats) => {
                     if (err)
-                        resolve(FileSystemStat.createDummyStats(request, err));
+                        resolve(FileSystemObject.createDummyStats(request, err));
                     else if (stats.isDirectory())
                         resolve(this.createStatObject(stats, request));
                 });
             }
             catch (err) {
-                resolve(FileSystemStat.createDummyStats(request, err));
+                resolve(FileSystemObject.createDummyStats(request, err));
             }
         });
     }
 
-    async getFileACL(relativePath) {
-        let aclFile = `${relativePath}/.acl`;
-        if (await this.isFileAsync(aclFile)) {
-            let content = await this.readJsonAsync(aclFile);
-            return new FileACL(content);
-        }
-        return undefined;
+    /**
+     * Get a filesystem object.
+     * @param {FileSystemRequest} request The filesystem request
+     * @returns {Promise<DiskFileObject>} Returns a file object if the file is found.
+     */
+    async getFileAsync(request) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                /** @type {FileSystemObject>} */
+                let stat = await this.statAsync(request)
+                    .catch(err => reject(err));
+                if (stat.exists) {
+                    if (stat.isFile)
+                        resolve(new DiskFileObject(stat, request));
+                    else
+                        reject(new Error(`Error: ${stat.fullPath} is not a regular file`));
+                }
+                else
+                    resolve(false);
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
     }
 
     /**
@@ -427,7 +476,7 @@ class DiskFileSystem extends FileSystem {
      * @param {string} relativePath The directory to search
      * @param {string} expr An expression to glob for
      * @param {Glob} options Options to control the operation
-     * @returns {FileSystemStat[]} A collection of filesystem objects
+     * @returns {FileSystemObject[]} A collection of filesystem objects
      */
     async glob(relativePath, expr, options = 0) {
         let fullPath = this.translatePath(relativePath);
@@ -648,7 +697,7 @@ class DiskFileSystem extends FileSystem {
      * 
      * @param {FileSystemRequest} request
      * @param {number} [flags] Flags associated with the request
-     * @returns {FileSystemStat}
+     * @returns {Promise<FileSystemObject>}
      */
     async statAsync(request) {
         let fullPath = this.translatePath(request.relativePath);
@@ -663,7 +712,7 @@ class DiskFileSystem extends FileSystem {
             try {
                 fs.stat(fullPath, async (err, data) => {
                     if (err) {
-                        result = Object.assign(stat, FileSystemStat.createDummyStats(request, err));
+                        result = Object.assign(stat, FileSystemObject.createDummyStats(request, err));
                     }
                     else {
                         stat = Object.assign(data, {
@@ -677,7 +726,7 @@ class DiskFileSystem extends FileSystem {
                 });
             }
             catch (err) {
-                stat = Object.assign(stat, FileSystemStat.createDummyStats(request, err));
+                stat = Object.assign(stat, FileSystemObject.createDummyStats(request, err));
                 resolve(stat);
             }
         });
@@ -760,3 +809,4 @@ class DiskFileSystem extends FileSystem {
 }
 
 module.exports = DiskFileSystem;
+

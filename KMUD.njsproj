@@ -475,14 +475,29 @@
     <Content Include="src\features\MUDEditor.js" />
     <Content Include="src\features\SecurityFileACL.js" />
     <Content Include="src\features\VerbSystem.js" />
-    <Content Include="src\FileSecurity.js" />
-    <Content Include="src\FileSystem.js" />
     <Content Include="src\fs\AclFileSecurity.js" />
+    <Content Include="src\fs\BaseFileSecurity.js">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="src\fs\BaseFileSystem.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\fs\DefaultFileSecurity.js" />
     <Content Include="src\fs\DiskFileSystem.js" />
-    <Content Include="src\fs\FileACL.js" />
-    <Content Include="src\fs\FileSystemStat.js" />
+    <Content Include="src\fs\FileManager.js" />
+    <Content Include="src\fs\FileSystemFlags.js">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="src\fs\FileSystemObject.js">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="src\fs\FileSystemRequest.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\fs\MySqlFilesystem.js" />
+    <Content Include="src\fs\UnixSecurityManager.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\GameServer.js" />
     <Content Include="src\inputs\BaseInput.js" />
     <Content Include="src\inputs\FormInput.js" />
@@ -800,6 +815,7 @@
     <Folder Include="lib\sys\include\" />
     <Folder Include="lib\sys\etc\" />
     <Folder Include="lib\sys\cmds\" />
+    <Folder Include="lib\sys\test\" />
     <Folder Include="lib\sys\skeleton\" />
     <Folder Include="lib\sys\skeleton\creator\" />
     <Folder Include="lib\world\" />
@@ -881,14 +897,18 @@
     <Folder Include="src\network\servers\HTTPServer\handlers\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
-    <Folder Include="src\tests\" />
-    <Folder Include="src\tests\fs\" />
   </ItemGroup>
   <ItemGroup>
     <TypeScriptCompile Include="lib\wwwroot\dts\global.d.ts" />
+    <TypeScriptCompile Include="src\dts\ClientComponent.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\EFUNProxy.d.ts" />
     <TypeScriptCompile Include="src\dts\ExecutionContext.d.ts" />
     <TypeScriptCompile Include="src\dts\FileSystem.d.ts" />
+    <TypeScriptCompile Include="src\dts\Flags.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\GameServer.d.ts" />
     <TypeScriptCompile Include="src\dts\GlobalFunctions.d.ts" />
     <TypeScriptCompile Include="src\dts\MUDModule.d.ts">

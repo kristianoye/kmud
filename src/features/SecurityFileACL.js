@@ -7,7 +7,6 @@
  */
 const
     DriverFeature = require('../config/DriverFeature'),
-    FileSecurity = require('../FileSecurity'),
     FeatureBase = require('./FeatureBase'),
     ConfigUtil = require('../ConfigUtil'),
     path = require('path'),

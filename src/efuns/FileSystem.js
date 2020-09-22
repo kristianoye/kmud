@@ -8,7 +8,6 @@
 
 const
     path = require('path');
-const FileSystemStat = require('../fs/FileSystemStat');
 
 class DeleteDirectoryOptions {
     /**
@@ -75,6 +74,15 @@ class FileSystemHelper {
         return await driver.fileManager.getDirectoryAsync(expr, flags);
     }
 
+    /**
+     * Get a file object
+     * @param {string} expr The file expression to fetch
+     * @param {any} flags Flags to control the operation
+     */
+    static async getFileAsync(expr, flags = 0) {
+        return await driver.fileManager.getFileAsync(expr, flags);
+    }
+
     static async getFileACL(expr) {
         return await driver.fileManager.getFileACL(expr);
     }
@@ -92,7 +100,7 @@ class FileSystemHelper {
      * Read a directory
      * @param {string} expr The path expression to read
      * @param {number} flags Flags to control the operation
-     * @returns {Promise<string[]> | Promise<FileSystemStat[]>} Returns directory contents
+     * @returns {Promise<string[]> | Promise<FileSystemObject[]>} Returns directory contents
      */
     static async readDirectoryAsync(expr, flags = 0) {
         return await driver.fileManager.readDirectoryAsync(expr, flags);

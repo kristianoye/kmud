@@ -34,6 +34,9 @@ declare interface GameServer {
     /** Get the execution context */
     getExecution(): ExecutionContext;
 
+    /** A list of directories to search for required files */
+    includePath: string[];
+
     /** The global storage objects */
     storage: MUDStorageContainer;
 

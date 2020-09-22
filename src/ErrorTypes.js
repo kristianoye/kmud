@@ -34,8 +34,16 @@ class MissingConfigError extends MUDError {
 }
 
 class NotImplementedError extends MUDError {
-    constructor(method) {
-        super(`Method ${method} is not implemented.`);
+    /**
+     * Construct an exception
+     * @param {string} method The name of the method lacking an implementation
+     * @param {object} definingType
+     */
+    constructor(method, definingType = false, type = 'Method') {
+        if (definingType)
+            super(`${type} ${definingType.constructor.name}.${method} is not implemented.`);
+        else
+            super(`${type} ${method} is not implemented.`);
     }
 }
 

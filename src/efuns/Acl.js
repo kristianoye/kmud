@@ -5,13 +5,12 @@
  *
  * Helper methods for array stuff
  */
-const
-    FileACL = require('../fs/FileACL');
 
+const { NotImplementedError } = require("../ErrorTypes");
 
 class AclHelper {
     static parseAclTree(data) {
-        return FileACL.parseAclTree(data);
+        throw new NotImplementedError('parseAclTree');
     }
 
     /**
@@ -20,7 +19,7 @@ class AclHelper {
      * @returns {number} The bitflag array
      */
     static parsePerms(expr) {
-        return FileACL.parsePerms(expr);
+        throw new NotImplementedError('parsePerms');
     }
 
     /**
@@ -28,7 +27,7 @@ class AclHelper {
      * @param {number} flags
      */
     static permsToString(flags) {
-        return FileACL.permsToString(flags);
+        throw new NotImplementedError('permsToString');
     }
 
 }

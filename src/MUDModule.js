@@ -404,7 +404,11 @@ class MUDModule extends MUDEventEmitter {
             };
         }
         else if (!this.types[req.type]) {
-            return req.instance === 0 && this.defaultExport;
+            if (req.instance === 0) {
+                if (this.defaultExport instanceof MUDObject)
+                    return this.defaultExport;
+            }
+            return req.instance === 0 && this.instanceMap[req.instance];
         }
         let instances = this.instanceMap[req.type] || [];
         if (req.instance < 0 || req.instance > instances.length)
@@ -416,7 +420,7 @@ class MUDModule extends MUDEventEmitter {
      * Get all instances for the specified types
      * @param {...string} typeList
      */
-    getInstances(...typeList) {
+    getInstances(...typeList) { 
         let result = [];
 
         if (!Array.isArray(typeList) || typeList.length === 0)

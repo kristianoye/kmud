@@ -3,13 +3,10 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-/// <reference path="../dts/GameServer.d.ts"/>
-/// <reference path="../dts/EFUNProxy.d.ts"/>
 const
-    FileSecurity = require('../FileSecurity'),
-    { SecurityError } = require('../ErrorTypes');
+    FileSecurity = require('./BaseFileSecurity');
 
-class DefaultFileSecurity extends FileSecurity {
+class DefaultFileSecurity extends BaseFileSecurity {
    /**
      * Check to see if the caller may append to file.
      * @param {EFUNProxy} efuns

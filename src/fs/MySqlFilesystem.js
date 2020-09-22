@@ -1,10 +1,10 @@
 ﻿const
-    { FileSystem, FileSystemStat } = require('../FileSystem'),
+    BaseFileSystem = require('./BaseFileSystem'),
     mysql = require('mysql'),
     path = require('path'),
     fs = require('fs');
 
-class MySqlFileSystem extends FileSystem {
+class MySqlFileSystem extends BaseFileSystem {
     /**
      * 
      * @param {FileManager} fm

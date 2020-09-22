@@ -5,7 +5,8 @@
  */
 const
     Base = await requireAsync('Base'),
-    Command = await requireAsync(Base.Command);
+    Command = await requireAsync(Base.Command),
+    DirFlags = system.flags.fs.DirFlags;
 
 const
     MKDIR_VERBOSE = 1 << 0,
@@ -31,7 +32,7 @@ class MkDirCommand extends Command {
                 for (var j = 0; j < opts.length; j++) {
                     switch (opts[j]) {
                         case 'p': case '--parents':
-                            flags |= MUDFS.MkdirFlags.EnsurePath;
+                            flags |= DirFlags.EnsurePathExists;
                             break;
                         case 'v': case '--verbose':
                             options |= MKDIR_VERBOSE;

@@ -14,39 +14,37 @@ function extendPrototype(pt, spec) {
 
 if (typeof Array.prototype.forEachAsync !== 'function')
     Array.prototype.forEachAsync = async (callback, limit = 10) => {
-        try {
-            if (typeof callback !== 'function' || !/^async /.test(callback.toString()))
-                throw new Error(`Bad argument 1 to forEachAsync(); Callback must be async function`);
+        if (typeof callback !== 'function' || !/^async /.test(callback.toString()))
+            throw new Error(`Bad argument 1 to forEachAsync(); Callback must be async function`);
 
-            for (let i = 0; i < this.length; i += limit) {
-                let batch = this.slice(i, i + limit).map((val, index) => callback(val, index));
-                console.log('Running ', ...batch);
-                await Promise.all(batch);
-            }
-        }
-        catch (err) {
-            console.log(`Error in forEachAsync(): ${err.message}`);
+        for (let i = 0; i < this.length; i += limit) {
+            let batch = this.slice(i, i + limit).map((val, index) => callback(val, index));
+            await Promise.all(batch);
         }
         return this;
     };
-//  Extend Array
-(function (pt) {
-    extendPrototype(pt, {
-        pushDistinct: function (el) {
-            var args = [].slice.call(arguments);
-            for (var i = 0, max = args.length; i < max; i++) {
-                var n = this.indexOf(args[i]);
-                if (n === -1) this.push(args[i]);
-            }
-            return this;
-        },
-        removeValue: function (el) {
-            var i = this.indexOf(el);
-            if (i > -1) this.splice(i, 1);
-            return this;
+
+if (typeof Array.prototype.distinctArray !== 'function')
+    Array.prototype.distinctArray = function (...items) {
+        let args = items;
+        for (var i = 0, max = args.length; i < max; i++) {
+            var n = this.indexOf(args[i]);
+            if (n === -1) this.push(args[i]);
         }
-    });
-})(Array.prototype);
+        return this;
+    };
+
+if (typeof Array.prototype.removeValue !== 'function')
+    Array.prototype.removeValue = function (...items) {
+        items.forEach(value => {
+            let i = this.indexOf(value);
+            while (i > -1) {
+                this.splice(i, 1);
+                i = this.indexOf(value);
+            }
+        });
+        return this;
+    };
 
 // Extend String
 (function (pt) {

@@ -1541,13 +1541,14 @@ class EFUNProxy {
      */
     async resolveIncludeAsync(file, ignoreCache) {
         let result = !ignoreCache && IncludeCache[file];
+        let includePath = [this.directory].concat(driver.includePath);
 
         if (!result) {
-            for (let i = 0, max = driver.includePath.length; i < max; i++) {
+            for (let i = 0, max = includePath.length; i < max; i++) {
                 try {
-                    let p = driver.includePath[i],
+                    let exprToTry = includePath[i],
                         files = await this.fs.readDirectoryAsync(
-                            path.posix.join(p, file) + '.*',
+                            path.posix.join(exprToTry, file) + '.*',
                             MUDFS.GetDirFlags.FullPath);
 
                     if (files.length === 1) {

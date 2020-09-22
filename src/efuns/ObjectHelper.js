@@ -39,6 +39,11 @@ class ObjectHelper {
         return result;
     }
 
+    /**
+     * Get objects currently loaded in the MUD.
+     * @param {function(MUDObject):boolean} filter A method used to filter the results
+     * @returns {MUDObject[]} Matching objects
+     */
     static getObjects(filter = undefined) {
         let result = [];
 
@@ -69,13 +74,27 @@ class ObjectHelper {
         return storage && storage.groups || [];
     }
 
+    static async loadObjectAsync(expr, ...args) {
+        if (expr instanceof MUDObject)
+            return expr;
+
+        if (typeof expr !== 'string') {
+            if (typeof expr === 'function' && expr.isWrapper)
+                return expr;
+            else if (expr instanceof MUDObject)
+                return global.wrap(expr);
+        }
+        let result = await driver.fileManager.loadObjectAsync(driver.efuns.resolvePath(expr), args);
+        return result;
+    }
+
     /**
      * Load or reload an object.
      * @param {string} expr The path expression to load
      * @param {number} flags Additional flags to control the operation
      */
-    static async reloadObjectAsync(expr, flags = 0) {
-        return await driver.efuns.fs.loadObjectAsync(expr, flags);
+    static async reloadObjectAsync(expr, ...args) {
+        return await driver.fileManager.loadObjectAsync(driver.efuns.resolvePath(expr), args, 1);
     }
 }
 

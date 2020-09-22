@@ -1,14 +1,13 @@
-﻿/*
+/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
 const
-    MUDEventEmitter = require('./MUDEventEmitter'),
-    { NotImplementedError, SecurityError } = require('./ErrorTypes'),
-    GameServer = require('./GameServer');
+    MUDEventEmitter = require('../MUDEventEmitter'),
+    { NotImplementedError, SecurityError } = require('../ErrorTypes');
 
-class FileSecurity extends MUDEventEmitter {
+class BaseFileSecurity extends MUDEventEmitter {
     /**
      * Construct a file security model that acts as a firewall
      * between mudlib and filesystem.
@@ -191,4 +190,4 @@ class FileSecurity extends MUDEventEmitter {
     // #endregion
 }
 
-module.exports = FileSecurity;
+module.exports = BaseFileSecurity;

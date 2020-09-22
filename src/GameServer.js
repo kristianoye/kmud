@@ -15,8 +15,7 @@ const
     fs = require('fs'),
     path = require('path'),
     os = require('os'),
-    MUDEventEmitter = require('./MUDEventEmitter'),
-    FileSecurity = require('./FileSecurity');
+    MUDEventEmitter = require('./MUDEventEmitter');
 
 class GameServer extends MUDEventEmitter {
     /**
@@ -29,6 +28,7 @@ class GameServer extends MUDEventEmitter {
         global.driver = this;
 
         this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
+
         /** @type {EFUNProxy} */
         let efunType = require('./EFUNProxy');
         this.initDriverEfuns(new efunType('/'));
@@ -304,63 +304,69 @@ class GameServer extends MUDEventEmitter {
 
     async createMasterObject() {
         return await this.driverCallAsync('createMasterObject', async () => {
-            let config = this.config.mudlib,
-                gameMaster = await this.compiler.compileObjectAsync(config.master.path);
+            try {
+                let config = this.config.mudlib,
+                    gameMaster = await this.compiler.compileObjectAsync(config.master.path);
 
-            if (!gameMaster) {
-                throw new Error('In-game master could not be loaded; Abort!');
+                if (!gameMaster) {
+                    throw new Error('In-game master could not be loaded; Abort!');
+                }
+
+                /** @type {MasterObject} */
+                this.masterObject = gameMaster.getInstance(0);
+
+                if (!this.masterObject) {
+                    throw new Error(`Failed to load master object (${config.master.path})`);
+                }
+
+                /**
+                 * Attempts to find an apply method in the master object.
+                 * @param {string} name THe name of the apply to look for
+                 * @param {boolean} required Is the apply absolutely required (true) or optional (false)
+                 * @returns {function(...any)} The master object apply if it exists
+                 */
+                let locateApply = (name, required) => {
+                    let func = this.masterObject[config.applyNames[name] || name];
+                    if (typeof func !== 'function' && required === true)
+                        throw new Error(`Invalid master object; Could not locate required ${name} apply: ${(config.applyNames[name] || name)}`);
+                    if (!func)
+                        return false;
+                    return func.bind(this.masterObject);
+                };
+
+                /* validate in-game master */
+                this.applyCompileVirtual = locateApply('compileVirtualObject', false);
+                this.applyConnect = locateApply('connect', false);
+                this.applyConvertUnits = locateApply('convertUnits', false);
+                this.applyCreateFileACL = locateApply('createFileACL', false);
+                this.applyErrorHandler = locateApply('errorHandler', false);
+                this.applyGetPreloads = locateApply('getPreloads', false);
+                this.applyLogError = locateApply('logError', false);
+                this.applyGetGroups = locateApply('getPermissionGroups', false);
+                this.applyRegisterServer = locateApply('registerServer', false);
+                this.applyStartup = locateApply('startup', false);
+                this.applyValidDestruct = locateApply('validDestruct', false);
+                this.applyValidExec = locateApply('validExec', false);
+                this.applyValidObject = locateApply('validObject', false);
+                this.applyValidRead = locateApply('validRead', true);
+                this.applyValidReadConfig = locateApply('validReadConfig', false);
+                this.applyValidRequire = locateApply('validRequire', true);
+                this.applyValidSocket = locateApply('validSocket', false);
+                this.applyValidShutdown = locateApply('validShutdown', true);
+                this.applyValidWrite = locateApply('validWrite', true);
+
+                this.rootUid = typeof this.masterObject.get_root_uid === 'function' ?
+                    this.masterObject.get_root_uid() || 'ROOT' : 'ROOT';
+
+                this.backboneUid = typeof this.masterObject.get_backbone_uid === 'function' ?
+                    this.masterObject.get_backbone_uid() || 'BACKBONE' : 'BACKBONE';
+
+                return this;
             }
-
-            /** @type {MasterObject} */
-            this.masterObject = gameMaster.getInstance(0);
-
-            if (!this.masterObject) {
-                throw new Error(`Failed to load master object (${config.master.path})`);
+            catch (err) {
+                console.log(`CRITICAL: GameServer.createMasterObject() failed with error: ${err.message}`);
+                throw err;
             }
-
-            /**
-             * Attempts to find an apply method in the master object.
-             * @param {string} name THe name of the apply to look for
-             * @param {boolean} required Is the apply absolutely required (true) or optional (false)
-             * @returns {function(...any)} The master object apply if it exists
-             */
-            let locateApply = (name, required) => {
-                let func = this.masterObject[config.applyNames[name] || name];
-                if (typeof func !== 'function' && required === true)
-                    throw new Error(`Invalid master object; Could not locate required ${name} apply: ${(config.applyNames[name] || name)}`);
-                if (!func)
-                    return false;
-                return func.bind(this.masterObject);
-            };
-
-            /* validate in-game master */
-            this.applyCompileVirtual = locateApply('compileVirtualObject', false);
-            this.applyConnect = locateApply('connect', false);
-            this.applyConvertUnits = locateApply('convertUnits', false);
-            this.applyCreateFileACL = locateApply('createFileACL', false);
-            this.applyErrorHandler = locateApply('errorHandler', false);
-            this.applyGetPreloads = locateApply('getPreloads', false);
-            this.applyLogError = locateApply('logError', false);
-            this.applyGetGroups = locateApply('getPermissionGroups', false);
-            this.applyRegisterServer = locateApply('registerServer', false);
-            this.applyStartup = locateApply('startup', false);
-            this.applyValidDestruct = locateApply('validDestruct', false);
-            this.applyValidExec = locateApply('validExec', false);
-            this.applyValidObject = locateApply('validObject', false);
-            this.applyValidRead = locateApply('validRead', true);
-            this.applyValidReadConfig = locateApply('validReadConfig', false);
-            this.applyValidRequire = locateApply('validRequire', true);
-            this.applyValidSocket = locateApply('validSocket', false);
-            this.applyValidShutdown = locateApply('validShutdown', true);
-            this.applyValidWrite = locateApply('validWrite', true);
-
-            this.rootUid = typeof this.masterObject.get_root_uid === 'function' ?
-                this.masterObject.get_root_uid() || 'ROOT' : 'ROOT';
-
-            this.backboneUid = typeof this.masterObject.get_backbone_uid === 'function' ?
-                this.masterObject.get_backbone_uid() || 'BACKBONE' : 'BACKBONE';
-
-            return this;
         });
     }
 
@@ -448,10 +454,10 @@ class GameServer extends MUDEventEmitter {
      * @returns {EFUNProxy} The sealed simul efun object.
      */
     async createSimulEfuns() {
-        let EFUNProxy = require('./EFUNProxy');
 
         return await this.driverCallAsync('createSimulEfuns', async () => {
             try {
+                let EFUNProxy = require('./EFUNProxy');
                 if (this.simulEfunPath) {
                     let module = await this.compiler.compileObjectAsync({
                         file: this.simulEfunPath,
@@ -506,7 +512,8 @@ class GameServer extends MUDEventEmitter {
             this.compiler = new MUDCompiler(this, this.config.driver.compiler);
 
             global.unwrap = function(target, success, hasDefault) {
-                let result = false, defaultValue = hasDefault || false,
+                let result = false,
+                    defaultValue = hasDefault || false,
                     onSuccess = typeof success === 'function' && success || function (s) {
                         return s;
                     };
