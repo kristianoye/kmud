@@ -78,7 +78,7 @@ declare namespace Helpers {
          * @param {string} expr The directory expression to fetch
          * @param {number} flags Flags to control the operation
          */
-        getDirectoryAsync(expr: string, flags?: number): Promise<string[]>;
+        getDirectoryAsync(expr: string, flags?: number): Promise<DirectoryObject>;
 
         /**
          * Get a file object
@@ -166,6 +166,15 @@ declare namespace Helpers {
         addPrompt(type: InputType, options: any, callback: (input: string) => void): void;
     }
 
+    interface Living {
+        /**
+         * Check to see how long an object has been idle
+         * @param target The object to check
+         * @returns Idle time in milliseconds
+         */
+        queryIdle(target: MUDObject | MUDWrapper): number;
+    }
+
     /** Object helpers */
     interface Objects {
         /**
@@ -230,6 +239,8 @@ declare interface EFUNProxy {
     /** Various helpers for user I/O */
     readonly inputs: Helpers.Inputs;
 
+    /** Various helpers for living objects and players */
+    readonly living: Helpers.Living;
     /**
      * Converts a display name into a normalized name (all lower case, no special characters)
      * @param name The name to convert

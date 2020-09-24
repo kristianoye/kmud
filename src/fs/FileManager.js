@@ -193,8 +193,8 @@ class FileManager extends MUDEventEmitter {
      * @param {number} flags Flags to control the operation
      */
     async getDirectoryAsync(expr, flags = 0) {
-        let req = this.createFileRequest('getDirectoryAsync', expr, options.flags);
-        return req.valid('validGetDirectory') && await req.fileSystem.getDirectoryAsync(req);
+        let req = this.createFileRequest('getDirectoryAsync', expr, flags);
+        return req.fileSystem.getDirectoryAsync(req);
     }
 
     /**
@@ -203,8 +203,8 @@ class FileManager extends MUDEventEmitter {
      * @param {number} flags Flags associated with the request
      */
     async getFileAsync(expr, flags = 0) {
-        let req = this.createFileRequest('getFileAsync', expr, flags);
-        return req.valid('validReadFile') && await req.fileSystem.getFileAsync(req);
+        let request = this.createFileRequest('getFileAsync', expr, flags);
+        return request.fileSystem.getFileAsync(request);
     }
 
     /**
@@ -239,6 +239,11 @@ class FileManager extends MUDEventEmitter {
      */
     getFileSystemById(id) {
         return id in this.fileSystemsById === true && this.fileSystemsById[id];
+    }
+
+    getObjectAsync(expr, flags = 0) {
+        let request = this.createFileRequest('getObjectAsync', expr);
+        return request.fileSystem.getObjectAsync(request);
     }
 
     /**

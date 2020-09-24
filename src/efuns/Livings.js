@@ -186,6 +186,23 @@ class LivingsHelper {
             })
             .filter(o => o !== false);
     }
+
+    /**
+     * Check to see how long a particular user has been idle.
+     * @param {MUDObject|MUDWrapper} target An interactive user object.
+     * @returns {number} The amount of idle time in milliseconds.
+     */
+    static queryIdle(target) {
+        return unwrap(target, ob => {
+            let $storage = driver.storage.get(ob);
+            if ($storage.flags & MUDStorage.Interactive) {
+                if ($storage.flags & MUDStorage.Connected) {
+                    return $storage.client.idleTime;
+                }
+                return -1;
+            }
+            return 0;
+    }
 }
 
 module.exports = LivingsHelper;

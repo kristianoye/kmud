@@ -31,23 +31,20 @@ class DiskDirectoryObject extends DirectoryObject {
             let fileSystem = driver.fileManager.getFileSystemById(this.fileSystemId),
                 fullPath = fileSystem.getRealPath(this.relativePath);
 
-            fs.readdir(fullPath, async (err, files) => {
+            fs.readdir(fullPath, { withFileTypes: true }, async (err, files) => {
+                if (err) return reject(err);
+
                 let regex = pattern && DiskFileSystem.createPattern(pattern);
-                if (err)
-                    reject(err);
-                let results = files.filter(f => !regex || regex.test(f));
+                let results = files.filter(f => !regex || regex.test(f.name));
 
                 for (let i = 0; i < results.length; i++) {
-                    let expr = path.posix.join(this.path, results[i]);
-                    results[i] = await driver.fileManager.statAsync(expr);
+                    let expr = path.posix.join(this.path, results[i].name);
+                    results[i] = await driver.fileManager.getObjectAsync(expr);
                 }
                 if (driver.efuns.checkFlags(flags, MUDFS.GetDirFlags.FullPath))
                     return resolve(results = results.map(f => f.path));
-                else if (driver.efuns.checkFlags(flags, MUDFS.GetDirFlags.Details)) 
+                else 
                     return resolve(results);
-                else
-                    results = results.map(f => f.name);
-                resolve(results);
             });
         });
     }
@@ -333,15 +330,60 @@ class DiskFileSystem extends BaseFileSystem {
     }
 
     /**
+     * Create the filesystem object from a NodeJS stats object.
+     * @param {fs.Stats} stats The information from fs.stat()
+     * @param {FileSystemRequest} request The original request from the MUD
+     * @param {Error} [err] An optional error if the fs.stat() failed
+     * @returns {FileSystemObject}
+     */
+    createObject(stats, request, err = null) {
+        /** @type {FileSystemObject} */
+        let normal = Object.assign({}, stats);
+
+        normal.isBlockDevice = stats.isBlockDevice();
+        normal.isCharacterDevice = stats.isCharacterDevice();
+        normal.isDirectory = stats.isDirectory();
+        normal.isFIFO = stats.isFIFO();
+        normal.isFile = stats.isFile();
+        normal.isSocket = stats.isSocket();
+        normal.isSymbolicLink = stats.isSymbolicLink();
+
+        normal.exists = normal.isBlockDevice ||
+            normal.isCharacterDevice ||
+            normal.isDirectory ||
+            normal.isFIFO ||
+            normal.isFile ||
+            normal.isSocket ||
+            normal.isSymbolicLink;
+
+        if (!normal.path)
+            normal.path = request.fullPath;
+        if (!normal.name)
+            normal.name = request.fileName;
+        if (!normal.directory)
+            normal.directory = request.pathFull;
+
+        if (normal.isDirectory)
+            return new DiskDirectoryObject(normal, request);
+        if (normal.isFile)
+            return new DiskFileObject(normal, request);
+        else if (!normal.exists)
+            return new DiskObjectNotFound(normal, request);
+    }
+
+    /**
      * Converts a pattern string into a Regex
      * @param {string} expr
      * @returns {RegExp} The pattern as a regex
      */
     static createPattern(expr) {
+        //  Looks like a pattern already
+        if (/[\[\{\}\]\$\^]/.test(expr))
+            return new RegExp(expr);
         expr = expr.replace(/\./g, '\\.');
         expr = expr.replace(/\*/g, '.+');
         expr = expr.replace(/\?/g, '.');
-        return new RegExp('^' + expr + '$');
+        return new RegExp(expr);
     }
 
     /**
@@ -428,21 +470,43 @@ class DiskFileSystem extends BaseFileSystem {
     async getFileAsync(request) {
         return new Promise(async (resolve, reject) => {
             try {
-                /** @type {FileSystemObject>} */
-                let stat = await this.statAsync(request)
-                    .catch(err => reject(err));
-                if (stat.exists) {
-                    if (stat.isFile)
-                        resolve(new DiskFileObject(stat, request));
-                    else
-                        reject(new Error(`Error: ${stat.fullPath} is not a regular file`));
-                }
-                else
-                    resolve(false);
+                let fullPath = this.translatePath(request.relativePath);
+                fs.stat(fullPath, (err, stats) => {
+                    if (err) {
+                        let stat = FileSystemObject.createDummyStats(request, err);
+                        return reject(new DiskObjectNotFound(stat, request));
+                    }
+                    let result = this.createObject(stats, request);
+                    if (result.isFile)
+                        return resolve(result);
+                    let error = new Error(`Expression ${request.fullPath} is not a regular file`);
+                    error.object = result;
+                    reject(error);
+                });
             }
-            catch (err) {
-                reject(err);
+            catch (err) { reject(err);  }
+        });
+    }
+
+    /**
+     * Get a filesystem object from the expression provided.
+     * @param {FileSystemRequest} request The filesystem request
+     */
+    async getObjectAsync(request) {
+        return new Promise((resolve, reject) => {
+            try {
+                let fullPath = this.translatePath(request.relativePath);
+
+                fs.stat(fullPath, (err, stats) => {
+                    if (err) {
+                        let stat = FileSystemObject.createDummyStats(request, err);
+                        return reject(new DiskObjectNotFound(stat, request));
+                    }
+                    let result = this.createObject(stats, request);
+                    resolve(result);
+                });
             }
+            catch (err) { reject(err); }
         });
     }
 

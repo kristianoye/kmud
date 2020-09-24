@@ -1423,24 +1423,6 @@ class EFUNProxy {
     }
 
     /**
-     * Check to see how long a particular user has been idle.
-     * @param {MUDObject} target An interactive user object.
-     * @returns {number} The amount of idle time in milliseconds.
-     */
-    queryIdle(target) {
-        return unwrap(target, ob => {
-            let $storage = driver.storage.get(ob);
-            if ($storage.flags & MUDStorage.Interactive) {
-                if ($storage.flags & MUDStorage.Connected) {
-                    return $storage.client.idleTime;
-                }
-                return -1;
-            }
-            return 0;
-        });
-    }
-
-    /**
      * Returns the current verb if a command is being executed.
      * @returns {string} The verb currently being executed.
      */
@@ -1546,16 +1528,14 @@ class EFUNProxy {
         if (!result) {
             for (let i = 0, max = includePath.length; i < max; i++) {
                 try {
-                    let exprToTry = includePath[i],
-                        files = await this.fs.readDirectoryAsync(
-                            path.posix.join(exprToTry, file) + '.*',
-                            MUDFS.GetDirFlags.FullPath);
-
+                    let dir = await this.fs.getDirectoryAsync(includePath[i]),
+                        files = await dir.readAsync(file + '.*');
                     if (files.length === 1) {
-                        return IncludeCache[file] = files[0];
+                        return IncludeCache[file] = files[0].path;
                     }
                 }
                 catch (e) {
+                    console.log(e);
                     /* do nothing */
                 }
             }

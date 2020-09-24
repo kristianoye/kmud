@@ -23,8 +23,7 @@ class FileSystemObject {
 
         Object.assign(this, data);
 
-        this.acl = null;
-        this.content = data.content || '';
+        this.directory = data.directory || '/';
         this.error = err;
         this.fullPath = '';
         this.isFile = data.isFile;
@@ -72,7 +71,6 @@ class FileSystemObject {
         let dt = new Date(0);
 
         return new FileSystemObject({
-            absolutePath: request.fullPath,
             atime: dt,
             atimeMs: dt.getTime(),
             birthtime: dt,
@@ -84,6 +82,7 @@ class FileSystemObject {
             dev: -1,
             error: err || new Error('Unknown error'),
             exists: false,
+            fullPath: request.fullPath,
             gid: -1,
             ino: -1,
             nlink: -1,
