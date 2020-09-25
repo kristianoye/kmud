@@ -55,8 +55,8 @@ class FileSystemRequest {
             this.fileName = expr.slice(dir.length + 1);
             this.fullPath = expr;
             this.relativePath = relPath;
-            this.pathFull = dir + (dir.endsWith('/') ? '' : '/');
-            this.pathRel = rel + (rel.endsWith('/') ? '' : '/');
+            this.pathFull = dir; // + (dir.endsWith('/') ? '' : '/');
+            this.pathRel = rel; // + (rel.endsWith('/') ? '' : '/');
         }
         else {
             this.fileName = '';

@@ -278,6 +278,16 @@ class FileObject extends FileSystemObject {
     constructor(stat, request, err = undefined) {
         super(stat, request, err);
     }
+
+    get extension() {
+        let n = this.name.lastIndexOf('.');
+        return n > -1 ? this.name.substring(n) : '';
+    }
+
+    get baseName() {
+        let n = this.path.lastIndexOf('.');
+        return n > -1 ? this.path.substring(0, n) : this.path;
+    }
 }
 
 /**

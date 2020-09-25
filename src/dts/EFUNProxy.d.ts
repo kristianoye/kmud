@@ -85,7 +85,7 @@ declare namespace Helpers {
          * @param expr The file expression to fetch
          * @param flags Flags to control the operation
          */
-        getFileAsync(expr: string, flags?: number): Promise<FileSystemObject>;
+        getFileAsync(expr: string, flags?: number): Promise<FileObject>;
 
         /**
          * Get a filesystem based on its systemId

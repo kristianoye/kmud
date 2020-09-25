@@ -210,7 +210,14 @@ declare interface DirectoryObject extends FileSystemObject {
      * @param pattern An optional file pattern to match (defaults to all)
      * @param options Additional operations to control operation
      */
-    readAsync(pattern?: string, options?: number): FileSystemObject[];
+    readAsync(pattern?: string, options?: number): Promise<FileSystemObject[]>;
+}
+
+declare interface FileObject extends FileSystemObject {
+    /** The file extension */
+    readonly extension: string;
+
+    readAsync(): Promise<string | Buffer>;
 }
 
 declare enum Glob {

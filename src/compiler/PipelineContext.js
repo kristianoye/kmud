@@ -160,24 +160,23 @@ class PipelineContext {
         if (!this.content) {
             if ((ext = ext || this.extension) === false)
                 return false;
-            let tryFilename = this.filename.endsWith(ext) ? this.filename : this.filename + ext,
-                stat = await driver.efuns.fs.statAsync(tryFilename, MUDFS.StatFlags.Content);
-            if (stat && stat.exists) {
-                if (stat.isFile) {
-                    let n = this.filename.lastIndexOf('/');
-
-                    this.extension = ext;
-                    this.filename = this.basename;
-                    this.lastModified = stat.mtime;
-                    this.exists = true;
-                    this.directory = this.filename.slice(0, n);
+            try {
+                let tryFilename = this.filename.endsWith(ext) ? this.filename : this.filename + ext,
+                    fileObject = await driver.efuns.fs.getFileAsync(tryFilename);
+                if (fileObject.exists) {
+                    this.extension = fileObject.extension;
+                    this.filename = fileObject.baseName;
+                    this.lastModified = fileObject.mtime;
+                    this.exists = fileObject.exists;
+                    this.directory = fileObject.directory;
                     this.resolvedName = this.realName.endsWith(ext) ? this.realName : this.realName + ext;
                     this.isEval = false;
-                    this.content = await stat.readAsync(undefined, true);
+                    this.content = await fileObject.readAsync(undefined, true);
 
                     return true;
                 }
             }
+            catch (e) { }
             return false;
         }
         return true;
