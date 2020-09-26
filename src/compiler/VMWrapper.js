@@ -7,6 +7,7 @@ const
     { PipelineContext } = require('./PipelineContext'),
     VMAbstraction = require('./VMAbstraction'),
     MUDModule = require('../MUDModule'),
+    path = require('path'),
     fs = require('fs'),
     vm = require('vm');
 
@@ -126,9 +127,23 @@ class VMWrapper extends VMAbstraction {
             content && vm.runInContext(content, module.context);
             module.context.initialized = true;
 
-            vm.runInContext(ExtensionText, module.context, {
-                filename: './src/Extensions.js',
-                displayErrors: true
+            let files = fs.readdirSync(path.join(__dirname, '..', 'extensions'));
+            console.log('Loading script extensions...');
+            files.forEach(file => {
+
+                try {
+                    let fullPath = path.join(__dirname, '..', 'extensions', file);
+                    console.log('\tLoading ' + fullPath);
+
+                    let content = fs.readFileSync(fullPath);
+                    vm.runInContext(content, module.context, {
+                        filename: fullPath,
+                        displayErrors: true
+                    });
+                }
+                catch (err) {
+                    throw err;
+                }
             });
         }
 

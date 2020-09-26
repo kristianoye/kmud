@@ -424,6 +424,9 @@
     </Content>
     <Content Include="mudconfig.json" />
     <Content Include="src\AsyncHelpers.js" />
+    <Content Include="src\Cache.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\ClientComponent.js" />
     <Content Include="src\CommandShell.js" />
     <Content Include="src\compiler\CompilerPipeline.js" />
@@ -470,6 +473,18 @@
     <Content Include="src\ErrorTypes.js" />
     <Content Include="src\ExecutionContext.js" />
     <Content Include="src\Extensions.js" />
+    <Content Include="src\extensions\Array.extensions.js">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="src\extensions\Math.extensions.js">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="src\extensions\Object.extensions.js">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="src\extensions\String.extensions.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\features\DomainStats.js" />
     <Content Include="src\features\FeatureBase.js" />
     <Content Include="src\features\MUDEditor.js" />
@@ -895,6 +910,7 @@
     <Folder Include="src\network\servers\HTTPServer\" />
     <Folder Include="src\network\servers\HTTPServer\errors\" />
     <Folder Include="src\network\servers\HTTPServer\handlers\" />
+    <Folder Include="src\extensions\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
   </ItemGroup>

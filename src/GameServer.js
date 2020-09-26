@@ -27,6 +27,17 @@ class GameServer extends MUDEventEmitter {
 
         global.driver = this;
 
+        let extensionsDir = path.join(__dirname, 'extensions');
+        fs.readdirSync(extensionsDir).forEach(file => {
+            try {
+                let fullPath = path.join(__dirname, 'extensions', file);
+                require(fullPath);
+            }
+            catch (ex) {
+                console.log(`Error including extension file ${file}: ${ex.message}`);
+            }
+        });
+
         this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
 
         /** @type {EFUNProxy} */

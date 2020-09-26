@@ -21,7 +21,9 @@ const
         'reset'           // Called periodically to reset the object state
     ],
     BaseInput = require('./inputs/BaseInput'),
-    loopsPerAssert = 10000;
+    loopsPerAssert = 10000,
+    fs = require('fs'),
+    path = require('path');
 
 const
     FileSystemFlags = require('./fs/FileSystemFlags');
@@ -32,18 +34,6 @@ if (typeof Promise.prototype.always !== 'function') {
             onResolveOrReject(reason);
             throw reason;
         });
-    };
-}
-
-if (typeof global.Array.prototype.forEachAsync !== 'function') {
-    global.Array.prototype.forEachAsync = async (callback) => {
-        if (!driver.efuns.isAsync(callback))
-            throw new Error('Bad argument 1 to forEachAsync(): Callback must be async');
-        let promises = [];
-        for (let i = 0; i < this.length; i++) {
-            promises.push(callback(this[i], i));
-        }
-        return await Promise.all(promises);
     };
 }
 
@@ -191,10 +181,6 @@ class MUDLoader {
                     }
                 }
             },
-            Array: {
-                value: global.Array,
-                writable: false
-            },
             Buffer: {
                 value: global.Buffer,
                 writable: false
@@ -303,10 +289,6 @@ class MUDLoader {
             },
             MUDMixin: {
                 value: global.MUDMixin,
-                writable: false
-            },
-            Object: {
-                value: global.Object,
                 writable: false
             },
             Promise: {

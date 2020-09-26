@@ -12,60 +12,6 @@ function extendPrototype(pt, spec) {
     });
 }
 
-if (typeof Array.prototype.forEachAsync !== 'function')
-    Array.prototype.forEachAsync = async (callback, limit = 10) => {
-        if (typeof callback !== 'function' || !/^async /.test(callback.toString()))
-            throw new Error(`Bad argument 1 to forEachAsync(); Callback must be async function`);
-
-        for (let i = 0; i < this.length; i += limit) {
-            let batch = this.slice(i, i + limit).map((val, index) => callback(val, index));
-            await Promise.all(batch);
-        }
-        return this;
-    };
-
-if (typeof Array.prototype.distinctArray !== 'function')
-    Array.prototype.distinctArray = function (...items) {
-        let args = items;
-        for (var i = 0, max = args.length; i < max; i++) {
-            var n = this.indexOf(args[i]);
-            if (n === -1) this.push(args[i]);
-        }
-        return this;
-    };
-
-if (typeof Array.prototype.removeValue !== 'function')
-    Array.prototype.removeValue = function (...items) {
-        items.forEach(value => {
-            let i = this.indexOf(value);
-            while (i > -1) {
-                this.splice(i, 1);
-                i = this.indexOf(value);
-            }
-        });
-        return this;
-    };
-
-// Extend String
-(function (pt) {
-    extendPrototype(pt, {
-        countInstances: function (word) {
-            var substrings = this.split(word);
-            return substrings.length - 1;
-        },
-        fs: function () {
-            var a = [].slice.call(arguments), s = this;
-            for (var i = 0; i < a.length; i++) {
-                var re = new RegExp('\\{' + i + '\\}', 'g');
-                s = s.replace(re, typeof a[i] === 'undefined' ? '[undefined]' : a[i].toString());
-            }
-            return s;
-        },
-        ucfirst: function () {
-            return this.charAt(0).toUpperCase() + this.slice(1);
-        }
-    });
-})(String.prototype);
 
 // Math extensions
 (function () {

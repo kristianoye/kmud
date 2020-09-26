@@ -5,6 +5,8 @@
  * 
  * Data structure that is array-like but preserves 
  */
+const
+    crypto = require('crypto');
 
 /** @typedef {{ index: number, value: any, next: LinkedListNode, prev: LinkedListNode }} LinkedListNode */
 
@@ -224,27 +226,47 @@ class LinkedList {
 }
 
 class LinkedListWithID extends LinkedList {
-    constructor(initialValue = [], hashKey = '') {
+    /**
+     * 
+     * @param {any} initialValue
+     * @param {string|string[]|function(any):string} hashKey
+     */
+    constructor(initialValue = [], hashKey = undefined) {
         super(Array.isArray(initialValue) ? initialValue : []);
 
         if (typeof initialValue === 'string')
             hashKey = initialValue;
 
-        if (typeof (this.hashKey = hashKey) !== 'string')
-            throw new Error(`Hash key should be a string`);
-        else if (hashKey.length === 0)
-            throw new Error(`Hash key cannot be zero bytes`);
+        if (typeof (this.hashKey = hashKey) === 'string') {
+            this.keyLookup = (o) => { return o[this.hashKey]; };
+        }
+        else if (Array.isArray(hashKey)) {
+            hashKey.forEach((e, i) => {
+                if (typeof e !== 'string')
+                    throw new Error(`All elements of key must be type string; Type at index ${i} was '${typeof e}'`);
+            });
+            this.keyLookup = (o) => {
+                let str = this.hashKey.map(k => o[k]).join('.'),
+                    hash = crypto.createHash('md5').update(str).digest('hex');
+                return hash;
+            }
+        }
+        else if (typeof this.hashKey === 'function') {
+            this.keyLookup = hashKey;
+        }
+        else
+            throw new Error(`Unsupported type of hashKey: ${typeof this.hashKey}`);
         this.hashLookup = {};
     }
 
     add(value) {
-        let hashKey = value[this.hashKey];
+        let hashKey = this.keyLookup(value);
 
         if (typeof hashKey === 'undefined')
-            throw new Error(`Item cannot be added to collection; It is missing required property ${this.hashKey}`);
+            throw new Error(`Item cannot be added to collection; Could not determine a hash key`);
 
         if (hashKey in this.hashLookup)
-            throw new Error(`Collection already contains a value with '${this.hashKey}' of '${hashKey}'`);
+            throw new Error(`Collection already contains a value for key '${hashKey}'`);
 
         let index = super.add(value);
         this.index[index].hashKey = hashKey;
@@ -291,18 +313,34 @@ class LinkedListWithID extends LinkedList {
         return (id in this.hashLookup) || super.hasKey(id);
     }
 
-    remove(index, count = 1) {
-        if (index in this.hashLookup) {
-            return this.remove(this.hashLookup[index]);
+    /**
+     * Remove n nodes from the list
+     * @param {number} n The number of items to remove.
+     */
+    pop(n = 1) {
+        let results = [];
+        while (n--) {
+            results(super.pop());
         }
-        else {
+        return results;
+    }
+
+    remove(index, count = 1) {
+        if (typeof index === 'number') {
             let entry = this.index[index];
             if (entry) {
-                if (entry.hashKey)
-                    delete this.hashlook[entry.hashKey];
+                if (entry.hashKey && this.hashLookup)
+                    delete this.hashLookup[entry.hashKey];
                 return super.remove(index, count);
             }
         }
+        else {
+            let hashValue = this.keyLookup(index);
+            if (hashValue in this.hashLookup) {
+                return this.remove(this.hashLookup[hashValue]);
+            }
+        }
+        return false;
     }
 }
 
@@ -313,20 +351,35 @@ class LinkedListWithLookup extends LinkedList {
         if (typeof initialValue === 'string')
             hashKey = initialValue;
 
-        if (typeof (this.hashKey = hashKey) !== 'string')
-            throw new Error(`Hash key should be a string`);
-        else if (hashKey.length === 0)
-            throw new Error(`Hash key cannot be zero bytes`);
+        if (typeof (this.hashKey = hashKey) === 'string') {
+            this.keyLookup = (o) => { return o[this.hashKey]; };
+        }
+        else if (Array.isArray(hashKey)) {
+            hashKey.forEach((e, i) => {
+                if (typeof e !== 'string')
+                    throw new Error(`All elements of key must be type string; Type at index ${i} was '${typeof e}'`);
+            });
+            this.keyLookup = (o) => {
+                let str = this.hashKey.map(k => o[k]).join('.'),
+                    hash = crypto.createHash('md5').update(str).digest('hex');
+                return hash;
+            }
+        }
+        else if (typeof this.hashKey === 'function') {
+            this.keyLookup = hashKey;
+        }
+        else
+            throw new Error(`Unsupported type of hashKey: ${typeof this.hashKey}`);
 
         /** @type {Object.<string,number[]> */
         this.hashLookup = {};
     }
 
     add(value) {
-        let hashKey = value[this.hashKey];
+        let hashKey = this.keyLookup(value);
 
         if (typeof hashKey === 'undefined')
-            throw new Error(`Item cannot be added to collection; It is missing required property ${this.hashKey}`);
+            throw new Error(`Item cannot be added to collection; Failed to create valid hash key`);
 
         if (hashKey in this.hashLookup === false) {
             this.hashLookup[hashKey] = [];
@@ -391,8 +444,12 @@ class LinkedListWithLookup extends LinkedList {
         return (id in this.hashLookup) || super.hasKey(id);
     }
 
+    hasValue(value) {
+        return this.hasKey(this.keyLookup(value));
+    }
+
     remove(index, count = 1) {
-        if (typeof index === 'string') {
+        if (typeof index !== 'number') {
             throw new Error('Items cannot be removed from collection by ID');
         }
         let entry = this.index[index];
