@@ -297,6 +297,12 @@ class GameServer extends MUDEventEmitter {
         this.executionContext = ecc.previous || false;
     }
 
+    /**
+     * Compile a virtual object
+     * @param {string} filename The virtual file to compile
+     * @param {any[]} args Arguments to pass to the virtual constructor
+     * @returns {Promise<MUDObject>}
+     */
     async compileVirtualObject(filename, args = []) {
         if (!this.masterObject)
             throw new Error('FATAL: No master object has been loaded!');
@@ -307,12 +313,18 @@ class GameServer extends MUDEventEmitter {
             return await this.applyCompileVirtual(filename, args);
     }
 
+    /**
+     * 
+     * @param {any} port
+     * @param {any} type
+     */
     async connect(port, type) {
         return await this.driverCallAsync('connect', async () => {
             return await this.applyConnect(port, type);
-        })
+        });
     }
 
+    /** Create the in-game master object */
     async createMasterObject() {
         return await this.driverCallAsync('createMasterObject', async () => {
             try {
@@ -394,9 +406,7 @@ class GameServer extends MUDEventEmitter {
         });
     }
 
-    /**
-     * Initializes the filesystem.
-     */
+    /** Initializes the filesystem. */
     async createFileSystems() {
         let fsconfig = this.config.mudlib.fileSystem;
 
@@ -405,9 +415,7 @@ class GameServer extends MUDEventEmitter {
         fsconfig.eachFileSystem(async config => await this.fileManager.createFileSystem(config));
     }
 
-    /**
-     * Preload some common objects to decrease in-game load times while running.
-     */
+    /**  Preload some common objects */
     async createPreloads() {
         return await this.driverCallAsync('createPreloads', async ecc => {
             ecc.alarmTime = Number.MAX_SAFE_INTEGER;
@@ -496,9 +504,7 @@ class GameServer extends MUDEventEmitter {
         });
     }
 
-    /**
-     * Configure the various components attached to the driver.
-     */
+    /** Configure the various components attached to the driver. */
     configureRuntime() {
         try {
             let
@@ -749,9 +755,7 @@ class GameServer extends MUDEventEmitter {
         }
     }
 
-    /**
-     * Periodically call heartbeat on all applicable objects in the game.
-     */
+    /** Periodically call heartbeat on all applicable objects in the game. */
     executeHeartbeat() {
         try {
             let heartbeatStart = new Date(),
@@ -793,16 +797,7 @@ class GameServer extends MUDEventEmitter {
         }
     }
 
-    extendGlobals() {
-        global.Array.prototype.pushDistinct = function (...list) {
-            list.forEach(e => {
-                var n = this.indexOf(e);
-                if (n === -1) this.push(e);
-            });
-            return this;
-        };
-    }
-
+    /** Get the server address */
     getAddress() {
         return this.serverAddress;
     }
@@ -945,8 +940,14 @@ class GameServer extends MUDEventEmitter {
         return true;
     }
 
+    /**
+     * Perform optional pre-compiler steps
+     * @param {MUDModule} module The module being processed
+     * @returns {boolean}
+     */
     preCompile(module) {
-        this.preCompilers.forEach((pre) => pre.preCompile(module));
+        if (this.preCompilers.any(pre => pre.preCompile(module)))
+            return false;
         return true;
     }
 

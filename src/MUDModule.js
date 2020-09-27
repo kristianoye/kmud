@@ -1,10 +1,9 @@
-﻿/**
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
 var
-    GameServer = require('./GameServer'),
     MUDEventEmitter = require('./MUDEventEmitter');
 
 var
@@ -76,8 +75,6 @@ class MUDModule extends MUDEventEmitter {
 
         /** @type {Object.<string,boolean> */
         this.singletons = {};
-
-        driver.preCompile(this);
 
         if (parent) {
             parent.on && parent.on('recompile', () => {
@@ -617,7 +614,8 @@ MUDModule.configureForRuntime = function (driver) {
     useAuthorStats = driver.config.driver.featureFlags.authorStats === true;
     useDomainStats = driver.config.driver.featureFlags.domainStats === true;
     useStats = useAuthorStats | useDomainStats;
-    if (useStats) DomainStats = require('./features/DomainStats');
+    if (useStats)
+        DomainStats = require('./features/DomainStats');
 };
 
 module.exports = MUDModule;

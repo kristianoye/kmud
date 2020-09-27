@@ -228,7 +228,7 @@ class MUDLoader {
             driver: {
                 get: () => {
                     if (driver.gameState && driver.gameState > 2)
-                        throw new Error('Illegal attempt to access driver when game is running.');
+                        return undefined;
                     return driver;
                 },
                 enumerable: false

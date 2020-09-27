@@ -1,17 +1,36 @@
-const
-    driverInstance = driver;
-
 /*
  * Extensions to the Array object
  * Lots of LINQ-like functionality
  */
+const
+    driverInstance = driver;
+
+class NoElementError extends Error {
+    constructor() {
+        super('Sequence contains no elements');
+    }
+}
+
+class AmbiguousElementError extends Error {
+    constructor() {
+        super('Sequence contains more than watching element');
+    }
+}
+
 Array.prototype.any = function (test) {
-    if (!test) test = function (x) { return true; };
+    if (typeof test !== 'function') test = function (x) { return true; };
     for (let i = 0; i < this.length; i++) {
         if (test(this[i], i)) return true;
     }
     return false;
 };
+
+Array.prototype.count = function (test) {
+    if (typeof test !== 'function')
+        test = e => true;
+    let matches = this.filter(test);
+    return matches.length;
+}
 
 Array.prototype.defaultIfEmpty = function (val) {
     let result = this.slice(0);
@@ -19,12 +38,19 @@ Array.prototype.defaultIfEmpty = function (val) {
     return result;
 };
 
+Array.prototype.first = function (test) {
+    if (typeof test !== 'function') test = function (x) { return true; };
+    let results = this.filter(test);
+    if (results.length === 0) throw new NoElementError();
+    else return results[0];
+}
+
 Array.prototype.firstOrDefault = function (test) {
-    if (!test) test = function(x) { return true; };
+    if (typeof test !== 'function') test = function(x) { return true; };
     for (let i = 0; i < this.length; i++) {
         if (test(this[i], i)) return this[i];
     }
-    return this.$default;;
+    return this.$default;
 };
 
 Array.prototype.forEachAsync = async function (callback, concurrent = 1) {
@@ -36,8 +62,18 @@ Array.prototype.forEachAsync = async function (callback, concurrent = 1) {
     return this;
 };
 
+Array.prototype.last = function (test) {
+    if (typeof test !== 'function')
+        test = function (x) { return true; };
+    for (let i = this.length - 1; i > -1; i--) {
+        if (test(this[i], i)) return this[i];
+    }
+    throw new NoElementError();
+};
+
 Array.prototype.lastOrDefault = function (test) {
-    if (!test) test = function (x) { return true; };
+    if (typeof test !== 'function')
+        test = function (x) { return true; };
     for (let i = this.length - 1; i > -1; i--) {
         if (test(this[i], i)) return this[i];
     }
@@ -54,6 +90,10 @@ Array.prototype.mapAsync = async function (mapper) {
 
 Array.prototype.orderBy = function (orderBy) {
     let result = this.slice(0);
+
+    if (typeof orderBy !== 'function')
+        orderBy = (a, b) => { return a < b ? -1 : (b > a ? 1 : 0); };
+
     result.sort((a, b) => {
         let $a = orderBy(a),
             $b = orderBy(b);
@@ -80,8 +120,8 @@ Array.prototype.singleOrDefault = function (test, useDefault = true) {
     if (!test) test = function (x) { return true; };
     let results = this.filter((v, i) => test(v, i));
     if (results.length === 1) return results[0];
-    else if (results.length > 1) throw new Error('Sequence contains more than watching element');
-    else if (!useDefault) throw new Error('No matching element');
+    else if (results.length > 1) throw new AmbiguousElementError();
+    else if (!useDefault) throw new NoElementError();
     else return this.$default;
 };
 
@@ -109,7 +149,8 @@ Array.prototype.removeValue = function (...items) {
 };
 
 Array.prototype.select = function (transform) {
-    if (typeof transform !== 'function') transform = function (x) { return x; };
+    if (typeof transform !== 'function')
+        transform = function (x) { return x; };
     return this.map((x, i) => transform(x, i));
 };
 

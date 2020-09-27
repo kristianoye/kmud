@@ -22,10 +22,3 @@ declare interface Dictionary<TKey, TVal> {
 }
 
 
-declare interface String {
-    /**
-     * Use this string as a formatting string ala .NET Format()
-     * @param args
-     */
-    fs(...args: any[]): string;
-}

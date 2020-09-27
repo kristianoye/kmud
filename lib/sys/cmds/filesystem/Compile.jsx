@@ -8,12 +8,12 @@ const
     Command = await requireAsync(Base.Command);
 
 class CompileCommand extends Command {
-    cmd(args) {
+    async cmd(args) {
         var player = thisPlayer,
             path = efuns.resolvePath(args[0], player.workingDirectory);
 
         try {
-            var result = this.compileObject({ file: path, reload: true });
+            let result = efuns.objects.reloadObjectAsync({ file: path, reload: true });
             writeLine(JSON.stringify(result));
         }
         catch (x) {

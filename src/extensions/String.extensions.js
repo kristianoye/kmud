@@ -11,8 +11,8 @@ String.prototype.contains = function (word, ignoreCase = false) {
         return this.indexOf(word) > -1;
 };
 
-String.prototype.countInstances = function (word) {
-    let substrings = this.split(word);
+String.prototype.countInstances = function (word, ignoreCase = false) {
+    let substrings = ignoreCase ? this.toLowerCase().split(word.toLowerCase()) : this.split(word);
     return substrings.length - 1;
 };
 
