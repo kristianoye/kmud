@@ -916,6 +916,9 @@
   </ItemGroup>
   <ItemGroup>
     <TypeScriptCompile Include="lib\wwwroot\dts\global.d.ts" />
+    <TypeScriptCompile Include="src\dts\Array.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\ClientComponent.d.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>

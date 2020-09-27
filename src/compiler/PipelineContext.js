@@ -6,29 +6,40 @@
     CTX_FINISHED = 4,
     fs = require('fs');
 
-const
-    GameServer = require('../GameServer');
-
 class PipelineContext {
     /**
      * 
-     * @param {string} filename The name of the file to be compiled.
-     * @param {boolean=} isEval Indicates the code is from eval()
+     * @param {string|FileObject} file The name of the file to be compiled.
+     * @param {boolean} [isEval] Indicates the code is from eval()
+     * @param {string} [content] The source code
      */
-    constructor(filename, isEval) {
-        var n = filename && filename.lastIndexOf('.') || -1;
+    constructor(file, isEval = false, content = undefined) {
+        this.isEval = isEval === true;
+        if (typeof file === 'string') {
+            let n = file && file.lastIndexOf('.') || -1;
 
-        filename = filename.replace(/\\/g, '/');
+            file = file.replace(/\\/g, '/');
 
-        this.extension = n > -1 ? filename.slice(n) : false
-        this.basename = n > -1 ? filename.slice(0, n) : filename;
-        this.filename = filename;
-        if ((this.isEval = isEval || false) === false)
-            this.realName = driver.fileManager.toRealPath(this.filename);
-        this.resolvedName = false;
-        this.content = '';
+            this.basename = n > -1 ? file.slice(0, n) : file;
+            this.content = '';
+            this.exists = false;
+            this.extension = n > -1 ? file.slice(n) : false
+            this.filename = file;
+            if (this.isEval === false)
+                this.realName = driver.fileManager.toRealPath(this.filename);
+            this.resolvedName = false;
+        }
+        else {
+            this.basename = file.baseName;
+            this.content = content || '';
+            this.directory = file.directory;
+            this.exists = file.exists;
+            this.extension = file.extension;
+            this.filename = file.baseName;
+            this.realPath = driver.fileManager.toRealPath(file.path);;
+            this.resolvedName = this.realPath;
+        }
         this.errors = [];
-        this.exists = false;
         this.state = CTX_INIT;
     }
 
@@ -47,6 +58,35 @@ class PipelineContext {
     addValue(key, val) {
         this[key] = val;
         return this;
+    }
+
+    /**
+     * Create a context
+     * @param {string} expr The file expression to build a context for
+     * @param {string} possibleExtensions A list of expressions to search for
+     */
+    static async create(expr, possibleExtensions = '') {
+        try {
+            let directory = expr.slice(0, expr.lastIndexOf('/')),
+                fileExpression = expr.slice(expr.lastIndexOf('/') + 1),
+                hasExtension = new RegExp(possibleExtensions).test(fileExpression),
+                directoryObject = await driver.fileManager.getDirectoryAsync(directory),
+                filterExpr = hasExtension ? fileExpression : fileExpression + possibleExtensions,
+                files = await directoryObject.readAsync(filterExpr),
+                fileToUse = files.firstOrDefault();
+
+            if (fileToUse) {
+                let content = await fileToUse.readAsync()
+                    .catch(err => { throw err; });
+                return new PipelineContext(fileToUse, false, content);
+            }
+            else 
+                return new PipelineContext(expr);
+        }
+        catch (ex) {
+            console.log('Error in PipelineContext.create(): ' + ex.message);
+        }
+        return new PipelineContext(expr);
     }
 
     execute() {
@@ -103,7 +143,6 @@ class PipelineContext {
 
         return this;
     }
-
 
     update(state, content) {
         if (state !== this.state && state === CTX_RUNNING && !this.content) {
@@ -192,7 +231,7 @@ class PipelineContext {
 }
 
 module.exports = {
-    PipelineContext: PipelineContext,
+    PipelineContext,
     CTX_INIT: CTX_INIT,
     CTX_RUNNING: CTX_RUNNING,
     CTX_STOPPED: CTX_STOPPED,

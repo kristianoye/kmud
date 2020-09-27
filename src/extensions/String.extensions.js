@@ -2,6 +2,14 @@
  * Extensions to the String object
  */
 
+String.prototype.contains = function (word, ignoreCase = false) {
+    if (typeof word !== 'string')
+        word = (word || '').toString();
+    if (ignoreCase)
+        return this.toLowerCase().indexOf(word.toLowerCase()) > -1;
+    else
+        return this.indexOf(word) > -1;
+};
 
 String.prototype.countInstances = function (word) {
     let substrings = this.split(word);

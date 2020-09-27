@@ -5,7 +5,7 @@
  */
 const
     BaseFileSystem = require('./BaseFileSystem'),
-    { DirectoryObject, FileObject, FileSystemObject, ObjectNotFound } = require('./FileSystemObject'),
+    { DirectoryObject, FileObject, FileSystemObject, ObjectNotFound, DirectoryWrapper } = require('./FileSystemObject'),
     async = require('async'),
     path = require('path'),
     yaml = require('js-yaml'),
@@ -19,9 +19,14 @@ class DiskDirectoryObject extends DirectoryObject {
     }
 
     /**
+     * To increase performance, the directory caches file information.
+     * @type {FileSystemObject[]} */
+    #cache = false;
+
+    /**
      * Read from the directory
      * @param {string} [pattern] Optional file pattern to match on
-     * @returns {FileSystemObject[]>} Returns contents of the directory
+     * @returns {Promise<FileSystemObject[]>} Returns contents of the directory
      */
     async readAsync(pattern = undefined, flags = 0) {
         if (!await this.valid('validReadDirectoryAsync'))
@@ -29,33 +34,55 @@ class DiskDirectoryObject extends DirectoryObject {
 
         return new Promise(async (resolve, reject) => {
             let fileSystem = driver.fileManager.getFileSystemById(this.fileSystemId),
-                fullPath = fileSystem.getRealPath(this.relativePath);
+                fullPath = fileSystem.getRealPath(this.relativePath),
+                returnResults = (err = undefined) => {
+                    if (err) return reject(err);
+                    let regex = pattern && DiskFileSystem.createPattern(pattern);
+                    let results = this.#cache
+                        .filter(f => !regex || regex.test(f.name));
 
-            fs.readdir(fullPath, { withFileTypes: true }, async (err, files) => {
-                if (err) return reject(err);
+                    if (driver.efuns.checkFlags(flags, MUDFS.GetDirFlags.FullPath))
+                        return resolve(results = results.map(f => f.path));
+                    else
+                        return resolve(results);
+                };
 
-                let regex = pattern && DiskFileSystem.createPattern(pattern);
-                let results = files.filter(f => !regex || regex.test(f.name));
-
-                for (let i = 0; i < results.length; i++) {
-                    let expr = path.posix.join(this.path, results[i].name);
-                    results[i] = await driver.fileManager.getObjectAsync(expr);
-                }
-                if (driver.efuns.checkFlags(flags, MUDFS.GetDirFlags.FullPath))
-                    return resolve(results = results.map(f => f.path));
-                else 
-                    return resolve(results);
-            });
+            if (this.#cache)
+                return returnResults();
+            else
+                fs.readdir(fullPath, { withFileTypes: true }, async (err, files) => {
+                    if (err) return reject(err);
+                    this.#cache = await files.mapAsync(async f => await driver.fileManager
+                        .getObjectAsync(
+                            path.posix.join(
+                                this.path,
+                                f.name)));
+                    return returnResults();
+                });
         });
     }
 
     /**
      * Fetch a single file from the directory
-     * @param {FileSystemRequest} request The filesystem request
+     * @param {string} fileName The filesystem request
      * @returns {Promise<DiskFileObject>} Returns the file object if found.
      */
-    async readFile(request) {
+    async getFileAsync(fileName) {
+        return new Promise(async (resolve, reject) => {
+            let pathRequested = path.posix.join(this.path, fileName);
+            let files = await this.readAsync(fileName)
+                .catch(err => reject(err));
+            if (files.length === 0)
+                reject(`File not found: ${pathRequested}`);
+            else if (files.length > 1)
+                reject(`Ambiguous file request: ${pathRequested}; Matched: ${files.map(f => f.name).join(', ')}`);
+            else
+                resolve(files[0]);
+        });
+    }
 
+    async refresh() {
+        this.#cache = false;
     }
 }
 
@@ -108,26 +135,36 @@ class DiskFileObject extends FileObject {
     async readAsync(encoding, stripBOM = false) {
         if (this.exists) {
             return new Promise((resolve, reject) => {
-                //  TODO: Security checks
-                let fileManager = driver.fileManager.getFileSystemById(this.fileSystemId),
-                    fullPath = fileManager.getRealPath(this.relativePath);
+                try {
+                    //  TODO: Security checks
+                    let fileManager = driver.fileManager.getFileSystemById(this.fileSystemId),
+                        fullPath = fileManager.getRealPath(this.relativePath);
 
-                encoding = encoding === 'buffer' ? undefined : encoding || fileManager.encoding;
+                    encoding = encoding === 'buffer' ? undefined : encoding || fileManager.encoding;
 
-                fs.readFile(fullPath, encoding, (err, content) => {
-                    if (err)
-                        reject(err);
+                    fs.readFile(fullPath, encoding, (err, content) => {
+                        try {
+                            if (err)
+                                reject(err);
 
-                    if (fileManager.autoStripBOM || stripBOM === true) {
-                        if (typeof content=== 'string') {
-                            if (content.charCodeAt(0) === 0xFEFF) 
-                                content = content.slice(1);
+                            if (fileManager.autoStripBOM || stripBOM === true) {
+                                if (typeof content === 'string') {
+                                    if (content.charCodeAt(0) === 0xFEFF)
+                                        content = content.slice(1);
+                                }
+                                else if (content.buffer[0] === 0xFEFF)
+                                    content = content.slice(1);
+                            }
+                            resolve(content);
                         }
-                        else if (content.buffer[0] === 0xFEFF)
-                            content = content.slice(1);
-                    }
-                    resolve(content);
-                });
+                        catch (err) {
+                            reject(err);
+                        }
+                    });
+                }
+                catch (err) {
+                    reject(err);
+                }
             });
         }
         return undefined;
@@ -217,11 +254,14 @@ class DiskFileSystem extends BaseFileSystem {
 
     /**
      * Convert the virtual path to a real path.
-     * @param {string} req The file expression to convert.
+     * @param {string} expr The file expression to convert.
      * @returns {string} The absolute filesystem path.
      */ 
-    getRealPath(req) {
-        return path.resolve(this.root, req);
+    getRealPath(expr) {
+        let result = path.join(this.root, expr);
+        if (!result.startsWith(this.root))
+            throw new Error(`Illegal access attempt: ${expr}`);
+        return result;
     }
 
     /**
@@ -336,7 +376,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @param {Error} [err] An optional error if the fs.stat() failed
      * @returns {FileSystemObject}
      */
-    createObject(stats, request, err = null) {
+    async createObject(stats, request, err = null) {
         /** @type {FileSystemObject} */
         let normal = Object.assign({}, stats);
 
@@ -361,10 +401,13 @@ class DiskFileSystem extends BaseFileSystem {
         if (!normal.name)
             normal.name = request.fileName;
         if (!normal.directory)
-            normal.directory = request.pathFull;
+            normal.directory = request.directory;
 
-        if (normal.isDirectory)
-            return new DiskDirectoryObject(normal, request);
+        if (normal.isDirectory) {
+            let result = new DiskDirectoryObject(normal, request);
+            await result.readAsync();
+            return result;
+        }
         if (normal.isFile)
             return new DiskFileObject(normal, request);
         else if (!normal.exists)
@@ -383,7 +426,7 @@ class DiskFileSystem extends BaseFileSystem {
         expr = expr.replace(/\./g, '\\.');
         expr = expr.replace(/\*/g, '.+');
         expr = expr.replace(/\?/g, '.');
-        return new RegExp(expr);
+        return new RegExp('^' + expr + '$');
     }
 
     /**
@@ -470,19 +513,9 @@ class DiskFileSystem extends BaseFileSystem {
     async getFileAsync(request) {
         return new Promise(async (resolve, reject) => {
             try {
-                let fullPath = this.translatePath(request.relativePath);
-                fs.stat(fullPath, (err, stats) => {
-                    if (err) {
-                        let stat = FileSystemObject.createDummyStats(request, err);
-                        return reject(new DiskObjectNotFound(stat, request));
-                    }
-                    let result = this.createObject(stats, request);
-                    if (result.isFile)
-                        return resolve(result);
-                    let error = new Error(`Expression ${request.fullPath} is not a regular file`);
-                    error.object = result;
-                    reject(error);
-                });
+                let directory = await driver.fileManager.getDirectoryAsync(request.directory),
+                    result = await directory.getFileAsync(request.fileName);
+                return resolve(result);
             }
             catch (err) { reject(err);  }
         });
@@ -497,12 +530,12 @@ class DiskFileSystem extends BaseFileSystem {
             try {
                 let fullPath = this.translatePath(request.relativePath);
 
-                fs.stat(fullPath, (err, stats) => {
+                fs.stat(fullPath, async (err, stats) => {
                     if (err) {
                         let stat = FileSystemObject.createDummyStats(request, err);
                         return reject(new DiskObjectNotFound(stat, request));
                     }
-                    let result = this.createObject(stats, request);
+                    let result = await this.createObject(stats, request);
                     resolve(result);
                 });
             }
@@ -719,17 +752,20 @@ class DiskFileSystem extends BaseFileSystem {
 
     /**
      * Read a file asynchronously.
+     * TODO: MOVE TO FILEMANAGER
      * @param {FileSystemRequest} request The file being requested.
      * @returns {Promise<string>}
      */
     readFileAsync(request) {
-        let fullPath = this.translatePath(request.relativePath);
-
-        return new Promise((resolve, reject) => {
-            fs.readFile(fullPath, { encoding: this.encoding || 'utf8' }, (err, data) => {
-                if (err) reject(err);
-                else resolve(this.stripBOM(data));
-            });
+        return new Promise(async (resolve, reject) => {
+            try {
+                let fileObject = await this.getFileAsync(request)
+                    .catch(err => reject(err));
+                return resolve(await fileObject.readAsync());
+            }
+            catch (err) {
+                reject(err);
+            }
         });
     }
 

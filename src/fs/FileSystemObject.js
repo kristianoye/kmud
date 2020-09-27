@@ -121,7 +121,7 @@ class FileSystemObject {
             if (this.path === '/')
                 return undefined;
             let parentPath = path.posix.resolve(this.path, '..');
-            return await driver.fileManager.statAsync(parentPath)
+            return await driver.fileManager.getDirectoryAsync(parentPath)
                 .catch(err => { throw err; });
         }
         catch (err) {
@@ -254,6 +254,9 @@ class DirectoryObject extends FileSystemObject {
      */
     constructor(stat, request, err = undefined) {
         super(stat, request, err);
+
+        /** @type {FileSystemObject} */
+        this.contents = [];
     }
 
     /**
@@ -262,6 +265,35 @@ class DirectoryObject extends FileSystemObject {
      */
     mapPath(expr) {
         return path.posix.join(this.path, expr);
+    }
+}
+
+class DirectoryWrapper extends DirectoryObject {
+    /**
+     * Wraps a directory instance
+     * @param {DirectoryObject} instance
+     * @param {FileSystemRequest} request
+     */
+    constructor(instance, request) {
+        super(instance, request);
+
+        let target = instance;
+
+        Object.defineProperties(this, {
+            readAsync: {
+                value: async () => {
+                    if (target.contents) {
+
+                    }
+                }
+            },
+            refresh: {
+                value: async () => {
+
+                },
+                writable: false
+            }
+        });
     }
 }
 
@@ -313,5 +345,6 @@ module.exports = {
     FileSystemObject,
     DirectoryObject,
     FileObject,
-    ObjectNotFound
+    ObjectNotFound,
+    DirectoryWrapper
 };

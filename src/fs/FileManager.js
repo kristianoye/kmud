@@ -3,6 +3,7 @@ const
     MUDEventEmitter = require('../MUDEventEmitter'),
     { FileSystemObject } = require('./FileSystemObject'),
     FileSystemRequest = require('./FileSystemRequest'),
+    Cache = require('../Cache'),
     crypto = require('crypto'),
     path = require('path');
 
@@ -15,16 +16,12 @@ class FileManager extends MUDEventEmitter {
     /**
      * Construct the file manager
      */
-    constructor() {
+    constructor(options) {
         super();
 
         /** 
-         * Contains a cache of previously accessed directories
-         * @type {Object.<string,DirectoryObject>} */
-        this.directoryCache = {};
-
-        /** @type {GameServer} */
-        this.driver = driver;
+         * Contains a cache of previously accessed directories */
+        this.directoryCache = new Cache({ capacity: options.directoryCacheSize || 1000, key: 'path' });
 
         /** @type {Object.<string,FileSystem>} */
         this.fileSystems = {};
@@ -86,7 +83,7 @@ class FileManager extends MUDEventEmitter {
             flags: flags,
             op: op || '',
             expr,
-            relPath: Path
+            relativePath: Path
         });
         return result;
     }
@@ -193,8 +190,13 @@ class FileManager extends MUDEventEmitter {
      * @param {number} flags Flags to control the operation
      */
     async getDirectoryAsync(expr, flags = 0) {
-        let req = this.createFileRequest('getDirectoryAsync', expr, flags);
-        return req.fileSystem.getDirectoryAsync(req);
+        let req = this.createFileRequest('getDirectoryAsync', expr, flags),
+            result = this.directoryCache.get(req.fullPath);
+        if (!result) {
+            result = await req.fileSystem.getDirectoryAsync(req);
+            return this.directoryCache.store(result);
+        }
+        return result;
     }
 
     /**
@@ -375,15 +377,13 @@ class FileManager extends MUDEventEmitter {
      * @param {any} flags
      */
     async statAsync(expr, flags = 0) {
-        let request = this.createFileRequest('stat', expr, flags);
+        let request = this.createFileRequest('stat', expr, flags),
+            result;
         if (!request.valid('validStatFile'))
             return request.deny();
         else {
-            let result = this.directoryCache[request.fullPath];
             try {
                 result = await request.fileSystem.statAsync(request);
-                if (result.isDirectory)
-                    this.directoryCache[request.fullPath] = result;
             }
             catch (err) {
                 result = FileSystemObject.createDummyStats(request, err);
@@ -443,4 +443,4 @@ class FileManager extends MUDEventEmitter {
     }
 }
 
-module.exports = new FileManager();
+module.exports = FileManager;

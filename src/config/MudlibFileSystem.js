@@ -94,14 +94,19 @@ class MudlibFileSystem {
      * @param {GameServer} driver A reference to the driver instance.
      */
     createFileManager(driver) {
-        let manager = undefined;
+        let manager = undefined, managerType;
 
         if (this.fileManagerType) {
-            let imports = require(path.join(__dirname, '..', this.fileManager));
-            manager = imports[this.fileManagerType];
+            let fileManagerExports = require(path.join(__dirname, '..', this.fileManager));
+            managerType = fileManagerExports[this.fileManagerType];
         }
         else
-            manager = require(path.join(__dirname, '..', this.fileManager));
+            managerType = require(path.join(__dirname, '..', this.fileManager));
+
+        if (typeof managerType === 'function')
+            manager = new managerType(this.fileManagerOptions || {});
+        else if (typeof managerType === 'object')
+            manager = managerType;
 
         if (typeof manager.FileManager === 'object')
             manager = manager.FileManager;

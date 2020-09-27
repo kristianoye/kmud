@@ -32,9 +32,6 @@ class FileSystemRequest {
         this.parent = null;
 
         /** @type {string} */
-        this.pathFull = '';
-
-        /** @type {string} */
         this.pathRel = '';
 
         /** @type {boolean} */
@@ -46,25 +43,11 @@ class FileSystemRequest {
         /** @type {FileSecurity} */
         this.securityManager = data.fs.securityManager;
 
-        let expr = data.expr, relPath = data.relPath;
-
-        if (!expr.endsWith('/')) {
-            let dir = expr.slice(0, expr.lastIndexOf('/')),
-                rel = relPath.slice(0, relPath.lastIndexOf('/'));
-
-            this.fileName = expr.slice(dir.length + 1);
-            this.fullPath = expr;
-            this.relativePath = relPath;
-            this.pathFull = dir; // + (dir.endsWith('/') ? '' : '/');
-            this.pathRel = rel; // + (rel.endsWith('/') ? '' : '/');
-        }
-        else {
-            this.fileName = '';
-            this.fullPath = expr;
-            this.relativePath = relPath;
-            this.pathFull = expr;
-            this.pathRel = relPath;
-        }
+        this.directory = data.expr.substring(0, data.expr.lastIndexOf('/'));
+        this.name = this.fileName = data.expr.substring(data.expr.lastIndexOf('/') + 1);
+        this.path = this.fullPath = data.expr;
+        this.relativePath = data.relativePath;
+        this.absolutePath = data.fs.getRealPath(this.relativePath);
     }
 
     clone(init) {

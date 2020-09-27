@@ -94,6 +94,13 @@ declare namespace Helpers {
         getFileSystemById(id: string): FileSystem;
 
         /**
+         * Get an object from the filesystem
+         * @param expr The expression to fetch
+         * @param flags Flags to control the operation
+         */
+        getObjectAsync(expr: string, flags?: number): Promise<FileSystemObject>;
+
+        /**
          * Check to see if an expression is a directory
          * @param expr The path to check
          */

@@ -225,6 +225,14 @@ class MUDLoader {
                 },
                 writable: false
             },
+            driver: {
+                get: () => {
+                    if (driver.gameState && driver.gameState > 2)
+                        throw new Error('Illegal attempt to access driver when game is running.');
+                    return driver;
+                },
+                enumerable: false
+            },
             eval: {
                 value: (code) => {
                     throw new Error('eval() is obsolete; Use evalAsync() instead');

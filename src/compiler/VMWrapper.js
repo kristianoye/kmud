@@ -18,6 +18,7 @@ var
 class VMWrapper extends VMAbstraction {
     constructor() {
         super();
+        this.initialized = false;
     }
 
     /**
@@ -121,30 +122,37 @@ class VMWrapper extends VMAbstraction {
         context.content,
             ' })()'].join('');
 
-        if (!module.context.initialized) {
-            let content = module.context.constructor.getInitialization &&
-                module.context.constructor.getInitialization();
-            content && vm.runInContext(content, module.context);
-            module.context.initialized = true;
+        if (!this.initialized) {
+            try {
+                let content = module.context.constructor.getInitialization &&
+                    module.context.constructor.getInitialization();
 
-            let files = fs.readdirSync(path.join(__dirname, '..', 'extensions'));
-            console.log('Loading script extensions...');
-            files.forEach(file => {
+                content && vm.runInContext(content, module.context);
 
-                try {
-                    let fullPath = path.join(__dirname, '..', 'extensions', file);
-                    console.log('\tLoading ' + fullPath);
+                this.initialized = module.context.initialized = true;
 
-                    let content = fs.readFileSync(fullPath);
-                    vm.runInContext(content, module.context, {
-                        filename: fullPath,
-                        displayErrors: true
-                    });
-                }
-                catch (err) {
-                    throw err;
-                }
-            });
+                let files = fs.readdirSync(path.join(__dirname, '..', 'extensions'));
+                console.log('Loading script extensions...');
+                files.forEach(file => {
+
+                    try {
+                        let fullPath = path.join(__dirname, '..', 'extensions', file);
+                        console.log('\tLoading ' + fullPath);
+
+                        let content = fs.readFileSync(fullPath);
+                        vm.runInContext(content, module.context, {
+                            filename: fullPath,
+                            displayErrors: true
+                        });
+                    }
+                    catch (err) {
+                        throw err;
+                    }
+                });
+            }
+            catch (err) {
+                console.log('Error in initialization');
+            }
         }
 
         try {

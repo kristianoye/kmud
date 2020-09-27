@@ -16,26 +16,6 @@ declare function get<T>(defaultValue: T): T;
  */
 declare function set<T>(newValue: T): T;
 
-declare interface Array extends Array<T> {
-    /**
-     * Iterate through an array asycronously
-     * @param callback
-     */
-    forEachAsync<T>(callback: (element: T, index: number) => void): Promise<T[]>;
-
-    /**
-     * Push elements to an array but only if they don't already exist
-     * @param items
-     */
-    pushDistinct<T>(...items: T[]): T[];
-
-    /**
-     * Remove an element from an array by value
-     * @param value
-     */
-    removeValue<T>(...value: T[]): T[];
-}
-
 declare interface Dictionary<TKey, TVal> {
     /** Indexer for the dictionary */
     [key: TKey]: TVal;

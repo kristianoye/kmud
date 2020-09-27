@@ -5,15 +5,17 @@
  *
  */
 class CacheItem  {
-    constructor(item, position = 0) {
-        super();
+    constructor(item, key) {
         this.value = item;
+        this.hashKey = key;
         this.lastAccessed = Date.now();
-        this.position = position;
+
         /** @type {CacheItem} */
         this.next = null;
+
         /** @type {CacheItem} */
         this.prev = null;
+
         this.hits = 0;
     }
 }
@@ -24,12 +26,11 @@ class Cache {
      * @param {{ capacity: number, key: string|string[]|function(any):string }} options Options for constructing the cache
      */
     constructor(options) {
-        super(undefined, options.key);
         this.capacity = options.capacity;
 
         this.hits = 0;
         this.misses = 0;
-        this.attempts = 0;
+        this.requests = 0;
 
         /** @type {CacheItem} */
         this.first = null;
@@ -62,15 +63,27 @@ class Cache {
     }
 
     /**
+     * Returns true if the item specified is in the cache
+     * @param {any} item
+     */
+    contains(item) {
+        let hashValue = this.keyGenerator(item);
+        return hashValue in this.hashLookup;
+    }
+
+    get efficiency() {
+        return (this.hits / this.requests) * 100.00;
+    }
+
+    /**
      * Attempt to get an item from the cache
-     * @param {string} key The key to look up
+     * @param {any} key The key to look up
      */
     get(key) {
-        let hashValue = this.keyGenerator(key);
-        this.attempts++;
+        this.requests++;
 
-        if (hashValue in this.hashLookup) {
-            let item = this.hashLookup[hashValue];
+        if (key in this.hashLookup) {
+            let item = this.hashLookup[key];
             this.moveToFront(item);
             this.hits++;
             return item.value;
@@ -94,10 +107,26 @@ class Cache {
         //  Move this item into the first position
         if (this.first) {
             this.first.prev = item;
-            item.next = this.prev;
+            item.next = this.first;
+        }
+        if (!this.last) {
+            this.last = item;
         }
         this.first = item;
         item.prev = null;
+        item.lastAccessed = Date.now();
+        item.hits++;
+    }
+
+    /** Ensure we don't exceed our capacity */
+    purge() {
+        while (this.count >= this.capacity) {
+            let last = this.last,
+                prev = last.prev;
+            this.last = prev;
+            this.last.next = null;
+            count--;
+        }
     }
 
     /**
@@ -110,20 +139,14 @@ class Cache {
 
         if (key in this.hashLookup === false) {
             //  The new item goes in at the beginning
-            item = this.hashLookup[key] = new CacheItem(value);
+            this.purge();
+            item = this.hashLookup[key] = new CacheItem(value, key);
             this.count++;
         }
         else
             item = this.hashLookup[key];
         this.moveToFront(item);
-
-        while (this.count > this.capacity) {
-            let last = this.last,
-                prev = last.prev;
-            this.last = prev;
-            this.last.next = null;
-            count--;
-        }
+        return value;
     }
 
     get length() {

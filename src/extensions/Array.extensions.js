@@ -1,8 +1,10 @@
+const
+    driverInstance = driver;
+
 /*
  * Extensions to the Array object
  * Lots of LINQ-like functionality
  */
-
 Array.prototype.any = function (test) {
     if (!test) test = function (x) { return true; };
     for (let i = 0; i < this.length; i++) {
@@ -11,9 +13,10 @@ Array.prototype.any = function (test) {
     return false;
 };
 
-Array.prototype.default = function (val) {
-    this.$default = val;
-    return this;
+Array.prototype.defaultIfEmpty = function (val) {
+    let result = this.slice(0);
+    result.$default = val;
+    return result;
 };
 
 Array.prototype.firstOrDefault = function (test) {
@@ -24,7 +27,7 @@ Array.prototype.firstOrDefault = function (test) {
     return this.$default;;
 };
 
-Array.prototype.forEachAsync = async function (callback) {
+Array.prototype.forEachAsync = async function (callback, concurrent = 1) {
     if (/^async /.test(callback.toString()) === false)
         throw new Error('Callback must be async');
     for (let i = 0; i < this.length; i++) {
@@ -39,6 +42,38 @@ Array.prototype.lastOrDefault = function (test) {
         if (test(this[i], i)) return this[i];
     }
     return this.$default;;
+};
+
+Array.prototype.mapAsync = async function (mapper) {
+    let result = [];
+    for (let i = 0, m = this.length; i < m; i++) {
+        result[i] = await mapper(this[i], i);
+    }
+    return result;
+};
+
+Array.prototype.orderBy = function (orderBy) {
+    let result = this.slice(0);
+    result.sort((a, b) => {
+        let $a = orderBy(a),
+            $b = orderBy(b);
+        if ($a < $b) return -1;
+        else if ($b < $a) return 1;
+        else return 0;
+    });
+    return result;
+};
+
+Array.prototype.orderByDescending = function (orderBy) {
+    let result = this.slice(0);
+    result.sort((a, b) => {
+        let $a = orderBy(a),
+            $b = orderBy(b);
+        if ($a < $b) return 1;
+        else if ($b < $a) return -1;
+        else return 0;
+    });
+    return result;
 };
 
 Array.prototype.singleOrDefault = function (test, useDefault = true) {
