@@ -192,8 +192,15 @@ class DiskFileObject extends FileObject {
         return undefined;
     }
 
-    async writeFileAsync(content, encoding = undefined) {
-
+    writeFileAsync(content, encoding = undefined) {
+        return new Promise((resolve, reject) => {
+            fs.writeFile(this.#physicalLocation, content, { encoding: 'utf8', flag: 'w' }, err => {
+                if (err)
+                    reject(err);
+                else
+                    resolve(true);
+            });
+        });
     }
 }
 

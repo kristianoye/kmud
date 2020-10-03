@@ -19,7 +19,7 @@ class MUDOSLoader extends MUDLoader {
                 value: function (n) { return _efuns.abs(n); }
             },
             adminp: {
-                value: function (target) { return _efuns.adminp(target); }
+                get: function (target) { return _efuns.adminp(target); }
             },
             archp: {
                 value: function (target) { return _efuns.archp(target); }
@@ -142,6 +142,17 @@ class MUDOSLoader extends MUDLoader {
                 value: function (target) { return _efuns.wizardp(target); }
             }
         });
+    }
+
+    allocate(n, value = 0) {
+        let result = new Array(size)
+            .fill(typeof value === 'function' ? 0 : value);
+
+        if (typeof value === 'function') {
+            result = result.map((v, i) => value(i));
+        }
+
+        return result;
     }
 
     allocate_buffer(n) {
