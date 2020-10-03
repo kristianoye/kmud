@@ -31,7 +31,8 @@ const
     MathHelper = require('./efuns/MathHelper'),
     ObjectHelper = require('./efuns/ObjectHelper'),
     TextHelper = require('./efuns/TextHelper'),
-    TimeHelper = require('./efuns/Time');
+    TimeHelper = require('./efuns/Time'),
+    UserHelper = require('./efuns/UserHelper');
 
 var
     IncludeCache = {},
@@ -1554,19 +1555,26 @@ class EFUNProxy {
      */
     resolvePath(expr, relativeToPath) {
         relativeToPath = typeof relativeToPath === 'string' && relativeToPath || this.directory;
+
         if (typeof expr !== 'string')
             throw new Error(`Bad argument 1 to resolvePath; Expected string got ${(typeof expr)}`);
+
         if (expr[0] === '/')
             return expr;
         if (expr[0] === '~') {
-            var re = /^~([\\\/])*([^\\\/]+)/, m = re.exec(expr) || [];
+            var re = /^~([\\\/])*([^\\\/]+)/,
+                m = re.exec(expr) || [];
+
             if (m.length === 2) {
-                expr = '/realms/' + m[2] + expr.slice(m[2].length + 1);
+                let homePath = this.user.getHomePath(m[2]);
+                expr = homePath + expr.slice(m[2].length + 1);
             }
             else if (expr[1] === '/' || expr === '~') {
-                expr = this.thisPlayer() ?
-                    '/realms/' + this.thisPlayer().getName() + expr.slice(1) :
-                    self.homeDirectory + expr.slice(1);
+                let player = this.thisPlayer();
+                expr = player ?
+                    this.user.getHomePath(player) + expr.slice(1) :
+                    this.directory + expr.slice(1);
+                return expr;
             }
             else if (m.length === 3 && !m[1]) {
                 expr = '/realms/' + expr.slice(1);
@@ -1921,6 +1929,10 @@ class EFUNProxy {
         finally {
             ecc.pop('unguarded');
         }
+    }
+
+    get user() {
+        return UserHelper;
     }
 
     userp(target) {

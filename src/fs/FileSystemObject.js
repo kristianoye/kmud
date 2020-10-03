@@ -10,6 +10,7 @@
 
 const
     path = require('path');
+
 const { NotImplementedError } = require('../ErrorTypes');
 
 class FileSystemObject {
@@ -23,7 +24,8 @@ class FileSystemObject {
 
         Object.assign(this, data);
 
-        this.directory = data.directory || '/';
+        if (!(this.directory = data.directory))
+            throw new Error('FileSystemObject must contain directory');
         this.error = err;
         this.fullPath = '';
         this.isFile = data.isFile;
@@ -56,6 +58,28 @@ class FileSystemObject {
         return new this.constructor(this);
     }
 
+    /**
+     * Convert a path expression if needed.
+     * @param {string} expr The path expression to convert.
+     */
+    static convertPath(expr) {
+        if (path.sep === path.posix.sep)
+            return expr;
+
+        // handle the edge-case of Window's long file names
+        // See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#short-vs-long-names
+        expr = expr.replace(/^\\\\\?\\/, "");
+
+        // convert the separators, valid since both \ and / can't be in a windows filename
+        expr = expr.replace(/\\/g, '\/');
+
+        // compress any // or /// to be just /, which is a safe oper under POSIX
+        // and prevents accidental errors caused by manually doing path1+path2
+        expr = expr.replace(/\/\/+/g, '\/');
+
+        return expr;
+    }
+
     async copyAsync(request) {
         throw new NotImplementedError('copyAsync', this);
     }
@@ -70,7 +94,7 @@ class FileSystemObject {
     static createDummyStats(request, err = false) {
         let dt = new Date(0);
 
-        return new FileSystemObject({
+        return {
             atime: dt,
             atimeMs: dt.getTime(),
             birthtime: dt,
@@ -80,6 +104,7 @@ class FileSystemObject {
             ctime: dt,
             ctimeMs: dt.getTime(),
             dev: -1,
+            directory: request.directory,
             error: err || new Error('Unknown error'),
             exists: false,
             fullPath: request.fullPath,
@@ -90,8 +115,8 @@ class FileSystemObject {
             mode: -1,
             mtime: dt,
             mtimeMs: dt.getTime(),
-            name: request.fileName,
-            path: request.fullPath || '',
+            name: request.name,
+            path: request.path || '',
             size: -1,
             rdev: -1,
             isBlockDevice: false,
@@ -101,7 +126,7 @@ class FileSystemObject {
             isFile: false,
             isSocket: false,
             isSymbolicLink: false
-        }, request);
+        };
     }
 
     /**
@@ -157,7 +182,7 @@ class FileSystemObject {
      * @param {any} expr
      */
     mapPath(expr) {
-        return path.posix.join(this.path, '..', expr);
+        return path.posix.join(this.path, '..', FileSystemObject.convertPath(expr));
     }
 
     /**
@@ -264,7 +289,7 @@ class DirectoryObject extends FileSystemObject {
      * @param {any} expr
      */
     mapPath(expr) {
-        return path.posix.join(this.path, expr);
+        return path.posix.join(this.path, FileSystemObject.convertPath(expr));
     }
 }
 

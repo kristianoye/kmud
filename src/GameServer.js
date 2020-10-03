@@ -194,6 +194,17 @@ class GameServer extends MUDEventEmitter {
         });
     }
 
+    getHomePath(player) {
+        return unwrap(player, user => {
+            if (this.applyGetHomePath) {
+                return this.driverCall(this.applyGetHomePath.name, () => {
+                    return this.applyGetHomePath(player);
+                });
+            }
+            return undefined;
+        });
+    }
+
     /**
      * 
      * @param {LinkedList} collection The collection to maintain
@@ -364,6 +375,7 @@ class GameServer extends MUDEventEmitter {
                 this.applyCreateFileACL = locateApply('createFileACL', false);
                 this.applyErrorHandler = locateApply('errorHandler', false);
                 this.applyGetPreloads = locateApply('getPreloads', false);
+                this.applyGetHomePath = locateApply('getHomePath', false);
                 this.applyLogError = locateApply('logError', false);
                 this.applyGetGroups = locateApply('getPermissionGroups', false);
                 this.applyRegisterServer = locateApply('registerServer', false);
@@ -1039,6 +1051,10 @@ class GameServer extends MUDEventEmitter {
                 logger.log('uncaughtException', err);
                 logger.log(err.stack);
                 this.errorHandler(err, false);
+            });
+            process.on('unhandledRejection', (reason, promise) => {
+                console.log('Unhandled Rejection at:', promise, 'reason:', reason);
+                // Application specific logging, throwing an error, or other logic here
             });
         }
         await this.createFileSystems();

@@ -134,7 +134,6 @@ class VMWrapper extends VMAbstraction {
                 let files = fs.readdirSync(path.join(__dirname, '..', 'extensions'));
                 console.log('Loading script extensions...');
                 files.forEach(file => {
-
                     try {
                         let fullPath = path.join(__dirname, '..', 'extensions', file);
                         console.log('\tLoading ' + fullPath);
@@ -146,7 +145,7 @@ class VMWrapper extends VMAbstraction {
                         });
                     }
                     catch (err) {
-                        throw err;
+                        console.log(`Failed to load extension: ${file}: ${err.message}`);
                     }
                 });
             }

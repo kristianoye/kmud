@@ -5,7 +5,13 @@
     DriverCompilerLoader = require('./DriverCompilerLoader');
 
 class DriverCompiler {
+    /**
+     * Stores data for the compiler
+     * @param {DriverCompiler} data
+     */
     constructor(data) {
+        this.allowEval = data.allowEval === true;
+
         /** @type {string} */
         this.virtualMachine = data.virtualMachine || 'vm';
 

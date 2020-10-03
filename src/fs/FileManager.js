@@ -1,7 +1,7 @@
 
 const
     MUDEventEmitter = require('../MUDEventEmitter'),
-    { FileSystemObject } = require('./FileSystemObject'),
+    { FileSystemObject, ObjectNotFound } = require('./FileSystemObject'),
     FileSystemRequest = require('./FileSystemRequest'),
     Cache = require('../Cache'),
     crypto = require('crypto'),
@@ -76,14 +76,14 @@ class FileManager extends MUDEventEmitter {
      * @returns {FileSystemRequest} The request to be fulfilled.
      */
     createFileRequest(op, expr, flags = 0) {
-        let { FileSystem, Path } = this.getFilesystem(expr);
+        let { fileSystem, relativePath } = this.getFilesystem(expr);
 
         let result = new FileSystemRequest({
-            fs: FileSystem,
+            fs: fileSystem,
             flags: flags,
             op: op || '',
             expr,
-            relativePath: Path
+            relativePath
         });
         return result;
     }
@@ -114,64 +114,44 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
-     * Generate a dummy stat.
-     * @param {Error} err An error that occurred.
-     * @param {FileSystemRequest} req The request associated with this stat
-     */
-    createDummyStats(err = false, req) {
-        let dt = new Date(0);
-
-        return new FileSystemObject({
-            absolutePath: req.fullPath,
-            atime: dt,
-            atimeMs: dt.getTime(),
-            birthtime: dt,
-            birthtimeMs: dt.getTime(),
-            blksize: 4096,
-            blocks: 0,
-            ctime: dt,
-            ctimeMs: dt.getTime(),
-            dev: -1,
-            error: err || new Error('Unknown error'),
-            exists: false,
-            gid: -1,
-            ino: -1,
-            nlink: -1,
-            uid: -1,
-            mode: -1,
-            mtime: dt,
-            mtimeMs: dt.getTime(),
-            name: req.fileName,
-            path: req.fullPath || '',
-            size: -1,
-            rdev: -1,
-            isBlockDevice: false,
-            isCharacterDevice: false,
-            isDirectory: false,
-            isFIFO: false,
-            isFile: false,
-            isSocket: false,
-            isSymbolicLink: false
-        });
-    }
-
-    /**
      * Remove a directory from the filesystem.
      * @param {string} expr The directory to remove.
-     * @param {{ flags: number }} options Any additional options.
+     * @param {number} flags Any additional options.
      */
-    async deleteDirectoryAsync(expr, options) {
-        let req = this.createFileRequest('deleteDirectoryAsync', expr, options.flags);
-        return req.valid('deleteDirectory') && await req.fileSystem.deleteDirectoryAsync(req.relativePath, req.flags);
+    deleteDirectoryAsync(expr, flags) {
+        let request = this.createFileRequest('deleteDirectoryAsync', expr, flags);
+
+        return new Promise(async (resolve, reject) => {
+            try {
+                let directory = await this.getDirectoryAsync(request.path);
+
+                if (!directory.exists)
+                    reject(`Directory ${request.path} does not exist.`);
+
+                let result = await directory.deleteAsync(request.flags);
+                resolve(result);
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
     }
 
     /**
      * Delete/unlink a file from the filesystem.
      * @param {string} expr The path expression to remove.
+     * @param {number} flags Flags to control the operation.
      */
-    async deleteFileAsync(expr, options = 0) {
-        let req = this.createFileRequest('deleteFileAsync', expr, options.flags);
-        return req.valid('validDeleteFile') && await req.fileSystem.deleteFileAsync(req);
+    deleteFileAsync(expr, flags = 0) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                let file = await this.getFileAsync(expr, flags);
+                resolve(await file.deleteAsync(flags));
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
     }
 
     /**
@@ -188,6 +168,7 @@ class FileManager extends MUDEventEmitter {
      * Get a directory object
      * @param {string} expr The directory expression to fetch
      * @param {number} flags Flags to control the operation
+     * @returns {Promise<DirectoryObject>} Returns a directory object.
      */
     async getDirectoryAsync(expr, flags = 0) {
         let req = this.createFileRequest('getDirectoryAsync', expr, flags),
@@ -203,16 +184,26 @@ class FileManager extends MUDEventEmitter {
      * Get a file object
      * @param {string} expr The file path to get
      * @param {number} flags Flags associated with the request
+     * @returns {Promise<FileObject>}
      */
-    async getFileAsync(expr, flags = 0) {
-        let request = this.createFileRequest('getFileAsync', expr, flags);
-        return request.fileSystem.getFileAsync(request);
+    getFileAsync(expr, flags = 0) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                let request = this.createFileRequest('getFileAsync', expr, flags);
+                let directory = await this.getDirectoryAsync(request.directory);
+                let result = await directory.getFileAsync(request.name);
+                return resolve(result);
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
     }
 
     /**
      * Locate the filesystem for the specified absolute path
      * @param {string} expr The directory expression
-     * @returns {{FileSystem:FileSystem, Path:string}} Returns a filesystem or a filesystem and relative path if withRelativePath is true
+     * @returns {{fileSystem:FileSystem, relativePath:string}} Returns a filesystem or a filesystem and relative path if withRelativePath is true
      */
     getFilesystem(expr) {
         let parts = expr.split('/'),
@@ -232,7 +223,7 @@ class FileManager extends MUDEventEmitter {
 
         if (!fileSystem)
             throw new Error('Fatal: Could not locate filesystem');
-        return { FileSystem: fileSystem, Path: relativePath };
+        return { fileSystem, relativePath };
     }
 
     /**
@@ -243,9 +234,27 @@ class FileManager extends MUDEventEmitter {
         return id in this.fileSystemsById === true && this.fileSystemsById[id];
     }
 
+    /**
+     * This method MUST ALWAYS return a filesystem object.  If the object does
+     * not exist or an error occurs this method should return a ObjectNotFound
+     * FileSystem object.
+     * @param {string} expr The path expression to fetch
+     * @param {number} flags Filesystem flags to control the operation
+     * @returns {Promise<FileSystemObject>}
+     */
     getObjectAsync(expr, flags = 0) {
-        let request = this.createFileRequest('getObjectAsync', expr);
-        return request.fileSystem.getObjectAsync(request);
+        let request = this.createFileRequest('getObjectAsync', expr),
+            result;
+        try {
+            result = request.fileSystem.getObjectAsync(request);
+        }
+        catch (err) {
+            result = new ObjectNotFound(
+                FileSystemObject.createDummyStats(request),
+                request,
+                err);
+        }
+        return result;
     }
 
     /**
@@ -286,7 +295,7 @@ class FileManager extends MUDEventEmitter {
             for (let j = 0, mj = parts.length; j < mj; j++) {
                 let pj = parts[j],
                     dir = j > 0 ? parts.slice(0, j - 1).join('/') : '/',
-                    { FileSystem, Path } = this.getFilesystem(dir);
+                    { fileSystem, relativePath } = this.getFilesystem(dir);
 
                 if (pj === '**') {
                     //  At this point, get all files at or below this point of the tree
@@ -297,12 +306,12 @@ class FileManager extends MUDEventEmitter {
                      * @type {FileSystemObject[]} */
                     let dirStack = [];
 
-                    let subset = await FileSystem.glob(Path, '*', opts);
+                    let subset = await fileSystem.glob(relativePath, '*', opts);
                 }
                 else if (pj.indexOf('**') > -1)
                     throw new Error('Double asterisk must be a standalone token in expression');
 
-                await FileSystem.glob(Path, pj, opts);
+                await fileSystem.glob(relativePath, pj, opts);
             }
         }
         return results;
@@ -362,7 +371,22 @@ class FileManager extends MUDEventEmitter {
      * @param {function=} callback An optional callback for async mode.
      */
     async readJsonAsync(expr) {
-        let request = this.createFileRequest('readJsonFile', expr);
+        return new Promise(async (resolve, reject) => {
+            try {
+                let request = this.createFileRequest('readJsonFile', expr);
+                let directory = await this.getDirectoryAsync(request.directory);
+                if (!directory.exists)
+                    reject(new Error(`Directory ${request.directory} does not exist.`));
+                let file = await directory.getFileAsync(request.name);
+                if (!file.exists)
+                    reject(new Error(`File ${request.path} does not exist.`));
+                let results = await file.readJsonAsync();
+                resolve(results);
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
         return request.valid('validReadFile') && await request.fileSystem.readJsonAsync(request);
     }
 

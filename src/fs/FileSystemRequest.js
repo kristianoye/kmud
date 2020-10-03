@@ -9,7 +9,6 @@ class FileSystemRequest {
      * @param {FileSystemRequest} data The data to construct the request with
      */
     constructor(data) {
-        this.async = data.isAsync;
         this.expr = data.expr;
 
         /** @type {string} */
@@ -43,8 +42,11 @@ class FileSystemRequest {
         /** @type {FileSecurity} */
         this.securityManager = data.fs.securityManager;
 
-        this.directory = data.expr.substring(0, data.expr.lastIndexOf('/'));
-        this.name = this.fileName = data.expr.substring(data.expr.lastIndexOf('/') + 1);
+        this.directory = data.expr.substring(0, data.expr.lastIndexOf('/')) || '/';
+        if (data.expr === '/')
+            this.name = '/'; // special case for root
+        else
+            this.name = this.fileName = data.expr.substring(data.expr.lastIndexOf('/') + 1);
         this.path = this.fullPath = data.expr;
         this.relativePath = data.relativePath;
         this.absolutePath = data.fs.getRealPath(this.relativePath);

@@ -470,19 +470,26 @@
     <Content Include="src\efuns\ObjectHelper.js" />
     <Content Include="src\efuns\TextHelper.js" />
     <Content Include="src\efuns\Time.js" />
+    <Content Include="src\efuns\UserHelper.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\ErrorTypes.js" />
     <Content Include="src\ExecutionContext.js" />
     <Content Include="src\Extensions.js" />
     <Content Include="src\extensions\Array.extensions.js">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="src\extensions\Function.extends.js">
+    <Content Include="src\extensions\Date.extensions.js">
       <SubType>Code</SubType>
     </Content>
     <Content Include="src\extensions\Math.extensions.js">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="src\extensions\Number.extensions.js" />
     <Content Include="src\extensions\Object.extensions.js">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="src\extensions\Promise.extensions.js">
       <SubType>Code</SubType>
     </Content>
     <Content Include="src\extensions\String.extensions.js">
@@ -889,6 +896,7 @@
     <Folder Include="src\db\" />
     <Folder Include="src\db\orm\" />
     <Folder Include="src\dts\" />
+    <Folder Include="src\dts\efuns\" />
     <Folder Include="src\efuns\" />
     <Folder Include="src\features\" />
     <Folder Include="src\fs\" />
@@ -925,7 +933,19 @@
     <TypeScriptCompile Include="src\dts\ClientComponent.d.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\Date.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\EFUNProxy.d.ts" />
+    <TypeScriptCompile Include="src\dts\efuns\Arrays.d.ts" />
+    <TypeScriptCompile Include="src\dts\efuns\FileSystem.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\efuns\Inputs.d.ts" />
+    <TypeScriptCompile Include="src\dts\efuns\Living.d.ts" />
+    <TypeScriptCompile Include="src\dts\efuns\Objects.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\ExecutionContext.d.ts" />
     <TypeScriptCompile Include="src\dts\FileSystem.d.ts" />
     <TypeScriptCompile Include="src\dts\Flags.d.ts">
@@ -937,6 +957,9 @@
       <SubType>Code</SubType>
     </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\MUDObject.d.ts" />
+    <TypeScriptCompile Include="src\dts\Number.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\Storage.d.ts" />
     <TypeScriptCompile Include="src\dts\String.d.ts">
       <SubType>Code</SubType>

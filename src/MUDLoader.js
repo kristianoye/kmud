@@ -28,15 +28,6 @@ const
 const
     FileSystemFlags = require('./fs/FileSystemFlags');
 
-if (typeof Promise.prototype.always !== 'function') {
-    Promise.prototype.always = function (onResolveOrReject) {
-        return this.then(onResolveOrReject, reason => {
-            onResolveOrReject(reason);
-            throw reason;
-        });
-    };
-}
-
 class MUDLoader {
     /**
      * @param {MUDCompiler} compiler The compiler.
@@ -241,7 +232,7 @@ class MUDLoader {
             },
             evalAsync: {
                 value: async (code) => {
-                    let source = compiler.preprocess(code),
+                    let source = await compiler.evalAsync(code),
                         maxEvalTime = driver.config.driver.maxEvalTime || 10000,
                         result = undefined;
 
@@ -297,10 +288,6 @@ class MUDLoader {
             },
             MUDMixin: {
                 value: global.MUDMixin,
-                writable: false
-            },
-            Promise: {
-                value: global.Promise,
                 writable: false
             },
             pluralize: {

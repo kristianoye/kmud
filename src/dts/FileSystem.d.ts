@@ -83,6 +83,9 @@ declare interface FileSystemRequest {
     /** Additional flags passed during the request */
     flags: number;
 
+    /** The directory in which the item lives */
+    readonly directory: string;
+
     /** The full MUD path being requested */
     readonly fullPath: string;
 
@@ -91,6 +94,9 @@ declare interface FileSystemRequest {
 
     /** The operation being performed */
     readonly op: string;
+
+    /** The fully-qualified MUD path to the object being requested */
+    readonly path: string;
 
     /** The path relative to the root of the filesystem */
     readonly relativePath: string;
@@ -206,6 +212,12 @@ declare interface FileSystemObject {
 
 declare interface DirectoryObject extends FileSystemObject {
     /**
+     * Get a single object from the directory
+     * @param fileName The object to get from the directory.
+     */
+    getFileAsync(fileName: string): Promise<FileObject>;
+
+    /**
      * Read the content of the directory
      * @param pattern An optional file pattern to match (defaults to all)
      * @param options Additional operations to control operation
@@ -217,7 +229,11 @@ declare interface FileObject extends FileSystemObject {
     /** The file extension */
     readonly extension: string;
 
+    /** Read the contents of a file */
     readAsync(): Promise<string | Buffer>;
+
+    /** Read JSON data from the file */
+    readJsonAsync(): Promise<any>;
 }
 
 declare enum Glob {
@@ -250,5 +266,9 @@ declare enum StatFlags {
 
 /** The primary means of gaining access to the filesystem */
 declare interface FileManager extends Helpers.FileSystem {
-
+    /**
+     * Get a filesystem based on its systemId
+     * @param id The systemId to retrieve
+     */
+    getFileSystemById(id: string): FileSystem;
 }

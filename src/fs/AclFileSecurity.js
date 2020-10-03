@@ -37,13 +37,21 @@ class AclFileSecurity extends BaseFileSecurity {
             if (stat.path in this.aclCache)
                 return this.aclCache[stat.path];
 
-            let aclData = await driver.fileManager.getSystemFileAsync(stat.mapPath('.acl'), 1);
+            let aclData = await driver.fileManager.getSystemFileAsync(stat.mapPath('.acl'), 1)
+                .catch(err => {
+                    console.log(`Failed to retreive ACL: ${err}`);
+                });
             if (!aclData.exists) {
                 let parent = await stat.getParent();
                 if (parent) return await this.getAcl(parent);
             }
-            let data = await aclData.readJsonAsync();
-            return this.aclCache[stat.path] = new DirectoryAcl(aclData, data);
+            if (typeof aclData.readJsonAsync === 'function') {
+                let data = await aclData.readJsonAsync();
+                return this.aclCache[stat.path] = new DirectoryAcl(aclData, data);
+            }
+            else {
+                throw new Error('Something is not quite right; Crash!');
+            }
         }
     }
 

@@ -5,6 +5,7 @@
  */
 const
     fs = require('fs');
+const DriverCompiler = require('./config/DriverCompiler');
 
 const
     PipeContext = require('./compiler/PipelineContext'),
@@ -19,7 +20,7 @@ class MUDCompiler {
     /**
      * Construct the in-game script compiler.
      * @param {GameServer} driverInstance A reference to the game driver/server
-     * @param {any} config Optional settings from the config file.
+     * @param {DriverCompiler} config Optional settings from the config file.
      */
     constructor(driverInstance, config) {
         var comps = 0,
@@ -28,6 +29,7 @@ class MUDCompiler {
 
         this.components = {};
         this.driver = driverInstance;
+        this.allowEval = config.allowEval === true;
         /** @type {Object.<string,MUDLoader>} */
         this.loaders = {};
         this.pipelines = {};
@@ -102,6 +104,42 @@ class MUDCompiler {
     }
 
     /**
+     * Support for eval() type statements
+     * @param {string} code The code to execute
+     * @param {any} note
+     * @param {any} callback
+     */
+    async evalAsync(code, note, callback) {
+        if (!this.allowEval)
+            throw new Error('Eval is disabled by the MUD configuration');
+
+        let context = new PipeContext.PipelineContext('eval.jsx', true);
+        let pipeline = this.getPipeline(context);
+
+        context.content = code;
+        await pipeline.executeAsync(context);
+
+        if (context.state === PipeContext.CTX_FINISHED) {
+            if (!context.content)
+                throw new Error(`Could not load ${context.filename} [empty file?]`);
+            return context.content;
+        }
+        else {
+            switch (context.state) {
+                case PipeContext.CTX_ERRORED:
+                    throw new Error(`Could not load ${context.filename} [${context.errors[0].message}]`);
+
+                case PipeContext.CTX_RUNNING:
+                case PipeContext.CTX_STOPPED:
+                    throw new Error(`Could not load ${context.filename} [Incomplete Pipeline]`);
+
+                case PipeContext.CTX_INIT:
+                    throw new Error(`Could not load ${context.filename} [Pipeline Failure]`);
+            }
+        }
+    }
+
+    /**
      * Create a loader for the specified pipeline and module.
      * @param {CompilerPipeline} pipeline The pipeline to execute.
      * @param {MUDCompilerOptions} compilerOptions Options to the compiler.
@@ -126,33 +164,6 @@ class MUDCompiler {
      */
     getPipeline(ctx) {
         return ctx.extension in this.pipelines ? this.pipelines[ctx.extension] : false;
-    }
-
-    preprocess(code, note, callback) {
-        let context = new PipeContext.PipelineContext('eval.jsx', true);
-        let pipeline = this.getPipeline(context);
-
-        context.content = code;
-        pipeline.execute(context);
-
-        if (context.state === PipeContext.CTX_FINISHED) {
-            if (!context.content)
-                throw new Error(`Could not load ${context.filename} [empty file?]`);
-            return context.content;
-        }
-        else {
-            switch (context.state) {
-                case PipeContext.CTX_ERRORED:
-                    throw new Error(`Could not load ${context.filename} [${context.errors[0].message}]`);
-
-                case PipeContext.CTX_RUNNING:
-                case PipeContext.CTX_STOPPED:
-                    throw new Error(`Could not load ${context.filename} [Incomplete Pipeline]`);
-
-                case PipeContext.CTX_INIT:
-                    throw new Error(`Could not load ${context.filename} [Pipeline Failure]`);
-            }
-        }
     }
 
     /**

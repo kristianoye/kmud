@@ -9,17 +9,18 @@ const
     DirFlags = system.flags.fs.DirFlags;
 
 const
-    MKDIR_VERBOSE = 1 << 0,
-    MKDIR_PARENTS = 1 << 1;
+    MkdirVerbose = 1 << 0,
+    MkdirParents = 1 << 1;
 
 class MkDirCommand extends Command {
     /**
      * Create a directory
-     * @param {string[]} args
-     * @param {MUDInputEvent} cmdline
+     * @param {string} cmdText The raw text for the command
+     * @param {MUDInputEvent} cmdline The input event from the client
      */
-    async cmd(args, cmdline) {
-        let player = thisPlayer,
+    async cmd(cmdText, cmdline) {
+        let player = thisPlayer(),
+            args = cmdline.args,
             dirList = [],
             options = 0,
             flags = 0;
@@ -28,15 +29,33 @@ class MkDirCommand extends Command {
             let opt = args[i];
 
             if (opt.startsWith('-')) {
-                let opts = opt.charAt(1)==='-' ? [opt] : opt.slice(1).split('');
-                for (var j = 0; j < opts.length; j++) {
+                let opts = opt.charAt(1) === '-' ? [opt] : opt.slice(1).split('');
+
+                for (let j = 0, max = opts.length; j < max; j++) {
                     switch (opts[j]) {
                         case 'p': case '--parents':
                             flags |= DirFlags.EnsurePathExists;
                             break;
+
                         case 'v': case '--verbose':
-                            options |= MKDIR_VERBOSE;
+                            options = options.setFlag(MkdirVerbose);
                             break;
+
+                        case '--help':
+                            return writeLine(
+                                'Usage: mkdir[OPTION]...DIRECTORY...\n' +
+                                'Create the DIRECTORY(ies), if they do not already exist.\n\n' +
+                                'Mandatory arguments to long options are mandatory for short options too.\n' +
+                                '   -m, --mode=MODE   set file mode (as in chmod), not a=rwx - umask\n' +
+                                '   -p, --parents     no error if existing, make parent directories as needed\n' +
+                                '   -v, --verbose     print a message for each created directory\n' +
+                                '      --help     display this help and exit\n' +
+                                '      --version  output version information and exit');
+                            break;
+
+                        case '--version':
+                            return writeLine('mkdir (KMUD CoreUtil) v2.1; Written by Kristian Oye.');
+
                         default:
                             return `Mkdir: Unknown option: ${opts[j]}`;
                     }
@@ -72,19 +91,21 @@ class MkDirCommand extends Command {
         try {
             let dir = dirList.shift();
 
-            let result = await efuns.fs.createDirectoryAsync(dir, flags)
-                .catch(err => { throw err });
+            if (dir) {
+                let result = await efuns.fs.createDirectoryAsync(dir, flags)
+                    .catch(err => { throw err });
 
-            if (options & MKDIR_VERBOSE)
-                writeLine('Mkdir: ' + (success ? `Created ${dir}` : `Failed: ${error.message}`));
+                if (options.hasFlag(MkdirVerbose))
+                    writeLine('Mkdir: ' + (success ? `Created ${dir}` : `Failed: ${error.message}`));
+            }
             if (dirList.length === 0)
-                return cmdline.complete();
+                return true;
             else
                 return await this.createDirectories(dirList, flags, options, cmdline);
         }
         catch (err) {
             writeLine(`MkDir error: ${err.message}`);
-            return cmdline.complete;
+            return false;
         }
     }
 

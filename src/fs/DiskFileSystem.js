@@ -49,14 +49,14 @@ class DiskDirectoryObject extends DirectoryObject {
 
             if (this.#cache)
                 return returnResults();
-            else
+            else 
                 fs.readdir(fullPath, { withFileTypes: true }, async (err, files) => {
                     if (err) return reject(err);
-                    this.#cache = await files.mapAsync(async f => await driver.fileManager
-                        .getObjectAsync(
-                            path.posix.join(
-                                this.path,
-                                f.name)));
+                    let promiseList = files.map(stat => driver.fileManager
+                        .getObjectAsync(path.posix.join(this.path, stat.name)));
+
+                    let results = await Promise.allWithLimit(promiseList);
+                    this.#cache = results;
                     return returnResults();
                 });
         });
@@ -69,15 +69,19 @@ class DiskDirectoryObject extends DirectoryObject {
      */
     async getFileAsync(fileName) {
         return new Promise(async (resolve, reject) => {
-            let pathRequested = path.posix.join(this.path, fileName);
-            let files = await this.readAsync(fileName)
-                .catch(err => reject(err));
-            if (files.length === 0)
-                reject(`File not found: ${pathRequested}`);
-            else if (files.length > 1)
-                reject(`Ambiguous file request: ${pathRequested}; Matched: ${files.map(f => f.name).join(', ')}`);
-            else
-                resolve(files[0]);
+            try {
+                let pathRequested = path.posix.join(this.path, fileName);
+                let files = await this.readAsync(fileName);
+                if (files.length === 0)
+                    reject(`File not found: ${pathRequested}`);
+                else if (files.length > 1)
+                    reject(`Ambiguous file request: ${pathRequested}; Matched: ${files.map(f => f.name).join(', ')}`);
+                else
+                    resolve(files[0]);
+            }
+            catch (err) {
+                reject(err);
+            }
         });
     }
 
@@ -339,8 +343,8 @@ class DiskFileSystem extends BaseFileSystem {
         };
 
         for (let i = 0, max = parts.length; i < max; i++) {
-            let dir = path.join(this.root, path.sep, ...parts.slice(0, i + 1)),
-                stat = await driver.fileManager.statAsync(dir);
+            let dir = path.posix.join(this.mountPoint, path.posix.sep, ...parts.slice(0, i + 1)),
+                stat = await driver.fileManager.getObjectAsync(dir);
 
             if (stat.exists && !stat.isDirectory)
                 return false;
@@ -438,6 +442,7 @@ class DiskFileSystem extends BaseFileSystem {
     createStatObject(data, request) {
         try {
             data = Object.assign(data, {
+                directory: request.directory,
                 exists: true,
                 name: data.name || request.fileName,
                 path: path.posix.join(this.mountPoint, request.relativePath)
@@ -525,21 +530,24 @@ class DiskFileSystem extends BaseFileSystem {
      * Get a filesystem object from the expression provided.
      * @param {FileSystemRequest} request The filesystem request
      */
-    async getObjectAsync(request) {
+    getObjectAsync(request) {
         return new Promise((resolve, reject) => {
             try {
                 let fullPath = this.translatePath(request.relativePath);
 
                 fs.stat(fullPath, async (err, stats) => {
                     if (err) {
-                        let stat = FileSystemObject.createDummyStats(request, err);
-                        return reject(new DiskObjectNotFound(stat, request));
+                        let stat = FileSystemObject.createDummyStats(request, err),
+                            obj = new DiskObjectNotFound(stat, request, err);
+                        return resolve(obj);
                     }
                     let result = await this.createObject(stats, request);
                     resolve(result);
                 });
             }
-            catch (err) { reject(err); }
+            catch (err) {
+                reject(err);
+            }
         });
     }
 
@@ -812,7 +820,10 @@ class DiskFileSystem extends BaseFileSystem {
             try {
                 fs.stat(fullPath, async (err, data) => {
                     if (err) {
-                        result = Object.assign(stat, FileSystemObject.createDummyStats(request, err));
+                        result = new DiskObjectNotFound(
+                            FileSystemObject.createDummyStats(request, err),
+                            request,
+                            err);
                     }
                     else {
                         stat = Object.assign(data, {

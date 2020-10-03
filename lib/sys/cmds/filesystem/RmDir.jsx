@@ -7,9 +7,9 @@ const
     Base = await requireAsync('Base'),
     Daemon = await requireAsync('Daemon'),
     Command = await requireAsync(Base.Command),
-    RMDIR_RECURSIVE = 1 << 0,
-    RMDIR_VERBOSE = 1 << 1,
-    RMDIR_PARENTS = 1 << 2;
+    RmdirRecursive = 1 << 0,
+    RmdirVerbose = 1 << 1,
+    RmdirParents = 1 << 2;
 
 class RmDir extends Command {
     async cmd(args, cmdline) {
@@ -22,18 +22,19 @@ class RmDir extends Command {
 
             if (opt.startsWith('-')) {
                 let opts = opt.charAt(1) === '-' ? [opt] : opt.slice(1).split('');
-                for (var j = 0; j < opts.length; j++) {
+
+                for (var j = 0, max = opts.length; j < max; j++) {
                     switch (opts[j]) {
                         case 'p': case '--parents':
-                            flags |= RMDIR_PARENTS;
+                            flags |= RmdirParents;
                             break;
 
                         case 'r': case '--recursive':
-                            flags |= RMDIR_RECURSIVE;
+                            flags |= RmdirRecursive;
                             break;
 
                         case 'v': case '--verbose':
-                            flags |= RMDIR_VERBOSE;
+                            flags |= RmdirVerbose;
                             break;
 
                         default:
@@ -42,7 +43,7 @@ class RmDir extends Command {
                 }
             }
             else {
-                if ((flags & RMDIR_PARENTS) > 0) {
+                if ((flags & RmdirParents) > 0) {
                     let parts = opt.split('/');
                     while (parts.length) {
                         dirList.push(efuns.resolvePath(parts.join('/'), player.workingDirectory));
@@ -72,7 +73,7 @@ class RmDir extends Command {
 
             let success = - await efuns.fs.deleteDirectoryAsync(dirList[i], options);
 
-            if (options & RMDIR_VERBOSE)
+            if (options & RmdirVerbose)
                 writeLine('Rmdir: ' + (success ? `Removed ${dir}` : `Failed: ${error.message}`));
         }
         return true;
