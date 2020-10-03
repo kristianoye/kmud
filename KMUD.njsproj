@@ -437,6 +437,9 @@
     <Content Include="src\compiler\PipelineComponent.js" />
     <Content Include="src\compiler\PipelineContext.js" />
     <Content Include="src\compiler\SecurityModifiers.js" />
+    <Content Include="src\compiler\TypeScriptProcessor.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\compiler\VM2Wrapper.js" />
     <Content Include="src\compiler\VMAbstraction.js" />
     <Content Include="src\compiler\VMWrapper.js" />
@@ -929,6 +932,9 @@
     <Folder Include="src\setup\general\" />
   </ItemGroup>
   <ItemGroup>
+    <TypeScriptCompile Include="lib\realms\kriton\Test.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="lib\wwwroot\dts\global.d.ts" />
     <TypeScriptCompile Include="src\dts\Array.d.ts">
       <SubType>Code</SubType>
