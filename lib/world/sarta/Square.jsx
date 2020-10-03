@@ -22,7 +22,7 @@ class Square extends Room {
             <p>To the south is the city port of entry for the large ships that dock here
                 every day to supply the city with food and other vital supplies.</p>
         </div>;
-
+        this.addExit('fighter', 'classHalls/Fighter');
         this.addExit('out', '/realms/kriton/Workroom');
         this.addExit('north', 'streets/northMain01');
         this.addExit('south', 'streets/southmain01');

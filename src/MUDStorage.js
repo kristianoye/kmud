@@ -148,6 +148,7 @@ class MUDStorage extends MUDEventEmitter {
      * @param {ClientComponent} component The client bound to this store and in-game object.
      */
     async eventExec(component, ...args) {
+        console.log('eventExec');
         try {
             if (component instanceof ClientComponent) {
                 let streams = false;

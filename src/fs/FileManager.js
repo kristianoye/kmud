@@ -5,6 +5,7 @@ const
     FileSystemRequest = require('./FileSystemRequest'),
     Cache = require('../Cache'),
     crypto = require('crypto'),
+    yaml = require('js-yaml'),
     path = require('path');
 
 /**
@@ -322,20 +323,35 @@ class FileManager extends MUDEventEmitter {
      * @param {string} expr The path expression to evaluate.
      * @returns {Promise<boolean>} Returns true if the expression is a directory.
      */
-    async isDirectoryAsync(expr) {
-        let request = this.createFileRequest('isDirectory', expr, true, 0);
-        return request.valid('validReadDirectory') && await request.fileSystem.isDirectoryAsync(request);
+    isDirectoryAsync(expr) {
+        return new Promise(async resolve => {
+            try {
+                let directory = await this.getDirectoryAsync(expr)
+                    .catch(err => resolve(false));
+                resolve(directory && directory.exists);
+            }
+            catch (err) { resolve(false); }
+        });
     }
 
     /**
      * Check to see if the given expression is a file,
      * @param {string} expr The path expression to evaluate.
      * @param {number} flags Additional flags for the operation
-     * @returns {boolean} True if the expression is a file.
+     * @returns {Promise<boolean>} True if the expression is a file.
      */
-    async isFileAsync(expr, flags = 0) {
-        let request = this.createFileRequest('isFileAsync', expr);
-        return request.valid('validRead') && await request.fileSystem.isFileAsync(request);
+    isFileAsync(expr, flags = 0) {
+        return new Promise(async resolve => {
+            try {
+                let request = this.createFileRequest('isFileAsync', expr, flags);
+                /** @type {DirectoryObject} */
+                let directory = await this.getDirectoryAsync(request.directory)
+                    .catch(err => resolve(false));
+                let file = await directory.getFileAsync(request.name);
+                resolve(file.exists && file.isFile);
+            }
+            catch (err) { resolve(false); }
+        });
     }
 
     /**
@@ -350,6 +366,11 @@ class FileManager extends MUDEventEmitter {
         return request.valid('validLoadObject') && await request.fileSystem.loadObjectAsync(request, args || []);
     }
 
+    /**
+     * 
+     * @param {any} expr
+     * @param {any} flags
+     */
     async readDirectoryAsync(expr, flags = 0) {
         let request = this.createFileRequest('readDirectoryAsync', expr, flags);
         return request.valid('validReadDirectory') && await request.fileSystem.readDirectoryAsync(request);
@@ -367,8 +388,8 @@ class FileManager extends MUDEventEmitter {
 
     /**
      * Read structured data from the specified location.
-     * @param {FileSystemRequest} expr The JSON file being read.
-     * @param {function=} callback An optional callback for async mode.
+     * @param {string} expr The JSON file being read.
+     * @returns {Promise<any>}
      */
     async readJsonAsync(expr) {
         return new Promise(async (resolve, reject) => {
@@ -387,12 +408,30 @@ class FileManager extends MUDEventEmitter {
                 reject(err);
             }
         });
-        return request.valid('validReadFile') && await request.fileSystem.readJsonAsync(request);
     }
 
+    /**
+     * Read structured data from the specified location.
+     * @param {string} expr The JSON file being read.
+     * @returns {Promise<any>}
+     */
     async readYamlAsync(expr) {
-        let request = this.createFileRequest('readYamlFile', expr);
-        return request.valid('validReadFile') && await request.fileSystem.readYamlAsync(request);
+        return new Promise(async (resolve, reject) => {
+            try {
+                let request = this.createFileRequest('readJsonFile', expr);
+                let directory = await this.getDirectoryAsync(request.directory);
+                if (!directory.exists)
+                    reject(new Error(`Directory ${request.directory} does not exist.`));
+                let file = await directory.getFileAsync(request.name);
+                if (!file.exists)
+                    reject(new Error(`File ${request.path} does not exist.`));
+                let results = yaml.safeLoad(await file.readAsync());
+                resolve(results);
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
     }
 
     /**
@@ -450,9 +489,18 @@ class FileManager extends MUDEventEmitter {
      * @param {string} encoding The optional encoding to use
      * @returns {Promise<boolean>} The promise for the operation.
      */
-    async writeFileAsync(expr, content, flags, encoding) {
-        let request = this.createFileRequest('writeFileAsync', expr, flags || 'w');
-        return request.valid('validWriteFile') && request.fileSystem.writeFileAsync(request, content);
+    writeFileAsync(expr, content, flags, encoding) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                let request = this.createFileRequest('writeFileAsync', expr, flags || 'w');
+                let directory = await this.getDirectoryAsync(request.directory);
+                let file = await directory.getFileAsync(request.name);
+                resolve(await file.writeFileAsync(content, flags, encoding));
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
     }
 
     /**

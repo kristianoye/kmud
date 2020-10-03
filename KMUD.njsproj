@@ -422,8 +422,10 @@
     <Content Include="lib\sys\etc\singletons.json">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\world\sarta\classHalls\Fighter.jsx">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="mudconfig.json" />
-    <Content Include="src\AsyncHelpers.js" />
     <Content Include="src\Cache.js">
       <SubType>Code</SubType>
     </Content>
@@ -846,6 +848,7 @@
     <Folder Include="lib\world\" />
     <Folder Include="lib\world\sarta\" />
     <Folder Include="lib\world\sarta\mob\" />
+    <Folder Include="lib\world\sarta\classHalls\" />
     <Folder Include="lib\world\sarta\streets\" />
     <Folder Include="lib\world\sarta\obj\" />
     <Folder Include="lib\world\sarta\obj\weapon\" />

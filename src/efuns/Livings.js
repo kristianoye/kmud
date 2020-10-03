@@ -204,6 +204,15 @@ class LivingsHelper {
             return 0;
         });
     }
+
+    static setLivingName(name) {
+        let previousObject = efuns.previousObject();
+        return unwrap(previousObject, po => {
+            let $storage = driver.storage.get(ob);
+            if ($storage)
+                $storage.livingName = name;
+        });
+    }
 }
 
 module.exports = LivingsHelper;

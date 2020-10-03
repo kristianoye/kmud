@@ -74,6 +74,7 @@ class EFUNProxy {
     addAction(verb, callback) {
         var prevObject = this.previousObject(),
             thisObject = this.thisObject();
+
         if (prevObject) {
             prevObject.bindAction(verb, thisObject, callback);
         }

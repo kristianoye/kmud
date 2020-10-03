@@ -8,7 +8,6 @@ const
     { DirectoryObject, FileObject, FileSystemObject, ObjectNotFound, DirectoryWrapper } = require('./FileSystemObject'),
     async = require('async'),
     path = require('path'),
-    yaml = require('js-yaml'),
     fs = require('fs'),
     Dirent = fs.Dirent;
 
@@ -73,7 +72,11 @@ class DiskDirectoryObject extends DirectoryObject {
                 let pathRequested = path.posix.join(this.path, fileName);
                 let files = await this.readAsync(fileName);
                 if (files.length === 0)
-                    reject(`File not found: ${pathRequested}`);
+                    resolve(new DiskObjectNotFound(
+                        FileSystemObject.createDummyStats(
+                            pathRequested,
+                            new Error(`File not found: ${pathRequested}`),
+                            'getFileAsync')));
                 else if (files.length > 1)
                     reject(`Ambiguous file request: ${pathRequested}; Matched: ${files.map(f => f.name).join(', ')}`);
                 else
@@ -92,9 +95,15 @@ class DiskDirectoryObject extends DirectoryObject {
 
 /** Represents a single file on a disk */
 class DiskFileObject extends FileObject {
-    constructor(stat, request) {
+    constructor(stat, request, physicalPath) {
         super(stat, request);
+        this.#physicalLocation = physicalPath;
     }
+
+    /**
+     * Contains the physical location of the file on the underlyind drive
+     * @type {string} */
+    #physicalLocation;
 
     /**
      * Copy the object to another location
@@ -104,10 +113,9 @@ class DiskFileObject extends FileObject {
     async copyAsync(target, flags = 0) {
         return new Promise(async (resolve, reject) => {
             let fileManager = driver.fileManager.getFileSystemById(this.fileSystemId),
-                fullPath = fileManager.getRealPath(this.relativePath),
                 destination = await driver.fileManager.statAsync(target);
 
-            fs.copyFile(fullPath, destination.path, err => err ? reject(err) : resolve(true));
+            fs.copyFile(this.#physicalLocation, destination.path, err => err ? reject(err) : resolve(true));
         });
     }
 
@@ -118,10 +126,7 @@ class DiskFileObject extends FileObject {
         if (this.exists) {
             return new Promise((resolve, reject) => {
                 //  TODO: Security checks
-                let fileSystem = driver.fileManager.getFileSystemById(this.fileSystemId),
-                    fullPath = fileSystem.getRealPath(this.relativePath);
-
-                fs.unlink(fullPath, err => err ? reject(err) : resolve(true));
+                fs.unlink(this.#physicalLocation, err => err ? reject(err) : resolve(true));
             });
         }
         return false;
@@ -142,7 +147,7 @@ class DiskFileObject extends FileObject {
                 try {
                     //  TODO: Security checks
                     let fileManager = driver.fileManager.getFileSystemById(this.fileSystemId),
-                        fullPath = fileManager.getRealPath(this.relativePath);
+                        fullPath = this.#physicalLocation;
 
                     encoding = encoding === 'buffer' ? undefined : encoding || fileManager.encoding;
 
@@ -186,8 +191,13 @@ class DiskFileObject extends FileObject {
         }
         return undefined;
     }
+
+    async writeFileAsync(content, encoding = undefined) {
+
+    }
 }
 
+/** Represents a non-existent directory object */
 class DiskObjectNotFound extends ObjectNotFound{
     /**
      * Actually create the non-existent directory
@@ -380,7 +390,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @param {Error} [err] An optional error if the fs.stat() failed
      * @returns {FileSystemObject}
      */
-    async createObject(stats, request, err = null) {
+    async createObject(stats, request, err = null, physicalPath = undefined) {
         /** @type {FileSystemObject} */
         let normal = Object.assign({}, stats);
 
@@ -408,14 +418,14 @@ class DiskFileSystem extends BaseFileSystem {
             normal.directory = request.directory;
 
         if (normal.isDirectory) {
-            let result = new DiskDirectoryObject(normal, request);
+            let result = new DiskDirectoryObject(normal, request, physicalPath);
             await result.readAsync();
             return result;
         }
         if (normal.isFile)
-            return new DiskFileObject(normal, request);
+            return new DiskFileObject(normal, request, physicalPath);
         else if (!normal.exists)
-            return new DiskObjectNotFound(normal, request);
+            return new DiskObjectNotFound(normal, request, physicalPath);
     }
 
     /**
@@ -439,7 +449,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @param {FileSystemRequest} request The request that resulted in the stat
      * @returns {DiskDirectoryObject|DiskFileObject} Only files and directories are supported at the moment
      */
-    createStatObject(data, request) {
+    createStatObject(data, request, physicalPath) {
         try {
             data = Object.assign(data, {
                 directory: request.directory,
@@ -457,9 +467,9 @@ class DiskFileSystem extends BaseFileSystem {
             data.isSymbolicLink = data.isSymbolicLink();
 
             if (data.isDirectory)
-                return new DiskDirectoryObject(data, request);
+                return new DiskDirectoryObject(data, request, physicalPath);
             else if (data.isFile)
-                return new DiskFileObject(data, request);
+                return new DiskFileObject(data, request, physicalPath);
         }
         catch (err) {
             Object.freeze(this.createStatObject({
@@ -501,7 +511,7 @@ class DiskFileSystem extends BaseFileSystem {
                     if (err)
                         resolve(FileSystemObject.createDummyStats(request, err));
                     else if (stats.isDirectory())
-                        resolve(this.createStatObject(stats, request));
+                        resolve(this.createStatObject(stats, request, fullPath));
                 });
             }
             catch (err) {
@@ -541,7 +551,7 @@ class DiskFileSystem extends BaseFileSystem {
                             obj = new DiskObjectNotFound(stat, request, err);
                         return resolve(obj);
                     }
-                    let result = await this.createObject(stats, request);
+                    let result = await this.createObject(stats, request, undefined, fullPath);
                     resolve(result);
                 });
             }
@@ -778,30 +788,6 @@ class DiskFileSystem extends BaseFileSystem {
     }
 
     /**
-     * Read a JSON file asynchronously
-     * @param {FileSystemRequest} request
-     */
-    async readJsonAsync(request) {
-        try {
-            let content = await this.readFileAsync(request)
-            return JSON.parse(content);
-        }
-        catch (e) {
-            console.log(`readJsonAsync(): Error ${e.message}`);
-        }
-        return undefined;
-    }
-
-    /**
-     * Read some YAML
-     * @param {FileSystemRequest} request
-     */
-    async readYamlAsync(request) {
-        let content = await this.readFileAsync(request);
-        return yaml.safeLoad(content);
-    }
-
-    /**
      * 
      * @param {FileSystemRequest} request
      * @param {number} [flags] Flags associated with the request
@@ -831,7 +817,7 @@ class DiskFileSystem extends BaseFileSystem {
                             name: request.fileName,
                             path: path.posix.join(this.mountPoint, request.relativePath)
                         });
-                        result = this.createStatObject(stat, request);
+                        result = this.createStatObject(stat, request, fullPath);
                     }
                     resolve(result);
                 });
@@ -841,20 +827,6 @@ class DiskFileSystem extends BaseFileSystem {
                 resolve(stat);
             }
         });
-    }
-
-    /**
-     * Returns a string without a Byte Order Marker (BOM)
-     * @param {string|Buffer} content The content to check for BOM
-     * @returns {string} The string minus any BOM.
-     */
-    stripBOM(content) {
-        if (this.autoStripBOM) {
-            if (typeof content === 'string' && content.charCodeAt(0) === 0xFEFF) {
-                content = content.slice(1);
-            }
-        }
-        return content;
     }
 
     /**

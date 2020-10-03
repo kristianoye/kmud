@@ -175,7 +175,7 @@ class MUDObject extends MUDEventEmitter {
                     if (myStore.living) {
                         let stats = targetStore.stats;
                         if (stats) stats.moves++;
-                        target().init.call(this);
+                        target().init();
                     }
                     newEnvironment.inventory.forEach(item => {
                         if (item !== this && efuns.living.isAlive(item)) {

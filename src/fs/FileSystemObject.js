@@ -87,12 +87,16 @@ class FileSystemObject {
     /**
      * Generate a dummy stat.
      * @param {Error} err An error that occurred.
-     * @param {FileSystemRequest} request The request associated with this stat
+     * @param {FileSystemRequest|string} request The request associated with this stat
      * @param {Error} err Any error associated with this request
      * @returns {FileSystemObject}} A dummy stat file
      */
-    static createDummyStats(request, err = false) {
+    static createDummyStats(request, err = false, operation = 'unknown') {
         let dt = new Date(0);
+
+        if (typeof request === 'string') {
+            request = driver.fileManager.createFileRequest(operation, request);
+        }
 
         return {
             atime: dt,
