@@ -942,6 +942,9 @@
     <TypeScriptCompile Include="src\dts\ClientComponent.d.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\CommandShell.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\Date.d.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>

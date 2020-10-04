@@ -1,6 +1,23 @@
 const
     PipelineComponent = require('./PipelineComponent'),
-    typescript = require('typescript');
+    ts = require('typescript');
+
+/**
+ * 
+ * @param {ts.CompilerOptions} options
+ */
+function transpile(options) {
+    /**
+     * 
+     * @param {ts.TransformationContext} ctx
+     * @param {ts.SourceFile} sf 
+     */
+    function visitor(ctx, sf) {
+        const visitor = (node) => {
+            return ts.visitEachChild(node, visitor, ctx);
+        };
+    }
+}
 
 class TypeScriptProcessor extends PipelineComponent {
     constructor(config) {
@@ -8,7 +25,7 @@ class TypeScriptProcessor extends PipelineComponent {
     }
 
     runAsync(context) {
-        let newSource = typescript.transpile(context.content, {
+        let newSource = ts.transpile(context.content, {
             target: 'ES2018'
         });
         context.content = newSource;

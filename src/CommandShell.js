@@ -5,12 +5,9 @@
  *
  * Description: Command interpreter for interactive MUD users.
  */
-
-/// <reference path="./StandardIO.js" />
 const
     IO = require('./StandardIO'),
     { LinkedList } = require('./LinkedList'),
-    ClientComponent = require('./ClientComponent'),
     MUDEventEmitter = require('./MUDEventEmitter'),
     BaseInput = require('./inputs/BaseInput'),
     semver = require('semver'),
@@ -46,30 +43,6 @@ const
     B_TRUE = 'true',
     B_FALSE = 'false';
 
-/**
- * @typedef {Object} ParsedCommand 
- * @property {ParsedCommand} [conditional] The next command to execute if the current command succeeded 
- * @property {ParsedCommand} [alternate] The command to execute if the current command failed 
- * @property {ParsedCommand} [pipeline] The next command to feed into once this command finished 
- * @property {string} verb The name of the command to execute
- * @property {any[]} args The arguments to pass to the command
- * @property {string} original The original, raw text from the user
- * @property {string} text The original text from the user but excluding the verb
- * */
-
-/** 
- * @typedef {Object} CommandShellOptions
- * @property {boolean} [allowAliases=false] Indicates the user can use command/verb aliasing.
- * @property {boolean} [allowChaining=false] Indicates the user can chain multiple commnads together.
- * @property {boolean} [allowEnvironment=false] Indicates the user has environmental variables.
- * @property {boolean} [allowEscaping=false] Indicates the user can escape input of the input stack.
- * @property {boolean} [allowFileExpressions=false] Indicates wildcards are expanded to file matches.
- * @property {boolean} [allowFileIO=false] Indicates the user can perform I/O redirects.
- * @property {boolean} [allowHistory=false] Indicates the shell should track command history
- * @property {boolean} [allowLineSpanning=false] The user can use an escape character to span multiple lines of input.
- * @property {boolean} [allowObjectShell=false] Indicates the advanced object shell functionality is enabled.
- * @property {number} [maxHistorySize=0] The maximum number of history entries to retain. 0 is infinite.
- */
 class CommandShell extends MUDEventEmitter {
     /**
      * Construct a new command shell object.
@@ -82,7 +55,7 @@ class CommandShell extends MUDEventEmitter {
         this.component = component;
 
         /** @type {CommandShellOptions} */
-        this.options = Object.assign({
+        this.options = {
             allowAliases: false,
             allowChaining: false,
             allowEnvironment: false,
@@ -93,8 +66,9 @@ class CommandShell extends MUDEventEmitter {
             allowHistory: false,
             allowObjectShell: false,
             env: {},
-            history: []
-        }, options);
+            history: [],
+            ...options
+        };
 
         this.client = component.client;
 
@@ -527,23 +501,9 @@ class CommandShell extends MUDEventEmitter {
                                             result = await driver.fileManager.readDirectoryAsync(pathExpr, MUDFS.GetDirFlags.FullPath);
 
                                         if (Array.isArray(result) && result.length > 0) {
-                                            let lastSlash = expr.value.lastIndexOf('/'),
-                                                basePath = lastSlash > -1 ? expr.value.slice(0, lastSlash + 1) : false;
-
-                                            let relativePaths = result.map(fn => {
-                                                if (path.posix.isAbsolute(expr.value))
-                                                    return fn;
-                                                else {
-                                                    let n = fn.lastIndexOf('/'),
-                                                        f = fn.slice(n + 1);
-
-                                                    return basePath ? basePath + f : f;
-                                                }
-
-                                                return path.posix.relative(cwd, fn);
-                                            });
                                             let n = newargs.indexOf(expr);
-                                            newargs = newargs.slice(0, n).concat(relativePaths, newargs.slice(n + 1));
+                                            newargs = newargs.slice(0, n)
+                                                .concat(result, newargs.slice(n + 1));
                                             cmd.args = newargs;
                                         }
                                         resolve(true);

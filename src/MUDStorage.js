@@ -341,9 +341,6 @@ class MUDStorage extends MUDEventEmitter {
                         logger.log('error in eventRestore(): ', err);
                     }
                 }
-                if (typeof this.owner.applyRestore === 'function') {
-                    this.owner.applyRestore();
-                }
                 if (typeof data.properties === 'object') {
                     let props = Object.keys(data.properties || {});
                     for (let i = 0; i < props.length; i++) {
@@ -355,6 +352,9 @@ class MUDStorage extends MUDEventEmitter {
                             this.properties[propName] = await restoreData({}, propName, data.properties[propName]);
                         }
                     }
+                }
+                if (typeof this.owner.applyRestore === 'function') {
+                    this.owner.applyRestore();
                 }
                 return owner;
             });

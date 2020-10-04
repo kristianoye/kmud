@@ -1,8 +1,5 @@
 ﻿const
-    PipelineComponent = require('./PipelineComponent'),
     PipeContext = require('./PipelineContext');
-
-    fs = require('fs');
 
 class CompilerPipeline
 {

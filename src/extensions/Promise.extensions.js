@@ -1,5 +1,17 @@
+const
+    originalCatch = Promise.prototype.catch;
+
 Promise.prototype.abort = function () {
     this.isAborted = true;
+};
+
+Promise.prototype.catch = function (handler) {
+    let args = [].slice.apply(arguments);
+    args[0] = err => {
+        err = driverInstance.cleanError(err);
+        return handler(err);
+    };
+    return originalCatch.apply(this, args);
 };
 
 Promise.prototype.always = function (onResolveOrReject) {

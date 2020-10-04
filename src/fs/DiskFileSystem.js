@@ -583,12 +583,18 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {string|false} The virtual path if the expression exists in this filesystem or false if not.
      */
     getVirtualPath(expr) {
-        if (expr.startsWith(this.root)) {
-            let result = path.relative(this.root, expr);
-            if (this.normalizer) {
-                result = result.replace(this.normalizer, '/');
+        if (path.sep !== path.posix.sep) {
+            if (expr.toLowerCase().startsWith(this.root.toLowerCase())) {
+                let result = path.relative(this.root, expr);
+                if (this.normalizer) {
+                    result = result.replace(this.normalizer, '/');
+                }
+                return result;
             }
-            return result;
+        }
+        else {
+            if (expr.startsWith(this.root)) 
+                return path.relative(this.root, expr);
         }
         return false;
     }

@@ -83,6 +83,15 @@ class FileSystemHelper {
         return await driver.fileManager.getFileAsync(expr, flags);
     }
 
+    /**
+     * Get an object from the filesystem
+     * @param {string} expr The path expression to get
+     * @param {number} [flags] Optional flags to control the operation
+     */
+    static getObjectAsync(expr, flags = 0) {
+        return driver.fileManager.getObjectAsync(expr, flags);
+    }
+
     static async getFileACL(expr) {
         return await driver.fileManager.getFileACL(expr);
     }

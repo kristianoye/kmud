@@ -367,13 +367,31 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
-     * 
-     * @param {any} expr
-     * @param {any} flags
+     * Read a directory expression
+     * @param {string} expr The expression to parse
+     * @param {number} [flags] Flags associated with the operation
      */
-    async readDirectoryAsync(expr, flags = 0) {
-        let request = this.createFileRequest('readDirectoryAsync', expr, flags);
-        return request.valid('validReadDirectory') && await request.fileSystem.readDirectoryAsync(request);
+    readDirectoryAsync(expr, flags = 0) {
+        return new Promise(async (resolve, reject) => {
+            let request = this.createFileRequest('readDirectoryAsync', expr, flags),
+                pathParts = expr.split('/'),
+                initialDirectory = '/',
+                wildCardTest = /[\*\?]+/,
+                fileExpression = pathParts.last();
+
+            for (let i = 0, m = pathParts.length; i < m; i++) {
+                if (wildCardTest.test(pathParts[i])) {
+                    initialDirectory = pathParts.slice(0, i).join('/');
+                    fileExpression = pathParts.slice(i).join('/');
+                    break;
+                }
+            }
+
+            let directory = await this.getDirectoryAsync(initialDirectory);
+            if (!directory.exists || !directory.isDirectory)
+                return reject(`Path ${initialDirectory} is not a directory.`);
+            return resolve(await directory.readAsync(fileExpression));
+        });
     }
 
     /**
