@@ -1,0 +1,43 @@
+#
+#  This file seeds permissions and re-asserts permissions each time
+#  the MUD starts.
+#
+#  The first portion of this file configures permissions sets which
+#  are aliases to simplify defininig permissions on the file and 
+#  directory entries that follow.
+#  
+#  Permission supported by the ACL security system are:
+#    r - Read a file / R - Read a directory
+#    w - Write or append to a file
+#    d - Delete a file / D - Delete files and directories
+#    c - Create/append a file / C - Create files and directories
+#    p - Read permissions / P - Write/change permissions
+#    m - Read metadata / M - Write metadata
+#    O - Take ownership
+#    S - View system files
+#
+
+PERMSET DEFAULT: RLp # Read, traverse directories, load objects
+PERMSET FULL: RWCDLMOS
+PERMSET NONE: '-'
+
+DIRECTORY /:
+   description: The root of the filesystem
+   access:
+      - ADMIN: FULL
+      - ARCH: rw
+      - DEFAULT: rw
+
+DIRECTORY /sys/etc:
+    description: Location of important configuration filesystem
+    access:
+        - ADMIN: FULL
+        - ARCH: R
+        - DEFAULT: NONE
+
+DIRECTORY /sys/data:
+    description: Default save location for important game objects
+    access:
+        - ADMIN: FULL
+        - ARCH: R
+        - DEFAULT: NONE

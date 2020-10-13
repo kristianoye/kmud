@@ -10,6 +10,7 @@ const
     { LinkedList } = require('./LinkedList'),
     MUDEventEmitter = require('./MUDEventEmitter'),
     BaseInput = require('./inputs/BaseInput'),
+    CommandParser = require('./CommandParser'),
     semver = require('semver'),
     CommandInterval = 5,
     path = require('path');
@@ -57,7 +58,7 @@ class CommandShell extends MUDEventEmitter {
         /** @type {CommandShellOptions} */
         this.options = {
             allowAliases: false,
-            allowChaining: false,
+            allowPipelining: false,
             allowEnvironment: false,
             allowFileExpressions: false,
             allowLineSpanning: true,
@@ -490,6 +491,7 @@ class CommandShell extends MUDEventEmitter {
 
             for (let j = 0; j < cmd.args.length; j++) {
                 if (cmd.args[j].type == TT.FileExpression) {
+                    /** @type {string} */
                     let expr = cmd.args[j];
 
                     tasks.push(new Promise(async resolve => {
@@ -502,6 +504,7 @@ class CommandShell extends MUDEventEmitter {
 
                                         if (Array.isArray(result) && result.length > 0) {
                                             let n = newargs.indexOf(expr);
+
                                             newargs = newargs.slice(0, n)
                                                 .concat(result, newargs.slice(n + 1));
                                             cmd.args = newargs;
@@ -652,7 +655,7 @@ class CommandShell extends MUDEventEmitter {
             return contexts.length > 0 && contexts[0].type;
         };
         /**
-         * 
+         * Locate the next token in a user-typed command.
          * @param {number} [start=false] The position to start reading from
          * @param {string} expect The type of token to expect
          * @returns {{ type: string, subType: string, start: number, end: number, value: any }} The token
@@ -666,18 +669,6 @@ class CommandShell extends MUDEventEmitter {
                     token.value += c;
                     isEscaped = false;
                     continue;
-                }
-
-                // Built-in ObjectShell commands
-                if (!command && options.allowObjectShell) {
-                    let cmd = take(/\w+\-\w+/);
-                    if (cmd) {
-                        switch (cmd.toLowerCase()) {
-                            default:
-                                logger.log(`Running ${cmd}`);
-                                break;
-                        }
-                    }
                 }
 
                 switch (c) {
@@ -716,7 +707,7 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case ';':
-                        if (options.allowChaining) {
+                        if (options.allowPipelining) {
                             token = { type: TT.Operator, subType: TT.CmdSeperator, start: i, end: ++i };
                             done = true;
                         }
@@ -725,7 +716,7 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '|':
-                        if (options.allowChaining) {
+                        if (options.allowPipelining) {
                             if (take('|')) {
                                 //  Evaluate previous command to see if it succeeded
                                 token = {
@@ -753,7 +744,7 @@ class CommandShell extends MUDEventEmitter {
                         break;
 
                     case '&':
-                        if (options.allowChaining) {
+                        if (options.allowPipelining) {
                             if (take('&')) {
                                 //  Evaluate previous command to see if it succeeded
                                 token = {
@@ -1257,9 +1248,12 @@ class CommandShell extends MUDEventEmitter {
      */
     async processInput(input) {
         driver.driverCallAsync('input', async ecc => {
+            let originalSource = input;
+
             //  Set up for the next command
             ecc.whenCompleted(() => {
                 this.inputTo = false;
+                /* TODO: Add check to make sure output buffers have been flushed before drawing prompt  */
                 !this.executing && this.renderPrompt();
             });
 
@@ -1335,7 +1329,20 @@ class CommandShell extends MUDEventEmitter {
                         input = newInput;
                     }
 
-                    let cmds = this.process(input);
+                    let cmds = this.process(input),
+                        parser = new CommandParser(),
+                        testResult;
+
+                    try {
+                        let options = await ecc.withPlayerAsync(this.player,
+                            async player => await ecc.getShellOptionsAsync());
+
+                        testResult = await parser.parse(originalSource, options);
+                    }
+                    catch (err) {
+                        console.log(err);
+                    }
+
 
                     if (cmds.some(c => c.hasFileExpressions)) {
                         await this.expandFileExpressions(cmds);

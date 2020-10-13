@@ -43,7 +43,7 @@ class InputHelper {
      * @typedef {Object} SplitCommandOptions
      * @property {Object.<string,string>} [aliases] The user's aliases
      * @property {boolean} [allowAsyncCommands] Indicates the user can make a command async by appending (&)
-     * @property {boolean} allowChaining Indicates operators like logical and (&&), local or (||), and semicolons (;) are parsed
+     * @property {boolean} allowPipelining Indicates operators like logical and (&&), local or (||), and semicolons (;) are parsed
      * @property {boolean} allowFileExpressions Indicates that file expressions should be expanded, otherwise it is treated as literal text.
      * @property {boolean} allowFileIO Indicates file I/O operations should be parsed out, otherwise it is literal text.
      * @property {boolean} allowFunctionVariables Controls whether variables can be functions.
@@ -67,7 +67,7 @@ class InputHelper {
         let settings = Object.assign(
             {
                 allowAsyncCommands: false,
-                allowChaining: false,
+                allowPipelining: false,
                 allowFileExpressions: false,
                 allowFileIO: false,
                 allowInputRedirect: false,
@@ -175,7 +175,7 @@ class InputHelper {
 
                         case '&':
                             if (source.charAt(i + 1) === '&') {
-                                if (settings.allowChaining) {
+                                if (settings.allowPipelining) {
                                     if (result.value)
                                         return sendToken();
                                     return sendToken({ type: T_OPERATOR, value: OP_AND, pos: i });
@@ -242,7 +242,7 @@ class InputHelper {
                             }
 
                         case '|':
-                            if (source.charAt(i + 1) === '|' && settings.allowChaining) {
+                            if (source.charAt(i + 1) === '|' && settings.allowPipelining) {
                                 return sendToken({ type: T_OPERATOR, value: OP_OR, pos: i });
                             }
                             else if (settings.allowPiping) {
@@ -254,7 +254,7 @@ class InputHelper {
                             break;
 
                         case ';':
-                            if (settings.allowChaining) {
+                            if (settings.allowPipelining) {
                                 return sendToken({ type: T_OPERATOR, value: OP_SEMI, pos: i }, true);
                             }
                             result.value += c;

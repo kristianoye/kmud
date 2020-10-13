@@ -21,12 +21,7 @@ const
         'reset'           // Called periodically to reset the object state
     ],
     BaseInput = require('./inputs/BaseInput'),
-    loopsPerAssert = 10000,
-    fs = require('fs'),
-    path = require('path');
-
-const
-    FileSystemFlags = require('./fs/FileSystemFlags');
+    loopsPerAssert = 10000;
 
 class MUDLoader {
     /**
@@ -38,7 +33,6 @@ class MUDLoader {
 
         // Prepare system namespace
         global.system = {};
-        FileSystemFlags(global.system);
 
         Object.defineProperties(this, {
             __cat: {

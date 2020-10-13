@@ -61,7 +61,6 @@ Array.prototype.forEachAsync = async function (callback, concurrent = 1) {
     }
     return this;
 };
-
 Array.prototype.last = function (test) {
     if (typeof test !== 'function')
         test = function (x) { return true; };
@@ -82,14 +81,14 @@ Array.prototype.lastOrDefault = function (test) {
 
 Array.prototype.mapAsync = async function (mapper) {
     let result = [];
-    for (let i = 0, m = this.length; i < m; i++) {
+    for (let i = this.firstIndex || 0, m = this.length; i < m; i++) {
         result[i] = await mapper(this[i], i);
     }
     return result;
 };
 
-Array.prototype.orderBy = function (orderBy) {
-    let result = this.slice(0);
+Array.prototype.orderBy = function (orderBy = (val => val)) {
+    let result = this.slice(this.firstIndex || 0);
 
     if (typeof orderBy !== 'function')
         orderBy = (a, b) => { return a < b ? -1 : (b > a ? 1 : 0); };
@@ -104,7 +103,7 @@ Array.prototype.orderBy = function (orderBy) {
     return result;
 };
 
-Array.prototype.orderByDescending = function (orderBy) {
+Array.prototype.orderByDescending = function (orderBy = (val => val)) {
     let result = this.slice(0);
     result.sort((a, b) => {
         let $a = orderBy(a),
@@ -114,6 +113,15 @@ Array.prototype.orderByDescending = function (orderBy) {
         else return 0;
     });
     return result;
+};
+
+Array.prototype.setMaxLength = function (count) {
+    this.firstIndex = 0;
+    if (this.length > (this.maxLength = count)) {
+        this.firstIndex = this.maxLength;
+        this.fill(undefined, 0, this.firstIndex);
+    }
+    return this;
 };
 
 Array.prototype.singleOrDefault = function (test, useDefault = true) {
@@ -127,6 +135,21 @@ Array.prototype.singleOrDefault = function (test, useDefault = true) {
 
 Array.prototype.single = function (test) {
     return this.singleOrDefault(test, false);
+};
+
+Array.prototype.sum = function (selector) {
+    let result = 0;
+    if (typeof selector === 'function')
+        for (let i = 0, max = this.length; i < max; i++) {
+            let val = selector(this[i], i) || 0;
+            if (typeof val === 'number') result += val;
+        }
+    else
+        for (let i = 0, max = this.length; i < max; i++) {
+            let val = this[i] || 0;
+            if (typeof val === 'number') result += val;
+        }
+    return result;
 };
 
 Array.prototype.pushDistinct = function (...items) {
@@ -154,6 +177,17 @@ Array.prototype.select = function (transform) {
     return this.map((x, i) => transform(x, i));
 };
 
+Array.prototype.selectMany = function () {
+    let results = [];
+    for (let i = 0, m = this.length; i < m; i++) {
+        if (Array.isArray(this[i]))
+            results.push(...this[i]);
+        else
+            results.push(this[i]);
+    }
+    return results;
+};
+
 Array.prototype.skip = function (n = 1) {
     return this.slice(n);
 };
@@ -168,4 +202,61 @@ Array.prototype.where = function (test) {
     return this.filter((x, i) => test(x, i));
 };
 
+
+class ArrayWithMax extends Array {
+    constructor(maxCount) {
+        super();
+
+        this.#firstIndex = 0;
+        this.#maxCount = maxCount;
+    }
+
+    /** @type {number} */
+    #firstIndex;
+
+    /** @type {number} */
+    #maxCount;
+
+    get length() {
+        return super.length;
+    }
+
+    get maxLength() {
+        return this.#maxCount;
+    }
+
+    push(...items) {
+        let count = super.push(...items);
+        if (count > this.#maxCount) {
+            let overage = this.length - this.maxLength;
+            if (overage > 0) {
+                this.fill(undefined, this.#firstIndex, overage);
+                this.#firstIndex = overage;
+            }
+        }
+        return count;
+    }
+
+    shift() {
+        let result = this[this.#firstIndex];
+        this[this.#firstIndex++] = undefined;
+        return result;
+    }
+
+    unshift(...items) {
+        this.splice(this.#firstIndex, items.length, ...items);
+        let overage = this.length - this.maxLength;
+        while (overage-- > 0) {
+            this.pop();
+        }
+        return this.length;
+    }
+}
+
+if (typeof global === 'function') {
+    global.ArrayWithMax = ArrayWithMax;
+}
+
 Object.freeze(Array.prototype);
+
+module.exports = ArrayWithMax;

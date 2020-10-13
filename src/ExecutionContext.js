@@ -261,9 +261,11 @@ class ExecutionContext extends MUDEventEmitter {
     }
 
     finishAsync() {
-        let parent = this.parent;
-        delete parent.asyncChildren[this.handleId];
-        parent.stack.unshift(this.originalFrame);
+        if (this.parent) {
+            let parent = this.parent;
+            delete parent.asyncChildren[this.handleId];
+            parent.stack.unshift(this.originalFrame);
+        }
     }
 
     /**
@@ -275,8 +277,38 @@ class ExecutionContext extends MUDEventEmitter {
         return new ExecutionContext(this, false, detached);
     }
 
+    /**
+     * Get the specified execution frame from the stack
+     * @param {number} index The index of the frame to fetch
+     */
     getFrame(index) {
         return index > -1 && index < this.length && this.stack[index];
+    }
+
+    /**
+     * Get shell options for the current player
+     * @param {string} verb The command verb that is about to be executed.
+     * @returns {CommandShellOptions}
+     */
+    async getShellOptionsAsync(verb) {
+        if (this.player) {
+            return await driver.driverCallAsync('getShellOptions', async () => {
+                let player = unwrap(this.player);
+
+                if (player) {
+                    /** @type {CommandShellOptions} */
+                    let result = await player.applyGetShellSettingsAsync(verb);
+
+                    result.allowAliases = result.allowAliases || !!result.aliases;
+                    result.allowHistory = result.allowHistory || !!result.history;
+                    result.allowEnvironment = result.allowEnvironment || !!result.environment;
+
+                    return result;
+                }
+                return {};
+            });
+        }
+        return {};
     }
 
     /**
@@ -513,7 +545,13 @@ class ExecutionContext extends MUDEventEmitter {
  * @param {boolean} restoreOldPlayer Restore the previous player 
  */
     async withPlayerAsync(storage, callback, restoreOldPlayer = true, methodName = false) {
-        let player = unwrap(storage.owner);
+        let player = false;
+
+        if (storage instanceof MUDObject)
+            storage = driver.storage.get(player = storage);
+        else
+            player = storage.owner;
+
         let ecc = driver.getExecution(),
             oldPlayer = this.player,
             oldClient = this.client,

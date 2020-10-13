@@ -13,14 +13,20 @@ const
 
 /** Represents a directory on a disk */
 class DiskDirectoryObject extends DirectoryObject {
-    constructor(stat, request) {
+    constructor(stat, request, physicalLocation) {
         super(stat, request);
+        this.#physicalLocation = physicalLocation;
     }
 
     /**
      * To increase performance, the directory caches file information.
      * @type {FileSystemObject[]} */
     #cache = false;
+
+    /**
+     * Contains the physical location of the file on the underlyind drive
+     * @type {string} */
+    #physicalLocation;
 
     /**
      * Read from the directory
@@ -32,31 +38,87 @@ class DiskDirectoryObject extends DirectoryObject {
             return false;
 
         return new Promise(async (resolve, reject) => {
-            let fileSystem = driver.fileManager.getFileSystemById(this.fileSystemId),
-                fullPath = fileSystem.getRealPath(this.relativePath),
-                returnResults = (err = undefined) => {
-                    if (err) return reject(err);
-                    let regex = pattern && DiskFileSystem.createPattern(pattern);
-                    let results = this.#cache
-                        .filter(f => !regex || regex.test(f.name));
+            let returnResults = async (err = undefined) => {
+                let directoriesOnly = false,
+                    searchSubdirectories = false,
+                    extraPattern = false,
+                    results = [];
+                let regex = pattern && DiskFileSystem.createPattern(pattern);
 
-                    if (driver.efuns.checkFlags(flags, MUDFS.GetDirFlags.FullPath))
-                        return resolve(results = results.map(f => f.path));
-                    else
-                        return resolve(results);
-                };
+                if (err)
+                    return reject(err);
+
+                if (pattern) {
+                    if (pattern.contains('/')) {
+                        let parts = pattern.split('/')
+                        pattern = parts.shift();
+                        directoriesOnly = true;
+                        if (parts.length)
+                            extraPattern = parts.join('/');
+                    }
+                    if (pattern.contains('**')) {
+                        let thisPattern = pattern.replace(/[\*]{2,}/, '*');
+
+                        regex = DiskFileSystem.createPattern(thisPattern);
+
+                        let workers = this.#cache.map(fo =>
+                            new Promise(async (res, rej) => {
+                                try {
+                                    if (fo.isDirectory)
+                                        return res(await fo.readAsync(pattern));
+                                    else if (regex.test(fo.name))
+                                        return res(fo);
+                                    else
+                                        return res(false);
+                                }
+                                catch (err) {
+                                    rej(err);
+                                }
+                            }));
+
+                        results = await Promise.allWithLimit(workers);
+                        results = results.where(f => f !== false).selectMany().sort();
+                        resolve(results);
+                    }
+                }
+                results = this.#cache
+                    .filter(f => {
+                        if (directoriesOnly) {
+                            if (!f.isDirectory)
+                                return false;
+                            else if (regex)
+                                return regex.test(f.name);
+                            else
+                                return true;
+                        }
+                        else if (f.name === '.acl') //  TODO: Add proper system file filter
+                            return false;
+                        if (!regex || regex.test(f.name))
+                            return true;
+                        return false;
+                    });
+
+                if (extraPattern) {
+
+                }
+
+                if (driver.efuns.checkFlags(flags, MUDFS.GetDirFlags.FullPath))
+                    return resolve(results = results.map(f => f.path));
+                else
+                    return resolve(results);
+            };
 
             if (this.#cache)
-                return returnResults();
+                return await returnResults();
             else 
-                fs.readdir(fullPath, { withFileTypes: true }, async (err, files) => {
+                fs.readdir(this.#physicalLocation, { withFileTypes: true }, async (err, files) => {
                     if (err) return reject(err);
                     let promiseList = files.map(stat => driver.fileManager
                         .getObjectAsync(path.posix.join(this.path, stat.name)));
 
                     let results = await Promise.allWithLimit(promiseList);
-                    this.#cache = results;
-                    return returnResults();
+                    this.#cache = results.where(r => r !== false);
+                    return await returnResults();
                 });
         });
     }

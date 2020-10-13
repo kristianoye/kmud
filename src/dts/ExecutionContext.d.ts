@@ -58,6 +58,12 @@ declare interface ExecutionContext {
     getCurrentFilename(): string;
 
     /**
+     * Get shell options for the specified verb
+     * @param verb
+     */
+    getShellOptionsAsync(verb?: string): Promise<CommandShellOptions>;
+
+    /**
      * Creates a child context
      * @param detached Normally the child is attached to its parent; If true then the child context has no parent
      */

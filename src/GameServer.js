@@ -31,12 +31,27 @@ class GameServer extends MUDEventEmitter {
         fs.readdirSync(extensionsDir).forEach(file => {
             try {
                 let fullPath = path.join(__dirname, 'extensions', file);
-                require(fullPath);
+                let exportList = require(fullPath);
+                if (exportList != null) {
+                    if (typeof exportList === 'object') {
+                        Object.keys(exportList).forEach(key => {
+                            console.log(`Importing ${key} into global namespace`);
+                            global[key] = exportList[key];
+                        });
+                    }
+                    else if (typeof exportList === 'function')
+                        global[exportList.name] = exportList;
+                }
             }
             catch (ex) {
-                console.log(`Error including extension file ${file}: ${ex.message}`);
+                console.log(`Error including extension file ${file}: ${ex.message}\n` + ex.stack);
             }
         });
+
+        let test = new ArrayWithMax(2);
+        test.push(1, 2, 3, 4, 5);
+
+        var foo = test.slice();
 
         this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
 
@@ -543,9 +558,8 @@ class GameServer extends MUDEventEmitter {
             global.unwrap = function(target, success, hasDefault) {
                 let result = false,
                     defaultValue = hasDefault || false,
-                    onSuccess = typeof success === 'function' && success || function (s) {
-                        return s;
-                    };
+                    onSuccess = typeof success === 'function' && success || (s => s);
+
                 if (Array.isArray(target)) {
                     let items = target.map(t => global.unwrap(t))
                         .filter(o => o instanceof MUDObject);
@@ -563,7 +577,7 @@ class GameServer extends MUDEventEmitter {
                     if (!result || typeof result !== 'object' || result.constructor.name === 'Object')
                         result = defaultValue;
                 }
-                else if (typeof target === 'object' && result.constructor.name !== 'Object') {
+                else if (target instanceof MUDObject) { // if (typeof target === 'object' && result.constructor.name !== 'Object') {
                     result = target;
                 }
                 else if (typeof defaultValue === 'function')

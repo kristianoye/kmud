@@ -4,7 +4,28 @@
  * Date: October 1, 2017
  */
 const
-    BaseFileSecurity = require('./BaseFileSecurity');
+    BaseFileSecurity = require('./BaseFileSecurity'),
+    P_READ = 1 << 0,
+    P_WRITE = 1 << 1,
+    P_DELETE = 1 << 2,
+    P_DELETEDIR = 1 << 3,
+    P_LISTDIR = 1 << 4,
+    P_CREATEFILE = 1 << 5,
+    P_CREATEDIR = 1 << 6,
+    P_CHANGEPERMS = 1 << 7,
+    P_READPERMS = 1 << 8,
+    P_TAKEOWNERSHIP = 1 << 9,
+    P_READMETADATA = 1 << 10,
+    P_WRITEMETADATA = 1 << 11,
+    P_VIEWSYSTEMFILES = 1 << 12,
+    P_LOADOBJECT = 1 << 13,
+    P_EXECUTE = 1 << 14;
+
+class FileAcl {
+    constructor(parent) {
+
+    }
+}
 
 class DirectoryAcl {
     constructor(stat, acl) {
@@ -12,6 +33,82 @@ class DirectoryAcl {
         this.permissions = acl.permissions || {};
         this.files = acl.files || {};
         this.path = stat.path;
+    }
+
+    /**
+     * The permission to string
+     * @param {string} str
+     */
+    static parseAclString(str) {
+        let flags = 0;
+        if (str === 'FULL')
+            flags = P_READ | P_WRITE | P_DELETE | P_LISTDIR | P_EXECUTE |
+                P_CREATEFILE | P_CREATEDIR | P_CHANGEPERMS |
+                P_READPERMS | P_TAKEOWNERSHIP | P_READMETADATA |
+                P_WRITEMETADATA | P_VIEWSYSTEMFILES | P_LOADOBJECT;
+        else if (str === 'NONE')
+            flags = 0;
+        else
+            flags = str
+                .split('')
+                .map(c => {
+                    switch (c) {
+                        case 'r': return P_READ;
+                        case 'R': return P_READ | P_LISTDIR;
+
+                        case 'w': case 'W': return P_WRITE;
+
+                        case 'c': return P_CREATEFILE;
+                        case 'C': return P_CREATEDIR | P_CREATEFILE;
+
+                        case 'd': return P_DELETE;
+                        case 'D': return P_DELETE | P_DELETEDIR;
+
+                        case 'P': return P_CHANGEPERMS | P_READPERMS;
+                        case 'p': return P_READPERMS;
+
+                        case 'm': return P_READMETADATA;
+                        case 'M': return P_WRITEMETADATA | P_READMETADATA;
+
+                        case 'x': return P_EXECUTE;
+                        case 'L': return P_LOADOBJECT;
+
+                        case 'O': return P_TAKEOWNERSHIP;
+                        case 'S': return P_VIEWSYSTEMFILES;
+
+                        case '-': return 0;
+
+                        default: throw new Error(`Illegal permissions character: ${c}`);
+                    }
+                })
+                .sum();
+
+        return flags;
+    }
+
+    static toAclString(flags) {
+        let bits = [
+            [ P_READ, 'r' ],
+            [ P_WRITE, 'w' ],
+            [ P_DELETE, 'd' ],
+            [ P_LISTDIR, 'L' ],
+            [ P_EXECUTE, 'x' ],
+            [ P_CREATEFILE, 'c' ],
+            [ P_CREATEDIR, 'C' ],
+            [ P_CHANGEPERMS, 'P' ],
+            [ P_READPERMS, 'p' ],
+            [ P_TAKEOWNERSHIP, 'O' ],
+            [ P_READMETADATA, 'm' ],
+            [ P_WRITEMETADATA, 'M' ],
+            [ P_VIEWSYSTEMFILES, 'S' ],
+            [ P_LOADOBJECT, 'l' ]
+        ];
+
+        let result = bits
+            .map(s => (s[0] & flags) > 0 ? s[1] : '-')
+            .join('');
+
+        return result;
     }
 }
 
@@ -50,7 +147,9 @@ class AclFileSecurity extends BaseFileSecurity {
                 return this.aclCache[stat.path] = new DirectoryAcl(aclData, data);
             }
             else {
-                throw new Error('Something is not quite right; Crash!');
+                //  TODO: Add driver apply
+                let fallback = new DirectoryAcl({ path: stat.path + '/.acl' }, {});
+                return fallback;
             }
         }
     }

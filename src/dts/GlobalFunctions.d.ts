@@ -21,4 +21,14 @@ declare interface Dictionary<TKey, TVal> {
     [key: TKey]: TVal;
 }
 
+/**
+ * Writes to the current player's stdout stream
+ * @param message The message to write
+ */
+declare function write(message: string): true;
 
+/**
+ * Writes to the current player's stdout stream (appends a newline)
+ * @param message The message to write
+ */
+declare function writeLine(message: string): true;

@@ -98,4 +98,23 @@ declare interface Array<T> {
      * @param value
      */
     singleOrDefault<A extends T>(check?: CheckElement<A>): A;
+
+    /**
+     * Skip a number of elements and return the remainder
+     * @param count
+     */
+    skip<A extends T>(count?: number = 1): A[];
+
+    /**
+     * 
+     * @param count
+     */
+    take<A extends T>(count: number): A[];
+
+
+    /**
+     * Select elements based on the specified criteria
+     * @param check
+     */
+    where<A extends T>(check?: CheckElement<A>): A[];
 }

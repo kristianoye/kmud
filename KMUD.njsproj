@@ -413,6 +413,9 @@
     <Content Include="lib\sys\etc\accessMk3.json">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\sys\etc\acl-access.yaml">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="lib\sys\etc\acls.json">
       <SubType>Code</SubType>
     </Content>
@@ -420,6 +423,10 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="lib\sys\etc\singletons.json">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="lib\sys\shell\FileSystem.js" />
+    <Content Include="lib\sys\skeleton\creator\cmds\HelloWorld.js">
       <SubType>Code</SubType>
     </Content>
     <Content Include="lib\world\sarta\classHalls\Fighter.jsx">
@@ -430,6 +437,9 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="src\ClientComponent.js" />
+    <Content Include="src\CommandParser.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\CommandShell.js" />
     <Content Include="src\compiler\CompilerPipeline.js" />
     <Content Include="src\compiler\LPCPreprocessor.js" />
@@ -500,6 +510,7 @@
     <Content Include="src\extensions\String.extensions.js">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="src\extensions\System.namespace.js" />
     <Content Include="src\features\DomainStats.js" />
     <Content Include="src\features\FeatureBase.js" />
     <Content Include="src\features\MUDEditor.js" />
@@ -845,6 +856,8 @@
     <Folder Include="lib\sys\include\" />
     <Folder Include="lib\sys\etc\" />
     <Folder Include="lib\sys\cmds\" />
+    <Folder Include="lib\sys\shell\" />
+    <Folder Include="lib\sys\skeleton\creator\cmds\" />
     <Folder Include="lib\sys\test\" />
     <Folder Include="lib\sys\skeleton\" />
     <Folder Include="lib\sys\skeleton\creator\" />
