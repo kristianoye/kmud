@@ -671,18 +671,17 @@ class MUDStorageContainer {
      * @returns {MUDStorage} The storage object for the item or false.
      */
     get(ob, altKey = false) {
-        return unwrap(ob, target => {
-            let filename = target.filename || altKey;
-            if (!filename) {
-                let ecc = driver.getExecution(),
-                    ctx = ecc.newContext;
-                if (ctx) {
-                    filename = ctx.filename + (ctx.instanceId > 0 ? `#${ctx.instanceId}` : '');
-                }
+        let filename = ob && ob.filename || altKey;
+        if (!filename) return unwrap(ob, target => target.filename);
+        if (!filename) {
+            let ecc = driver.getExecution(),
+                ctx = ecc.newContext;
+            if (ctx) {
+                filename = ctx.filename + (ctx.instanceId > 0 ? `#${ctx.instanceId}` : '');
             }
-            let result = filename && this.storage[filename];
-            return result;
-        });
+        }
+        let result = filename && this.storage[filename];
+        return result;
     }
 
     /**

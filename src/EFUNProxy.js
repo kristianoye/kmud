@@ -371,10 +371,10 @@ class EFUNProxy {
      * @param {MUDObject} target The object to destruct.
      */
     destruct(target, ...args) {
-        let ob = unwrap(target);
+        let ecc = driver.getExecution();
+        let ob = unwrap(target) || ecc.thisObject();
         if (ob) {
-            let ecc = driver.getExecution(),
-                store = driver.storage.get(ob);
+            let store = driver.storage.get(ob);
             if (store) {
                 if (ecc.guarded(frame => driver.validDestruct(ob, frame))) {
                     return driver.driverCall('destruct', () => {

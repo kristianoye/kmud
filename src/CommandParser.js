@@ -29,6 +29,7 @@ const
     OP_BACKGROUND = '&',
     OP_COMPOUND = ';',
     OP_OR = '||',
+    OP_PIPEBOTH = '|&',
     OP_PIPELINE = '|';
 
 const
@@ -179,16 +180,14 @@ class ParsedToken {
 class CommandParser {
     /**
      * Construct a new command parser.
+     * @param {string} source The source to parse
      */
-    constructor() {
-        this.source = '';
+    constructor(source) {
+        this.source = source || '';
         this.index = 0;
 
-        /** @type {ParsedCommand[]} */
-        this.commands = [];
-
         /** @type {CommandShellOptions} */
-        this.options = {};
+        this.options = false;
     }
 
     /**
@@ -198,6 +197,7 @@ class CommandParser {
     async nextCommand() {
         /** @type {ParsedCommand} */
         let cmd;
+
         /** @type {ParsedToken} */
         let token;
 
@@ -205,17 +205,9 @@ class CommandParser {
             if (!cmd) {
                 let verbLookup = false;
 
-                /*
-                 * Possible scenarios:
-                 * (1) Normal command issued by user,
-                 * (2) Command alias issued by user, e.g.: :grins,
-                 * (3) Variable assignment, e.g.: $v = Get-Item -Path /,
-                 * (4) Function call, e.g.: Math.max(1,2),
-                 * (5) An expression, e.g.: 1 + 2 * 3
-                 */
                 switch (token.tokenType) {
                     case TOKEN_ALIAS:
-                        //  Defer additional processing until the command is complete
+                        //  Defer additional processing until the command is completely parsed.
                         cmd = new ParsedCommand();
                         cmd.verb = token;
                         verbLookup = token.tokenValue.slice(0, token.tokenValue.search(/[^a-zA-Z0-9_-]/));
@@ -247,8 +239,12 @@ class CommandParser {
                     await driver.driverCallAsync('nextCommand', async ecc => {
                         let modifiers = await ecc.getShellOptionsAsync(verbLookup);
 
-
-                        if (!cmd.cmdType) {
+                        // If the verb did not match ANY commands recognized by the MUD,
+                        // then the input is assumed to be an expression.
+                        if (modifiers === false && this.options.allowObjectShell) {
+                            cmd.cmdType = CMD_EXPR;
+                        }
+                        else if (!cmd.cmdType) {
                             if (modifiers.allowObjectShell)
                                 cmd.cmdType = CMD_SHELL;
                             else
@@ -669,72 +665,12 @@ class CommandParser {
     }
 
     /**
-     * Parse input text
+     * Parse some text
      * @param {string} input
-     * @param {CommandShellOptions} options
      */
-    async parse(input, options) {
-        /** @type {{ command: ParsedCommand, operator: ParsedToken }} */ 
-        let result;
-        /** @type{ParsedCommand} */
-        let first;
-        /** @type {ParsedCommand} */
-        let prev;
-
-        this.commands = [];
-        this.source = input;
-        this.index = 0;
-        this.max = input.length;
-        this.options = options || {};
-
-        this.expandHistory();
-
+    async parse(input) {
         while (result = await this.nextCommand()) {
-            if (!first)
-                first = result.command;
-
-            result.previous = prev;
-
-            if (result.operator) {
-                switch (result.operator) {
-                    case OP_AND:
-                        {
-                            prev.conditional = result.command;
-                            prev = result.command;
-                        }
-                        break;
-
-                    case OP_ASSIGNMENT:
-                        break;
-
-                    case OP_COMPOUND:
-                        {
-                            prev.nextCommand = result.command;
-                            prev = result.command;
-                        }
-                        break;
-
-                    case OP_OR:
-                        {
-                            //  If any part of a && statement fails this alternate will execute
-                            let p = prev;
-                            while (p) {
-                                p.alternate = result.command;
-                                p = p.previous && p.previous.conditional;
-                            }
-                            prev.alternate = result.command;
-                            prev = result.command;
-                        }
-                        break;
-
-                    case OP_PIPELINE:
-                        prev.pipeTarget = result.command;
-                        prev = result.command;
-                        break;
-                }
-            }
         }
-        return first;
     }
 
     get remainder() {

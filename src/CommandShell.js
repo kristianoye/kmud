@@ -1329,15 +1329,19 @@ class CommandShell extends MUDEventEmitter {
                         input = newInput;
                     }
 
-                    let cmds = this.process(input),
-                        parser = new CommandParser(),
-                        testResult;
+                    let cmds = this.process(input);
 
                     try {
-                        let options = await ecc.withPlayerAsync(this.player,
-                            async player => await ecc.getShellOptionsAsync());
+                        let parser = new CommandParser(originalSource);
+                        let cmd;
 
-                        testResult = await parser.parse(originalSource, options);
+                        while ((cmd = await parser.nextCommand()) !== false) {
+                            switch (cmd.operator) {
+                                default:
+                                    // No operator, just run the command
+                                    break;
+                            }
+                        }
                     }
                     catch (err) {
                         console.log(err);

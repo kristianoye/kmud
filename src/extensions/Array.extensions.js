@@ -259,4 +259,5 @@ if (typeof global === 'function') {
 
 Object.freeze(Array.prototype);
 
-module.exports = ArrayWithMax;
+if (typeof module !== 'undefined')
+    module.exports = ArrayWithMax;
