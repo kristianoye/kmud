@@ -103,7 +103,7 @@ declare interface Array<T> {
      * Skip a number of elements and return the remainder
      * @param count
      */
-    skip<A extends T>(count?: number = 1): A[];
+    skip<A extends T>(count: number = 1): A[];
 
     /**
      * 

@@ -88,15 +88,6 @@ class MUDObject extends MUDEventEmitter {
 
     moveSync(target) {}
 
-    /**
-     * Move this object to a new environment
-     * @param {string|MUDObject|MUDWrapper} destination The destination
-     * @returns {boolean} True on a successful move
-     */
-    async moveObjectAsync(destination) {
-        return this.moveObject(await efuns.loadObjectAsync(destination));
-    }
-
     moveObject(destination) {
         let myStore = driver.storage.get(this),
             oldEnvironment = myStore.environment;
@@ -151,7 +142,7 @@ class MUDObject extends MUDEventEmitter {
         let myStore = driver.storage.get(this),
             oldEnvironment = myStore.environment;
 
-        let target = await efuns.loadObjectAsync(destination),
+        let target = await efuns.objects.loadObjectAsync(destination),
             newEnvironment = unwrap(target);
 
         if (!oldEnvironment || oldEnvironment.canReleaseItem(this) && newEnvironment) {

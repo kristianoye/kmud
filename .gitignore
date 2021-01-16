@@ -1,5 +1,5 @@
-bin/
-node_modules/
+**/bin
+**/node_modules
 obj/
 KMUD.njsproj.user
 lib/log
@@ -10,5 +10,5 @@ runOnce.json
 runAlways.json
 shadowfs/
 /KMUD.sln
-/.vs/KMUD/v15
+.vs
 **/.acl

@@ -14,16 +14,20 @@ class MUDHtmlComponent {
     }
 
     render() {
-        var result = '<' + this.element;
+        let result = '<' + this.element;
+
         Object.keys(this.props).forEach(k => {
-            var val = this.props[k];
+            let val = this.props[k];
             switch (k) {
+
                 case 'className':
                     result += ' class=';
                     break;
+
                 case 'htmlFor':
                     result += ' for=';
                     break;
+
                 default:
                     result += ` ${k}=`;
                     break;

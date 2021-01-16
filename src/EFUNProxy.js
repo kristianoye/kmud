@@ -72,9 +72,9 @@ class EFUNProxy {
      * @param {function} callback The callback that executes when the action is triggered.
      */
     addAction(verb, callback) {
-        var prevObject = this.previousObject(),
+        let prevObject = this.previousObject(),
             thisObject = this.thisObject();
-
+        
         if (prevObject) {
             prevObject.bindAction(verb, thisObject, callback);
         }

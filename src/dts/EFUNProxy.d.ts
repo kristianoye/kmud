@@ -86,7 +86,7 @@ declare interface EFUNProxy {
      * Restore a MUD object
      * @param dataOrFilename Either a file to restore from or data from a serialized object.
      */
-    restoreObjectAsync(dataOrFilename: string | Object.<string, any>): MUDObject;
+    restoreObjectAsync(dataOrFilename: string | Dictionary<string,any>): MUDObject;
 }
 
 declare const efuns: EFUNProxy;

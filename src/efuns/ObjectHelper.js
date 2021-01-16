@@ -74,6 +74,11 @@ class ObjectHelper {
         return storage && storage.groups || [];
     }
 
+    /**
+     * Load an object asyncronously
+     * @param {any} expr
+     * @param {...any} args
+     */
     static async loadObjectAsync(expr, ...args) {
         if (expr instanceof MUDObject)
             return expr;
