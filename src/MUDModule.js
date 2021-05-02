@@ -431,7 +431,7 @@ class MUDModule extends MUDEventEmitter {
     }
 
     /**
-     * Request a specific instance of a type.
+     * Creates a weak reference to a particular MUDObject instance.
      * @param {PathExpr} req The instance request.
      * @returns {MUDWrapper} The specified instance.
      */
@@ -440,8 +440,9 @@ class MUDModule extends MUDEventEmitter {
 
         if (instance) {
             let wrapper = (() => {
-                let instance = false;
+                let initialized = false;
                 return () => {
+                    let instance = this.getInstance(req);
                     if (instance) {
                         if (instance === -1 || instance.destructed) {
                             instance = -1;
@@ -450,16 +451,19 @@ class MUDModule extends MUDEventEmitter {
                         return instance;
                     }
 
-                    this.once('recompiled', () => {
-                        let typeName = instance.constructor.name;
-                        instance = this.instanceMap[typeName][req.instance] =
-                            this.create(this.getType(typeName), {
-                                filename: req.file,
-                                instanceId: req.instance,
-                                isVirtual: instance && instance.isVirtual
-                            });
-                    });
-                    return instance = this.getInstance(req);
+                    if (!initialized) {
+                        this.once('recompiled', () => {
+                            let typeName = instance.constructor.name;
+                            instance = this.instanceMap[typeName][req.instance] =
+                                this.create(this.getType(typeName), {
+                                    filename: req.file,
+                                    instanceId: req.instance,
+                                    isVirtual: instance && instance.isVirtual
+                                });
+                        });
+                        initialized = true;
+                    }
+                    return instance;
                 };
             })();
 
