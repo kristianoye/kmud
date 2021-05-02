@@ -1,5 +1,26 @@
 
 declare class MUDObject {
+    /**
+     * Called to see if this object can add the item in question to its inventory.
+     * @param item The item attempting to enter the object's inventory.
+     * @returns True if the object can be accepted, false or a string if not.
+     */
+    canAcceptItem(item: MUDObject): boolean | string;
+
+    /**
+     * Attempt to add an item to the object's inventory.
+     * @param item The item being added to the inventory.
+     * @returns True if successful or false or a message if not.
+     */
+    addInventory(item: MUDObject): boolean | string;
+
+    /**
+     * Called to see if this object can release the specified object that is leaving.
+     * @param item The item being released from this object's inventory
+     * @returns True if the object can be released.
+     */
+    canReleaseItem(item: MUDObject): boolean;
+
     /** Basename is like filename except the clone number is not attached */
     readonly basename: string;
 

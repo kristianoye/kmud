@@ -1,5 +1,32 @@
+declare interface ActionBinder {
+    /**
+     * Bind an action from the environment
+     */
+    bindEnvironmentalAction(verb: string, target: MUDObject, callback: (text: string, evt: MUDInputEvent) => number): ActionBinder;
+
+    /**
+     * Bind an action from the player's inventory 
+     */
+    bindInventoryAction(verb: string, target: MUDObject, callback: (text: string, evt: MUDInputEvent) => number): ActionBinder; 
+
+    /**
+     * Try and execute a command as action
+     */
+    tryAction(evt: MUDInputEvent): number;
+
+    /**
+     * Unbind all actions
+     */
+    unbindActions(): ActionBinder;
+}
+
 declare interface MUDStorage {
     // #region Events
+
+    /**
+     * Currently bound actions
+     */
+    actionBinder: ActionBinder;
 
     /**
      * Dispatches a command from the connected client to the attached body object

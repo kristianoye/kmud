@@ -1,4 +1,4 @@
-﻿/**
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
@@ -6,6 +6,7 @@
  * Description: Module contains data storage for in-game objects.
  */
 const
+    ActionBinder = require('./ActionBinder'),
     MUDEventEmitter = require('./MUDEventEmitter'),
     ClientComponent = require('./ClientComponent'),
     ClientCaps = require('./network/ClientCaps');
@@ -66,26 +67,20 @@ class MUDStorage extends MUDEventEmitter {
         this.properties = {};
     }
 
-    /**
-     * Set a property value within an object.
+    /** 
+     * Get currently bound actions
+     * @type {ActionBinder}
      */
-    set(definingType, propertyName, value) {
-        let baseName = definingType.prototype.baseName;
-        let collection = this.properties[baseName];
-        if (!collection) {
-            collection = this.properties[baseName] = {};
+    get actionBinder() {
+        if (!this.actions) {
+            this.actions = new ActionBinder();
         }
-        //  Do not store direct references to objects.
-        if (value instanceof MUDObject) {
-            value = wrap(value);
-        }
-        collection[propertyName] = value;
-        return true;
+        return this.actions;
     }
 
     /**
      * Execute a command from the shell.
-     * @param {any} clientCommand
+     * @param {ParsedCommand} clientCommand
      */
     async eventCommand(clientCommand) {
         return await driver.driverCallAsync('executeCommand', async (context) => {
@@ -99,6 +94,9 @@ class MUDStorage extends MUDEventEmitter {
                 let result = false;
                 try {
                     result = await player.executeCommand(cmd);
+                    if (!result && this.actions) {
+                        result = this.actions.tryAction(cmd);
+                    }
                     return result;
                 }
                 catch (err) {
@@ -267,6 +265,10 @@ class MUDStorage extends MUDEventEmitter {
         this.owner.heartbeat(total, ticks);
     }
 
+    /**
+     * Initialize the storage object.
+     * @param {MUDObject} ownerObject
+     */
     async eventInitialize(ownerObject) {
         if (ownerObject instanceof MUDObject) {
             this.owner = ownerObject;
@@ -372,6 +374,9 @@ class MUDStorage extends MUDEventEmitter {
         return false;
     }
 
+    /**
+     * Is the object connected to an interactive session
+     */
     get connected() {
         return this.hasFlag(MUDStorage.PROP_CONNECTED);
     }
@@ -454,6 +459,23 @@ class MUDStorage extends MUDEventEmitter {
             this.playerName = flag;
         }
         this.flag(MUDStorage.PROP_ISPLAYER, flag !== false);
+    }
+
+    /**
+     * Set a property value within an object.
+     */
+    set(definingType, propertyName, value) {
+        let baseName = definingType.prototype.baseName;
+        let collection = this.properties[baseName];
+        if (!collection) {
+            collection = this.properties[baseName] = {};
+        }
+        //  Do not store direct references to objects.
+        if (value instanceof MUDObject) {
+            value = wrap(value);
+        }
+        collection[propertyName] = value;
+        return true;
     }
 
     get thisObject() {
