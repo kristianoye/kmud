@@ -398,6 +398,7 @@ class CommandShell extends MUDEventEmitter {
                         if (this.options.allowAliases) {
                             this.expandAliases(cmd);
                         }
+
                         result = await this.storage.eventCommand(cmd);
 
                         if (efuns.isPromise(result)) {
@@ -1335,7 +1336,7 @@ class CommandShell extends MUDEventEmitter {
                         let parser = new CommandParser(originalSource);
                         let cmd;
 
-                        while ((cmd = await parser.nextCommand()) !== false) {
+                        while (typeof (cmd = await parser.nextCommand()) === 'object') {
                             switch (cmd.operator) {
                                 default:
                                     // No operator, just run the command

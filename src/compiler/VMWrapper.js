@@ -96,6 +96,12 @@ class VMWrapper extends VMAbstraction {
         return vm.runInContext(content, module.context, options);
     }
 
+    /**
+     * Load an object in its own virtual sandbox;
+     * @param {PipelineContext} context The compiler context.
+     * @param {MUDModule} module The module being loaded.
+     * @returns {any} Returns a value from the virtual machine.
+     */
     async runAsync(context, module) {
         module.context = vm.createContext(module.loader);
         module.loader.ctx = module.context;

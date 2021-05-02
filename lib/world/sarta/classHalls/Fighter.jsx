@@ -24,9 +24,11 @@ class FighterHall extends Room {
         efuns.addAction('become', this.becomeFighter);
     }
 
-    becomeFighter(str) {
+    becomeFighter(str, evt) {
         if (!str)
             return efuns.errorLine('Become a what?');
+        else
+            return efuns.writeLine("You become a fighter");
     }
 }
 

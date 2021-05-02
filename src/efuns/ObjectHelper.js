@@ -8,12 +8,36 @@
 
 class ObjectHelper {
     /**
+     * Determine if one or more values are the same object reference.
+     * @param {...any} args
+     */
+    static areEqual(...args) {
+        let result = false;
+
+        for (let i = 0; i < args.length; i++) {
+            let a = args[i], fn;
+
+            if (typeof a === 'string') fn = a;
+            else if (typeof a === 'function') fn = a.filename;
+            else if (typeof a === 'object') fn = a.filename;
+
+            if (result && result !== fn) return false;
+            else result = fn;
+        }
+        return true;
+    }
+
+    /**
      * Clone an object asyncronously 
      * @param {string | MUDObject | MUDWrapper} expr The item to clone
      * @param {...any[]} args Arguments to pass to the constructor
      */
     static cloneObjectAsync(expr, ...args) {
         return driver.fileManager.cloneObjectAsync(expr, args);
+    }
+
+    static compileObject(options) {
+        return driver.fileManager.loadObjectAsync();
     }
 
     static getLoadededModules(filter = undefined) {

@@ -447,6 +447,9 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="mudconfig.json" />
+    <Content Include="src\ActionBinder.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\Cache.js">
       <SubType>Code</SubType>
     </Content>
@@ -992,6 +995,9 @@
     </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\GameServer.d.ts" />
     <TypeScriptCompile Include="src\dts\GlobalFunctions.d.ts" />
+    <TypeScriptCompile Include="src\dts\MUDCompiler.d.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="src\dts\MUDModule.d.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>

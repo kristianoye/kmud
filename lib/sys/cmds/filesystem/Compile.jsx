@@ -8,12 +8,37 @@ const
     Command = await requireAsync(Base.Command);
 
 class CompileCommand extends Command {
-    async cmd(args) {
-        var player = thisPlayer,
+    /**
+     * 
+     * @param {string} args
+     * @param {ClientCommand} evt
+     */
+    async cmd(args, evt) {
+        let player = thisPlayer,
             path = efuns.resolvePath(args[0], player.workingDirectory);
+        /** @type {MUDCompilerOptions} */
+        let options = { file: path, reload: true };
 
         try {
-            let result = efuns.objects.reloadObjectAsync({ file: path, reload: true });
+            for (let i = 0, max = evt.args.length; i < evt.args.length; i++) {
+                let arg = evt.args[i];
+                if (typeof arg === 'string') {
+                    if (arg.startsWith('-')) {
+                        switch (arg) {
+                            case '-o':
+                            case '--output':
+                                if (++i === max)
+                                    throw new Error(`Switch ${arg} requires parameter [output file]`);
+                                options.compilerOutput = efuns.resolvePath(evt.args[i], player.workingDirectory);
+                                break;
+                        }
+                    }
+                    else
+                        options.file = efuns.resolvePath(arg, player.workingDirectory);
+                }
+            }
+
+            let result = efuns.objects.reloadObjectAsync(options);
             writeLine(JSON.stringify(result));
         }
         catch (x) {

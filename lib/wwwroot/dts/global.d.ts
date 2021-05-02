@@ -87,9 +87,9 @@ declare class MUDArgs {
     required<T>(typeName: string, defaultValue: T): T;
 }
 
-declare function unwrap(target: MUDObject | MUDWrapper): MUDObject | false;
+declare function unwrap(target: MUDObject | MUDWrapper): MUDObject;
 
-declare function unwrap(target: MUDObject | MUDWrapper, success: (ob: MUDObject) => MUDObject): MUDObject | false;
+declare function unwrap(target: MUDObject | MUDWrapper, success: (ob: MUDObject) => MUDObject): MUDObject;
 
 declare class MUDClientCaps {
     readonly clientHeight: number;
@@ -153,6 +153,7 @@ declare class MUDInputEvent {
     readonly fromHistory: boolean;
     readonly original: string;
     prompt: MUDPrompt;
+    readonly text: string;
     readonly verb: string;
 }
 

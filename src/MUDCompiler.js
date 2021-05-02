@@ -178,7 +178,7 @@ class MUDCompiler {
 
     /**
      * Attempts to compile the requested file into a usable MUD object.
-     * @param {MUDCompilerOptions|string} options Hints for the compiler.
+     * @param {MUDCompilerOptions} options Hints for the compiler.
      * @param {MUDCompilerOptions} moreOptions Hints for the compiler.
      * @returns {MUDModule} The compiled module
      */
@@ -240,11 +240,13 @@ class MUDCompiler {
                 if (options.altParent) {
                     module.loader[options.altParent.name] = options.altParent;
                 }
-
                 module.isCompiling = true;
                 let result = await driver.driverCallAsync(
                     'runInContext',
                     async () => {
+                        if (typeof options.compilerOutput === 'string') {
+                            await driver.efuns.fs.writeJsonAsync(options.compilerOutput, context.content);
+                        }
                         //  Clear previous exports in case they've changed
                         module.exports = false;
                         let inner = await VM.runAsync(context, module);
@@ -318,6 +320,7 @@ class MUDCompiler {
     /**
      * Try and compile a virtual object
      * @param {PipelineContext} context
+     * @param {MUDCompilerOptions} options Compiler options
      */
     async compileVirtualAsync(context, options = {}) {
         //  Try virtual compilation

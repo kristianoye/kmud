@@ -73,10 +73,14 @@ class EFUNProxy {
      */
     addAction(verb, callback) {
         let prevObject = this.previousObject(),
-            thisObject = this.thisObject();
-        
+            thisObject = this.thisObject(),
+            storage = driver.storage.get(prevObject);
+
         if (prevObject) {
-            prevObject.bindAction(verb, thisObject, callback);
+            if (this.objects.areEqual(thisObject, storage.environment)) 
+                storage.actionBinder.bindEnvironmentalAction(verb, thisObject, callback);
+            else
+                storage.actionBinder.bindInventoryAction(verb, thisObject, callback);
         }
     }
 
@@ -1417,6 +1421,7 @@ class EFUNProxy {
     /**
      * 
      * @param {number} n The number of objects to go back
+     * @returns {MUDObject}
      */
     previousObject(n = 1) {
         let ctx = driver.getExecution(),
