@@ -20,15 +20,17 @@ class FighterHall extends Room {
         });
     }
 
-    init() {
+    async initAsync() {
         efuns.addAction('become', this.becomeFighter);
     }
 
-    becomeFighter(str, evt) {
+    async becomeFighter(str, evt) {
+        let result = false;
         if (!str)
-            return efuns.errorLine('Become a what?');
+            result = efuns.errorLine('Become a what?');
         else
-            return efuns.writeLine("You become a fighter");
+            result = efuns.writeLine("You become a fighter");
+        return result;
     }
 }
 

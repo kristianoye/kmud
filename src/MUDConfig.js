@@ -82,11 +82,11 @@ class MUDConfig {
     }
 
     createExport() {
-        let configExport = {
+        let configExport = Object.freeze({
             mud: this.mud.createExport(),
             mudlib: Object.assign({}, this.mudlib),
             driver: Object.assign({}, this.driver)
-        };
+        });
 
         return configExport;
     }

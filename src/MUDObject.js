@@ -80,7 +80,9 @@ class MUDObject extends MUDEventEmitter {
         return !!store && store.inventory;
     }
 
-    init() {}
+    init() { }
+
+    initAsync() { }
 
     move(target) {}
 
@@ -139,48 +141,7 @@ class MUDObject extends MUDEventEmitter {
      * @returns {boolean} True on a successful move
      */
     async moveObjectAsync(destination) {
-        let myStore = driver.storage.get(this),
-            oldEnvironment = myStore.environment;
-
-        let target = await efuns.objects.loadObjectAsync(destination),
-            newEnvironment = unwrap(target);
-
-        if (!oldEnvironment || oldEnvironment.canReleaseItem(this) && newEnvironment) {
-            let targetStore = driver.storage.get(newEnvironment);
-
-            //  Can the destination accept this object?
-            if (targetStore && newEnvironment.canAcceptItem(this)) {
-
-                //  Do lazy reset if it's time
-                if (UseLazyResets) {
-                    if (typeof newEnvironment.reset === 'function') {
-                        if (targetStore.nextReset < efuns.ticks) {
-                            driver.driverCall('reset',
-                                () => newEnvironment.reset(),
-                                newEnvironment.filename);
-                        }
-                    }
-                }
-
-                if (targetStore.addInventory(this)) {
-                    if (myStore.living) {
-                        let stats = targetStore.stats;
-                        if (stats) stats.moves++;
-                        target().init();
-                    }
-                    newEnvironment.inventory.forEach(item => {
-                        if (item !== this && efuns.living.isAlive(item)) {
-                            this.init.call(item);
-                        }
-                        if (myStore.living && item !== this) {
-                            item.init.call(this);
-                        }
-                    });
-                    return true;
-                }
-            }
-        }
-        return false;
+        return efuns.objects.moveObjectAsync(destination);
     }
 
     preprocessInput(input, callback) {

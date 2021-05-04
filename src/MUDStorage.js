@@ -620,7 +620,15 @@ class MUDStorage extends MUDEventEmitter {
     leaveEnvironment() {
         unwrap(this.environment, env => {
             let store = driver.storage.get(env);
-            store && store.removeInventory(this);
+
+            if (store && store.removeInventory(this)) {
+                if (this.actions) {
+                    store.inventory.forEach(inv => {
+                        this.actionBinder.unbindActions(inv);
+                    });
+                    this.actionBinder.unbindActions(this.environment);
+                }
+            }
         })
     }
 

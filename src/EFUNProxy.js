@@ -77,10 +77,7 @@ class EFUNProxy {
             storage = driver.storage.get(prevObject);
 
         if (prevObject) {
-            if (this.objects.areEqual(thisObject, storage.environment)) 
-                storage.actionBinder.bindEnvironmentalAction(verb, thisObject, callback);
-            else
-                storage.actionBinder.bindInventoryAction(verb, thisObject, callback);
+            storage.actionBinder.bindAction(verb, thisObject, callback);
         }
     }
 
@@ -494,6 +491,10 @@ class EFUNProxy {
             }
         }
         return false;
+    }
+
+    get config() {
+        return driver.config.createExport();
     }
 
     /** Gets the default export for the module */

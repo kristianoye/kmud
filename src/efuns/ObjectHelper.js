@@ -102,6 +102,7 @@ class ObjectHelper {
      * Load an object asyncronously
      * @param {any} expr
      * @param {...any} args
+     * @returns {Promise<MUDObject>}
      */
     static async loadObjectAsync(expr, ...args) {
         if (expr instanceof MUDObject)
@@ -115,6 +116,60 @@ class ObjectHelper {
         }
         let result = await driver.fileManager.loadObjectAsync(driver.efuns.resolvePath(expr), args);
         return result;
+    }
+
+    /**
+     * Moves the current object to another location.
+     * @param {string|MUDObject} destination
+     * @returns {boolean} True if the move was succcessful.
+     */
+    static async moveObjectAsync(destination) {
+        let thisObject = efuns.thisObject(),
+            thisStorage = driver.storage.get(thisObject),
+            current = thisStorage.environment;
+
+        let target = unwrap(await ObjectHelper.loadObjectAsync(destination));
+
+        if (target && target.canAcceptItem(thisObject)) {
+            if (!current || current.canReleaseItem(thisObject)) {
+                let targetStorage = driver.storage.get(target);
+
+                if (driver.config.driver.useLazyResets === true) {
+                    if (typeof target.reset === 'function') {
+                        if (targetStorage.nextReset < efuns.ticks) {
+                            await driver.driverCallAsync('reset',
+                                async () => await target.reset(),
+                                target.filename);
+                        }
+                    }
+                }
+
+                if (targetStorage.addInventory(thisObject)) {
+                    let inv = targetStorage.inventory,
+                        isLiving = efuns.living.isAlive(thisObject),
+                        ctx = driver.getExecution();
+
+                    for (let i = 0; i < inv.length; i++) {
+                        let item = inv[i];
+
+                        //  Call init on all living items in the environment's inventory
+                        if (efuns.living.isAlive(item)) {
+                            await ctx.withPlayerAsync(item, async () => await thisObject.initAsync());
+                        }
+                        //  Call init on every object in the environment
+                        if (isLiving) {
+                            await ctx.withPlayerAsync(thisObject, async () => await item.initAsync());
+                        }
+                    }
+                    //  If this object is living, call init in the new environment
+                    if (isLiving) {
+                        await ctx.withPlayerAsync(thisObject, async () => await target.initAsync());
+                    }
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

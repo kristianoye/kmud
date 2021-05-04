@@ -489,6 +489,7 @@ class ExecutionContext extends MUDEventEmitter {
         else
             return this.virtualCreationContexts[0];
     }
+
     /**
      * Adds a listener to the complete queue
      * @param {function(ExecutionContext):void} callback The callback to fire when execution is complete.
@@ -500,12 +501,18 @@ class ExecutionContext extends MUDEventEmitter {
 
     /**
      * Execute an action with an alternate thisPlayer
-     * @param {MUDStorage} storage The player that should be "thisPlayer"
+     * @param {MUDStorage|MUDObject} storage The player that should be "thisPlayer"
      * @param {function(MUDObject, ExecutionContext): any} callback The action to execute
      * @param {boolean} restoreOldPlayer Restore the previous player 
      */
-    withPlayer(storage, callback, restoreOldPlayer = true, methodName = false) {
-        let player = unwrap(storage.owner);
+    withPlayer(storage, callback, restoreOldPlayer = true, methodName = false, catchErrors = true) {
+        let player = false;
+
+        if (storage instanceof MUDObject)
+            storage = driver.storage.get(player = storage);
+        else
+            player = storage.owner;
+
         let ecc = driver.getExecution(),
             oldPlayer = this.player,
             oldClient = this.client,
@@ -526,6 +533,7 @@ class ExecutionContext extends MUDEventEmitter {
         }
         catch (err) {
             console.log('Error in withPlayer(): ', err);
+            if (catchErrors === false) throw err;
         }
         finally {
             if (methodName) ecc.pop(methodName);
@@ -544,7 +552,7 @@ class ExecutionContext extends MUDEventEmitter {
  * @param {function(MUDObject, ExecutionContext): any} callback The action to execute
  * @param {boolean} restoreOldPlayer Restore the previous player 
  */
-    async withPlayerAsync(storage, callback, restoreOldPlayer = true, methodName = false) {
+    async withPlayerAsync(storage, callback, restoreOldPlayer = true, methodName = false, catchErrors = true) {
         let player = false;
 
         if (storage instanceof MUDObject)
@@ -572,6 +580,7 @@ class ExecutionContext extends MUDEventEmitter {
         }
         catch (err) {
             console.log('Error in withPlayerAsync(): ', err);
+            if (catchErrors === false) throw err;
         }
         finally {
             if (methodName) ecc.pop(methodName);

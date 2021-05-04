@@ -441,6 +441,7 @@ class MUDModule extends MUDEventEmitter {
         if (instance) {
             let wrapper = (() => {
                 let initialized = false;
+
                 return () => {
                     let instance = this.getInstance(req);
                     if (instance) {

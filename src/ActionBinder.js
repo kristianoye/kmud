@@ -16,6 +16,7 @@ class ActionEntry {
 
         /** @type {Object.<string,{ target: MUDObject, callback: (text: string, evt:MUDInputEvent)=>boolean>>}} */
         this.mapping = {};
+        this.count = 0;
     }
 
     /**
@@ -24,23 +25,46 @@ class ActionEntry {
      * @param {(text: string, evt:MUDInputEvent)=>boolean} callback The action callback
      */
     addMapping(target, callback) {
-        this.mapping[target.filename] = { callback, target };
+        this.mapping[target.filename] = { callback, target: wrapper(target), filename: target.filename };
+        this.count++;
     }
 
     /**
      * Execute an action
      * @param {MUDInputEvent} evt
-     * @returns {boolean}
+     * @returns {Promise<boolean>}
      */
-    execute(evt) {
+    async execute(evt) {
         let files = Object.keys(this.mapping);
+
         for (let i = 0; i < files.length; i++) {
             let entry = this.mapping[files[i]];
-            let result = entry.callback.apply(entry.target, [evt.text, evt]);
+            let result = false;
+
+            if (efuns.isAsync(entry.callback))
+                result = await entry.callback.apply(entry.target, [evt.text, evt]);
+            else
+                result = entry.callback.apply(entry.target, [evt.text, evt]);
 
             if (result === true) return true;
         }
         return false;
+    }
+
+    /**
+     * Returns the number of mappings to this verb
+     */
+    get length() {
+        return this.count;
+    }
+
+    /**
+     * Unbind actions that map to the specified filename.
+     * @param {string} filename
+     */
+    unbind(filename) {
+        delete this.mapping[filename];
+        this.count--;
     }
 }
 
@@ -53,39 +77,21 @@ class ActionBinder {
      */
     constructor() {
         /** @type {Object.<string,ActionEntry>} */
-        this.environment = {};
-
-        /** @type {Object.<string,ActionEntry>} */
-        this.inventory = {};
+        this.actions = {};
     } 
 
     /**
-     * Bind an action defined by an object in the environment.
+     * Create an action binding.
      * 
      * @param {string} verb The verb to invoke the action
      * @param {MUDObject} target The verb to invoke the action
      * @param {(text: string, evt:MUDInputEvent)=>boolean} callback The verb to invoke the action
      * @return {ActionBinder}
      */
-    bindEnvironmentalAction(verb, target, callback) {
-        if (verb in this.environment === false)
-            this.environment[verb] = new ActionEntry(verb);
-        this.environment[verb].addMapping(target, callback);
-        return this;
-    }
-
-    /** 
-     * Bind an action defined by an object in the player's inventory
-     * 
-     * @param {string} verb The verb to invoke the action
-     * @param {MUDObject} target The verb to invoke the action
-     * @param {(text: string, evt:MUDInputEvent)=>boolean} callback The verb to invoke the action
-     * @return {ActionBinder}
-     */
-    bindInventoryAction(verb, target, callback) {
-        if (verb in this.environment === false)
-            this.inventory[verb] = new ActionEntry(verb);
-        this.inventory[verb].addMapping(target, callback);
+    bindAction(verb, target, callback) {
+        if (verb in this.actions === false)
+            this.actions[verb] = new ActionEntry(verb);
+        this.actions[verb].addMapping(target, callback);
         return this;
     }
 
@@ -93,16 +99,16 @@ class ActionBinder {
      * Get an environmental action entry
      * @param {string} verb The verb being invoked
      */
-    getEnvironmentAction(verb) {
-        return this.environment[verb];
+    getAction(verb) {
+        return this.actions[verb];
     }
 
     /**
-     * Get an environmental action entry
-     * @param {string} verb The verb being invoked
+     * Get all actions as an array 
      */
-    getInventoryAction(verb) {
-        return this.inventory[verb];
+    getActions() {
+        return Object.keys(this.actions)
+            .map(a => this.actions[a]);
     }
 
     /**
@@ -110,21 +116,29 @@ class ActionBinder {
      * @param {MUDInputEvent} evt The command to execute
      * @returns {boolean} Returns true on success
      */
-    tryAction(evt) {
-        let inv = this.getInventoryAction(evt.verb);
-        let env = this.getEnvironmentAction(evt.verb);
+    async tryAction(evt) {
+        let action = this.getAction(evt.verb);
 
-        if (inv && inv.execute(evt))
-            return true;
-        else if (env && env.execute(evt))
+        if (action && await action.execute(evt))
             return true;
         else
             return false;
     }
 
-    /** Unbinds all actions  */
-    unbindActions() {
+    /** 
+     * Unbinds all actions implemented by the specified object 
+     * @param {MUDObject} obj The object to unbind from
+     */
+    unbindActions(obj) {
+        let actions = this.getActions();
 
+        for (let i = 0, m = actions.length; i < m; i++) {
+            let a = actions[i];
+
+            a.unbind(obj.filename);
+            if (a.length === 0)
+                delete this.actions[a.verb];
+        }
     }
 }
 
