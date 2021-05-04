@@ -42,9 +42,9 @@ class ActionEntry {
             let result = false;
 
             if (efuns.isAsync(entry.callback))
-                result = await entry.callback.apply(entry.target, [evt.text, evt]);
+                result = await entry.callback.apply(entry.target(), [evt.text, evt]);
             else
-                result = entry.callback.apply(entry.target, [evt.text, evt]);
+                result = entry.callback.apply(entry.target(), [evt.text, evt]);
 
             if (result === true) return true;
         }
