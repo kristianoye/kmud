@@ -94,7 +94,7 @@ class MUDStorage extends MUDEventEmitter {
                 let result = false;
                 try {
                     result = await player.executeCommand(cmd);
-                    if (!result && this.actions) {
+                    if (result !== true && this.actions) {
                         result = this.actions.tryAction(cmd);
                     }
                     return result;
