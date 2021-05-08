@@ -135,15 +135,6 @@ class MUDObject extends MUDEventEmitter {
         return false;
     }
 
-    /**
-     * Move this object to a new environment
-     * @param {string|MUDObject|MUDWrapper} destination The destination
-     * @returns {boolean} True on a successful move
-     */
-    async moveObjectAsync(destination) {
-        return efuns.objects.moveObjectAsync(destination);
-    }
-
     preprocessInput(input, callback) {
         return callback(input);
     }
