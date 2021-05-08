@@ -318,6 +318,7 @@ class MUDCompiler {
     }
 
     /**
+<<<<<<< HEAD
      * Try and compile a virtual object
      * @param {PipelineContext} context
      * @param {MUDCompilerOptions} options Compiler options
@@ -376,6 +377,15 @@ class MUDCompiler {
 
         module.loaded = true;
         return module;
+=======
+     * Attempts to compile the requested file into a usable MUD object.
+     * @param {MUDCompilerOptions|string} options Hints for the compiler.
+     * @param {MUDCompilerOptions} moreOptions Hints for the compiler.
+     * @returns {MUDModule} The compiled module
+     */
+    async compileObjectAsync(options, moreOptions) {
+
+>>>>>>> 184664e... Unlisted changes.
     }
 }
 
