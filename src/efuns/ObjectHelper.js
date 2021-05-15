@@ -126,9 +126,16 @@ class ObjectHelper {
     static async moveObjectAsync(destination) {
         let thisObject = efuns.thisObject(),
             thisStorage = driver.storage.get(thisObject),
-            current = thisStorage.environment;
+            current = thisStorage.environment,
+            target = destination;
 
-        let target = unwrap(await ObjectHelper.loadObjectAsync(destination));
+        if (target instanceof MUDObject === false) {
+            if (typeof target === 'function' && target.isWrapper) {
+                target = unwrap(target);
+            }
+            else
+                target = unwrap(await ObjectHelper.loadObjectAsync(destination));
+        }
 
         if (target && target.canAcceptItem(thisObject)) {
             if (!current || current.canReleaseItem(thisObject)) {

@@ -106,7 +106,7 @@ class VerbRule {
      * @param {string} scope The scope of the rule (if any)
      */
     constructor(verb, rule, handler, container, scope) {
-        let tokenInfo = container.getTokenInfo(rule);
+        let tokenInfo =  container.getTokenInfo(rule);
 
         /** @type {string} */
         this.verb = verb;
@@ -159,13 +159,14 @@ class VerbRule {
      * @param {any[]} matchData Matched tokens
      * @returns {boolean|string} True if the action can move forward.
      */
-    can(matchData) {
-        if (this.fallbackCan) {
-            return unwrap(this.handler, (handler) => 
-                handler[this.fallbackCan].call(handler, this.verb, this.rule, matchData, this.parse));
-        }
-        return unwrap(this.handler, (handler) =>
-            handler[this.canMethod].apply(handler, matchData));
+    async can(matchData) {
+        let handler = unwrap(this.handler),
+            method = handler[this.canMethod] || handler[this.fallbackCan];
+
+        if (!method)
+            return false;
+
+        return await method.call(handler, this.verb, this.rule, matchData, this.parse);
     }
 
     /**
@@ -173,13 +174,14 @@ class VerbRule {
      * @param {Array<string|MUDObject>} matchData Tokens matched during parsing.
      * @returns {boolean|string} True if the action was successful.
      */
-    do(matchData) {
-        if (this.fallbackDo) {
-            return unwrap(this.handler, (handler) =>
-                handler[this.fallbackDo].call(handler, this.verb, this.rule, matchData, this.parse));
-        }
-        return unwrap(this.handler, (handler) =>
-            handler[this.doMethod].apply(handler, matchData));
+    async do(matchData) {
+        let handler = unwrap(this.handler),
+            method = handler[this.doMethod] || handler[this.fallbackDo];
+
+        if (!method)
+            return false;
+
+        return await method.call(handler, this.verb, this.rule, matchData, this.parse);
     }
 
     /**
@@ -234,13 +236,13 @@ class Verb {
             errors = [];
 
         for (let i = 0, max = rules.length; i < max; i++) {
-            var rule = this.rules[i],
+            let rule = this.rules[i],
                 result = rule.tryParse(words);
 
             if (result === false)
                 continue;
 
-            var canCan = rule.can(result);
+            let canCan = rule.can(result);
 
             if (canCan === true) {
                 return rule.do(result);
@@ -348,52 +350,52 @@ class VerbContainer {
      * @returns {object} Extracted info with weight and token count.
      */
     getTokenInfo(rule) {
-        var weight = 0,
-            count = rule.split(/\s+/).filter(function (s, i) {
+        let Weight = 0,
+            Count = rule.split(/\s+/).filter((s, i) => {
                 switch (s) {
                     case 'EQUIPMENT': case 'EQP':
-                        weight += 64;
+                        Weight += 64;
                         return true;
 
                     case 'INVENTORY': case 'INV':
-                        weight += 32;
+                        Weight += 32;
                         return true;
 
                     case 'LIVING': case 'LIV':
-                        weight += 128;
+                        Weight += 128;
                         return true;
 
                     case 'LIVINGS': case 'LVS':
-                        weight += 256;
+                        Weight += 256;
                         return true;
 
                     case 'OBJECT': case 'OBJ':
-                        weight += 8;
+                        Weight += 8;
                         return true;
 
                     case 'OBJECTS': case 'OBS':
-                        weight += 16;
+                        Weight += 16;
                         return true;
 
                     case 'PLAYER':
-                        weight += 512;
+                        Weight += 512;
                         return true;
 
                     case 'PLAYERS':
-                        weight += 1024;
+                        Weight += 1024;
                         return true;
 
                     case 'STRING': case 'STR':
-                        weight += 4;
+                        Weight += 4;
                         return true;
 
                     case 'WORD': case 'WRD':
-                        weight += 1;
+                        Weight += 1;
                         return true;
                 }
                 return false;
             }).length;
-        return { Count: count, Weight: weight };
+        return { Count, Weight };
     }
 
     /**
@@ -474,7 +476,7 @@ class VerbContainer {
      * @param {string[]} errors A collection of ordered error messages.
      * @returns {string|boolean|any[]} Try match a rule to the user's input.
      */
-    tryParseRule(thisPlayer, rule, inputs, errors) {
+    async tryParseRule(thisPlayer, rule, inputs, errors) {
         let self = this,
             chunks = [],
             chunk = [],
@@ -545,6 +547,7 @@ class VerbContainer {
             }
             else if (this.isToken(word)) {
                 var doneWithChunk = false;
+
                 chunk = chunks[c++];
 
                 if (!chunk || chunk.length === 0)
@@ -664,7 +667,7 @@ class VerbContainer {
         if (matched !== rule.tokenCount)
             return false;
 
-        var
+        let
             directMatches = 0, indirectMatches = 0,
             result = matchedTokens.slice(0);
 
@@ -677,19 +680,21 @@ class VerbContainer {
             case 1:
                 if (direct.matches.length > 0) {
                     result[direct.index] = [];
-                    direct.matches.forEach(_d => {
-                        var theseArgs = matchedTokens.slice(0),
-                            directResult = false;
-                        theseArgs[direct.index] = _d;
 
-                        if (rule.directMethod in _d) {
-                            directResult = _d[rule.directMethod].apply(_d, theseArgs);
+                    await direct.matches.forEachAsync(async matched => {
+                        let theseArgs = matchedTokens.slice(0),
+                            directResult = false;
+
+                        theseArgs[direct.index] = matched;
+
+                        if (rule.directMethod in matched) {
+                            directResult = await matched[rule.directMethod](matched, ...theseArgs);
                         }
-                        else if (rule.directFallback in _d) {
-                            directResult = _d[rule.directFallback].call(_d, rule.verb, rule.rule);
+                        else if (rule.directFallback in matched) {
+                            directResult = await matched[rule.directFallback].call(matched, rule.verb, rule.rule);
                         }
                         if (directResult === true) {
-                            result[direct.index].push(_d);
+                            result[direct.index].push(matched);
                             directMatches++;
                         }
                         else if (typeof directResult === 'string')
@@ -806,7 +811,7 @@ class VerbContainer {
      * @param {string[]} scopes The scopes to evaluate (if enabled).
      * @returns {string|boolean} Returns true on success
      */
-    tryParseSentence(input, player, scopes) {
+    async tryParseSentence(input, player, scopes) {
         let words = input.trim().split(/\s+/),
             verbName = words.shift() || false;
 
@@ -821,7 +826,7 @@ class VerbContainer {
      * @param {string[]} scopes A list of scopes the user has access to.
      * @returns {boolean|string} True on success
      */
-    tryParseVerb(verbName, input, thisPlayer, scopes) {
+    async tryParseVerb(verbName, input, thisPlayer, scopes) {
         let verb = this.getVerb(verbName, false),
             errors = [];
 
@@ -838,13 +843,13 @@ class VerbContainer {
 
         //  Try rules in ranked order from highest to lowest.
         for (let i = 0; i < rules.length; i++) {
-            let matchTokens = this.tryParseRule(thisPlayer, rules[i], words, errors);
+            let matchTokens = await this.tryParseRule(thisPlayer, rules[i], words, errors);
 
             //  We have matched tokens
             if (Array.isArray(matchTokens)) {
-                let result = rules[i].can(matchTokens);
+                let result = await rules[i].can(matchTokens);
                 if (result === true) {
-                    if ((result = rules[i].do(matchTokens)) === true)
+                    if ((result = await rules[i].do(matchTokens)) === true)
                         return true;
                         
                 }
@@ -932,24 +937,24 @@ class VerbSystemFeature extends FeatureBase {
             };
         }
         if (this.efunNameParseSentence) {
-            efunPrototype[this.efunNameParseSentence] = function (/** @type {string} */ rawInput, /** @type {string[]} */ scopeList) {
+            efunPrototype[this.efunNameParseSentence] = async function (/** @type {string} */ rawInput, /** @type {string[]} */ scopeList) {
                 let input = rawInput.trim(),
                     scopes = feature.useVerbRuleScope ?
                         Array.isArray(scopeList) && scopeList.length ?
                             scopeList : false : false,
                     thisPlayer = this.thisPlayer();
 
-                return container.tryParseSentence(input, thisPlayer, scopes);
+                return await container.tryParseSentence(input, thisPlayer, scopes);
             };
         }
         if (this.efunNameParseVerb) {
-            efunPrototype[this.efunNameParseVerb] = function (/** @type {string} */ verb, /** @type {string|string[]} */ input, /** @type {string[]} */ scopeList) {
+            efunPrototype[this.efunNameParseVerb] = async function (/** @type {string} */ verb, /** @type {string|string[]} */ input, /** @type {string[]} */ scopeList) {
                 let scopes = feature.useVerbRuleScope ?
                     Array.isArray(scopeList) && scopeList.length ?
                         scopeList : false : false,
                     thisPlayer = this.thisPlayer();
 
-                return container.tryParseVerb(verb, input, thisPlayer, scopes);
+                return await container.tryParseVerb(verb, input, thisPlayer, scopes);
             };
         }
     }

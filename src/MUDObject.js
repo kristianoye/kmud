@@ -84,12 +84,6 @@ class MUDObject extends MUDEventEmitter {
 
     initAsync() { }
 
-    move(target) {}
-
-    moveAsync(target) {}
-
-    moveSync(target) {}
-
     moveObject(destination) {
         let myStore = driver.storage.get(this),
             oldEnvironment = myStore.environment;

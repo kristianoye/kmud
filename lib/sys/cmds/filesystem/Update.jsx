@@ -16,20 +16,17 @@ class UpdateCommand extends Command {
             input.args.unshift(env.filename);
         }
         for (let i = 0; i < input.args.length; i++) {
-            try {
-                let fn = input.args[i],
-                    path = efuns.resolvePath(fn, thisPlayer().workingDirectory),
-                    result = await efuns.objects.reloadObjectAsync(path);
+            let fn = input.args[i],
+                path = efuns.resolvePath(fn, thisPlayer().workingDirectory);
 
+            try {
+                let result = await efuns.objects.reloadObjectAsync(path);
                 writeLine(`Update ${path}: ${(result ? '[OK]' : '[Failure]')}`);
             }
             catch (err) {
                 writeLine(`Update ${path}: Failure: ${err.message}`);
             }
         }
-        input.args.forEach(fn => {
-            let path = efuns.resolvePath(fn, thisPlayer().workingDirectory);
-        })
         return true;
     }
 }

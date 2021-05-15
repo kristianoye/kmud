@@ -421,6 +421,7 @@
     <Content Include="lib\log\errors\placeholder.txt">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\sys\cmds\creator\Clone.js" />
     <Content Include="lib\sys\etc\accessEx.json">
       <SubType>Code</SubType>
     </Content>
