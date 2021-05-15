@@ -1,5 +1,4 @@
 {
-<<<<<<< HEAD
    "$type": "/daemon/I3Daemon",
    "environment": null,
    "flags": 0,
@@ -19,15 +18,4 @@
          }
       }
    }
-=======
-  "$type": "/daemon/I3Daemon",
-  "environment": false,
-  "flags": 0,
-  "inventory": [],
-  "properties": {
-    "/daemon/I3Daemon": {
-      "routers": {}
-    }
-  }
->>>>>>> 184664e... Unlisted changes.
 }
