@@ -50,7 +50,7 @@
     "baseDirectory": "./lib",
     "defaultError": "What? (not recognized: $verb)",
     "fileSystem": {
-      "fileManager": "./FileManager",
+      "fileManager": "./fs/FileManager",
       "securityManager": "./fs/DefaultFileSecurity",
       "fileSystemTable": {
         "/": {

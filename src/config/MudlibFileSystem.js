@@ -32,7 +32,7 @@ class MudlibFileMount {
 class MudlibFileSystem {
     constructor(config) {
         /** @type {string} */
-        this.fileManager = config.fileManager || './FileManager';
+        this.fileManager = config.fileManager || './fs/FileManager';
         this.fileManagerType = '';
         let n = this.fileManager.indexOf('@');
         if (n > -1) {
