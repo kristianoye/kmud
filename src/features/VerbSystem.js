@@ -16,6 +16,10 @@ const
     MATCH_ALLOW_MULTIPLE = 1,
     MATCH_IS_LIVING = 2,
     MATCH_IS_PLAYER = 4,
+    _prepAliases = {
+        "in": ['in', 'inside', 'within'],
+        "on": ["on", "upon"]
+    },
     _prepositions = {
         "about": "around",
         "acrosss": null,
@@ -35,7 +39,6 @@ const
         "of": null,
         "off": null,
         "on": null,
-        "into": null,
         "inside": "in",
         "near": null,
         "onto": "on",
@@ -111,8 +114,14 @@ class VerbRule {
         /** @type {string} */
         this.verb = verb;
 
+        /** @type {string[]} */
+        this.tokens = [];
+
         /** @type {string} */
         this.rule = rule;
+
+        /** @type {RegExp} */
+        this.ruleRegex = this.createRuleRegex(rule);
 
         /** @type {string} */
         this.scope = scope;
@@ -155,6 +164,49 @@ class VerbRule {
     }
 
     /**
+     * Creates a regex from a rule
+     * @param {string} rule The rule to create a regex from
+     * @returns {RegExp}
+     */
+    createRuleRegex(rule) {
+        if (!rule)
+            return /^$/;
+        else
+            return new RegExp('^' +
+                rule.split(/\s+/)
+                .map(s => {
+                    switch (s) {
+                        case 'EQUIPMENT':
+                        case 'INVENTORY':
+                        case 'LIVING':
+                        case 'LIVINGS':
+                        case 'OBJECT':
+                        case 'OBJECTS':
+                        case 'PLAYER':
+                        case 'PLAYERS':
+                        case 'STRING':
+                        case 'STR':
+                            this.tokens.push(s);
+                            return '(.+)';
+
+                        case 'WORD':
+                        case 'WRD':
+                            this.tokens.push(s);
+                            return '([^\\b]+)';
+
+                        default:
+                            if (s in _prepAliases)
+                                return '(?:' + _prepAliases[s].join('|') + ')';
+                            else if (typeof _prepositions[s] === 'string')
+                                return _prepositions[s];
+                            return s;
+                    }
+                })
+                .join('\\s+')
+            + '$');
+    }
+
+    /**
      * Check to see if the user can perform the action.
      * @param {any[]} matchData Matched tokens
      * @returns {boolean|string} True if the action can move forward.
@@ -181,7 +233,7 @@ class VerbRule {
         if (!method)
             return false;
 
-        return await method.call(handler, this.verb, this.rule, matchData, this.parse);
+        return await method.apply(handler, matchData);
     }
 
     /**
@@ -191,6 +243,27 @@ class VerbRule {
      */
     inScope(scopes) {
         return !scopes || !this.scope || scopes.indexOf(this.scope) > 0;
+    }
+
+    /**
+     * Try to match the input to the rule.
+     * @param {string} input The user's input
+     * @returns {{ index: number, token: string, match: string }[]} 
+     */
+    tryMatch(input) {
+        let matches = this.ruleRegex.exec(input);
+        if (matches && matches.length === (this.tokenCount + 1)) {
+            return matches
+                .slice(1)
+                .map((m, i) => {
+                    return {
+                        index: i,
+                        token: this.tokens[i],
+                        match: matches[i]
+                    }
+                });
+        }
+        return false;
     }
 
     /**
@@ -477,8 +550,7 @@ class VerbContainer {
      * @returns {string|boolean|any[]} Try match a rule to the user's input.
      */
     async tryParseRule(thisPlayer, rule, inputs, errors) {
-        let self = this,
-            chunks = [],
+        let chunks = [],
             chunk = [],
             direct = null,
             indirect = null,
@@ -525,7 +597,7 @@ class VerbContainer {
             else {
                 x++;
                 if (chunk.length > 0) {
-                    chunks.push(chunk);
+                    chunks.push(chunk);7
                     chunk = chunk.slice(chunk.length);
                 }
             }
@@ -556,7 +628,8 @@ class VerbContainer {
                 doneWithChunk = true;
 
                 switch (word) {
-                    case 'WORD': case 'WRD':
+                    case 'WORD':
+                    case 'WRD':
                         if (chunk.length < 1) return false;
                         matchedTokens.push(chunk[0]), matched++;
                         chunk = chunk.slice(1);
@@ -566,7 +639,7 @@ class VerbContainer {
                         }
                         break;
 
-                    case 'LIV':
+                    case 'LIV': 
                     case "LIVING":
                     case "LIVINGS":
                     case 'LVS':
@@ -814,7 +887,6 @@ class VerbContainer {
     async tryParseSentence(input, player, scopes) {
         let words = input.trim().split(/\s+/),
             verbName = words.shift() || false;
-
         return this.tryParseVerb(verbName, words, player, scopes);
     }
 

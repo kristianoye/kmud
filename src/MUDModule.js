@@ -283,7 +283,10 @@ class MUDModule extends MUDEventEmitter {
                         type = this.types[type];
                     }
                     else if (type in this.types === false) {
-                        throw new Error(`Unable to find type ${type}`);
+                        if (this.exports.length === 1 && this.$defaultExport)
+                            type = this.$defaultExport;
+                        else
+                            throw new Error(`Unable to find type ${type}`);
                     }
                     else if (prev.filename !== this.filename) {
                         throw new Error(`Access denied to non-exported type ${type} in module ${this.filename}`);

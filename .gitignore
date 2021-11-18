@@ -1,6 +1,7 @@
 **/bin
 **/node_modules
-obj/
+obj/Debug
+obj/Release
 KMUD.njsproj.user
 lib/log
 lib/realms/

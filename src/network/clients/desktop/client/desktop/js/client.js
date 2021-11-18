@@ -2,8 +2,6 @@
 /// <reference path="ventus.js" />
 
 /** @typedef {{ type: string, data: any, target: string|string[]|boolean, origin: string }} MUDEvent */
-
-
 const { BaseComponent, DesktopClientClass } = (function (Ventus) {
     'use strict';
 
