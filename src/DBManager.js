@@ -8,7 +8,7 @@
 
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
-    Database = require('./db/Database')
+    Database = require('./db/IDatabase')
 
 class DBManager extends MUDEventEmitter {
     /**

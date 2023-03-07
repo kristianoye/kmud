@@ -7,7 +7,9 @@
  */
 
 const
-    path = require('path');
+    path = require('path'),
+    { FileSystemQueryFlags } = require('../fs/FileSystemFlags');
+    
 
 class DeleteDirectoryOptions {
     /**
@@ -65,6 +67,10 @@ class FileSystemHelper {
         return DeleteDirectoryOptions;
     }
 
+    static get FileSystemQueryFlags() {
+        return FileSystemQueryFlags;
+    }
+
     /**
      * Get a directory object
      * @param {string} expr The directory expression to fetch
@@ -106,6 +112,42 @@ class FileSystemHelper {
     }
 
     /**
+     * Query file system
+     * @param {string} expr
+     * @param {number} flags
+     * @param {any} options
+     */
+    static queryFileSystemAsync(expr, flags = 0, options = {}) {
+        let fullOptions = { expression: false, flags: 0 };
+
+        if (typeof expr === 'object') {
+            fullOptions = Object.assign({}, expr);
+        }
+        else if (typeof expr === 'string') {
+            fullOptions.expression = expr;
+        }
+        else
+            throw new Error(`queryFileSystem: Argument 1 must be string or object and not ${typeof expr}`);
+
+        if (typeof flags === 'object') {
+            fullOptions = Object.assign(fullOptions, flags);
+        }
+        else if (typeof flags === 'number') {
+            fullOptions.flags = flags;
+        }
+        else
+            throw new Error(`queryFileSystem: Argument 2 must be number or object and not ${typeof expr}`);
+
+        if (typeof options === 'object') {
+            fullOptions = Object.assign(fullOptions, options);
+        }
+        else
+            throw new Error(`queryFileSystem: Argument 3 must be object and not ${typeof expr}`);
+
+        return driver.fileManager.queryFileSystemAsync(fullOptions);
+    }
+
+    /**
      * Read a directory
      * @param {string} expr The path expression to read
      * @param {number} flags Flags to control the operation
@@ -122,16 +164,23 @@ class FileSystemHelper {
      * @param {number} [flags] 
      */
     static async readFileAsync(expr, encoding = 'utf8', flags = 0) {
-        return await driver.fileManager.readFileAsync(expr);
+        return await driver.fileManager.readFileAsync(expr, encoding, flags);
     }
 
     /**
      * Read JSON from a stream
      * @param {string} expr The location to read from
+     * @param {FileOptions} options Additional options for the operation
      * @returns {Promise<object>} The resulting object
      */
-    static readJsonAsync(expr) {
-        return driver.fileManager.readJsonAsync(expr);
+    static async readJsonAsync(expr, options = {}) {
+        try {
+            let result = await driver.fileManager.readJsonAsync(expr, options);
+            return result;
+        }
+        catch (err) {
+            throw err;
+        }
     }
 
     /**

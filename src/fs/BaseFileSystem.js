@@ -1,5 +1,7 @@
+const { NotImplementedError } = require('../ErrorTypes');
 const
     MUDEventEmitter = require('../MUDEventEmitter');
+const FileSystemQuery = require('./FileSystemQuery');
 
 const
     FS_NONE = 0,            // No flags set
@@ -14,6 +16,8 @@ const
 /**
  * Provides a filesystem abstraction to allow implementation of
  * multiple filesystem types (disk-based, SQL-based, ... whatever).
+ * 
+ * The file manager ultimately provides a single method: getObjectAsyc.
  */
 class BaseFileSystem extends MUDEventEmitter {
     /**
@@ -39,9 +43,6 @@ class BaseFileSystem extends MUDEventEmitter {
         /** @type {string} */
         this.mp = this.mountPoint = opts.mountPoint;
 
-        /** @type {FileSecurity} */
-        this.securityManager = null;
-
         this.systemId = opts.systemId;
 
         /** @type {string} */
@@ -49,219 +50,20 @@ class BaseFileSystem extends MUDEventEmitter {
     }
 
     /**
-     * Sets the security manager.
-     * @param {FileSecurity} manager The security manager.
+     * Get an object from the filesystem
+     * @param {any} expr
+     * @param {any} flags
      */
-    addSecurityManager(manager) {
-        this.securityManager = manager;
-    }
-
-    assert(flags, error) {
-        if ((this.flags & flags) !== flags)
-            return false;
-        return true;
-    }
-
-    assertAsync() {
-        if (!this.isAsync)
-            throw new Error(`Filesystem type ${this.type} does not support asyncrononous I/O.`);
-        return true;
-    }
-
-    assertDirectories() {
-        if (!this.hasDirectories)
-            throw new Error(`Filesystem type ${this.type} does not support directories.`);
-        return true;
-    }
-
-    assertSync() {
-        if (!this.isSync)
-            throw new Error(`Filesystem type ${this.type} does not support syncrononous I/O.`);
-        return true;
-    }
-
-    assertWritable() {
-        if (this.isReadOnly())
-            throw new Error(`Filesystem ${this.mp} [type ${this.type}] is read-only.`);
-        return true;
+    async getObjectAsync(expr, flags = 0) {
+        throw new NotImplementedError('getObjectAsync');
     }
 
     /**
-     * Create a directory in the filesystem.
-     * @param {FileSystemRequest} req The directory expression to create.
-     * @param {MkDirOptions} opts Optional flags for createDirectory()
-     * @param {function(boolean, Error):void} callback A callback for async mode
+     * Query the filesystem
+     * @param {FileSystemQuery} query
      */
-    createDirectoryAsync(req, opts, callback) {
-        throw new NotImplementedError('createDirectoryAsync');
-    }
-
-    /**
-     * @returns {FileSystemObject} The final stat object.
-     */
-    createPermsResult(req, perms, parent) {
-        return new FileSystemObject({
-            fileName: req,
-            perms: perms || {},
-            parent: parent || null
-        });
-    }
-
-    /**
-     * Removes a directory from the filesystem.
-     * @param {string} req The path of the directory to remove.
-     * @param {any} flags TBD
-     */
-    async deleteDirectoryAsync(req, flags) {
-        throw new NotImplementedError('deleteDirectoryAsync');
-    }
-
-    async deleteFileAsync(req, callback) {
-        throw new NotImplementedError('deleteFileAsync');
-    }
-
-    /**
-     * Get a directory object
-     * @param {string} expr The directory expression to fetch
-     * @param {any} flags Flags to control the operation
-     */
-    getDirectoryAsync(expr, flags = 0) {
-        throw new NotImplementedError('getDirectoryAsync');
-    }
-
-    /**
-     * Get a file object
-     * @param {string} expr The file expression to fetch
-     * @param {any} flags Flags to control the operation
-     */
-    getFileAsync(expr, flags = 0) {
-        throw new NotImplementedError('getFileAsync');
-    }
-
-    /**
-     * Converts the expression into the external filesystem absolute path.
-     * @param {FileSystemRequest} req The path to translate.
-     * @returns {string} The "real" path.
-     */
-    getRealPath(req) {
-        throw new NotImplementedError('deleteFileSync');
-    }
-
-    /**
-     * Translate an absolute path back into a virtual path.
-     * @param {FileSystemRequest} req The absolute path to translate.
-     * @returns {string|false} The virtual path if the expression exists in this filesystem or false if not.
-     */
-    getVirtualPath(req) {
-        return false;
-    }
-
-    /**
-     * Glob a directory
-     * @param {string} dir The directory to search
-     * @param {string} expr An expression to glob for
-     * @param {Glob} options Options to control the operation
-     */
-    async glob(dir, expr, options = 0) {
-        throw new NotImplementedError('glob');
-    }
-
-    /**
-     * @returns {boolean} Returns true if the filesystem supports directory structures.
-     */
-    get hasDirectories() {
-        return (this.flags & FS_DIRECTORIES) > 0;
-    }
-
-    /**
-     * @returns {boolean} Returns true if the filesystem supports asyncronous I/O
-     */
-    get isAsync() {
-        return (this.flags & FS_ASYNC) > 0;
-    }
-
-    /**
-     * @param {FileSystemRequest} request
-     * @returns {Promise<boolean>}
-     */
-    async isDirectoryAsync(request) {
-        throw new NotImplementedError('isDirectoryAsync');
-    }
-
-    /**
-     * @param {FileSystemRequest} request
-     */
-    async isFileAsync(request) {
-        throw new NotImplementedError('isFileAsync');
-    }
-
-    /**
-     * @returns {boolean} Returns true if the filesystem is read-only.
-     */
-    get isReadOnly() {
-        return (this.flags & FS_READONLY) > 0;
-    }
-
-    /**
-     * @returns {boolean} Returns true if the filesystem supports syncronous I/O
-     */
-    get isSync() {
-        return (this.flags & FS_SYNC) > 0;
-    }
-
-    /**
-     * Loads an object from storage.
-     * @param {FileSystemRequest} req The path to load the object from.
-     * @param {any} args Optional constructor args.
-     */
-    loadObjectAsync(req, args) {
-        throw new NotImplementedError('loadObjectAsync');
-    }
-
-    /**
-     * Reads a directory listing from the disk.
-     * @param {FileSystemRequest} req The directory part of the request.
-     * @param {function(string[], Error):void} callback Optional callback for async mode.
-     */
-    readDirectoryAsync(req, callback) {
-        throw new NotImplementedError('readDirectoryAsync');
-    }
-
-    /**
-     * Read a file from the filesystem.
-     * @param {FileSystemRequest} request The file path expression to read from.
-     */
-    async readFileAsync(request) {
-        throw new NotImplementedError('readFileAsync');
-    }
-
-    /**
-     * Read a file from the filesystem.
-     * @param {FileSystemRequest} req The file path expression to read from.
-     * @param {function(string,Error):void} callback The callback that fires when the read is complete.
-     */
-    async readJsonAsync(expr, callback) {
-        throw new NotImplementedError('readJsonAsync');
-    }
-
-    /**
-     * Stat a file asyncronously.
-     * @param {string} relativePath The file expression to stat.
-     * @returns {Promise<FileSystemObject>} Returns a stat object.
-     */
-    async statAsync(relativePath) {
-        throw new NotImplementedError('statAsync');
-    }
-
-    /**
-     * Write content to a file.
-     * @param {FileSystemRequest} req
-     * @param {string|Buffer} content
-     * @param {string|number} [flags] The optional flags to use
-     * @param {string} [encoding] The optional encoding to use
-     */
-    writeFileAsync(req, content, flags, encoding) {
-        throw new NotImplementedError('writeFileAsync');
+    queryFileSystemAsync(query) {
+        throw new NotImplementedError('queryFileSystemAsync');
     }
 }
 

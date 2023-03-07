@@ -3,7 +3,7 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-var
+const
     MUDEventEmitter = require('./MUDEventEmitter');
 
 var
@@ -21,16 +21,24 @@ class MUDModule extends MUDEventEmitter {
      * @param {string} absFsPath The full filesystem path
      * @param {string} mudpath The full mud path
      * @param {boolean} isVirtual Is this a virtual request?
-     * @param {boolean} [isMixin] Is this a mixin module?
+     * @param {MUDCompilerOptions} options Options passed in from the compiler
      * @param {MUDModule} [parent] If this is a virtual object it needs a parent
      */
-    constructor(filename, absFsPath, mudpath, isVirtual, isMixin = false, parent = false) {
+    constructor(filename, absFsPath, mudpath, isVirtual, options, parent = false) {
         super();
+
+        let isMixin = options.isMixin === true;
 
         /**
          * Contains reference to all the child modules that inherit this module.
-         * @type {MUDModule[]} */
+         * @type {MUDModule[]} 
+         */
         this.children = [];
+
+        /**
+         * Options passed in from the compiler
+         * @type {MUDCompilerOptions} */
+        this.compilerOptions = options;
 
         this.context = null;
 
@@ -52,6 +60,12 @@ class MUDModule extends MUDEventEmitter {
 
         /** @type {MUDObject[]} */
         this.instances = [];
+
+        /**
+         * Maps instance UUID to the actual object 
+         * @type {Object.<string,MUDObject>} 
+         */
+        this.instancesById = {};
 
         this.isMixin = isMixin === true;
 
@@ -187,6 +201,7 @@ class MUDModule extends MUDEventEmitter {
                 if (typeof instanceData.instanceId !== 'number') {
                     let instances = this.instanceMap[type];
                     instanceData.instanceId = instances.length;
+                    instanceData.uuid = driver.getNewId();
                 }
                 type = this.types[type];
             }
@@ -276,7 +291,7 @@ class MUDModule extends MUDEventEmitter {
 
     async createInstanceAsync(type, instanceData, args, factory = false, callingFile = false) {
         try {
-            if (typeof type === 'string') {
+            if (typeof type === 'string' && !this.isVirtual) {
                 if (type in this.exports === false) {
                     //  Always allow module to create its own types
                     if (callingFile === this.filename) {
@@ -295,8 +310,8 @@ class MUDModule extends MUDEventEmitter {
                 else
                     type = this.types[type];
             }
-            let ecc = driver.getExecution(),
-                virtualContext = ecc.popVirtualCreationContext();
+            let ecc = driver.getExecution();
+            let virtualContext = ecc && ecc.popVirtualCreationContext();
 
             if (virtualContext) {
                 virtualContext.module.addVirtualType(this, type);
@@ -304,9 +319,11 @@ class MUDModule extends MUDEventEmitter {
             }
             if (!instanceData)
                 instanceData = this.getNewContext(type, false, args);
+
             if (typeof instanceData.instanceId !== "number") {
                 let instances = this.instanceMap[type.constructor.name];
                 instanceData.instanceId = instances.length;
+                instanceData.uuid = driver.getNewId();
             }
             // Storage needs to be set before starting...
             let store = driver.storage.createForId(instanceData.filename, instanceData.instanceId);
@@ -316,8 +333,15 @@ class MUDModule extends MUDEventEmitter {
 
             let instance = factory ? factory(type, ...args) : new type(...args);
             this.finalizeInstance(instance, !instance.filename && instanceData);
+
+            if (typeof this.compilerOptions.onInstanceCreated === 'function') {
+                this.compilerOptions.onInstanceCreated(instance);
+            }
+
             if (typeof instance.create === 'function') {
-                await driver.driverCallAsync('create', async () => await instance.create(...args));
+                await ecc.withObject(instance, 'create', async () => {
+                    return await instance.create(...args);
+                }, true, true);
             }
             await driver.driverCallAsync('initStorage', async () => await store.eventInitialize(instance));
 
@@ -513,13 +537,16 @@ class MUDModule extends MUDEventEmitter {
                 filename += '#' + instanceId;
         }
         
-        return {
+        let result = {
             args: args || [],
+            uuid: driver.getNewId(),
             constructor: this.types[type] || type,
             filename,
             instanceId,
             module: this
         };
+
+        return result;
     }
 
     /**

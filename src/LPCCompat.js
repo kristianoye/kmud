@@ -23,6 +23,7 @@ class LPCParser {
     constructor() {  }
 
     deserialize(s, offset) {
+        s = efuns.stripBOM(s);
         var n = offset || 0,
             l = s.length,
             stack = [],
@@ -177,7 +178,8 @@ class LPCParser {
         else if (typeof o === 'object') {
             var parts = [];
             for (var k in o) {
-                parts.push(this.serialize(k) + ':' + this.serialize(o[k]));
+                if (o.hasOwnProperty(k))
+                    parts.push(this.serialize(k) + ':' + this.serialize(o[k]));
             }
 
             result = '([' + parts.join(',') + (parts.length > 0 ? ',' : '') + '])';

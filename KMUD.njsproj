@@ -434,7 +434,7 @@
     <Content Include="lib\sys\etc\acls.json">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="lib\sys\etc\groups.yaml">
+    <Content Include="lib\sys\etc\acl-groups.yaml">
       <SubType>Code</SubType>
     </Content>
     <Content Include="lib\sys\etc\singletons.json">
@@ -488,7 +488,7 @@
     <Content Include="src\config\MudSection.js" />
     <Content Include="src\CreationContext.js" />
     <Content Include="src\DBManager.js" />
-    <Content Include="src\db\Database.js" />
+    <Content Include="src\db\IDatabase.js" />
     <Content Include="src\db\MySqlDb.js" />
     <Content Include="src\db\orm\ActiveRecordBase.js" />
     <Content Include="src\Dialog.js" />
@@ -501,6 +501,9 @@
     <Content Include="src\efuns\Livings.js" />
     <Content Include="src\efuns\MathHelper.js" />
     <Content Include="src\efuns\ObjectHelper.js" />
+    <Content Include="src\efuns\SecurityHelper.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\efuns\TextHelper.js" />
     <Content Include="src\efuns\Time.js" />
     <Content Include="src\efuns\UserHelper.js">
@@ -550,10 +553,14 @@
     <Content Include="src\fs\FileSystemObject.js">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="src\fs\FileSystemQuery.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\fs\FileSystemRequest.js">
       <SubType>Code</SubType>
     </Content>
     <Content Include="src\fs\MySqlFilesystem.js" />
+    <Content Include="src\fs\README.md" />
     <Content Include="src\fs\UnixSecurityManager.js">
       <SubType>Code</SubType>
     </Content>
@@ -564,6 +571,8 @@
     <Content Include="src\inputs\TextInput.js" />
     <Content Include="src\inputs\YesNoInput.js" />
     <Content Include="src\LinkedList.js" />
+    <Content Include="src\loader\DefaultLoader.js" />
+    <Content Include="src\loader\MUDOSLoader.js" />
     <Content Include="src\LPCCompat.js" />
     <Content Include="src\MUDCache.js" />
     <Content Include="src\MUDCompiler.js" />
@@ -933,7 +942,6 @@
     <Folder Include="src\db\" />
     <Folder Include="src\db\orm\" />
     <Folder Include="src\dts\" />
-    <Folder Include="src\dts\efuns\" />
     <Folder Include="src\efuns\" />
     <Folder Include="src\features\" />
     <Folder Include="src\fs\" />
@@ -959,6 +967,7 @@
     <Folder Include="src\network\servers\HTTPServer\errors\" />
     <Folder Include="src\network\servers\HTTPServer\handlers\" />
     <Folder Include="src\extensions\" />
+    <Folder Include="src\loader\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
   </ItemGroup>
@@ -967,49 +976,8 @@
       <SubType>Code</SubType>
     </TypeScriptCompile>
     <TypeScriptCompile Include="lib\wwwroot\dts\global.d.ts" />
-    <TypeScriptCompile Include="src\dts\Array.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
-    <TypeScriptCompile Include="src\dts\ClientComponent.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
-    <TypeScriptCompile Include="src\dts\CommandShell.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
-    <TypeScriptCompile Include="src\dts\Date.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
-    <TypeScriptCompile Include="src\dts\EFUNProxy.d.ts" />
-    <TypeScriptCompile Include="src\dts\efuns\Arrays.d.ts" />
-    <TypeScriptCompile Include="src\dts\efuns\FileSystem.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
-    <TypeScriptCompile Include="src\dts\efuns\Inputs.d.ts" />
-    <TypeScriptCompile Include="src\dts\efuns\Living.d.ts" />
-    <TypeScriptCompile Include="src\dts\efuns\Objects.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
-    <TypeScriptCompile Include="src\dts\ExecutionContext.d.ts" />
-    <TypeScriptCompile Include="src\dts\FileSystem.d.ts" />
-    <TypeScriptCompile Include="src\dts\Flags.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
-    <TypeScriptCompile Include="src\dts\GameServer.d.ts" />
-    <TypeScriptCompile Include="src\dts\GlobalFunctions.d.ts" />
-    <TypeScriptCompile Include="src\dts\MUDCompiler.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
-    <TypeScriptCompile Include="src\dts\MUDModule.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
-    <TypeScriptCompile Include="src\dts\MUDObject.d.ts" />
-    <TypeScriptCompile Include="src\dts\Number.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
-    <TypeScriptCompile Include="src\dts\Storage.d.ts" />
-    <TypeScriptCompile Include="src\dts\String.d.ts">
-      <SubType>Code</SubType>
-    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\dts\efuns.d.ts" />
+    <TypeScriptCompile Include="src\dts\master.d.ts" />
   </ItemGroup>
   <!-- Do not delete the following Import Project.  While this appears to do nothing it is a marker for setting TypeScript properties before our import that depends on them. -->
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TypeScript\Microsoft.TypeScript.targets" Condition="False" />

@@ -3,12 +3,15 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const
-    util = require('util');
-
 class MUDError extends Error {
     constructor(e) {
         super(e);
+    }
+}
+
+class PermissionDeniedError extends MUDError {
+    constructor(file, method) {
+        super(`${file}: ${method}: Permission denied`);
     }
 }
 
@@ -38,6 +41,7 @@ class NotImplementedError extends MUDError {
      * Construct an exception
      * @param {string} method The name of the method lacking an implementation
      * @param {object} definingType
+     * @param {'Method'|'Property'} type
      */
     constructor(method, definingType = false, type = 'Method') {
         if (definingType)
@@ -53,5 +57,6 @@ module.exports = {
     MissingConfigError,
     NotImplementedError,
     SecurityError,
-    TimeoutError
+    TimeoutError,
+    PermissionDeniedError
 };

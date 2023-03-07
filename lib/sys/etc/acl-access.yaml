@@ -23,21 +23,30 @@ PERMSET NONE: '-'
 
 DIRECTORY /:
    description: The root of the filesystem
-   access:
+   fixupEnabled: true
+   permissions:
       - ADMIN: FULL
       - ARCH: rw
       - DEFAULT: rw
 
+DIRECTORY /lib:
+    description: The directory containing base mudlib objects
+    fixupEnabled: true
+    permissions:
+        - ADMIN: FULL
+        - ARCH: rw
+
 DIRECTORY /sys/etc:
     description: Location of important configuration filesystem
-    access:
+    fixupEnabled: true
+    permissions:
         - ADMIN: FULL
         - ARCH: R
         - DEFAULT: NONE
 
 DIRECTORY /sys/data:
     description: Default save location for important game objects
-    access:
+    permissions:
         - ADMIN: FULL
         - ARCH: R
         - DEFAULT: NONE

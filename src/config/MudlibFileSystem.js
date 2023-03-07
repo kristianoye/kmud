@@ -93,7 +93,7 @@ class MudlibFileSystem {
      * Construct the file manager.
      * @param {GameServer} driver A reference to the driver instance.
      */
-    createFileManager(driver) {
+    async createFileManager(driver) {
         let manager = undefined, managerType;
 
         if (this.fileManagerType) {
@@ -104,7 +104,7 @@ class MudlibFileSystem {
             managerType = require(path.join(__dirname, '..', this.fileManager));
 
         if (typeof managerType === 'function')
-            manager = new managerType(this.fileManagerOptions || {});
+            manager = new managerType(this);
         else if (typeof managerType === 'object')
             manager = managerType;
 
@@ -130,8 +130,24 @@ class MudlibFileSystem {
      * @returns {any[]}
      */
     eachFileSystem(callback) {
-        return Object.keys(this.fileSystemTable)
-            .map(dir => callback.call(callback, this.fileSystemTable[dir], dir));
+        return new Promise(async (resolve, reject) => {
+            try {
+                let keys = Object.keys(this.fileSystemTable);
+                for (let i = 0; i < keys.length; i++) {
+                    let dir = keys[i];
+                    let entry = this.fileSystemTable[dir];
+
+                    if (callback.toString().startsWith('async'))
+                        await callback(entry, i, dir);
+                    else
+                        callback(entry, i, dir);
+                }
+                resolve(true);
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
     }
 }
 

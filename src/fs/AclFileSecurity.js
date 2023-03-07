@@ -5,6 +5,10 @@
  */
 const
     BaseFileSecurity = require('./BaseFileSecurity'),
+    { FileSystemObject } = require('./FileSystemObject'),
+    SecurityFlags = require('./SecurityFlags'),
+    DefaultGroupName = '$ALL',
+    DefaultSystemName = '$SYSTEM',
     P_READ = 1 << 0,
     P_WRITE = 1 << 1,
     P_DELETE = 1 << 2,
@@ -19,20 +23,46 @@ const
     P_WRITEMETADATA = 1 << 11,
     P_VIEWSYSTEMFILES = 1 << 12,
     P_LOADOBJECT = 1 << 13,
-    P_EXECUTE = 1 << 14;
+    P_EXECUTE = 1 << 14,
+    P_DESTRUCTOBJECT = 1 << 15;
 
-class FileAcl {
-    constructor(parent) {
+/**
+ * @typedef {Object} AclDirectoryData
+ * @property {string} description The description of the directory
+ * @property {boolean} [fixupEnabled] Ensure data from perms file exists in ACL regardless of current state
+ * @property {Object.<string,string>[]} permissions A mapping of groups and objects and their permissions
+ */
+
+class BaseAcl {
+    constructor() {
+        this.#inherits = true;
+        this.#metdata = {};
+    }
+
+    async can(flags) {
 
     }
-}
 
-class DirectoryAcl {
-    constructor(stat, acl) {
-        this.inherits = typeof acl.inherits === 'boolean' ? acl.inherits : true;
-        this.permissions = acl.permissions || {};
-        this.files = acl.files || {};
-        this.path = stat.path;
+    /** @type {boolean} */
+    #inherits;
+
+    get inherits() {
+        return this.#inherits;
+    }
+
+    set inherits(val) {
+        if (typeof val === 'boolean')
+            this.#inherits = val;
+    }
+
+    /** @type {Object.<string,any>} */
+    #metdata;
+
+    async getMetadata() {
+        if (await this.can(SecurityFlags.P_READMETADATA)) {
+            return Object.assign({}, this.metdata);
+        }
+
     }
 
     /**
@@ -41,12 +71,15 @@ class DirectoryAcl {
      */
     static parseAclString(str) {
         let flags = 0;
-        if (str === 'FULL')
+
+        if (!str || typeof str !== 'string')
+            flags = 0;
+        else if (str.toUpperCase() === 'FULL')
             flags = P_READ | P_WRITE | P_DELETE | P_LISTDIR | P_EXECUTE |
                 P_CREATEFILE | P_CREATEDIR | P_CHANGEPERMS |
                 P_READPERMS | P_TAKEOWNERSHIP | P_READMETADATA |
                 P_WRITEMETADATA | P_VIEWSYSTEMFILES | P_LOADOBJECT;
-        else if (str === 'NONE')
+        else if (str.toUpperCase() === 'NONE')
             flags = 0;
         else
             flags = str
@@ -86,22 +119,26 @@ class DirectoryAcl {
         return flags;
     }
 
+    /**
+     * Converts a bitset into a more readable string.
+     * @param {number} flags The flags to convert
+     */
     static toAclString(flags) {
         let bits = [
-            [ P_READ, 'r' ],
-            [ P_WRITE, 'w' ],
-            [ P_DELETE, 'd' ],
-            [ P_LISTDIR, 'L' ],
-            [ P_EXECUTE, 'x' ],
-            [ P_CREATEFILE, 'c' ],
-            [ P_CREATEDIR, 'C' ],
-            [ P_CHANGEPERMS, 'P' ],
-            [ P_READPERMS, 'p' ],
-            [ P_TAKEOWNERSHIP, 'O' ],
-            [ P_READMETADATA, 'm' ],
-            [ P_WRITEMETADATA, 'M' ],
-            [ P_VIEWSYSTEMFILES, 'S' ],
-            [ P_LOADOBJECT, 'l' ]
+            [P_READ, 'r'],
+            [P_WRITE, 'w'],
+            [P_DELETE, 'd'],
+            [P_LISTDIR, 'L'],
+            [P_EXECUTE, 'x'],
+            [P_CREATEFILE, 'c'],
+            [P_CREATEDIR, 'C'],
+            [P_CHANGEPERMS, 'P'],
+            [P_READPERMS, 'p'],
+            [P_TAKEOWNERSHIP, 'O'],
+            [P_READMETADATA, 'm'],
+            [P_WRITEMETADATA, 'M'],
+            [P_VIEWSYSTEMFILES, 'S'],
+            [P_LOADOBJECT, 'l']
         ];
 
         let result = bits
@@ -112,46 +149,344 @@ class DirectoryAcl {
     }
 }
 
+class FileAcl extends BaseAcl {
+    constructor(parent) {
+        super();
+        this.metadata = {};
+    }
+}
+
+class DirectoryAcl extends BaseAcl {
+    /**
+     * Construct a directory ACL
+     * @param {FileSystemObject} dirObj
+     * @param {any} aclFilename
+     */
+    constructor(dirObj, aclFilename) {
+        super();
+        this.permissions = {};
+        this.files = {};
+        this.aclFile = dirObj.resolveRelativePath(aclFilename);
+        this.directory = dirObj;
+        this.directoryName = dirObj.fullPath;
+    }
+
+    async aclExists() {
+
+    }
+
+    async can(flags) {
+        return await efuns.security.guarded(async () => {
+
+        });
+    }
+
+    async load() {
+        this.aclObj = await driver.fileManager.getObjectAsync(this.aclFile, 0, true);
+
+        if (this.aclObj.exists) {
+            let data = await this.aclObj.readJsonAsync();
+        }
+        else {
+            let data = await driver.securityManager.createAcl(this);
+            this.inherits = data.inherits !== false;
+
+            return await this.save();
+        }
+        return this;
+    }
+
+    /**
+     * Merge data into this Acl object
+     * @param {DirectoryAcl|AclDirectoryData} data
+     */
+    async merge(data) {
+        let hasChanged = false;
+
+        if (true === data instanceof DirectoryAcl) {
+
+        }
+        else if (Array.isArray(data.permissions)) {
+            data.permissions.forEach(blob => {
+                Object.keys(blob).forEach(id => {
+                    let perms = BaseAcl.parseAclString(blob[id]);
+                    if (false === id in this.permissions || this.permissions[id] !== perms) {
+                        this.permissions[id] = perms;
+                        hasChanged = true;
+                    }
+                })
+            });
+        }
+        if (hasChanged === true)
+            await this.save();
+    }
+
+    async save() {
+        await this.aclObj;
+    }
+}
+
+class AclSecurityGroup {
+    constructor(data, index) {
+        this.index = index;
+        this.#name = data.name;
+        this.#description = data.description || '[No Description]';
+        /** @type {string[]} */
+        this.#members = (data.members || []).map(n => n.toLowerCase());
+    }
+
+    static async createAsync(data) {
+        return new AclSecurityGroup(data);
+    }
+
+    /** @type {string} */
+    #description;
+
+    get description() {
+        return this.#description;
+    }
+
+    /**
+     * Determine if the specified user is a member of the group
+     * @param {string} user The user ID
+     */
+    isMember(user) {
+        return this.#members.findIndex(m => m === user) > -1;
+    }
+
+    /** @type {string[]} */
+    #members;
+
+    get members() {
+        return this.#members.slice(0);
+    }
+
+    /** @type {string} */
+    #name;
+
+    get name() {
+        return this.#name;
+    }
+}
+
 class AclFileSecurity extends BaseFileSecurity {
-    constructor(fileManager, fileSystem, options) {
-        super(fileManager, fileSystem, options);
+    constructor(fileManager, options) {
+        super(fileManager, options = Object.assign({
+            aclFileName: '.acl',
+            bootstrapApply: 'bootstrapAclSecurity',
+            defaultGroupName: DefaultGroupName,
+            systemGroupName: DefaultSystemName,
+            createAclApply: 'aclCreate',
+            getCredentialApply: 'aclGetCredential'
+        }, options));
 
         /** @type {Object.<string, DirectoryAcl>} */
         this.aclCache = {};
+
+        /** @type {string} */
+        this.aclFileName = options.aclFileName || '.acl';
+
+        /** @type {Object.<string,AclSecurityGroup>} */
+        this.groups = {};
+
+        this.defaultGroupName = options.defaultGroupName || DefaultGroupName;
+        this.systemGroupName = options.systemGroupName || DefaultSystemName;
+        this.groupsFile = options.groupsFile || '';
+        this.permissionsFile = options.permissionsFile || '';
+        this.getCredentialApply = options.getCredentialApply || 'aclGetCredential';
+        this.createAclApply = options.createAclApply || 'aclCreate';
+    }
+
+    /**
+     * Load and validate the initial security settings
+     * @param {GameServer} masterObject
+     */
+    async bootstrap(masterObject) {
+        let settings = await super.bootstrap(masterObject);
+
+        if (typeof settings.groupsFile === 'string')
+            this.groupsFile = settings.groupsFile;
+        if (typeof settings.permissionsFile === 'string')
+            this.permissionsFile = settings.permissionsFile;
+
+        if (!this.groupsFile)
+            throw new Error('bootstrap() security module requires groups file');
+        if (!this.permissionsFile)
+            throw new Error('bootstrap() security module requires permissions file');
+
+        if (typeof driver.masterObject[this.getCredentialApply] !== 'function')
+            throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.getCredentialApply}'`);
+        if (typeof driver.masterObject[this.createAclApply] !== 'function')
+            throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.createAclApply}'`);
+
+        await this.loadGroupsFile();
+        await this.loadPermissionsFile();
+    }
+
+    /**
+     * Check to see if the type of action is allowed in the current context.
+     * @param {FileSystemObject} fo
+     * @param {number} flags The flags describing the desired I/O operation
+     */
+    async can(fo, flags) {
+        //  !!! TODO: FIX THIS AFTER PERMISSIONS ACTUALLY WORK !!!
+        // return true;
+
+        return new Promise(async (resolve, reject) => {
+            try {
+                //  Everything is read-write until the master object is loaded
+                if (driver.gameState < 2)
+                    return resolve(true);
+
+                let acl = await this.getAcl(fo);
+                resolve(await acl.can(flags));
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /**
+     * Create a non-existant directory ACL
+     * @param {DirectoryAcl} acl
+     */
+    async createAcl(acl) {
+        return await driver.callApplyAsync(this.createAclApply, acl.directoryName);
     }
 
     /**
      * Get the Access Control List for the specified object.
-     * @param {FileSystemObject} stat The stat to get an Acl for
+     * @param {FileSystemObject|string} fo The stat to get an Acl for
+     * @returns {Promise<BaseAcl>}
      */
-    async getAcl(stat) {
-        if (stat.isFile) {
-            let parent = await stat.getParent(),
-                parentAcl = await this.getAcl(parent);
-            return parentAcl;
+    async getAcl(fo, ignoreParent = false) {
+        if (typeof fo === 'string') {
+            fo = await driver.fileManager.getObjectAsync(fo, 0, true);
         }
-        else if (stat.isDirectory) {
-            if (stat.path in this.aclCache)
-                return this.aclCache[stat.path];
+        return new Promise(async (resolve, reject) => {
+            if (fo.isFile) {
+                let parent = await fo.getParent(),
+                    parentAcl = await this.getAcl(parent);
 
-            let aclData = await driver.fileManager.getSystemFileAsync(stat.mapPath('.acl'), 1)
-                .catch(err => {
-                    console.log(`Failed to retreive ACL: ${err}`);
-                });
-            if (!aclData.exists) {
-                let parent = await stat.getParent();
-                if (parent) return await this.getAcl(parent);
+                return resolve(parentAcl);
             }
-            if (typeof aclData.readJsonAsync === 'function') {
-                let data = await aclData.readJsonAsync();
-                return this.aclCache[stat.path] = new DirectoryAcl(aclData, data);
+            else if (fo.isDirectory) {
+                if (fo.path in this.aclCache)
+                    return resolve(this.aclCache[fo.path]);
+
+                /** @type {DirectoryAcl} */
+                let acl = new DirectoryAcl(fo, this.aclFileName);
+
+                await acl.load();
+
+                return resolve(this.aclCache[fo.path] = acl);
             }
-            else {
-                //  TODO: Add driver apply
-                let fallback = new DirectoryAcl({ path: stat.path + '/.acl' }, {});
-                return fallback;
+            else if (!fo.exists && ignoreParent === false)
+            {
+                //  Look for the first parent that does exist
+
+            }
+            else
+                reject(`Invalid request:`)
+        });
+    }
+
+    /**
+     * Is the file a system file?
+     * @param {FileSystemObject} file
+     */
+    isSystemFile(file) {
+        if (file.fullPath === this.groupsFile) return true;
+        else if (file.fullPath === this.permissionFile) return true;
+        else if (file.name === this.aclFileName) return true;
+        else return super.isSystemFile(file);
+    }
+
+    async loadGroupsFile() {
+        let groups = await efuns.fs.readYamlAsync(this.groupsFile);
+
+        for (let i = 0, names = Object.keys(groups); i < names.length; i++) {
+            let name = names[i],
+                groupData = groups[name];
+
+            if (name === 'DEFAULT GROUP NAME') {
+                this.defaultGroupName = groupData;
+                continue;
+            }
+            if (name === 'SYSTEM GROUP NAME') {
+                this.systemGroupName = groupData;
+                continue;
+            }
+            if (name in this.groups)
+                throw new Error(`Group ${name} is specified multiple times in ${this.groupsFile}`);
+
+            if (!groupData.name || typeof groupData.name !== 'string')
+                throw new Error(`Group #${i} in ${this.groupsFile} does not have a property 'name'`);
+
+            if (groupData.members && !Array.isArray(groupData.members))
+                throw new Error(`Group ${name} does not have a valid member collection`);
+
+            this.groups[name] = await AclSecurityGroup.createAsync(groupData);
+        }
+    }
+
+    async loadPermissionsFile() {
+        try {
+            let perms = await efuns.fs.readYamlAsync('/sys/etc/acl-access.yaml'),
+                permSets = Object.keys(perms).filter(p => p.startsWith('PERMSET')),
+                dirList = Object.keys(perms)
+                    .filter(p => p.startsWith('DIRECTORY'))
+                    .map(k => {
+                        return {
+                            directory: k.substring('DIRECTORY'.length + 1).trim(),
+                            data: perms[k]
+                        }
+                    }),
+                acl;
+
+            for (let i = 0; i < dirList.length; i++) {
+                let dirName = dirList[i].directory;
+                /** @type {AclDirectoryData} */
+                let data = dirList[i].data;
+                /** @type {DirectoryAcl} */
+                let acl = await this.getAcl(dirName, true);
+
+                if (!acl) {
+
+                }
+                else if (!acl.exists || data.fixupEnabled === true) {
+                    await acl.merge(data);
+                }
+                else {
+
+                }
+                console.log(`Ensuring permissions for ${dirName}`);
             }
         }
+        catch (ex) {
+            console.log(`Fatal error: Could not read permissions: ${ex.members}`);
+        }
+    }
+
+    async getCredential(filename) {
+        let keyId = await driver.driverCallAsync('getCredentialApply', async () => {
+            /** @type {{ IsUser: boolean, UserId: string, groups: string[]}} */
+            let result = await driver.masterObject[this.getCredentialApply](filename);
+            if (!result || typeof result !== 'object')
+                throw new Error(`Master object ${driver.filename}.${this.getCredentialApply} did not return valid credentials for ${filename}`);
+
+            result.groups = [];
+
+            if (result.IsUser || result.UserId.startsWith('$')) {
+                Object.keys(this.groups).forEach(gid => {
+                    let group = this.groups[gid];
+                    if (group.isMember(result.UserId))
+                        result.groups.push(gid);
+                });
+            }
+            return result;
+        }, __filename, true, true);
     }
 
    /**
@@ -176,7 +511,7 @@ class AclFileSecurity extends BaseFileSecurity {
      * @param {string} expr The expression to create
      */
     validCreateFile(expr) {
-        return this.validWriteFile( expr);
+        return this.validWriteFile(expr);
     }
 
     /**
@@ -240,9 +575,6 @@ class AclFileSecurity extends BaseFileSecurity {
      * @param {DirectoryObject} stat The stat object to check
      */
     async validReadDirectoryAsync(stat) {
-        let ecc = driver.getExecution(),
-            acl = this.getAcl(stat);
-
         if (!stat.isDirectory)
             throw new Error(`Bad argument 1 to validReadDirectoryAsync; Expected DirectoryObject got ${stat.constructor.name}`);
         return true; // BOGUS... but does not work yet

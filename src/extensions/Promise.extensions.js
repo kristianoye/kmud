@@ -8,7 +8,7 @@ Promise.prototype.abort = function () {
 Promise.prototype.catch = function (handler) {
     let args = [].slice.apply(arguments);
     args[0] = err => {
-        err = driverInstance ? driverInstance.cleanError(err) : err;
+        err = driver ? driver.cleanError(err) : err;
         return handler(err);
     };
     return originalCatch.apply(this, args);

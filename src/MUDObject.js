@@ -38,6 +38,11 @@ class MUDObject extends MUDEventEmitter {
                         value: ctx.isVirtual === true,
                         writable: false,
                         enumerable: false
+                    },
+                    objectId: {
+                        value: ctx.uuid,
+                        writable: false,
+                        enumerable: true
                     }
                 });
             }
@@ -55,6 +60,8 @@ class MUDObject extends MUDEventEmitter {
     }
 
     create() { }
+
+    createAsync() { }
 
     get environment() {
         let store = driver.storage.get(this);

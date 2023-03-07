@@ -123,7 +123,7 @@ class ExecutionContext extends MUDEventEmitter {
      * @param {string} fileName The file this 
      */
     assertAccess(thisObject, access, method, fileName) {
-        let to = this.thisObject;
+        let to = this.thisObject || thisObject;
 
         if (!to) // static method?
             throw new Error(`Cannot access ${access} method '${method}'`);
@@ -497,6 +497,27 @@ class ExecutionContext extends MUDEventEmitter {
     whenCompleted(callback) {
         this.onComplete.push(callback);
         return this;
+    }
+
+    async withObject(obj, method, callback, isAsync = false, rethrow = true) {
+        try {
+            let result = undefined;
+
+            this.push(obj, method, obj.filename, isAsync, 0);
+            if (callback.toString().startsWith('async'))
+                result = await callback();
+            else
+                result = callback();
+
+            return result;
+        }
+        catch (ex) {
+            if (rethrow)
+                throw ex;
+        }
+        finally {
+            this.pop(method);
+        }
     }
 
     /**

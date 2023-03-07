@@ -6,6 +6,8 @@
  * Various object-related efuns
  */
 
+const MUDObject = require("../MUDObject");
+
 class ObjectHelper {
     /**
      * Determine if one or more values are the same object reference.
@@ -177,6 +179,14 @@ class ObjectHelper {
             }
         }
         return false;
+    }
+
+    /**
+     * Query the security system for an objects privs
+     * @param {MUDObject} target
+     */
+    static async queryPrivs(target) {
+        return await driver.securityManager.queryPrivs(target);
     }
 
     /**

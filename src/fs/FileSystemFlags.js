@@ -1,20 +1,26 @@
 
 const
-    DirFlags = Object.freeze({
+    FileSystemQueryFlags = Object.freeze({
+        /** No options; Use defaults */
+        None: 0,
+
+        /** Show files that are marked as hidden */
+        ShowHiddenFiles: 1 << 0,
+
+        /** Allow system files in results */
+        ShowSystemFiles: 1 << 1,
+
         /** Do not cross filesystems */
-        DontCrossFilesystems: 1 << 1,
+        SingleFileSystem: 1 << 2,
 
-        /** Create directory structure as needed */
-        EnsurePathExists: 1 << 0,
+        /** Perform recursive search */
+        Recursive: 1 << 3,
 
-        /** Recursive operation */
-        RecursiveOperation: 1 << 2
+        /** Do not return normal files */
+        IgnoreFiles: 1 << 4,
+
+        /** Do not return directories */
+        IgnoreDirectories: 1 << 5
     });
 
-module.exports = function (system) {
-    if (!system.flags) system.flags = {};
-    if (!system.flags.fs) system.flags.fs = {};
-
-    system.flags.fs.DirFlags = DirFlags;
-};
-
+module.exports = { FileSystemQueryFlags }

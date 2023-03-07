@@ -20,7 +20,7 @@ class FileSystemRequest {
         /** @type {string} */
         this.relativePath = data.relPath || '';
 
-        /** @type {FileSystem} */
+        /** @type {MUDFileSystem} */
         this.fileSystem = data.fs;
 
         /** @type {number} */
@@ -40,7 +40,7 @@ class FileSystemRequest {
         this.op = data.op || 'unknown';
 
         /** @type {FileSecurity} */
-        this.securityManager = data.fs.securityManager;
+        this.securityManager = driver.fileManager.securityManager;
 
         this.directory = data.expr.substring(0, data.expr.lastIndexOf('/')) || '/';
         if (data.expr === '/')
@@ -50,6 +50,8 @@ class FileSystemRequest {
         this.path = this.fullPath = data.expr;
         this.relativePath = data.relativePath;
         this.absolutePath = data.fs.getRealPath(this.relativePath);
+
+        this.isSystemRequest = data.isSystemRequest || false;
     }
 
     clone(init) {

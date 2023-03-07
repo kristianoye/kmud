@@ -7,10 +7,10 @@
  */
 
 const
-    Database = require('./Database'),
+    IDatabase = require('./IDatabase'),
     mysql = require('mysql');
 
-class MySqlDb extends Database {
+class MySqlDb extends IDatabase {
     constructor(config) {
         super(config);
     }

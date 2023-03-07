@@ -272,6 +272,11 @@ class MUDStorage extends MUDEventEmitter {
     async eventInitialize(ownerObject) {
         if (ownerObject instanceof MUDObject) {
             this.owner = ownerObject;
+
+            //  Special case
+            if (driver.masterObject != null) {
+                let test = await driver.securityManager.getCredential(ownerObject.filename);
+            }
             this.$groups = await driver.getGroups(ownerObject);
             return true;
         }

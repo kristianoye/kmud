@@ -30,6 +30,7 @@ const
     LivingsHelper = require('./efuns/Livings'),
     MathHelper = require('./efuns/MathHelper'),
     ObjectHelper = require('./efuns/ObjectHelper'),
+    SecurityHelper = require('./efuns/SecurityHelper'),
     TextHelper = require('./efuns/TextHelper'),
     TimeHelper = require('./efuns/Time'),
     UserHelper = require('./efuns/UserHelper');
@@ -299,7 +300,7 @@ class EFUNProxy {
     /**
      * Create an encrypted password.
      * @param {string} plainText The plain text to be encrypted.
-     * @param {function=} callback An optional callback if the operation is async.
+     * @param {function} [callback] An optional callback if the operation is async.
      * @returns {string|void} Returns void if async or an encrypted string.
      */
     createPassword(plainText, callback) {
@@ -413,7 +414,7 @@ class EFUNProxy {
 
         let [oldBody, newBody] = unwrap([ptrOld, ptrNew]);
 
-        if (!ecc.guarded(f => driver.validExec(f, oldBody, newBody)))
+        if (!ecc.guarded(frame => driver.validExec(frame, oldBody, newBody)))
             throw new Error('Permission denied to efuns.exec()');
 
         return await driver.driverCallAsync('exec', async ctx => {
@@ -597,6 +598,10 @@ class EFUNProxy {
      */
     gameState() {
         return driver.gameState;
+    }
+
+    getNewId() {
+        return driver.getNewId();
     }
 
     get math() {
@@ -908,13 +913,14 @@ class EFUNProxy {
             cpuUsage: process.cpuUsage().user,
             gameDriver: 'Node.js v' + process.versions.node,
             hardware: (function () {
-                var cpus = {}, r = [];
+                let cpus = {}, r = [];
                 os.cpus().forEach((cpu, i) => {
                     if (!cpus[cpu.model]) cpus[cpu.model] = 0;
                     cpus[cpu.model]++;
                 });
-                for (var k in cpus) {
-                    r.push(k + " x " + cpus[k]);
+                for (let k in cpus) {
+                    if (cpus.hasOwnProperty(k))
+                        r.push(k + " x " + cpus[k]);
                 }
                 return r.join('');
             })(),
@@ -997,7 +1003,9 @@ class EFUNProxy {
         if (typeof fileExpr !== 'string' || fileExpr.length < 2)
             throw new Error('Bad argument 1 to parsePath');
 
-        let ls = fileExpr.lastIndexOf('/'), ld = fileExpr.lastIndexOf('.');
+        let ls = fileExpr.lastIndexOf('/'),
+            ld = fileExpr.lastIndexOf('.');
+
         if (ld > ls) {
             fileExpr = fileExpr.slice(0, ld);
         }
@@ -1691,6 +1699,10 @@ class EFUNProxy {
         return false;
     }
 
+    get security() {
+        return SecurityHelper;
+    }
+
     /**
      * Serialize an object for saving.
      * @param {any} target
@@ -1878,9 +1890,14 @@ class EFUNProxy {
     }
 
     stripBOM(content) {
-        if (content.charCodeAt(0) === 0xFEFF) {
-            content = content.slice(1);
+        if (typeof content === 'string') {
+            if (content.charCodeAt(0) === 0xFEFF)
+                content = content.slice(1);
         }
+        else if (content.buffer && content.buffer[0] === 0xFEFF)
+            content = content.slice(1);
+        else if (content.slice && content.slice(0, 3).join(',') === '239,187,191')
+            content = content.slice(3);
         return content;
     }
 

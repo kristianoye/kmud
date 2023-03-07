@@ -1,0 +1,29 @@
+#  If a user or object has no groups then they are assigned this group
+DEFAULT GROUP NAME: '$DEFAULT'
+
+#  Objects assigned to this group have full access to the MUD system
+SYSTEM GROUP NAME: '$SYSTEM'
+
+ADMIN:
+  name: Administrators
+  description: Contains a list of superusers that have global control over MUD operations.
+  members:
+    - kriton
+
+APPROVAL:
+  name: Approval Group
+  description: The approval group is responsible for reviewing new code and balancing gameplay.
+  members:
+    - kriton
+
+ASSIST:
+  name: Arch Group
+  description: Members of this group are backup administrators but do not have full admin access.
+  members:
+    - kriton
+
+MUDLIB:
+  name: MUDLib Development
+  description: Mudlib developers are responsible for maintaining the base code that other creators use.
+  members:
+    - kriton

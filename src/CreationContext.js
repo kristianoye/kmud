@@ -30,6 +30,9 @@ class CreationContext {
 
         /** @type {MUDModule} */
         this.module = data.module;
+
+        /** @type {string} */
+        this.uuid = data.uuid;
     }
 }
 

@@ -1,12 +1,178 @@
 
 const
     MUDEventEmitter = require('../MUDEventEmitter'),
-    { FileSystemObject, ObjectNotFound } = require('./FileSystemObject'),
+    { FileSystemObject, ObjectNotFound, VirtualObjectFile } = require('./FileSystemObject'),
+    { PermissionDeniedError } = require('../ErrorTypes'),
     FileSystemRequest = require('./FileSystemRequest'),
+    FileSystemQuery = require('./FileSystemQuery'),
+    SecurityFlags = require('./SecurityFlags'),
     Cache = require('../Cache'),
     crypto = require('crypto'),
     yaml = require('js-yaml'),
     path = require('path');
+const { FileSystemQueryFlags } = require('./FileSystemFlags');
+
+
+/**
+ * The basis for all filesystem wrapper objects
+ */
+class WrapperBase extends FileSystemObject {
+    /**
+     * Construct a new stat
+     * @param {FileSystemObject} data Config data
+     * @param {Error} [err] Any error associated with fetching the object
+     */
+    constructor(data, err = false) {
+        super(data, err);
+    }
+
+    async can(flags) {
+        return true;
+    }
+}
+
+/**
+ * Abstract class for implementing a directory-like structure 
+ */
+class DirectoryWrapper extends WrapperBase {
+    /**
+     * Construct a new directory object
+     * @param {FileSystemObject} stat Stat data
+     * @param {Error} err Any error associated with fetching the object
+     */
+    constructor(stat, err = undefined) {
+        super(stat, err);
+
+        /** @type {FileSystemObject[]} */
+        this.contents = [];
+        this.#instance = stat;
+    }
+
+    #instance;
+
+    getFileAsync(fileName) {
+        return this.#instance.getFileAsync(fileName);
+    }
+
+    /**
+     * Return a child object
+     * @param {string} spec The name of the file to retrieve
+     */
+    async getObject(spec) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                if (spec.indexOf('/') > -1)
+                    return reject(new Error('getObject(): Filename cannot contain directory separator'));
+                let filename = `${this.fullPath}/${spec}`,
+                    result = await driver.fileManager.getObjectAsync(filename);
+                return resolve(result);
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /**
+     * Maps a path relative to this object
+     * @param {any} expr
+     */
+    mapPath(expr) {
+        return path.posix.join(this.path, FileManager.convertPath(expr));
+    }
+
+    async readAsync(pattern = undefined, flags = 0) {
+        if (await this.can(SecurityFlags.P_LISTDIR))
+            return await this.#instance.readAsync(pattern, flags);
+        else
+            throw new PermissionDeniedError(this.fullPath, 'readAsync');
+    }
+}
+
+/** 
+ * Abstract class for implementing a file object 
+ */
+class FileWrapper extends WrapperBase {
+    /**
+     * Construct a new file object
+     * @param {FileSystemObject} stat Stat data
+     * @param {Error} err Any error associated with fetching the object
+     */
+    constructor(stat, err = undefined) {
+        super(stat, err);
+
+        this.#instance = stat;
+    }
+
+    // #region Method Implementations
+
+    /**
+     * Compile or re-compile a MUD module 
+     */
+    async compileAsync() {
+        if (await this.can(SecurityFlags.P_LOADOBJECT))
+            return super.compileAsync();
+        else
+            throw new PermissionDeniedError(this.fullPath, 'compileAsync');
+    }
+
+    async loadObjectAsync(request, args) {
+        if (await this.can(SecurityFlags.P_LOADOBJECT))
+            return super.loadObjectAsync(request, args);
+        else
+            throw new PermissionDeniedError(this.fullPath, 'loadObjectAsync');
+    }
+
+    async readAsync() {
+        if (await this.can(SecurityFlags.P_READ))
+            return await this.#instance.readAsync();
+        else
+            throw new PermissionDeniedError(this.fullPath, 'readAsync');
+    }
+
+    async readJsonAsync() {
+        if (await this.can(SecurityFlags.P_READ))
+            return super.readJsonAsync();
+        else
+            throw new PermissionDeniedError(this.fullPath, 'readJsonAsync');
+    }
+
+    async readYamlAsync() {
+        if (await this.can(SecurityFlags.P_READ))
+            return super.readJsonAsync();
+        else
+            throw new PermissionDeniedError(this.fullPath, 'readJsonAsync');
+    }
+
+    async writeAsync() {
+        if (await this.can(SecurityFlags.P_WRITE))
+            return super.writeAsync();
+        else
+            throw new PermissionDeniedError(this.fullPath, 'writeAsync');
+    }
+
+    // #endregion
+
+    // #region Properties
+    /** 
+     * The underlying implementation
+     * @type {FileSystemObject} 
+     */
+    #instance;
+
+
+    get extension() {
+        let n = this.name.lastIndexOf('.');
+        return n > 0 ? this.name.substring(n) : '';
+    }
+
+    get baseName() {
+        let n = this.path.lastIndexOf('.');
+        return n > 0 ? this.path.substring(0, n) : this.path;
+    }
+
+    // #endregion
+}
 
 /**
  * The file manager object receives external requests, creates internal requests,
@@ -17,17 +183,22 @@ class FileManager extends MUDEventEmitter {
     /**
      * Construct the file manager
      */
-    constructor(options) {
+    constructor(fsconfig) {
         super();
 
+        let options = fsconfig.fileManagerOptions || {};
         /** 
-         * Contains a cache of previously accessed directories */
-        this.directoryCache = new Cache({ capacity: options.directoryCacheSize || 1000, key: 'path' });
+         * Contains a cache of previously accessed directories 
+         */
+        this.cache = new Cache({
+            capacity: options.fileCacheSize || 10000,
+            key: 'path'
+        });
 
-        /** @type {Object.<string,FileSystem>} */
+        /** @type {Object.<string,MUDFileSystem>} */
         this.fileSystems = {};
 
-        /** @type {Object.<string,FileSystem>} */
+        /** @type {Object.<string,MUDFileSystem>} */
         this.fileSystemsById = {};
 
         /** @type {string} */
@@ -35,6 +206,11 @@ class FileManager extends MUDEventEmitter {
 
         /** @type {string} */
         this.mudlibAbsolute = path.resolve(__dirname, this.mudlibRoot);
+
+        let securityManagerType = require(path.join(__dirname, '..', fsconfig.securityManager)),
+            securityManager = new securityManagerType(this, fsconfig.securityManagerOptions);
+
+        this.securityManager = securityManager;
     }
 
     /**
@@ -44,6 +220,16 @@ class FileManager extends MUDEventEmitter {
         return this;
     }
 
+    async bootstrap(fsconfig) {
+        await fsconfig.eachFileSystem(async (config, index) => await this.createFileSystem(config, index));
+        return this;
+    }
+
+    async bootstrapSecurity(masterObject) {
+        await this.securityManager.bootstrap(masterObject);
+        return this.securityManager;
+    }
+
     /**
      * Clone an object into existance.
      * @param {string} expr The module to clone
@@ -51,11 +237,29 @@ class FileManager extends MUDEventEmitter {
      * @returns {MUDWrapper} The wrapped instance.
      */
     async cloneObjectAsync(expr, args = []) {
-        let request = this.createFileRequest('cloneObject', expr);
-        if (!request.valid('LoadObject'))
-            return request.deny();
-        else
-            return await request.fileSystem.cloneObjectAsync(request, args);
+        return this.loadObjectAsync(expr, args, 2);
+    }
+
+    /**
+     * Convert a path expression if needed.
+     * @param {string} expr The path expression to convert.
+     */
+    static convertPath(expr) {
+        if (path.sep === path.posix.sep)
+            return expr;
+
+        // handle the edge-case of Window's long file names
+        // See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#short-vs-long-names
+        expr = expr.replace(/^\\\\\?\\/, "");
+
+        // convert the separators, valid since both \ and / can't be in a windows filename
+        expr = expr.replace(/\\/g, '\/');
+
+        // compress any // or /// to be just /, which is a safe oper under POSIX
+        // and prevents accidental errors caused by manually doing path1+path2
+        expr = expr.replace(/\/\/+/g, '\/');
+
+        return expr;
     }
 
     /**
@@ -69,14 +273,62 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
+     * Query the file system
+     * @param {any} options
+     * @param {any} isSystemRequest
+     */
+    createFileQuery(options = {}, isSystemRequest = false) {
+        let parts = FileSystemQuery.getParts(options.expression),
+            fileSystem = this.getFileSystemByMountPoint('/');
+        let /** @type {string[]} */ relParts = [],
+            /** @type {string[]} */ absPath = [],
+            isGlobstar = false;
+
+        // /foo/**/*.js
+        for (let i = 0, max = parts.length; i < max; i++) {
+            let dir = '/' + parts.slice(0, i + 1).join('/'),
+                thisPart = parts[i],
+                isLastPart = i + 1 === max;
+
+            //  globstar expression
+            if (thisPart === '**') {
+                options.expression = parts.slice(i + 1).join('/');
+                isGlobstar = true;
+                break;
+            }
+            else if (dir in this.fileSystems) {
+                relParts = [];
+                fileSystem = this.fileSystems[dir];
+            }
+            else if (FileSystemQuery.containsWildcard(thisPart)) {
+                options.expression = thisPart;
+                break;
+            }
+            else {
+                relParts.push(thisPart);
+                absPath.push(thisPart);
+            }
+        }
+        return new FileSystemQuery(Object.assign(options, {
+            fileManager: this,
+            fileSystem: fileSystem,
+            isGlobstar: isGlobstar,
+            isSystemRequest: isSystemRequest === true,
+            relativePath: relParts.join('/'),
+            absolutePath: '/' + absPath.join('/')
+        }));
+     }
+
+    /**
      * Create a request that describes the current operation.
      * 
      * @param {string} op The name of the file operation
      * @param {string} expr THe filename expression being operated on
      * @param {string|number} flags Any numeric flags associated with the operation
+     * @param {boolean} [isSystemRequest] THIS SHOULD ONLY BE USED BY DRIVER INTERNALS
      * @returns {FileSystemRequest} The request to be fulfilled.
      */
-    createFileRequest(op, expr, flags = 0) {
+    createFileRequest(op, expr, flags = 0, isSystemRequest = false) {
         let { fileSystem, relativePath } = this.getFilesystem(expr);
 
         let result = new FileSystemRequest({
@@ -84,27 +336,147 @@ class FileManager extends MUDEventEmitter {
             flags: flags,
             op: op || '',
             expr,
-            relativePath
+            relativePath,
+            isSystemRequest
         });
         return result;
     }
 
     /**
+     * Construct a filesystem query object
+     * @param {FileSystemQuery} options
+     * @returns {Promise<FileSystemObject[]>}
+     */
+    queryFileSystemAsync(options = {}, isSystemRequest = false) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                let parts = FileSystemQuery.getParts(options.path || options.expression),
+                    fileSystem = this.getFileSystemByMountPoint('/');
+                let query = new FileSystemQuery(Object.assign({}, options, {
+                    isSystemRequest: isSystemRequest === true,
+                    fileManager: this,
+                    fileSystem: fileSystem
+                }));
+                let /** @type {string[]} */ relParts = [],
+                    /** @type {string[]} */ absPath = [];
+
+                // /foo/**/*.js
+                for (let i = 0, max = parts.length; i < max; i++) {
+                    let dir = '/' + parts.slice(0, i + 1).join('/'),
+                        thisPart = parts[i],
+                        isLastPart = i + 1 === max;
+
+                    //  globstar expression
+                    if (thisPart === '**') {
+                        let request = new FileSystemQuery(
+                            Object.assign({}, query, {
+                                expression: false,
+                                flags: query.flags | FileSystemQueryFlags.Recursive,
+                                isSystemRequest: isSystemRequest === true,
+                                relativePath: relParts.join('/')
+                            }));
+                        let expr = isLastPart ? false : FileSystemQuery.buildRegexExpression(parts.slice(i + 1).join('/'), false);
+                        let results = await fileSystem.queryFileSystemAsync(request);
+                        let thisDir = '/' + parts.slice(0, i).join('/');
+
+                        if (expr)
+                            results = results.filter(f => f.getRelativePath && expr.test(f.getRelativePath(thisDir)));
+
+                        return resolve(results);
+                    }
+                    else if (dir in this.fileSystems) {
+                        relParts = [];
+                        fileSystem = this.fileSystems[dir];
+                    }
+                    else if (FileSystemQuery.containsWildcard(thisPart)) {
+                        let request = new FileSystemQuery(
+                            Object.assign({}, query, {
+                                expression: FileSystemQuery.buildRegexExpression(thisPart),
+                                flags: isLastPart ? query.flags : query.flags | FileSystemQueryFlags.IgnoreFiles,
+                                isSystemRequest: isSystemRequest === true,
+                                relativePath: relParts.join('/')
+                            }));
+                        let result = await fileSystem.queryFileSystemAsync(request);
+
+                        if (isLastPart) {
+                            //  TODO: Convert DirEnts to game file objects
+                            return resolve(result);
+                        }
+                        else if (!query.atMaxDepth) {
+                            let rightExpression = parts.slice(i + 1);
+                            let results = [];
+
+                            //  Iterate through subdirectories
+                            for (let j = 0; j < result.length; j++) {
+                                let subDir = '/' + parts.slice(0, i).join('/') + '/' + result[j].name;
+
+                                if (query.hasFlag(FileSystemQueryFlags.SingleFileSystem) && this.isMountPoint(subDir))
+                                    continue;
+
+                                let subQuery = new FileSystemQuery(
+                                    Object.assign({}, query, {
+                                        expression: subDir + '/' + rightExpression,
+                                        flags: isLastPart ? query.flags : query.flags | FileSystemQueryFlags.IgnoreFiles,
+                                        isSystemRequest: isSystemRequest === true,
+                                        queryDepth: query.queryDepth + 1,
+                                        relativePath: relParts.join('/')
+                                    }));
+
+                                //  TODO: Add parallelism here?
+                                await this.queryFileSystemAsync(subQuery, isSystemRequest === true)
+                                    .catch(err => {
+                                        if (query.onError)
+                                            query.onError(err, subDir, subDir + '/' + rightExpression);
+                                    })
+                                    .then(result => {
+                                        results = results.concat(result);
+                                    });
+                            }
+                            return resolve(results);
+                        }
+                        else
+                            return resolve([]);
+                    }
+                    else if (true === isLastPart) {
+                        relParts.push(thisPart);
+                        let request = new FileSystemQuery(
+                            Object.assign({}, query, {
+                                isSystemRequest: isSystemRequest === true,
+                                relativePath: relParts.join('/')
+                            }));
+                        let result = await fileSystem.queryFileSystemAsync(request)
+                            .catch(err => reject(err));
+
+                        resolve(result || false);
+                    }
+                    else {
+                        relParts.push(thisPart);
+                        absPath.push(thisPart);
+                    }
+                }
+            }
+            catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    /**
      * Create the specified filesystem.
      * @param {MudlibFileMount} fsconfig The filesystem to mount.
+     * @param {number} index The position of the filesystem in the collection
      */
-    async createFileSystem(fsconfig) {
+    async createFileSystem(fsconfig, index) {
         try {
             let fileSystemModulePath = path.join(__dirname, '..', fsconfig.type),
                 fileSystemType = require(fileSystemModulePath),
-                securityManagerType = require(path.join(__dirname, '..', fsconfig.securityManager)),
                 systemId = crypto.createHash('md5').update(fsconfig.mountPoint).digest('hex'),
-                fileSystem = new fileSystemType(this, Object.assign({ systemId: systemId }, fsconfig.options), fsconfig.mountPoint),
-                securityManager = new securityManagerType(this, fileSystem, fsconfig.securityManagerOptions);
+                fileSystem = new fileSystemType(this, Object.assign({ systemId }, fsconfig.options), fsconfig.mountPoint);
 
+            if (index === 0 && fsconfig.mountPoint !== '/')
+                throw new Error('First mounted filesystem must be root (mountPoint = "/")');
             this.fileSystems[fsconfig.mountPoint] = fileSystem;
             this.fileSystemsById[systemId] = fileSystem;
-            this.securityManager = securityManager;
 
             return fileSystem;
         }
@@ -112,6 +484,10 @@ class FileManager extends MUDEventEmitter {
             console.log(`Error in FileManager.createFileSystem(): ${err.message}`);
             throw err;
         }
+    }
+
+    async createSecurityManager() {
+        return true;
     }
 
     /**
@@ -172,13 +548,23 @@ class FileManager extends MUDEventEmitter {
      * @returns {Promise<DirectoryObject>} Returns a directory object.
      */
     async getDirectoryAsync(expr, flags = 0) {
-        let req = this.createFileRequest('getDirectoryAsync', expr, flags),
-            result = this.directoryCache.get(req.fullPath);
-        if (!result) {
-            result = await req.fileSystem.getDirectoryAsync(req);
-            return this.directoryCache.store(result);
-        }
-        return result;
+        return new Promise(async (resolve, reject) => {
+            try {
+                let req = this.createFileRequest('getDirectoryAsync', expr, flags),
+                    result = this.cache.get(req.fullPath);
+
+                if (!result) {
+                    result = await req.fileSystem.getObjectAsync(req)
+                        .catch(err => reject(err));
+
+                    this.cache.store(result);
+                }
+                resolve(result);
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
     }
 
     /**
@@ -236,26 +622,53 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
+     * Get a filesystem by its location in the direactory hierarchy.
+     * @param {any} mp
+     * @returns {MUDFileSystem}
+     */
+    getFileSystemByMountPoint(mp) {
+        let fileSystem = this.fileSystems[mp] || false;
+        if (!mp)
+            throw new Error(`FATAL: Mount point ${mp} does not exist`);
+        return fileSystem;
+    }
+
+    /**
      * This method MUST ALWAYS return a filesystem object.  If the object does
      * not exist or an error occurs this method should return a ObjectNotFound
      * FileSystem object.
      * @param {string} expr The path expression to fetch
      * @param {number} flags Filesystem flags to control the operation
+     * @param {boolean} [isSystemRequest] THIS SHOULD ONLY BE USED BY DRIVER INTERNALS
      * @returns {Promise<FileSystemObject>}
      */
-    getObjectAsync(expr, flags = 0) {
-        let request = this.createFileRequest('getObjectAsync', expr),
-            result;
-        try {
-            result = request.fileSystem.getObjectAsync(request);
-        }
-        catch (err) {
-            result = new ObjectNotFound(
-                FileSystemObject.createDummyStats(request),
-                request,
-                err);
-        }
-        return result;
+    getObjectAsync(expr, flags = 0, isSystemRequest = false) {
+        let request = this.createFileRequest('getObjectAsync', expr, flags, isSystemRequest);
+
+        return new Promise(async (resolve, reject) => {
+            try {
+                await request.fileSystem.statAsync(request, isSystemRequest === true)
+                    .then(stat => resolve(stat), reason => reject(reason));
+            }
+            catch (ex) {
+                result = new ObjectNotFound(FileSystemObject.createDummyStats(request), err);
+                reject(result);
+            }
+        });
+    }
+
+    /**
+     * Check to see if the specified path is a mount point
+     * @param {string} dir The directory to check
+     * @returns True if the path specified is a mount point
+     */
+    isMountPoint(dir) {
+        if (!dir.startsWith('/'))
+            throw new Error(`Path must be absolute: ${dir}`);
+        else if (dir.endsWith('/'))
+            dir = dir.slice(0, dir.length - 2);
+
+        return dir in this.fileSystems;
     }
 
     /**
@@ -263,9 +676,9 @@ class FileManager extends MUDEventEmitter {
      * Fetches a system file to be used within the driver.
      * @param {string} expr The file to load
      */
-    async getSystemFileAsync(expr) {
-        let request = this.createFileRequest('getSystemFileAsync', expr);
-        return await request.fileSystem.getSystemFileAsync(request);
+    async readSystemFileAsync(expr) {
+        let request = this.createFileRequest('readSystemFileAsync', expr);
+        return await request.fileSystem.readSystemFileAsync(request);
     }
 
     /**
@@ -326,9 +739,9 @@ class FileManager extends MUDEventEmitter {
     isDirectoryAsync(expr) {
         return new Promise(async resolve => {
             try {
-                let directory = await this.getDirectoryAsync(expr)
+                let directory = await this.getObjectAsync(expr)
                     .catch(err => resolve(false));
-                resolve(directory && directory.exists);
+                resolve(directory && directory.exists && directory.isDirectory);
             }
             catch (err) { resolve(false); }
         });
@@ -363,7 +776,47 @@ class FileManager extends MUDEventEmitter {
      */
     async loadObjectAsync(expr, args, flags = 0) {
         let request = this.createFileRequest('loadObjectAsync', expr, flags);
-        return request.valid('validLoadObject') && await request.fileSystem.loadObjectAsync(request, args || []);
+
+        return new Promise(async (resolve, reject) => {
+            try {
+                let exts = driver.compiler.supportedExtensions,
+                    pattern = new RegExp(driver.compiler.extensionPattern),
+                    result = false;
+                let { file, type, instance } = driver.efuns.parsePath(request.fullPath),
+                    targetFile = await this.getObjectAsync(file);
+
+                if (pattern.test(targetFile.fullPath)) {
+                    result = await targetFile.loadObjectAsync(request, args)
+                        .catch(err => reject(err));
+                }
+                else {
+
+                    //  Extension was not specified... try them all
+                    for (let i = 0; i < exts.length; i++) {
+                        let fileWithExtension = await this.getObjectAsync(file + exts[i], flags);
+
+                        if (fileWithExtension.exists) {
+                            result = await fileWithExtension.loadObjectAsync(request, args)
+                                .catch(err => reject(err));
+                            break;
+                        }
+                    }
+                    if (!result) {
+                        //  Try virtual
+                        targetFile = new VirtualObjectFile(FileSystemObject.createDummyStats(request), request);
+                        result = await targetFile.loadObjectAsync(request, args)
+                            .catch(err => reject(err));
+                    }
+                }
+
+                if (!result)
+                    return reject(`loadObjectAsync(): Could not find suitable file to load`);
+                resolve(result);
+            }
+            catch (ex) {
+                reject(ex);
+            }
+        });
     }
 
     /**
@@ -397,30 +850,43 @@ class FileManager extends MUDEventEmitter {
     /**
      * Reads a file from the filesystem.
      * @param {string} expr The file to try and read.
+     * @param {FileOptions} options 
      * @returns {string} The content from the file.
      */
-    async readFileAsync(expr) {
+    async readFileAsync(expr, options = { encoding: 'utf8', flags: 0 }) {
         let request = this.createFileRequest('readFileAsync', expr);
+        return new Promise(async (resolve, reject) => {
+            try {
+                /** @type {FileObject} */
+                let fileObject = await request.fileSystem.getObjectAsync(request);
+                if (fileObject.exists) {
+                    let result = fileObject.readAsync(options.encoding, options.flags)
+                        .catch(err => reject(err));
+                    resolve(result);
+                }
+                else
+                    reject(`File not found: ${request.fullPath}`)
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
         return request.valid('validReadFile') && await request.fileSystem.readFileAsync(request);
     }
 
     /**
      * Read structured data from the specified location.
      * @param {string} expr The JSON file being read.
+     * @param {FileOptions} options Additional options
      * @returns {Promise<any>}
      */
-    async readJsonAsync(expr) {
+    readJsonAsync(expr, options = {}) {
         return new Promise(async (resolve, reject) => {
             try {
-                let request = this.createFileRequest('readJsonFile', expr);
-                let directory = await this.getDirectoryAsync(request.directory);
-                if (!directory.exists)
-                    reject(new Error(`Directory ${request.directory} does not exist.`));
-                let file = await directory.getFileAsync(request.name);
-                if (!file.exists)
-                    reject(new Error(`File ${request.path} does not exist.`));
-                let results = await file.readJsonAsync();
-                resolve(results);
+                let o = await this.getObjectAsync(expr),
+                    result = await o.readJsonAsync(options)
+                        .catch(err => reject(err));
+                return resolve(result);
             }
             catch (err) {
                 reject(err);
@@ -436,7 +902,7 @@ class FileManager extends MUDEventEmitter {
     async readYamlAsync(expr) {
         return new Promise(async (resolve, reject) => {
             try {
-                let request = this.createFileRequest('readJsonFile', expr);
+                let request = this.createFileRequest('readYamlAsync', expr);
                 let directory = await this.getDirectoryAsync(request.directory);
                 if (!directory.exists)
                     reject(new Error(`Directory ${request.directory} does not exist.`));
@@ -444,6 +910,7 @@ class FileManager extends MUDEventEmitter {
                 if (!file.exists)
                     reject(new Error(`File ${request.path} does not exist.`));
                 let results = yaml.safeLoad(await file.readAsync());
+
                 resolve(results);
             }
             catch (err) {
@@ -497,6 +964,23 @@ class FileManager extends MUDEventEmitter {
     toRealPath(expr) {
         let req = this.createFileRequest('toRealPath', expr);
         return req.fileSystem.getRealPath(req.relativePath);
+    }
+
+    /**
+     * Create a suitable wrapper object
+     * @param {any} fso
+     */
+    wrapFileObject(fso) {
+        if (fso.isFile) {
+            return new FileWrapper(fso);
+        }
+        else if (fso.isDirectory) {
+            return new DirectoryWrapper(fso);
+        }
+        else if (fso instanceof ObjectNotFound === true)
+            return new WrapperBase(fso);
+        else
+            throw new Error(`Unhandled object type for ${fso}`);
     }
 
     /**

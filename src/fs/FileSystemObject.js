@@ -1,3 +1,4 @@
+/// <reference path="../dts/GameServer.d.ts" />
 /*
  * A file system object represents a single object on a filesystem.  This 
  * may be a directory or a file or some other construct (possible a FIFO,
@@ -7,55 +8,238 @@
  *   - A filesystem ID to denote which filesystem on which the object exists
  *   - A parent file object
  */
-
 const
-    path = require('path');
+    path = require('path'),
+    yaml = require('js-yaml')
+    SecurityFlags = Object.freeze({
+        /** May read the contents of an object */
+        P_READ: 1 << 0,
+        /** May write/overwrite the object; Also see P_APPEND */
+        P_WRITE: 1 << 1,
+        /** May delete the object */
+        P_DELETE: 1 << 2,
+        /** May delete this directory */
+        P_DELETEDIR: 1 << 3,
+        /** May read the contents of a directory */
+        P_LISTDIR: 1 << 4,
+        /** May create a file in the directory */
+        P_CREATEFILE: 1 << 5,
+        /** May create a new directory */
+        P_CREATEDIR: 1 << 6,
+        /** May change permissions on an object */
+        P_CHANGEPERMS: 1 << 7,
+        /** May view the permissions on an object */
+        P_READPERMS: 1 << 8,
+        /** May take ownership of an object */
+        P_TAKEOWNERSHIP: 1 << 9,
+        /** Can you read the associated metadata? */
+        P_READMETADATA: 1 << 10,
+        /** Can you write to the associated metadata? */
+        P_WRITEMETADATA: 1 << 11,
+        /** Can the user read filesystem files? */
+        P_VIEWSYSTEMFILES: 1 << 12,
+        /** Can the user load types from the file module? */
+        P_LOADOBJECT: 1 << 13,
+        /** Can the user execute the type as a command? */
+        P_EXECUTE: 1 << 14,
+        /** Can the user destruct the objects created from the module? */
+        P_DESTRUCTOBJECT: 1 << 15,
+        /** May append but may not be able to truncate */
+        P_APPEND: 1 << 16
+    });
 
-const { NotImplementedError } = require('../ErrorTypes');
+const { NotImplementedError, PermissionDeniedError } = require('../ErrorTypes');
 
+/**
+ * The interface definition for ALL filesystem types
+ */
 class FileSystemObject {
     /**
-     * Construct a new stat
-     * @param {FileSystemObject} data Config data
-     * @param {FileSystemRequest} request The directory the filesystem is mounted to
-     * @param {Error} err Any error associated with fetching the object
+     * Construct a FSO
+     * @param {FileSystemObject} fso
      */
-    constructor(data, request, err) {
-
-        Object.assign(this, data);
-
-        if (!(this.directory = data.directory))
-            throw new Error('FileSystemObject must contain directory');
-        this.error = err;
-        this.fullPath = '';
-        this.isFile = data.isFile;
-        this.isDirectory = data.isDirectory;
-        this.mountPoint = data.mountPoint;
-        this.fileSystemId = data.fileSystemId;
-        this.relativePath = data.relativePath;
-        this.name = data.name;
-
-        if (request) {
-            this.mountPoint = request.fileSystem.mountPoint;
-            this.fileSystemId = request.fileSystem.systemId;
-
-            /** Path relative to the root of the filesystem */
-            this.relativePath = request.relativePath;
-            this.name = data.name || request.fileName;
-        }
+    constructor(fso, err = false) {
+        this.#fileInfo = fso;
     }
 
-    assertValid() {
-        if (!this.name)
-            throw new Error('Illegal stat object has no name');
-        return this;
-    }
+    // #region Prive Properties
+
+    /** @type {FileSystemObject} */
+    #fileInfo;
+
+    // #endregion
+
+    // #region Properties
 
     /**
-     * Creates a deep clone of the stat that is safe to return to the MUD.
+     * The ID of the filesystem this object lives on
+     * @type {string} 
      */
-    clone() {
-        return new this.constructor(this);
+    get fileSystemId() {
+        return this.#fileInfo.fileSystemId || undefined;
+    }
+
+    get mountPoint() {
+        return this.#fileInfo.mountPoint || undefined;
+    }
+
+    get atime() {
+        return this.#fileInfo.atime || new Date(0);
+    }
+
+    get atimeMs() {
+        return this.atime.getMilliseconds();
+    }
+
+    get birthtime() {
+        return this.#fileInfo.birthtime || new Date(0);
+    }
+
+    get birthtimeMs() {
+        return this.birthtime.getMilliseconds();
+    }
+
+    get blksize() {
+        return this.#fileInfo.blksize || 4096;
+    }
+
+    get blocks() {
+        return this.#fileInfo.blocks;
+    }
+
+    get ctime() {
+        return this.#fileInfo.ctime || new Date(0);
+    }
+
+    get ctimeMs() {
+        return this.ctime.getMilliseconds();
+    }
+
+    get dev() {
+        return this.#fileInfo.dev || -1;
+    }
+
+    get directory() {
+        return this.#fileInfo.directory || undefined;
+    }
+
+    get exists() {
+        return this.#fileInfo.exists;
+    }
+
+    get extension() {
+        if (this.isFile) {
+            let n = this.fullPath.lastIndexOf('.');
+            if (n > 0) return this.fullPath.slice(n);
+        }
+        return '';
+    }
+
+    get fullPath() {
+        return this.path;
+    }
+
+    get gid() {
+        return this.#fileInfo.gid || -1;
+    }
+
+    get ino() {
+        return this.#fileInfo.ino || -1;
+    }
+
+    get isBlockDevice() {
+        return this.#fileInfo.isBlockDevice || false;
+    }
+
+    get isCharacterDevice() {
+        return this.#fileInfo.isCharacterDevice || false;
+    }
+
+    get isDirectory() {
+        return this.#fileInfo.isDirectory || false;
+    }
+
+    get isFile() {
+        return this.#fileInfo.isFile || false;
+    }
+
+    get isFIFO() {
+        return this.#fileInfo.isFIFO || false;
+    }
+
+    get isSocket() {
+        return this.#fileInfo.isSocket || false;
+    }
+
+    get isSymbolicLink() {
+        return this.#fileInfo.isSymbolicLink || false;
+    }
+
+    get isSystemFile() {
+        return this.#fileInfo.isSystemFile || false;
+    }
+
+    get isVirtual() {
+        return false;
+    }
+
+    get mode() {
+        return this.#fileInfo.mode || -1;
+    }
+
+    get mtime() {
+        return this.#fileInfo.mtime || new Date(0);
+    }
+
+    get mtimeMs() {
+        return this.mtime.getMilliseconds();
+    }
+
+    get name() {
+        return this.#fileInfo.name;
+    }
+
+    /** @type {string} */
+    get path() {
+        return this.#fileInfo.path;
+    }
+
+    get rdev() {
+        return this.#fileInfo.rdev || -1;
+    }
+
+    get size() {
+        return this.#fileInfo.size || -1;
+    }
+
+    get uid() {
+        return this.#fileInfo.uid || -1;
+    }
+
+    // #endregion
+
+    // #region Methods
+
+    /**
+     * Compile or re-compile a MUD module 
+     */
+    async compileAsync() {
+        return new Promise(async (resolve, reject) => {
+            if (this.isDirectory)
+                throw new Error(`Operation not supported: ${this.fullPath} is a directory.`);
+            try {
+                await driver.compiler.compileObjectAsync({
+                    args: [],
+                    file: this.fullPath,
+                    reload: true
+                }).catch(err => reject(err));
+
+                resolve(true);
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
     }
 
     /**
@@ -87,18 +271,14 @@ class FileSystemObject {
     /**
      * Generate a dummy stat.
      * @param {Error} err An error that occurred.
-     * @param {FileSystemRequest|string} request The request associated with this stat
+     * @param {FileSystemObject} baseStat What information we CAN provide
      * @param {Error} err Any error associated with this request
      * @returns {FileSystemObject}} A dummy stat file
      */
-    static createDummyStats(request, err = false, operation = 'unknown') {
+    static createDummyStats(baseStat, err = false, operation = 'unknown') {
         let dt = new Date(0);
 
-        if (typeof request === 'string') {
-            request = driver.fileManager.createFileRequest(operation, request);
-        }
-
-        return {
+        return Object.assign({
             atime: dt,
             atimeMs: dt.getTime(),
             birthtime: dt,
@@ -108,10 +288,10 @@ class FileSystemObject {
             ctime: dt,
             ctimeMs: dt.getTime(),
             dev: -1,
-            directory: request.directory,
+            directory: baseStat.directory,
             error: err || new Error('Unknown error'),
             exists: false,
-            fullPath: request.fullPath,
+            fullPath: baseStat.path,
             gid: -1,
             ino: -1,
             nlink: -1,
@@ -119,8 +299,8 @@ class FileSystemObject {
             mode: -1,
             mtime: dt,
             mtimeMs: dt.getTime(),
-            name: request.name,
-            path: request.path || '',
+            name: baseStat.name,
+            path: baseStat.path || '',
             size: -1,
             rdev: -1,
             isBlockDevice: false,
@@ -130,7 +310,7 @@ class FileSystemObject {
             isFile: false,
             isSocket: false,
             isSymbolicLink: false
-        };
+        }, baseStat);
     }
 
     /**
@@ -143,42 +323,69 @@ class FileSystemObject {
 
     /** 
      * Get the parent of this object.
-     * @returns {Promise<DirectoryObject>}  Returns the parent object
+     * @returns {Promise<DirectoryWrapper>}  Returns the parent object
      */
     async getParent() {
-        try {
-            if (this.path === '/')
-                return undefined;
-            let parentPath = path.posix.resolve(this.path, '..');
-            return await driver.fileManager.getDirectoryAsync(parentPath)
-                .catch(err => { throw err; });
-        }
-        catch (err) {
-            throw err;
-        }
+        if (this.path === '/')
+            return undefined;
+        let parentPath = path.posix.resolve(this.path, '..');
+        return await driver.fileManager.getDirectoryAsync(parentPath)
+            .catch(err => { throw err; });
     }
 
-    /** Get the permissions from the security manager */
-    async getPermissions() {
-        let securityManager = driver.securityManager;
-        return securityManager.getPermissions(this);
-        if (this.isFile) {
-            let parent = await this.getParent();
-            return await parent.getPermissions(this.name);
-        }
-        else if (this.isDirectory) {
-            let aclFile = path.posix.resolve(this.path, '.acl'),
-                aclStat = await driver.fileManager.statAsync(aclFile);
+    /**
+     * Calculate the relative path to this object from a destination
+     * @param {string} expr
+     */
+    getRelativePath(expr) {
+        if (this.fullPath.startsWith(expr))
+            return this.fullPath.slice(expr.length + (expr.endsWith('/') ? 0 : 1));
+        else
+            return path.posix.relative(expr, this.fullPath.slice(1));
+    }
 
-            if (aclStat.exists) {
-                let aclData = await aclStat.readJsonAsync();
-                return aclData;
+    resolveRelativePath(expr) {
+        return path.posix.resolve(this.isDirectory ? this.path : this.directory, expr);
+    }
+
+    /**
+     * Load an object from this file.
+     * @param {FileSystemRequest} request
+     * @param {any[]} args
+     */
+    async loadObjectAsync(request, args) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                if (this.isDirectory)
+                    throw new Error(`Operation not supported: ${this.fullPath} is a directory.`);
+                let parts = driver.efuns.parsePath(request.fullPath),
+                    module = driver.cache.get(parts.file),
+                    forceReload = !module || request.hasFlag(1),
+                    cloneOnly = request.hasFlag(2);
+
+                if (forceReload) {
+                    module = await driver.compiler.compileObjectAsync({
+                        args,
+                        file: parts.file,
+                        reload: forceReload
+                    });
+                    if (!module)
+                        return reject(new Error(`loadObjectAsync(): Failed to load module ${fullPath}`));
+                }
+                if (cloneOnly) {
+                    let clone = await module.createInstanceAsync(parts.type, false, args);
+
+                    if (!clone)
+                        return reject(`loadObjectAsync(): Failed to clone object '${request.fullPath}'`);
+
+                    return resolve(clone);
+                }
+                return resolve(module.getInstanceWrapper(parts));
             }
-            else {
-                let parent = await this.getParent();
-                return await parent.getPermissions();
+            catch (err) {
+                reject(err);
             }
-        }
+        });
     }
 
     /**
@@ -189,76 +396,88 @@ class FileSystemObject {
         return path.posix.join(this.path, '..', FileSystemObject.convertPath(expr));
     }
 
-    /**
-     * 
-     * @param {FileSystemObject} data
-     * @returns {FileSystemObject}
-     */
-    merge(data) {
-        /** @type {number} */
-        this.atime = data.atime || this.atime || 0;
-
-        /** @type {number} */
-        this.blocks = data.blocks || this.blocks || 0;
-
-        /** @type {number} */
-        this.blockSize = data.blockSize || this.blockSize || 0;
-
-        /** @type {number} */
-        this.ctime = data.ctime || this.ctime || 0;
-
-        /** @type {number} */
-        this.dev = data.dev || this.dev || 0;
-
-        /** @type {boolean} */
-        this.exists = data.exists || this.exists || false;
-
-        /** @type {boolean} */
-        this.isDirectory = data.isDirectory || this.isDirectory || false;
-        if (typeof this.isDirectory === 'function')
-            this.isDirectory = data.isDirectory();
-
-        /** @type {boolean} */
-        this.isFile = data.isFile || this.isFile || false;
-        if (typeof this.isFile === 'function')
-            this.isFile = data.isFile();
-
-        /** @type {number} */
-        this.mtime = data.mtime || this.mtime || 0;
-
-        /** @type {string} */
-        this.name = data.name || this.name || false;
-
-        /** @type {FileSystemObject} */
-        this.parent = data.parent || this.parent || false;
-
-        /** @type {string} */
-        this.path = data.path || this.parent + this.name;
-
-        /** @type {Object.<string,number>} */
-        this.perms = data.perms || this.perms || {};
-
-        /** @type {number} */
-        this.size = data.size || this.size || 0;
-
-        /** @type {number} */
-        this.type = data.type || this.type || FT_UNKNOWN;
-
-        return this;
-    }
-
     async moveAsync(request) {
         throw new NotImplementedError('moveAsync', this);
     }
 
-    async readAsync() {
+    /**
+     * @param {FileOptions} options
+     * @returns {Promise<string|Buffer>} 
+     */
+    async readAsync(options = {}) {
         throw new NotImplementedError('readAsync', this);
+    }
+
+    /**
+     * Additional options
+     * @param {FileOptions} options
+     */
+    readJsonAsync(options = {}) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                let localOptions = Object.assign({ encoding: 'utf8', stripBOM: true }, options);
+                if (this.isDirectory) {
+                    console.log('Reading json from a directory?');
+                }
+                this.readAsync()
+                    .then(
+                        content => {
+                            if (content) {
+                                content = content.toString(localOptions.encoding);
+                                if (localOptions.stripBOM) {
+                                    content = driver.efuns.stripBOM(content);
+                                }
+                            }
+                            if (typeof content === 'string') {
+                                let result = JSON.parse(content);
+                                return resolve(result);
+                            }
+                            else if (typeof content === 'object')
+                                return resolve(content);
+                            else
+                                reject(new Error(`readJsonAsync(): Could not produce object`));
+                        },
+                        reason => reject(reason));
+            }
+            catch (ex) {
+                reject(ex);
+            }
+        });
+    }
+
+    async readYamlAsync(options = {}) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                let content = await this.#fileInfo.readAsync()
+                    .catch(err => reject(err));
+
+                let localOptions = Object.assign({ encoding: 'utf8', stripBOM: true }, options);
+
+                if (content) {
+                    content = content.toString(localOptions.encoding);
+                    if (localOptions.stripBOM) {
+                        content = driver.efuns.stripBOM(content);
+                    }
+                }
+                if (typeof content === 'string') {
+                    let result = yaml.safeLoad(content);
+                    return resolve(result);
+                }
+                else if (typeof content === 'object')
+                    return resolve(content);
+                else
+                    reject(new Error(`readYamlAsync(): Could not produce object`));
+            }
+            catch (ex) {
+                reject(ex);
+            }
+        });
     }
 
     /**
      * Refresh cached data and return a new copy of the object
      */
-    refresh() {
+    async refresh() {
         throw new NotImplementedError('refresh', this);
     }
 
@@ -269,86 +488,12 @@ class FileSystemObject {
     async valid(checkName) {
         return await driver.fileManager.securityManager[checkName](this);
     }
-}
 
-/**
- * Abstract class for implementing a directory-like structure 
- */
-class DirectoryObject extends FileSystemObject {
-    /**
-     * Construct a new directory object
-     * @param {FileSystemObject} stat Stat data
-     * @param {string} request The directory the filesystem is mounted to
-     * @param {Error} err Any error associated with fetching the object
-     */
-    constructor(stat, request, err = undefined) {
-        super(stat, request, err);
+    async writeAsync() {
 
-        /** @type {FileSystemObject} */
-        this.contents = [];
     }
 
-    /**
-     * Maps a path relative to this object
-     * @param {any} expr
-     */
-    mapPath(expr) {
-        return path.posix.join(this.path, FileSystemObject.convertPath(expr));
-    }
-}
-
-class DirectoryWrapper extends DirectoryObject {
-    /**
-     * Wraps a directory instance
-     * @param {DirectoryObject} instance
-     * @param {FileSystemRequest} request
-     */
-    constructor(instance, request) {
-        super(instance, request);
-
-        let target = instance;
-
-        Object.defineProperties(this, {
-            readAsync: {
-                value: async () => {
-                    if (target.contents) {
-
-                    }
-                }
-            },
-            refresh: {
-                value: async () => {
-
-                },
-                writable: false
-            }
-        });
-    }
-}
-
-/** 
- * Abstract class for implementing a file object 
- */
-class FileObject extends FileSystemObject {
-    /**
-     * Construct a new file object
-     * @param {FileSystemObject} stat Stat data
-     * @param {FileSystemRequest} request The directory the filesystem is mounted to
-     * @param {Error} err Any error associated with fetching the object
-     */
-    constructor(stat, request, err = undefined) {
-        super(stat, request, err);
-    }
-
-    get extension() {
-        let n = this.name.lastIndexOf('.');
-        return n > -1 ? this.name.substring(n) : '';
-    }
-
-    get baseName() {
-        let n = this.path.lastIndexOf('.');
-        return n > -1 ? this.path.substring(0, n) : this.path;
-    }
+    // #endregion
 }
 
 /**
@@ -369,11 +514,54 @@ class ObjectNotFound extends FileSystemObject {
     }
 }
 
+class VirtualObjectFile extends FileSystemObject {
+    constructor(stat, request) {
+        super(stat,request);
+    }
+
+    get isVirtual() {
+        return true;
+    }
+
+    /**
+     * Load an object from this file.
+     * @param {FileSystemRequest} request
+     * @param {any[]} args
+     */
+    loadObjectAsync(request, args=[]) {
+        return new Promise(async (resolve, reject) => {
+            let parts = driver.efuns.parsePath(request.fullPath),
+                module = driver.cache.get(parts.file),
+                forceReload = !module || request.hasFlag(1),
+                cloneOnly = request.hasFlag(2);
+
+            if (forceReload) {
+                module = await driver.compiler.compileObjectAsync({
+                    args,
+                    file: parts.file,
+                    isVirtual: true,
+                    reload: forceReload
+                });
+                if (!module)
+                    return reject(new Error(`Failed to load module ${fullPath}`));
+            }
+            if (cloneOnly) {
+                let clone = await module.createInstanceAsync(parts.type, false, args);
+
+                if (!clone)
+                    return reject(`loadObjectAsync(): Failed to clone object '${request.fullPath}'`);
+
+                return resolve(clone);
+            }
+            return resolve(module.getInstanceWrapper(parts));
+        });
+    }
+}
+
 
 module.exports = {
     FileSystemObject,
-    DirectoryObject,
-    FileObject,
     ObjectNotFound,
-    DirectoryWrapper
+    SecurityFlags,
+    VirtualObjectFile
 };

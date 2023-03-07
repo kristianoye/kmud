@@ -6,34 +6,36 @@
  * Description: Provides single interface for interacting with databases.
  */
 const
-    ConfigUtil = require('../ConfigUtil'),
-    _driver = Symbol('_driver'),
-    _options = Symbol('_options');
+    ConfigUtil = require('../ConfigUtil');
 
 /**
  * Abstract class for database implementations.
  */
-class Database {
+class IDatabase {
     /**
      * Construct a db config
      * @param {any} config
      */
     constructor(config) {
-        this[_driver] = config.driver;
-        this[_options] = config.options;
+        this.#driver = config.driver;
+        this.#options = config.options;
     }
 
     connect() {
         throw new Error('Not implemented');
     }
 
+    #driver;
+
+    #options;
+
     /** Contains the name of the driver required to interact with this database. 
      * @returns {string} */
-    get driver() { return this[_driver]; }
+    get driver() { return this.#driver; }
 
     /** Contains settings required to connect to the database. 
      * @returns {Object.<string,any>} */
-    get options() { return this[_options]; }
+    get options() { return this.#options; }
 }
 
 /**
@@ -42,7 +44,7 @@ class Database {
  * @param {DBImp} config The database configuration data.
  * @returns {DBImp}
  */
-Database.create = function (dbId, config) {
+IDatabase.create = function (dbId, config) {
     let configType = false;
 
     if (!config.driver || typeof config.driver !== 'string')
@@ -65,11 +67,11 @@ Database.create = function (dbId, config) {
     ConfigUtil.assertExists('./db', configType);
     let configConst = require(configType);
 
-    if (configConst.prototype instanceof Database) {
+    if (configConst.prototype instanceof IDatabase) {
         let dbc = new configConst(config.options);
         return dbc;
     }
     throw new Error(`Specified type ${configType} is not a valid database config`);
 };
 
-module.exports = Database;
+module.exports = IDatabase;

@@ -9,12 +9,17 @@
 class PipelineContext {
     /**
      * 
-     * @param {string|FileObject} file The name of the file to be compiled.
+     * @param {MUDCompilerOptions} options The name of the file to be compiled.
      * @param {boolean} [isEval] Indicates the code is from eval()
      * @param {string} [content] The source code
      */
-    constructor(file, isEval = false, content = undefined) {
+    constructor(options, isEval = false, content = undefined) {
+        let file = options.fileObject || options.file;
+
         this.isEval = isEval === true;
+        this.isVirtual = options.file.isVirtual || false;
+        this.options = options;
+
         if (typeof file === 'string') {
             let n = file && file.lastIndexOf('.') || -1;
 
@@ -57,20 +62,22 @@ class PipelineContext {
      */
     addValue(key, val) {
         this[key] = val;
+        
         return this;
     }
 
     /**
      * Create a context
-     * @param {string} expr The file expression to build a context for
+     * @param {MUDCompilerOptions} options The file expression to build a context for
      * @param {string} possibleExtensions A list of expressions to search for
      */
-    static async create(expr, possibleExtensions = '') {
+    static async create(options, possibleExtensions = '') {
         try {
-            let directory = expr.slice(0, expr.lastIndexOf('/')),
+            let expr = options.file,
+                directory = expr.slice(0, expr.lastIndexOf('/')),
                 fileExpression = expr.slice(expr.lastIndexOf('/') + 1),
                 hasExtension = new RegExp(possibleExtensions).test(fileExpression),
-                directoryObject = await driver.fileManager.getDirectoryAsync(directory),
+                directoryObject = await driver.fileManager.getObjectAsync(directory, 0, true),
                 filterExpr = hasExtension ? fileExpression : fileExpression + possibleExtensions,
                 files = await directoryObject.readAsync(filterExpr),
                 fileToUse = files.firstOrDefault();
@@ -78,15 +85,18 @@ class PipelineContext {
             if (fileToUse) {
                 let content = await fileToUse.readAsync()
                     .catch(err => { throw err; });
-                return new PipelineContext(fileToUse, false, content);
+
+                options.fileObject = fileToUse;
+
+                return new PipelineContext(options, false, content);
             }
             else 
-                return new PipelineContext(expr);
+                return new PipelineContext(options);
         }
         catch (ex) {
             console.log('Error in PipelineContext.create(): ' + ex.message);
         }
-        return new PipelineContext(expr);
+        return new PipelineContext(options);
     }
 
     execute() {
@@ -109,10 +119,6 @@ class PipelineContext {
             default:
                 return this;
         }
-    }
-
-    getFinal() {
-        return this.state === CTX_FINISHED ? this.content : false;
     }
 
     /**

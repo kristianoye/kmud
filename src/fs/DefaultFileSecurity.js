@@ -4,7 +4,7 @@
  * Date: October 1, 2017
  */
 const
-    FileSecurity = require('./BaseFileSecurity');
+    BaseFileSecurity = require('./BaseFileSecurity');
 
 class DefaultFileSecurity extends BaseFileSecurity {
    /**

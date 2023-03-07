@@ -12,11 +12,16 @@ class BaseFileSecurity extends MUDEventEmitter {
      * Construct a file security model that acts as a firewall
      * between mudlib and filesystem.
      * @param {FileManager} fileManager A reference to the file manager.
-     * @param {FileSystem} fileSystem A reference to the filesystem this object manages.
      * @param {Object.<string,any>} options
      */
-    constructor(fileManager, fileSystem, options) {
+    constructor(fileManager, options) {
         super();
+
+        /**
+         * The name of the method to call in the master object when bootstrapping
+         * the security manager.
+         * @type {string} */
+        this.bootstrapApply = options.bootstrapApply;
 
         /** @type {GameServer} */
         this.driver = fileManager.driver;
@@ -24,16 +29,24 @@ class BaseFileSecurity extends MUDEventEmitter {
         /** @type {FileManager} */
         this.fileManager = fileManager;
 
-        /** @type {FileSystem} */
-        this.fileSystem = fileSystem;
-
         /** @type  {Object.<string,any>} */
         this.options = options || {};
 
         /** @type {boolean} */
         this.throwSecurityExceptions = this.options.throwSecurityExceptions || false;
+    }
 
-        fileSystem.addSecurityManager(this);
+    async bootstrap(masterObject) {
+        if (this.bootstrapApply) {
+            if (typeof masterObject[this.bootstrapApply] !== 'function') {
+                throw new Error(`BaseFileSecurity.bootstrap(): Failed to locate apply '${this.bootstrapApply}' in master object '${masterObject.filename}'`);
+            }
+            return masterObject[this.bootstrapApply]();
+        }
+    }
+
+    async can(flags) {
+        throw new NotImplementedError('Method can() is not defined');
     }
 
     /**
@@ -58,6 +71,10 @@ class BaseFileSecurity extends MUDEventEmitter {
         return typeof callback === 'function' ?
             callback(false, err) :
             false;
+    }
+
+    isSystemFile(path) {
+        return false;
     }
 
     // #region Security valid* Applies

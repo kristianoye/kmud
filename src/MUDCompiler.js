@@ -23,7 +23,7 @@ class MUDCompiler {
      * @param {DriverCompiler} config Optional settings from the config file.
      */
     constructor(driverInstance, config) {
-        var comps = 0,
+        let comps = 0,
             self = this,
             vm = false;
 
@@ -186,7 +186,10 @@ class MUDCompiler {
         if (!options)
             throw new Error('compileObject() called with invalid parameter(s)');
         else if (typeof options === 'string') {
-            options = { file: options, reload: false };
+            options = {
+                file: options,
+                reload: false
+            };
         }
         else if (typeof options !== 'object') {
             throw new Error('compileObject() called with invalid parameter(s)');
@@ -194,11 +197,10 @@ class MUDCompiler {
         if (typeof moreOptions === 'object') {
             options = Object.assign(options, moreOptions);
         }
-        let context = await PipeContext.PipelineContext.create(options.file, this.extensionPattern),
+        let context = await PipeContext.PipelineContext.create(options, this.extensionPattern),
             module = this.driver.cache.get(context.basename),
             t0 = efuns.ticks,
-            virtualResult = false,
-            cerr = false;
+            cleanError = false;
 
         if (options.source)
             context.setContent(options);
@@ -206,7 +208,7 @@ class MUDCompiler {
         if (module && !options.reload && module.loaded === true)
             return module;
 
-        if (!context.exists) {
+        if (!context.exists || context.isVirtual) {
             return await this.compileVirtualAsync(context, options).
                 catch(err => { throw err; });
         }
@@ -231,7 +233,7 @@ class MUDCompiler {
                     context.resolvedName,
                     context.directory,
                     false,
-                    options.isMixin === true);
+                    options);
 
                 if (!driver.preCompile(module))
                     throw new Error(`Module ${context.filename} was rejected by driver in pre-compiler stage`);
@@ -243,9 +245,9 @@ class MUDCompiler {
                 module.isCompiling = true;
                 let result = await driver.driverCallAsync(
                     'runInContext',
-                    async () => {
-                        if (typeof options.compilerOutput === 'string') {
-                            await driver.efuns.fs.writeJsonAsync(options.compilerOutput, context.content);
+                    async ecc => {
+                        if (typeof options.onPipelineComplete === 'function') {
+                            options.onPipelineComplete(context.content);
                         }
                         //  Clear previous exports in case they've changed
                         module.exports = false;
@@ -299,15 +301,15 @@ class MUDCompiler {
             if (module && !module.loaded) {
                 driver.cache.delete(context.filename);
             }
-            this.driver.cleanError(cerr = err);
+            this.driver.cleanError(cleanError = err);
             await this.driver.logError(context.filename, err);
-            logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ERROR: ${cerr.message}]}`);
-            logger.log(cerr.stack || cerr.trace);
+            logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ERROR: ${cleanError.message}]}`);
+            logger.log(cleanError.stack || cleanError.trace);
             throw err;
         }
         finally {
             let t1 = efuns.ticks, ecc = driver.getExecution();
-            if (!cerr) {
+            if (!cleanError) {
                 if (ecc)
                     logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ${ecc.stack.length}]`);
                 else
@@ -336,7 +338,8 @@ class MUDCompiler {
                     context.filename,
                     context.filename,
                     context.filename.slice(0, context.filename.lastIndexOf('/')),
-                    true);
+                    true,
+                    options);
 
                 let args = options.args || [];
 
@@ -376,6 +379,10 @@ class MUDCompiler {
 
         module.loaded = true;
         return module;
+    }
+
+    get supportedExtensions() {
+        return Object.keys(this.pipelines || { '.js': undefined });
     }
 }
 

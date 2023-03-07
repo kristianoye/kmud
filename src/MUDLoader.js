@@ -176,40 +176,6 @@ class MUDLoader {
                 }),
                 writable: false
             },
-            createAsync: {
-                value: async (callingFile, type, ...args) => {
-                    if (typeof type === 'string') {
-                        let parts = driver.efuns.parsePath(type),
-                            module = driver.cache.get(parts.file);
-
-                        if (!module) 
-                            module = await driver.compiler.compileObjectAsync({ file, args });
-
-                        if (module && module.isVirtual === true) 
-                            return module.defaultExport;
-                        else
-                            return await driver.efuns.objects.cloneObjectAsync(type, ...args);
-                    }
-                    else if (type.prototype && typeof type.prototype.baseName === 'string') {
-                        let parts = driver.efuns.parsePath(type.prototype.baseName),
-                            ecc = driver.getExecution(callingFile, 'createAsync', parts.file, false),
-                            module = driver.cache.get(parts.file);
-
-                        try {
-                            return await module.createInstanceAsync(parts.type, false, args, false, callingFile);
-                        }
-                        finally {
-                            ecc && ecc.pop('createAsync');
-                        }
-                    }
-                    else if (typeof type === 'function') {
-                        return new type(...args);
-                    }
-                    else
-                        throw new Error(`Bad argument 1 to createAsync(); Expected string or type but got ${typeof type}`);
-                },
-                writable: false
-            },
             driver: {
                 get: () => {
                     if (driver.gameState && driver.gameState > 2)
@@ -311,6 +277,38 @@ class MUDLoader {
                 writeable: false
             }
         });
+    }
+
+    async createAsync(callingFile, type, ...args) {
+        if (typeof type === 'string') {
+            let parts = driver.efuns.parsePath(type),
+                module = driver.cache.get(parts.file);
+
+            if (!module)
+                module = await driver.compiler.compileObjectAsync({ file, args });
+
+            if (module && module.isVirtual === true)
+                return module.defaultExport;
+            else
+                return await driver.efuns.objects.cloneObjectAsync(type, ...args);
+        }
+        else if (type.prototype && typeof type.prototype.baseName === 'string') {
+            let parts = driver.efuns.parsePath(type.prototype.baseName),
+                ecc = driver.getExecution(callingFile, 'createAsync', parts.file, false),
+                module = driver.cache.get(parts.file);
+
+            try {
+                return await module.createInstanceAsync(parts.type, false, args, false, callingFile);
+            }
+            finally {
+                ecc && ecc.pop('createAsync');
+            }
+        }
+        else if (typeof type === 'function') {
+            return new type(...args);
+        }
+        else
+            throw new Error(`Bad argument 1 to createAsync(); Expected string or type but got ${typeof type}`);
     }
 
     createEfuns() {

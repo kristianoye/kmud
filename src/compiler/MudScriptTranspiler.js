@@ -78,6 +78,7 @@ class JSXTranspilerOp {
         this.thisMethod = false;
         this.thisParameter = false;
         this.isStatic = false;
+        this.injectedSuperClass = p.injectedSuperClass || false;
     }
 
     /**
@@ -171,6 +172,7 @@ class JSXTranspilerOp {
         this.thisMethod = s || false;
         this.thisParameter = this.thisClass ? `this || ${this.thisClass}` : 'this';
         this.isStatic = isStatic === true;
+        this.wroteConstructorName = false;
         return this.thisMethod;
     }
 }
@@ -498,15 +500,20 @@ function parseElement(op, e, depth) {
             case 'ClassBody':
                 e.body.forEach(_ => ret += parseElement(op, _, depth + 1));
                 op.thisClass = false;
+                op.forcedInheritance = false;
                 break;
 
             case 'ClassDeclaration':
                 op.thisClass = e.id.name;
                 ret += parseElement(op, e.id, depth + 1);
+
                 if (e.superClass)
                     ret += parseElement(op, e.superClass, depth + 1);
-                else if (op.injectedSuperClass)
+                else if (op.injectedSuperClass) {
+                    op.forcedInheritance = true;
                     ret += ` extends ${op.injectedSuperClass}`;
+                }
+
                 ret += parseElement(op, e.body, depth + 1);
                 ret += ` ${e.id.name}.prototype.baseName = '${op.getBaseName(e.id.name)}'; __dmt("${op.filename}", ${e.id.name}); `;
                 break;
@@ -586,8 +593,10 @@ function parseElement(op, e, depth) {
                     if (op.thisClass && op.thisMethod) {
                         if (op.method === 'constructor' && op.thisClass) {
                             addRuntimeAssert(e,
+                                (op.forcedInheritance && op.wroteConstructorName === false ? 'super();' : '') +
                                 `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false, ${op.thisClass}); try { `,
                                 ` } finally { __efc(__mec, '${op.method}'); }`, true);
+                            op.wroteConstructorName = true;
                         }
                         else {
                             addRuntimeAssert(e,
@@ -903,7 +912,8 @@ class MudScriptTranspiler extends PipelineComponent {
             allowLiteralCallouts: this.allowLiteralCallouts,
             filename: context.basename,
             context,
-            source: context.content
+            source: context.content,
+            injectedSuperClass: 'MUDObject'
         });
         try {
             if (this.enabled) {
@@ -928,7 +938,8 @@ class MudScriptTranspiler extends PipelineComponent {
             allowLiteralCallouts: this.allowLiteralCallouts,
             filename: context.basename,
             context,
-            source: context.content
+            source: context.content,
+            injectedSuperClass: 'MUDObject'
         });
         try {
             if (this.enabled) {
@@ -938,6 +949,7 @@ class MudScriptTranspiler extends PipelineComponent {
                 op.ast.body.forEach(n => op.output += parseElement(op, n, 0));
                 op.output += op.readUntil(op.max);
                 op.output += op.appendText;
+                op.injectedSuperClass = 'MUDObject';
                 return context.update(PipeContext.CTX_RUNNING, op.finish());
             }
         }
