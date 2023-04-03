@@ -396,7 +396,7 @@ class GameServer extends MUDEventEmitter {
                     return func.bind(this.masterObject);
                 };
                 let config = this.config.mudlib,
-                    masterFile = await this.fileManager.getObjectAsync(config.master.path),
+                    masterFile = await this.fileManager.getObjectAsync(config.master.path, 0, true),
                     gameMaster = await this.compiler.compileObjectAsync({
                         file: config.master.path,
                         onPipelineComplete: src => {

@@ -25,6 +25,14 @@ declare interface MUDFileSystemEfuns {
     FileSystemQueryFlags: FileSystemQueryFlags;
 }
 
+declare interface PathExpr {
+    file: string;
+    type: string;
+    instance?: number;
+    extension?: string;
+    objectId?: string;
+}
+
 declare interface EFUNProxy {
     /**
      * Bind an arbitrary command to a function

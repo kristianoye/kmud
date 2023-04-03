@@ -16,9 +16,6 @@ class MudlibFileMount {
 
         /** @type {Object.<string,any>} */
         this.options = config.options || {};
-
-        this.securityManager = config.securityManager;
-        this.securityManagerOptions = config.securityManagerOptions || {};
     }
 
     assertValid() {
@@ -66,13 +63,6 @@ class MudlibFileSystem {
         if (config.fileSystemTable) {
             Object.keys(config.fileSystemTable).forEach((dir, index) => {
                 let fsconfig = config.fileSystemTable[dir];
-
-                if (!fsconfig.securityManager)
-                    fsconfig.securityManager = this.securityManager;
-
-                if (!fsconfig.securityManagerOptions)
-                    fsconfig.securityManagerOptions = this.securityManagerOptions;
-
                 this.fileSystemTable[dir] = new MudlibFileMount(dir, fsconfig, index);
             });
         }
@@ -85,7 +75,8 @@ class MudlibFileSystem {
         if (!('/' in this.fileSystemTable))
             throw new Error('Filesystem configuration does not provide a root node!');
         ConfigUtil.assertExists(this.fileManager);
-        ConfigUtil.assertExists(this.securityManager);
+        if (typeof this.securityManager !== 'object')
+            ConfigUtil.assertExists(this.securityManager);
         this.eachFileSystem(fs => fs.assertValid());
     }
 

@@ -77,10 +77,17 @@ class PipelineContext {
                 directory = expr.slice(0, expr.lastIndexOf('/')),
                 fileExpression = expr.slice(expr.lastIndexOf('/') + 1),
                 hasExtension = new RegExp(possibleExtensions).test(fileExpression),
-                directoryObject = await driver.fileManager.getObjectAsync(directory, 0, true),
-                filterExpr = hasExtension ? fileExpression : fileExpression + possibleExtensions,
-                files = await directoryObject.readAsync(filterExpr),
+                fileToUse;
+
+            if (!hasExtension) {
+                let directoryObject = await driver.fileManager.getObjectAsync(directory, 0, true),
+                    filterExpr = fileExpression + possibleExtensions,
+                    files = await directoryObject.readAsync(filterExpr);
+
                 fileToUse = files.firstOrDefault();
+            }
+            else
+                fileToUse = await driver.fileManager.getObjectAsync(options.file, true);
 
             if (fileToUse) {
                 let content = await fileToUse.readAsync()

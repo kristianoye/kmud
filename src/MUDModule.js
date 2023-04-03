@@ -201,7 +201,7 @@ class MUDModule extends MUDEventEmitter {
                 if (typeof instanceData.instanceId !== 'number') {
                     let instances = this.instanceMap[type];
                     instanceData.instanceId = instances.length;
-                    instanceData.uuid = driver.getNewId();
+                    instanceData.uuid = driver.efuns.getNewId();
                 }
                 type = this.types[type];
             }
@@ -323,7 +323,7 @@ class MUDModule extends MUDEventEmitter {
             if (typeof instanceData.instanceId !== "number") {
                 let instances = this.instanceMap[type.constructor.name];
                 instanceData.instanceId = instances.length;
-                instanceData.uuid = driver.getNewId();
+                instanceData.uuid = driver.efuns.getNewId();
             }
             // Storage needs to be set before starting...
             let store = driver.storage.createForId(instanceData.filename, instanceData.instanceId);
@@ -376,6 +376,9 @@ class MUDModule extends MUDEventEmitter {
         if (instance) {
             let store = driver.storage.get(instance);
             instances[parts.instance] = false;
+
+            if (instance.objectId)
+                delete this.instancesById[instance.objectId];
             if (store && !store.destroyed)
                 return store.destroy();
             return true;
@@ -412,6 +415,7 @@ class MUDModule extends MUDEventEmitter {
             });
         }
         this.instanceMap[type][instance.instanceId] = instance;
+        this.instancesById[instance.objectId] = instance;
     }
 
     /**
@@ -435,8 +439,14 @@ class MUDModule extends MUDEventEmitter {
             return req.instance === 0 && this.instanceMap[req.instance];
         }
         let instances = this.instanceMap[req.type] || [];
-        if (req.instance < 0 || req.instance > instances.length)
+        if (req.instance < 0 || req.instance > instances.length) {
+            if (req.objectId) {
+                if (true === req.objectId in this.instancesById) {
+                    return this.instancesById[req.objectId];
+                }
+            }
             return false;
+        }
         return instances[req.instance];
     }
 
@@ -500,6 +510,10 @@ class MUDModule extends MUDEventEmitter {
                     value: instance.filename,
                     writable: false
                 },
+                objectId: {
+                    value: instance.objectId,
+                    writable: false
+                },
                 isWrapper: {
                     value: true,
                     writable: false,
@@ -539,7 +553,7 @@ class MUDModule extends MUDEventEmitter {
         
         let result = {
             args: args || [],
-            uuid: driver.getNewId(),
+            uuid: driver.efuns.getNewId(),
             constructor: this.types[type] || type,
             filename,
             instanceId,

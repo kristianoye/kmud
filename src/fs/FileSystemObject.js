@@ -326,11 +326,8 @@ class FileSystemObject {
      * @returns {Promise<DirectoryWrapper>}  Returns the parent object
      */
     async getParent() {
-        if (this.path === '/')
-            return undefined;
-        let parentPath = path.posix.resolve(this.path, '..');
-        return await driver.fileManager.getDirectoryAsync(parentPath)
-            .catch(err => { throw err; });
+        let parentPath = this.path === '/' ? '/' : path.posix.resolve(this.path, '..');
+        return await driver.fileManager.getObjectAsync(parentPath);
     }
 
     /**
@@ -342,6 +339,16 @@ class FileSystemObject {
             return this.fullPath.slice(expr.length + (expr.endsWith('/') ? 0 : 1));
         else
             return path.posix.relative(expr, this.fullPath.slice(1));
+    }
+
+    /**
+     * Refresh the information about this object
+     */
+    async refreshAsync() {
+        let stats = await driver.fileManager.getObjectAsync(this.path);
+
+        this.#fileInfo = stats;
+        return stats;
     }
 
     resolveRelativePath(expr) {
@@ -366,7 +373,7 @@ class FileSystemObject {
                 if (forceReload) {
                     module = await driver.compiler.compileObjectAsync({
                         args,
-                        file: parts.file,
+                        file: parts.file + (parts.extension || ''),
                         reload: forceReload
                     });
                     if (!module)

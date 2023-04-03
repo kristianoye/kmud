@@ -87,6 +87,19 @@ class DirectoryWrapper extends WrapperBase {
         else
             throw new PermissionDeniedError(this.fullPath, 'readAsync');
     }
+
+    refreshAsync() {
+        return new Promise(async (resolve, reject) => {
+            super.refreshAsync()
+                .then(
+                    updated => {
+                        this.#instance = updated;
+                        resolve(true);
+                    },
+                    reason => reject(reason));
+
+        });
+    }
 }
 
 /** 
@@ -142,6 +155,19 @@ class FileWrapper extends WrapperBase {
             return super.readJsonAsync();
         else
             throw new PermissionDeniedError(this.fullPath, 'readJsonAsync');
+    }
+
+    refreshAsync() {
+        return new Promise(async (resolve, reject) => {
+            super.refreshAsync()
+                .then(
+                    updated => {
+                        this.#instance = updated;
+                        resolve(true);
+                    },
+                    reason => reject(reason));
+
+        });
     }
 
     async writeAsync() {
@@ -207,9 +233,32 @@ class FileManager extends MUDEventEmitter {
         /** @type {string} */
         this.mudlibAbsolute = path.resolve(__dirname, this.mudlibRoot);
 
-        let securityManagerType = require(path.join(__dirname, '..', fsconfig.securityManager)),
-            securityManager = new securityManagerType(this, fsconfig.securityManagerOptions);
+        let securityManager = false;
 
+        if (typeof fsconfig.securityManager === 'string') {
+            let securityManagerType = fsconfig.securityManager.startsWith('.') ?
+                require(path.join(__dirname, '..', fsconfig.securityManager)) : require(fsconfig.securityManager);
+
+            securityManager = new securityManagerType(this, fsconfig.securityManagerOptions);
+        }
+        else if (typeof fsconfig.securityManager === 'object') {
+            /*** @type {{ managerModule: string, managerTypeName?: string }}*/
+            let options = fsconfig.securityManager;
+            //  Allow for 3rd party managers 
+            let moduleImport = require(options.managerModule.startsWith('.') ?
+                path.join(__dirname, '..', options.managerModule) : options.managerModule);
+
+            if (driver.efuns.isClass(moduleImport)) {
+                securityManager = new moduleImport(this, fsconfig.securityManagerOptions);
+            }
+            else if (!options.managerTypeName) {
+                throw new Error('Config for securityManager is missing required parameter managerTypeName');
+            }
+            else if (typeof moduleImport === 'object' && driver.efuns.isClass(moduleImport[options.managerTypeName])) {
+                let managerType = moduleImport[options.managerTypeName];
+                securityManager = new managerType(this, fsconfig.securityManagerOptions);
+            }
+        }
         this.securityManager = securityManager;
     }
 
@@ -217,6 +266,8 @@ class FileManager extends MUDEventEmitter {
      * Not needed by default file manager.
      */
     assertValid() {
+        if (!this.securityManager)
+            throw new Error('Missing required security manager');
         return this;
     }
 
@@ -643,6 +694,10 @@ class FileManager extends MUDEventEmitter {
      * @returns {Promise<FileSystemObject>}
      */
     getObjectAsync(expr, flags = 0, isSystemRequest = false) {
+        if (typeof flags === 'boolean') {
+            isSystemRequest = flags;
+            flags = 0;
+        }
         let request = this.createFileRequest('getObjectAsync', expr, flags, isSystemRequest);
 
         return new Promise(async (resolve, reject) => {
@@ -782,15 +837,17 @@ class FileManager extends MUDEventEmitter {
                 let exts = driver.compiler.supportedExtensions,
                     pattern = new RegExp(driver.compiler.extensionPattern),
                     result = false;
-                let { file, type, instance } = driver.efuns.parsePath(request.fullPath),
-                    targetFile = await this.getObjectAsync(file);
+                let { file, type, instance, extension } = driver.efuns.parsePath(request.fullPath),
+                    targetFile = extension && await this.getObjectAsync(request.fullPath);
 
-                if (pattern.test(targetFile.fullPath)) {
+                if (extension && pattern.test(targetFile.fullPath)) {
                     result = await targetFile.loadObjectAsync(request, args)
                         .catch(err => reject(err));
                 }
+                else if (extension) {
+                    return reject(`loadObjectAsync(): Invalid file extension: ${extension}`);
+                }
                 else {
-
                     //  Extension was not specified... try them all
                     for (let i = 0; i < exts.length; i++) {
                         let fileWithExtension = await this.getObjectAsync(file + exts[i], flags);

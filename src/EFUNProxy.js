@@ -7,7 +7,8 @@ const
     crypto = require('crypto'),
     path = require('path'),
     os = require('os'),
-    sprintf = require('sprintf').sprintf;
+    sprintf = require('sprintf').sprintf,
+    uuid = require('uuid').v4;
 
 const
     KiloByte = 1024,
@@ -601,7 +602,7 @@ class EFUNProxy {
     }
 
     getNewId() {
-        return driver.getNewId();
+        return uuid();
     }
 
     get math() {
@@ -997,14 +998,16 @@ class EFUNProxy {
     /**
      * Splits a file/object name into it's components (path, type name, instance ID)
      * @param {string} fileExpr The file expression.
-     * @returns {{ file: string, type: string, instance: number }} Information about the path.
+     * @returns {{ file: string, type: string, instance: number, extension?: string, objectId?: string }} Information about the path.
      */
     parsePath(fileExpr) {
         if (typeof fileExpr !== 'string' || fileExpr.length < 2)
             throw new Error('Bad argument 1 to parsePath');
 
         let ls = fileExpr.lastIndexOf('/'),
-            ld = fileExpr.lastIndexOf('.');
+            ld = fileExpr.lastIndexOf('.'),
+            ext = ld > -1 ? fileExpr.slice(ld) : false,
+            objectId = false;
 
         if (ld > ls) {
             fileExpr = fileExpr.slice(0, ld);
@@ -1013,14 +1016,19 @@ class EFUNProxy {
         let [path, instance] = (fileExpr.startsWith('/') ? fileExpr : this.resolvePath(fileExpr)).split('#', 2),
             [file, type] = path.split('$', 2);
 
-        if ((instance = parseInt(instance)) < 0 || isNaN(instance))
-            instance = 0;
+        if ((instance = parseInt(instance)) < 0 || isNaN(instance)) {
+            //  Does the instance look like a UUID?
+            if (instance.length === 36)
+                objectId = instance;
+            else
+                instance = 0;
+        }
         if (!type || type.length === 0) {
             type = file.slice(file.lastIndexOf('/') + 1);
         }
         if (!type)
             throw new Error(`Bad file expression: ${fileExpr}`);
-        return Object.freeze({ file, type, instance });
+        return Object.freeze({ file, type, instance, extension: ext, objectId });
     }
 
     /**

@@ -2,6 +2,31 @@
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
+ * 
+ * The ACL (Access Control List) security system defines a set of interfaces 
+ * to allow for very granular control over MUD operations.  Every file in the
+ * mudlib has an ACL that contains:
+ * 
+ *  - Usernames: Usernames are alphanumeric characters only
+ *  
+ *  - Groups: Groups are sets of users.  The name of the group is prefixed by
+ *    the '$' character.  Group names may also contain one or more ':' 
+ *    characters to define a namespace.  Example:
+ *        $CREATOR:kriton
+ *        $DOMAIN:shire
+ *        
+ *  - Filenames: Objects created from a file may be granted their own set of
+ *    unique permissions.  File ACL entries start with a '/' path character 
+ *    and must be absolute MUD paths.
+ *    
+ *  Each ACL entry contains a list of users, groups, and/or filenames along 
+ *  with a set of security flags describing their respective level of access
+ *  to the specified resource.
+ *  
+ *  Each ACL may also contain an arbitary collection of key:value pairs
+ *  known as metadata.  Example metadata may include items such as:
+ *      - Approval status
+ *      - Object type (e.g., room, weapon, etc)
  */
 const
     BaseFileSecurity = require('./BaseFileSecurity'),
@@ -610,4 +635,4 @@ class AclFileSecurity extends BaseFileSecurity {
     }
 }
 
-module.exports = AclFileSecurity;
+module.exports = { AclFileSecurity };

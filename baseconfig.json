@@ -9,7 +9,8 @@
     "features": {
       "autoWiz": true,
       "intermud3": false,
-      "webEditor": true
+      "webEditor": true,
+      "objectsRequireFileExtensions":  true
     },
     "passwordPolicy": {
       "allowPlainTextAuth": true,
