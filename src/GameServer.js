@@ -378,8 +378,8 @@ class GameServer extends MUDEventEmitter {
     }
 
     /** Create the in-game master object */
-    async createMasterObject() {
-        return await this.driverCallAsync('createMasterObject', async () => {
+    async createMasterObjectAsync() {
+        return await this.driverCallAsync('createMasterObjectAsync', async () => {
             try {
                 /**
                  * Attempts to find an apply method in the master object.
@@ -476,6 +476,8 @@ class GameServer extends MUDEventEmitter {
         logger.logIf(LOGGER_PRODUCTION, 'Creating filesystem(s)');
         this.fileManager = await fsconfig.createFileManager(this);
         await this.fileManager.bootstrap(fsconfig); // fsconfig.eachFileSystem(async (config, index) => await this.fileManager.createFileSystem(config, index));
+        this.securityManager = this.fileManager.securityManager;
+        await this.securityManager.bootstrap(this);
     }
 
     /**  Preload some common objects */
@@ -727,7 +729,7 @@ class GameServer extends MUDEventEmitter {
     /**
      * Expand the functionality of the driver by loading additional functionality.
      */
-    async enableFeatures() {
+    async enableFeaturesAsync() {
         const
             EFUNProxy = require('./EFUNProxy');
 
@@ -1111,12 +1113,9 @@ class GameServer extends MUDEventEmitter {
             console.log('Loading driver and external features');
             try {
                 let ef = await this.createSimulEfuns();
-                let flags = ef.fs.FileSystemQueryFlags;
-                let files = await ef.fs.queryFileSystemAsync('/sys/data/**/[km]/*.json', flags.ShowHiddenFiles | flags.ShowSystemFiles);
-                await this.createSecurityManager();
-                await this.createMasterObject();
-                this.securityManager = await this.bootstrapSecurity();
-                await this.enableFeatures();
+                await this.createMasterObjectAsync();
+                await this.securityManager.validateAsync(this);
+                await this.enableFeaturesAsync();
                 this.sealProtectedTypes();
             }
             catch (ex) {

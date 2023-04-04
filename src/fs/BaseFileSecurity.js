@@ -41,7 +41,7 @@ class BaseFileSecurity extends MUDEventEmitter {
             if (typeof masterObject[this.bootstrapApply] !== 'function') {
                 throw new Error(`BaseFileSecurity.bootstrap(): Failed to locate apply '${this.bootstrapApply}' in master object '${masterObject.filename}'`);
             }
-            return masterObject[this.bootstrapApply]();
+            return masterObject[this.bootstrapApply](this);
         }
     }
 

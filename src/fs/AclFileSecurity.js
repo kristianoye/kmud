@@ -185,7 +185,7 @@ class DirectoryAcl extends BaseAcl {
     /**
      * Construct a directory ACL
      * @param {FileSystemObject} dirObj
-     * @param {any} aclFilename
+     * @param {string} aclFilename
      */
     constructor(dirObj, aclFilename) {
         super();
@@ -274,9 +274,10 @@ class AclSecurityGroup {
     /**
      * Determine if the specified user is a member of the group
      * @param {string} user The user ID
+     * @param {string?} filename The filename of the object
      */
-    isMember(user) {
-        return this.#members.findIndex(m => m === user) > -1;
+    isMember(user, filename = false) {
+        return this.#members.findIndex(m => m === user || m === filename) > -1;
     }
 
     /** @type {string[]} */
@@ -298,7 +299,6 @@ class AclFileSecurity extends BaseFileSecurity {
     constructor(fileManager, options) {
         super(fileManager, options = Object.assign({
             aclFileName: '.acl',
-            bootstrapApply: 'bootstrapAclSecurity',
             defaultGroupName: DefaultGroupName,
             systemGroupName: DefaultSystemName,
             createAclApply: 'aclCreate',
@@ -327,24 +327,26 @@ class AclFileSecurity extends BaseFileSecurity {
      * @param {GameServer} masterObject
      */
     async bootstrap(masterObject) {
-        let settings = await super.bootstrap(masterObject);
-
-        if (typeof settings.groupsFile === 'string')
-            this.groupsFile = settings.groupsFile;
-        if (typeof settings.permissionsFile === 'string')
-            this.permissionsFile = settings.permissionsFile;
-
+        if (this.bootstrapApply) {
+            await super.bootstrap(masterObject);
+        }
         if (!this.groupsFile)
             throw new Error('bootstrap() security module requires groups file');
         if (!this.permissionsFile)
             throw new Error('bootstrap() security module requires permissions file');
 
-        if (typeof driver.masterObject[this.getCredentialApply] !== 'function')
-            throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.getCredentialApply}'`);
-        if (typeof driver.masterObject[this.createAclApply] !== 'function')
-            throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.createAclApply}'`);
-
         await this.loadGroupsFile();
+    }
+
+    /**
+     * Ensure the master object is compatible with this security manager.
+     * @param {GameServer} gameDriver
+     */
+    async validateAsync(gameDriver) {
+        if (typeof gameDriver.masterObject[this.getCredentialApply] !== 'function')
+            throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.getCredentialApply}'`);
+        if (typeof gameDriver.masterObject[this.createAclApply] !== 'function')
+            throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.createAclApply}'`);
         await this.loadPermissionsFile();
     }
 
@@ -503,13 +505,11 @@ class AclFileSecurity extends BaseFileSecurity {
 
             result.groups = [];
 
-            if (result.IsUser || result.UserId.startsWith('$')) {
-                Object.keys(this.groups).forEach(gid => {
-                    let group = this.groups[gid];
-                    if (group.isMember(result.UserId))
-                        result.groups.push(gid);
-                });
-            }
+            Object.keys(this.groups).forEach(gid => {
+                let group = this.groups[gid];
+                if (group.isMember(result.UserId, filename))
+                    result.groups.push(gid);
+            });
             return result;
         }, __filename, true, true);
     }
