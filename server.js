@@ -18,7 +18,10 @@ try {
         setImmediate(async () => await config.run()
             .then(
                 () => console.log('Game startup complete'),
-                err => { console.log(`Game crashed with error: ${err}`); exitCode = -2; }));
+                err => {
+                    console.log(`Game crashed with error: ${err}`);
+                    exitCode = -2;
+                }));
     }
     catch (e) {
         console.error(e.message);

@@ -37,11 +37,6 @@ class MUDStorage extends MUDEventEmitter {
         this.flags = 0;
 
         /** 
-         * What group permissions have been assigned to this object
-         * @type {string[]} */
-        this.$groups = [];
-
-        /** 
          * A collection of objects contained within this object
          * @type {MUDObject[]}} 
          */
@@ -275,9 +270,10 @@ class MUDStorage extends MUDEventEmitter {
 
             //  Special case
             if (driver.masterObject != null) {
-                let test = await driver.securityManager.getCredential(ownerObject.filename);
+                this.$credential = await driver.securityManager.getCredential(ownerObject.filename);
             }
-            this.$groups = await driver.getGroups(ownerObject);
+            else
+                console.log('not yet');
             return true;
         }
         return false;
@@ -408,7 +404,7 @@ class MUDStorage extends MUDEventEmitter {
 
     /** Get a copy of the group assignments */
     get groups() {
-        return this.$groups.slice(0);
+        return this.$credential.groupNames;
     }
 
     get heartbeat() {

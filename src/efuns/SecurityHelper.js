@@ -1,14 +1,25 @@
 
 class SecurityHelper {
+    /**
+     * Get the security credential for the specified target.
+     * @param {string | MUDObject | MUDWrapper} target
+     */
+    static getCredentialAsync(target) {
+        if (typeof target === 'function' || typeof target === 'object') {
+            target = driver.efuns.unwrap(target);
+        }
+        return driver.securityManager.getSafeCredentialAsync(target);
+    }
 
     /**
      * Loop through a gatekeeper method for each frame on the stack to
      * ensure all objects are permitted to perform the specified action.
+     * 
      * @param {any} callback
      * @param {any} action
      * @param {any} rethrow
      */
-    static async guarded(callback, action = false, rethrow = false) {
+    static async guardedAsync(callback, action = false, rethrow = false) {
         let promise = new Promise(async (resolve, reject) => {
             let ecc = driver.getExecution(driver, 'guarded', '', true, 0);
             try {
@@ -45,6 +56,32 @@ class SecurityHelper {
         }
 
         return promise;
+    }
+
+    static parseAclTree(data) {
+        throw new NotImplementedError('parseAclTree');
+    }
+
+    /**
+     * Converts a permission string into a bitflag collection
+     * @param {string} expr The human-readable permission string
+     * @returns {number} The bitflag array
+     */
+    static parsePerms(expr) {
+        throw new NotImplementedError('parsePerms');
+    }
+    
+    /**
+     * Convert a permission set into a human readable string
+     * @param {number} flags
+     */
+    static permsToString(flags) {
+        throw new NotImplementedError('permsToString');
+    }
+
+    static async unguardedAsync(callback) {
+        let thisObject = driver.efuns.thisObject();
+        return driver.driverCallAsync('unguarded', callback, thisObject.filename || '[not specified]', true, true);
     }
 }
 

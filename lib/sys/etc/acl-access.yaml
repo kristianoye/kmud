@@ -25,28 +25,28 @@ DIRECTORY /:
    description: The root of the filesystem
    fixupEnabled: true
    permissions:
-      - ADMIN: FULL
-      - ARCH: rw
-      - DEFAULT: rw
+      - $ADMIN: FULL
+      - $ARCH: rw
+      - $ALL: rw
 
 DIRECTORY /lib:
     description: The directory containing base mudlib objects
     fixupEnabled: true
     permissions:
-        - ADMIN: FULL
-        - ARCH: rw
+        - $ADMIN: FULL
+        - $ARCH: rw
 
 DIRECTORY /sys/etc:
     description: Location of important configuration filesystem
     fixupEnabled: true
     permissions:
-        - ADMIN: FULL
-        - ARCH: R
-        - DEFAULT: NONE
+        - $ADMIN: FULL
+        - $ARCH: R
+        - $ALL: NONE
 
 DIRECTORY /sys/data:
     description: Default save location for important game objects
     permissions:
-        - ADMIN: FULL
-        - ARCH: R
-        - DEFAULT: NONE
+        - $ADMIN: FULL
+        - $ARCH: R
+        - $ALL: NONE

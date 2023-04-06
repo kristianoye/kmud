@@ -29,7 +29,7 @@
  *      - Object type (e.g., room, weapon, etc)
  */
 const
-    BaseFileSecurity = require('./BaseFileSecurity'),
+    { BaseFileSecurity, BaseSecurityCredential, BaseSecurityGroup } = require('./BaseFileSecurity'),
     { FileSystemObject } = require('./FileSystemObject'),
     SecurityFlags = require('./SecurityFlags'),
     DefaultGroupName = '$ALL',
@@ -201,7 +201,7 @@ class DirectoryAcl extends BaseAcl {
     }
 
     async can(flags) {
-        return await efuns.security.guarded(async () => {
+        return await efuns.security.guardedAsync(async () => {
 
         });
     }
@@ -251,47 +251,34 @@ class DirectoryAcl extends BaseAcl {
     }
 }
 
-class AclSecurityGroup {
-    constructor(data, index) {
-        this.index = index;
-        this.#name = data.name;
-        this.#description = data.description || '[No Description]';
-        /** @type {string[]} */
-        this.#members = (data.members || []).map(n => n.toLowerCase());
+class AclSecurityCredential extends BaseSecurityCredential {
+    /**
+     * Construct an ACL credential
+     * @param {AclFileSecurity} manager
+     * @param {{ IsUser: boolean, UserId: string, IsWizard: boolean, Groups: AclSecurityGroup[]}} data
+     */
+    constructor(manager, data) {
+        super(data);
+
+        this.#securityManager = manager;
     }
 
-    static async createAsync(data) {
-        return new AclSecurityGroup(data);
-    }
+    /** @type {AclFileSecurity} */
+    #securityManager;
+}
 
-    /** @type {string} */
-    #description;
-
-    get description() {
-        return this.#description;
+class AclSecurityGroup extends BaseSecurityGroup {
+    constructor(manager, id, name, description, members = []) {
+        super(manager, id, name, description, members);
     }
 
     /**
-     * Determine if the specified user is a member of the group
-     * @param {string} user The user ID
-     * @param {string?} filename The filename of the object
+     * Create a group
+     * @param {AclFileSecurity} manager
+     * @param {BaseSecurityGroup} data
      */
-    isMember(user, filename = false) {
-        return this.#members.findIndex(m => m === user || m === filename) > -1;
-    }
-
-    /** @type {string[]} */
-    #members;
-
-    get members() {
-        return this.#members.slice(0);
-    }
-
-    /** @type {string} */
-    #name;
-
-    get name() {
-        return this.#name;
+    static async createAsync(manager, data) {
+        return new AclSecurityGroup(manager, data.gID, data.name, data.description, data.members);
     }
 }
 
@@ -310,6 +297,9 @@ class AclFileSecurity extends BaseFileSecurity {
 
         /** @type {string} */
         this.aclFileName = options.aclFileName || '.acl';
+
+        /** @type {Object.<string, AclSecurityCredential>} */
+        this.credentials = {};
 
         /** @type {Object.<string,AclSecurityGroup>} */
         this.groups = {};
@@ -420,6 +410,15 @@ class AclFileSecurity extends BaseFileSecurity {
     }
 
     /**
+     * Get a MUD-safe representation of a security credential
+     * @param {string} username
+     */
+    async getSafeCredentialAsync(username) {
+        let creds = await this.getCredential(username);
+        return creds.createSafeExport();
+    }
+
+    /**
      * Is the file a system file?
      * @param {FileSystemObject} file
      */
@@ -454,13 +453,15 @@ class AclFileSecurity extends BaseFileSecurity {
             if (groupData.members && !Array.isArray(groupData.members))
                 throw new Error(`Group ${name} does not have a valid member collection`);
 
-            this.groups[name] = await AclSecurityGroup.createAsync(groupData);
+            groupData.gID = name;
+
+            this.groups[name] = await AclSecurityGroup.createAsync(this, groupData);
         }
     }
 
     async loadPermissionsFile() {
         try {
-            let perms = await efuns.fs.readYamlAsync('/sys/etc/acl-access.yaml'),
+            let perms = await efuns.fs.readYamlAsync(this.permissionsFile),
                 permSets = Object.keys(perms).filter(p => p.startsWith('PERMSET')),
                 dirList = Object.keys(perms)
                     .filter(p => p.startsWith('DIRECTORY'))
@@ -496,22 +497,40 @@ class AclFileSecurity extends BaseFileSecurity {
         }
     }
 
+    /**
+     * Get a credential
+     * @param {string} filename
+     * @returns {AclSecurityCredential}
+     */
     async getCredential(filename) {
-        let keyId = await driver.driverCallAsync('getCredentialApply', async () => {
-            /** @type {{ IsUser: boolean, UserId: string, groups: string[]}} */
+        return await driver.driverCallAsync('getCredentialApply', async () => {
+            /** @type {{ IsUser: boolean, UserId: string, IsWizard: boolean, Groups: string[]}} */
             let result = await driver.masterObject[this.getCredentialApply](filename);
+
             if (!result || typeof result !== 'object')
                 throw new Error(`Master object ${driver.filename}.${this.getCredentialApply} did not return valid credentials for ${filename}`);
 
-            result.groups = [];
+            if (result.UserId in this.credentials)
+                return this.credentials[result.UserId];
+
+            if (!Array.isArray(result.Groups))
+                result.Groups = [];
 
             Object.keys(this.groups).forEach(gid => {
                 let group = this.groups[gid];
                 if (group.isMember(result.UserId, filename))
-                    result.groups.push(gid);
+                    result.Groups.push(gid);
             });
-            return result;
+            for (let i = 0; i < result.Groups.length; i++) {
+                result.Groups[i] = await this.resolveGroupAsync(result.Groups[i]);
+            }
+            return (this.credentials[result.UserId] = new AclSecurityCredential(this, result));
         }, __filename, true, true);
+    }
+
+    async resolveGroupAsync(groupName) {
+        if (groupName in this.groups)
+            return this.groups[groupName];
     }
 
    /**

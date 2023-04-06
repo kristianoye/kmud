@@ -437,9 +437,6 @@
     <Content Include="lib\sys\etc\acl-groups.yaml">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="lib\sys\etc\singletons.json">
-      <SubType>Code</SubType>
-    </Content>
     <Content Include="lib\sys\shell\FileSystem.js" />
     <Content Include="lib\sys\skeleton\creator\cmds\HelloWorld.js">
       <SubType>Code</SubType>
@@ -493,7 +490,6 @@
     <Content Include="src\db\orm\ActiveRecordBase.js" />
     <Content Include="src\Dialog.js" />
     <Content Include="src\EFUNProxy.js" />
-    <Content Include="src\efuns\Acl.js" />
     <Content Include="src\efuns\Arrays.js" />
     <Content Include="src\efuns\English.js" />
     <Content Include="src\efuns\FileSystem.js" />
@@ -686,9 +682,6 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="lib\sys\etc\preloads.json">
-      <SubType>Code</SubType>
-    </Content>
-    <Content Include="lib\sys\etc\test.json">
       <SubType>Code</SubType>
     </Content>
     <Content Include="lib\sys\lib\Login.splash.txt" />

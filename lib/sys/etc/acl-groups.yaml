@@ -1,5 +1,5 @@
 #  If a user or object has no groups then they are assigned this group
-DEFAULT GROUP NAME: '$DEFAULT'
+DEFAULT GROUP NAME: '$ALL'
 
 #  Objects assigned to this group have full access to the MUD system
 SYSTEM GROUP NAME: '$SYSTEM'
