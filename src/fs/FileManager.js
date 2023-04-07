@@ -399,6 +399,9 @@ class FileManager extends MUDEventEmitter {
      * @returns {Promise<FileSystemObject[]>}
      */
     queryFileSystemAsync(options = {}, isSystemRequest = false) {
+        if (typeof options === 'string') {
+            return this.queryFileSystemAsync({ path: options }, isSystemRequest === true);
+        }
         return new Promise(async (resolve, reject) => {
             try {
                 let parts = FileSystemQuery.getParts(options.path || options.expression),
@@ -408,10 +411,16 @@ class FileManager extends MUDEventEmitter {
                     fileManager: this,
                     fileSystem: fileSystem
                 }));
+                const prepResult = /** @param {FileSystemObject|FileSystemObject[]} res */ (res, sr) => {
+                    if (sr === true)
+                        return res;
+                    else
+                        return this.wrapFileObject(res);
+                };
+
                 let /** @type {string[]} */ relParts = [],
                     /** @type {string[]} */ absPath = [];
 
-                // /foo/**/*.js
                 for (let i = 0, max = parts.length; i < max; i++) {
                     let dir = '/' + parts.slice(0, i + 1).join('/'),
                         thisPart = parts[i],
@@ -433,7 +442,7 @@ class FileManager extends MUDEventEmitter {
                         if (expr)
                             results = results.filter(f => f.getRelativePath && expr.test(f.getRelativePath(thisDir)));
 
-                        return resolve(results);
+                        return resolve(prepResult(results, isSystemRequest));
                     }
                     else if (dir in this.fileSystems) {
                         relParts = [];
@@ -447,11 +456,10 @@ class FileManager extends MUDEventEmitter {
                                 isSystemRequest: isSystemRequest === true,
                                 relativePath: relParts.join('/')
                             }));
-                        let result = await fileSystem.queryFileSystemAsync(request);
+                        let result = await fileSystem.queryFileSystemAsync(request, isSystemRequest === true);
 
                         if (isLastPart) {
-                            //  TODO: Convert DirEnts to game file objects
-                            return resolve(result);
+                            return resolve(prepResult(result, isSystemRequest));
                         }
                         else if (!query.atMaxDepth) {
                             let rightExpression = parts.slice(i + 1);
@@ -483,7 +491,7 @@ class FileManager extends MUDEventEmitter {
                                         results = results.concat(result);
                                     });
                             }
-                            return resolve(results);
+                            return resolve(prepResult(results, isSystemRequest));
                         }
                         else
                             return resolve([]);
@@ -495,10 +503,10 @@ class FileManager extends MUDEventEmitter {
                                 isSystemRequest: isSystemRequest === true,
                                 relativePath: relParts.join('/')
                             }));
-                        let result = await fileSystem.queryFileSystemAsync(request)
-                            .catch(err => reject(err));
 
-                        resolve(result || false);
+                        await fileSystem.queryFileSystemAsync(request)
+                            .then(fso => resolve(prepResult(fso, isSystemRequest)))
+                            .catch(err => reject(err));
                     }
                     else {
                         relParts.push(thisPart);
@@ -1025,10 +1033,13 @@ class FileManager extends MUDEventEmitter {
 
     /**
      * Create a suitable wrapper object
-     * @param {any} fso
+     * @param {FileSystemObject | FileSystemObject[]} fso The object(s) to wrap
      */
     wrapFileObject(fso) {
-        if (fso.isFile) {
+        if (Array.isArray(fso)) {
+            return fso.map(f => this.wrapFileObject(f));
+        }
+        else if (fso.isFile) {
             return new FileWrapper(fso);
         }
         else if (fso.isDirectory) {

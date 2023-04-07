@@ -283,11 +283,19 @@ class GameServer extends MUDEventEmitter {
         }, undefined, true);
     }
 
+    /**
+     * Call an apply in the master object and return the result
+     * @param {string} applyName The name of the apply to call
+     * @param {...any} args
+     */
     async callApplyAsync(applyName, ...args) {
         return await this.driverCallAsync(applyName, async ecc => {
             if (typeof this.masterObject[applyName] !== 'function')
                 throw new Error(`Master object ${this.masterFilename} does not contain apply '${applyName}'`);
-            return await this.masterObject[applyName](...args);
+            if (this.efuns.isAsync(this.masterObject[applyName]))
+                return await this.masterObject[applyName](...args);
+            else
+                return this.masterObject[applyName](...args);
         }, undefined, true);
     }
 

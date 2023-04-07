@@ -711,7 +711,7 @@ class DiskFileSystem extends BaseFileSystem {
                                     path: subDir,
                                     queryDepth: query.queryDepth + 1
                                 });
-                                let subResult = await query.fileManager.queryFileSystemAsync(subQuery);
+                                let subResult = await query.fileManager.queryFileSystemAsync(subQuery, subQuery.isSystemRequest);
                                 finalResults = finalResults.concat(subResult);
                             }
                         }
@@ -897,10 +897,9 @@ class DiskFileSystem extends BaseFileSystem {
     /**
      * 
      * @param {FileSystemRequest} request
-     * @param {boolean} isSystemRequest If false, this method returns a wrapped object
      * @returns {Promise<FileSystemObject>}
      */
-    async statAsync(request, isSystemRequest = false) {
+    async statAsync(request) {
         let fullPath = this.translatePath(request.relativePath),
             fullMudPath = path.posix.join(this.mountPoint, request.relativePath);
 
@@ -925,10 +924,7 @@ class DiskFileSystem extends BaseFileSystem {
                         });
                         result = this.createStatObject(stat, fullPath);
                     }
-                    if (isSystemRequest === true)
-                        resolve(result);
-                    else
-                        resolve(this.manager.wrapFileObject(result));
+                    resolve(result);
                 });
             }
             catch (err) {

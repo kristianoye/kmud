@@ -289,6 +289,7 @@ class AclFileSecurity extends BaseFileSecurity {
             defaultGroupName: DefaultGroupName,
             systemGroupName: DefaultSystemName,
             createAclApply: 'aclCreate',
+            externalGroupFiles: [],
             getCredentialApply: 'aclGetCredential'
         }, options));
 
@@ -310,6 +311,7 @@ class AclFileSecurity extends BaseFileSecurity {
         this.permissionsFile = options.permissionsFile || '';
         this.getCredentialApply = options.getCredentialApply || 'aclGetCredential';
         this.createAclApply = options.createAclApply || 'aclCreate';
+        this.externalGroupFiles = options.externalGroupFiles || [];
     }
 
     /**
@@ -337,6 +339,27 @@ class AclFileSecurity extends BaseFileSecurity {
             throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.getCredentialApply}'`);
         if (typeof gameDriver.masterObject[this.createAclApply] !== 'function')
             throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.createAclApply}'`);
+
+        for (const pattern of this.externalGroupFiles) {
+            try {
+                let externalFiles = await driver.fileManager.queryFileSystemAsync(pattern, true)
+                    .catch(err => console.log(`Unable to locate external files using pattern ${pattern}: ${err}`));
+
+                for (let i = 0; i < externalFiles.length; i++) {
+                    try {
+                        const prefix = await driver.callApplyAsync('aclGetExternalGroupPrefix', externalFiles[i].path);
+                        await this.loadExternalGroupsFile(prefix, externalFiles[i])
+                            .catch(err => console.log(`\tUnable to load external group file: ${externalFiles[i].path}: ${err}`));
+                    }
+                    catch (err) {
+                        console.log(`\tUnable to load external group file: ${externalFiles[i].path}: ${err}`);
+                    }
+                }
+            }
+            catch (ex) {
+                console.log(`Unable to locate external files using pattern ${pattern}: ${ex}`)
+            }
+        }
         await this.loadPermissionsFile();
     }
 
@@ -429,6 +452,40 @@ class AclFileSecurity extends BaseFileSecurity {
         else return super.isSystemFile(file);
     }
 
+    /**
+     * Load an external group file
+     * @param {string} prefix The value to prepend to each group ID
+     * @param {FileSystemObject} file The file to load from
+     */
+    async loadExternalGroupsFile(prefix, file) {
+        let groups = await file.readYamlAsync();
+
+        if (!prefix.endsWith('\\'))
+            prefix += '\\';
+
+        for (let i = 0, names = Object.keys(groups); i < names.length; i++) {
+            let name = names[i],
+                groupId = prefix + (names[i].startsWith('$') ? names[i].slice(1) : names[i]),
+                groupData = groups[name];
+
+            if (groupId in this.groups)
+                throw new Error(`Group ${groupId} is specified multiple times in ${file.path}`);
+
+            if (!groupData.name || typeof groupData.name !== 'string')
+                throw new Error(`Group #${i} in ${file.path} does not have a property 'name'`);
+
+            if (groupData.members && !Array.isArray(groupData.members))
+                throw new Error(`Group ${groupId} does not have a valid member collection`);
+
+            groupData.gID = groupId;
+
+            this.groups[groupId] = await AclSecurityGroup.createAsync(this, groupData);
+        }
+    }
+
+    /**
+     * Load groups defined in the system groups file
+     */
     async loadGroupsFile() {
         let groups = await efuns.fs.readYamlAsync(this.groupsFile);
 
@@ -457,8 +514,19 @@ class AclFileSecurity extends BaseFileSecurity {
 
             this.groups[name] = await AclSecurityGroup.createAsync(this, groupData);
         }
+        if (this.defaultGroupName in this.groups === false) {
+            this.groups[this.defaultGroupName] = await AclSecurityGroup.createAsync(this, {
+                gID: this.defaultGroupName,
+                name: this.defaultGroupName,
+                description: 'Default group in which all objects are members',
+                members: []
+            });
+        }
     }
 
+    /** 
+     * Load initial ACL information
+     */
     async loadPermissionsFile() {
         try {
             let perms = await efuns.fs.readYamlAsync(this.permissionsFile),
@@ -521,6 +589,10 @@ class AclFileSecurity extends BaseFileSecurity {
                 if (group.isMember(result.UserId, filename))
                     result.Groups.push(gid);
             });
+
+            if (this.defaultGroupName)
+                result.Groups.push(this.defaultGroupName);
+
             for (let i = 0; i < result.Groups.length; i++) {
                 result.Groups[i] = await this.resolveGroupAsync(result.Groups[i]);
             }

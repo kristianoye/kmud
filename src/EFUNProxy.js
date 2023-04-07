@@ -681,7 +681,7 @@ class EFUNProxy {
     get input() { return InputHelper; }
 
     isAsync(expr) {
-        return typeof expr === 'function' && /^async /.test(expr.toString());
+        return typeof expr === 'function' && expr[Symbol.toStringTag] === 'AsyncFunction';
     }
 
     /**

@@ -455,7 +455,7 @@ class FileSystemObject {
     async readYamlAsync(options = {}) {
         return new Promise(async (resolve, reject) => {
             try {
-                let content = await this.#fileInfo.readAsync()
+                let content = await this.readAsync()
                     .catch(err => reject(err));
 
                 let localOptions = Object.assign({ encoding: 'utf8', stripBOM: true }, options);
