@@ -193,7 +193,8 @@ class DirectoryAcl extends BaseAcl {
         this.files = {};
         this.aclFile = dirObj.resolveRelativePath(aclFilename);
         this.directory = dirObj;
-        this.directoryName = dirObj.fullPath;
+        this.directoryName = dirObj.path;
+        this.inherits = true;
     }
 
     async aclExists() {
@@ -226,24 +227,25 @@ class DirectoryAcl extends BaseAcl {
      * @param {DirectoryAcl|AclDirectoryData} data
      */
     async merge(data) {
-        let hasChanged = false;
-
         if (true === data instanceof DirectoryAcl) {
 
         }
-        else if (Array.isArray(data.permissions)) {
-            data.permissions.forEach(blob => {
-                Object.keys(blob).forEach(id => {
-                    let perms = BaseAcl.parseAclString(blob[id]);
-                    if (false === id in this.permissions || this.permissions[id] !== perms) {
-                        this.permissions[id] = perms;
-                        hasChanged = true;
+        else if (typeof data === 'object') {
+            if (typeof data.inherits === 'boolean')
+                this.inherits = data.inherits;
+            if (Array.isArray(data.permissions)) {
+                data.permissions.forEach(blob => {
+                    for (let [group, perms] of Object.entries(data.permissions)) {
+                        this.permissions[group] = driver.securityManager.parsePerms(perms);
                     }
-                })
-            });
+                });
+            }
+            else if (typeof data.permissions === 'object') {
+                for (let [group, perms] of Object.entries(data.permissions)) {
+                    this.permissions[group] = driver.securityManager.parsePerms(perms);
+                }
+            }
         }
-        if (hasChanged === true)
-            await this.save();
     }
 
     async save() {
@@ -282,13 +284,27 @@ class AclSecurityGroup extends BaseSecurityGroup {
     }
 }
 
+class WildcardAcl {
+    constructor(aclInfo) {
+        this.directory = aclInfo.directory;
+        this.pattern = driver.efuns.buildFilenamePattern(aclInfo.directory, false);
+        this.description = aclInfo.data.description || '[No Description]';
+        this.permissions = {};
+        for (let group of aclInfo.data.permissions) {
+            for(let [key, value] of Object.entries(group)) {
+                this.permissions[key] = driver.securityManager.parsePerms(value);
+            }
+        }
+    }
+}
+
 class AclFileSecurity extends BaseFileSecurity {
     constructor(fileManager, options) {
         super(fileManager, options = Object.assign({
             aclFileName: '.acl',
             defaultGroupName: DefaultGroupName,
             systemGroupName: DefaultSystemName,
-            createAclApply: 'aclCreate',
+            createAclApply: 'aclCreateDefault',
             externalGroupFiles: [],
             getCredentialApply: 'aclGetCredential'
         }, options));
@@ -308,10 +324,13 @@ class AclFileSecurity extends BaseFileSecurity {
         this.defaultGroupName = options.defaultGroupName || DefaultGroupName;
         this.systemGroupName = options.systemGroupName || DefaultSystemName;
         this.groupsFile = options.groupsFile || '';
+        /** @type {Object.<string,number>} */
+        this.permSets = {};
         this.permissionsFile = options.permissionsFile || '';
         this.getCredentialApply = options.getCredentialApply || 'aclGetCredential';
-        this.createAclApply = options.createAclApply || 'aclCreate';
+        this.createAclApply = options.createAclApply || 'aclCreateDefault';
         this.externalGroupFiles = options.externalGroupFiles || [];
+        this.wildcardPermissions = [];
     }
 
     /**
@@ -328,39 +347,6 @@ class AclFileSecurity extends BaseFileSecurity {
             throw new Error('bootstrap() security module requires permissions file');
 
         await this.loadGroupsFile();
-    }
-
-    /**
-     * Ensure the master object is compatible with this security manager.
-     * @param {GameServer} gameDriver
-     */
-    async validateAsync(gameDriver) {
-        if (typeof gameDriver.masterObject[this.getCredentialApply] !== 'function')
-            throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.getCredentialApply}'`);
-        if (typeof gameDriver.masterObject[this.createAclApply] !== 'function')
-            throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.createAclApply}'`);
-
-        for (const pattern of this.externalGroupFiles) {
-            try {
-                let externalFiles = await driver.fileManager.queryFileSystemAsync(pattern, true)
-                    .catch(err => console.log(`Unable to locate external files using pattern ${pattern}: ${err}`));
-
-                for (let i = 0; i < externalFiles.length; i++) {
-                    try {
-                        const prefix = await driver.callApplyAsync('aclGetExternalGroupPrefix', externalFiles[i].path);
-                        await this.loadExternalGroupsFile(prefix, externalFiles[i])
-                            .catch(err => console.log(`\tUnable to load external group file: ${externalFiles[i].path}: ${err}`));
-                    }
-                    catch (err) {
-                        console.log(`\tUnable to load external group file: ${externalFiles[i].path}: ${err}`);
-                    }
-                }
-            }
-            catch (ex) {
-                console.log(`Unable to locate external files using pattern ${pattern}: ${ex}`)
-            }
-        }
-        await this.loadPermissionsFile();
     }
 
     /**
@@ -389,10 +375,15 @@ class AclFileSecurity extends BaseFileSecurity {
 
     /**
      * Create a non-existant directory ACL
-     * @param {DirectoryAcl} acl
+     * @param {FileSystemObject} fso
      */
-    async createAcl(acl) {
-        return await driver.callApplyAsync(this.createAclApply, acl.directoryName);
+    async createAcl(fso) {
+        let initialAcl = await driver.callApplyAsync(this.createAclApply, fso.directory.path);
+        let acl = new DirectoryAcl(fso.directory, fso.name);
+
+        acl.merge(initialAcl.data);
+
+        return acl;
     }
 
     /**
@@ -439,6 +430,13 @@ class AclFileSecurity extends BaseFileSecurity {
     async getSafeCredentialAsync(username) {
         let creds = await this.getCredential(username);
         return creds.createSafeExport();
+    }
+
+    /**
+     * Initialize permissions on the filesystem
+     */
+    async initSecurityAsync() {
+
     }
 
     /**
@@ -541,15 +539,29 @@ class AclFileSecurity extends BaseFileSecurity {
                     }),
                 acl;
 
+            permSets.forEach(ps => {
+                let setName = ps.replace(/^PERMSET\s+/, '');
+                this.permSets[setName] = this.parsePerms(perms[ps]);
+            });
+
             for (let i = 0; i < dirList.length; i++) {
-                let dirName = dirList[i].directory;
+                if (driver.efuns.containsWildcard(dirList[i].directory)) {
+                    this.wildcardPermissions.push(new WildcardAcl(dirList[i]));
+                    continue;
+                }
+                let directory = await driver.fileManager.getObjectAsync(dirList[i].directory, 0, true);
+                let aclFile = await directory.getObjectAsync(this.aclFileName);
+
                 /** @type {AclDirectoryData} */
                 let data = dirList[i].data;
+
                 /** @type {DirectoryAcl} */
-                let acl = await this.getAcl(dirName, true);
+                let acl = aclFile.exists ?
+                    await this.getAcl(aclFile, true) :
+                    await this.createAcl(aclFile);
 
-                if (!acl) {
-
+                if (!aclFile.exists) {
+                    await acl.save();
                 }
                 else if (!acl.exists || data.fixupEnabled === true) {
                     await acl.merge(data);
@@ -557,7 +569,7 @@ class AclFileSecurity extends BaseFileSecurity {
                 else {
 
                 }
-                console.log(`Ensuring permissions for ${dirName}`);
+                console.log(`Ensuring permissions for ${directory}`);
             }
         }
         catch (ex) {
@@ -600,9 +612,76 @@ class AclFileSecurity extends BaseFileSecurity {
         }, __filename, true, true);
     }
 
+    /**
+     * Parse permission string
+     * @param {string} perms
+     */
+    parsePerms(perms) {
+        let result = 0,
+            parts = perms.split('');
+
+        if (typeof perms === 'number') {
+            return perms;
+        }
+        else if (perms in this.permSets) {
+            return this.permSets[perms];
+        }
+
+        parts.forEach(p => {
+            switch (p) {
+                case 'c': result |= P_CREATEFILE; break;
+                case 'C': result |= P_CREATEFILE | P_CREATEDIR; break;
+                case 'd': result |= P_DELETE; break;
+                case 'D': result |= P_DELETEDIR | P_DELETE; break;
+                case 'm': result |= P_READMETADATA; break;
+                case 'M': result |= P_READMETADATA | P_WRITEMETADATA; break;
+                case 'O': result |= P_TAKEOWNERSHIP; break;
+                case 'P': result |= P_CHANGEPERMS; break;
+                case 'r': result |= P_READ | P_READPERMS; break;
+                case 'R': result |= P_LISTDIR | P_READ | P_READPERMS; break;
+                case 'w': result |= P_WRITE; break;
+                case 'x': result |= P_EXECUTE; break;
+            }
+        });
+        return result;
+    }
+
     async resolveGroupAsync(groupName) {
         if (groupName in this.groups)
             return this.groups[groupName];
+    }
+
+    /**
+     * Ensure the master object is compatible with this security manager.
+     * @param {GameServer} gameDriver
+     */
+    async validateAsync(gameDriver) {
+        if (typeof gameDriver.masterObject[this.getCredentialApply] !== 'function')
+            throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.getCredentialApply}'`);
+        if (typeof gameDriver.masterObject[this.createAclApply] !== 'function')
+            throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.createAclApply}'`);
+
+        for (const pattern of this.externalGroupFiles) {
+            try {
+                let externalFiles = await driver.fileManager.queryFileSystemAsync(pattern, true)
+                    .catch(err => console.log(`Unable to locate external files using pattern ${pattern}: ${err}`));
+
+                for (let i = 0; i < externalFiles.length; i++) {
+                    try {
+                        const prefix = await driver.callApplyAsync('aclGetExternalGroupPrefix', externalFiles[i].path);
+                        await this.loadExternalGroupsFile(prefix, externalFiles[i])
+                            .catch(err => console.log(`\tUnable to load external group file: ${externalFiles[i].path}: ${err}`));
+                    }
+                    catch (err) {
+                        console.log(`\tUnable to load external group file: ${externalFiles[i].path}: ${err}`);
+                    }
+                }
+            }
+            catch (ex) {
+                console.log(`Unable to locate external files using pattern ${pattern}: ${ex}`)
+            }
+        }
+        await this.loadPermissionsFile();
     }
 
    /**

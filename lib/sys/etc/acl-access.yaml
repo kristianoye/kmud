@@ -13,7 +13,9 @@
 #    c - Create/append a file / C - Create files and directories
 #    p - Read permissions / P - Write/change permissions
 #    m - Read metadata / M - Write metadata
-#    O - Take ownership
+#    L - Load/clone/destruct
+#    x - Execute (if applicable)
+#    O - Change ownership
 #    S - View system files
 #
 
@@ -21,32 +23,60 @@ PERMSET DEFAULT: RLp # Read, traverse directories, load objects
 PERMSET FULL: RWCDLMOS
 PERMSET NONE: '-'
 
-DIRECTORY /:
-   description: The root of the filesystem
-   fixupEnabled: true
+DIRECTORY *:
+   description: Wildcard applied to all filesystem objects
    permissions:
       - $ADMIN: FULL
-      - $ARCH: rw
-      - $ALL: rw
+      - $ARCH: RWCL
+
+DIRECTORY /:
+   description: The root of the filesystem
+   permissions:
+      - $ALL: DEFAULT
 
 DIRECTORY /lib:
     description: The directory containing base mudlib objects
-    fixupEnabled: true
     permissions:
-        - $ADMIN: FULL
-        - $ARCH: rw
+        - $MUDLIB: RWCL
+
+DIRECTORY /sys:
+    description: System directory
+    inherits: false
+    permissions:
+        - $ARCH: RL
+        - $ALL: R
 
 DIRECTORY /sys/etc:
     description: Location of important configuration filesystem
-    fixupEnabled: true
+    inherits: false
     permissions:
-        - $ADMIN: FULL
         - $ARCH: R
         - $ALL: NONE
 
 DIRECTORY /sys/data:
     description: Default save location for important game objects
+    inherits: false
     permissions:
-        - $ADMIN: FULL
         - $ARCH: R
+        - $ALL: NONE
+
+DIRECTORY /cmds:
+    description: Non-priveledged commands
+    permissions:
+        - $MUDLIB: RWCLx
+        - $ALL: RLx
+
+DIRECTORY /cmds/admin:
+    description: Admin-only commands
+    inherits: false
+    permissions:
+        - $MUDLIB: RWCL
+        - $ALL: NONE
+
+DIRECTORY /cmds/arch:
+    description: Arch+ commands
+    inherits: false
+    permissions:
+        - $ARCH: RLx
+        - $MUDLIB: RWCL
         - $ALL: NONE

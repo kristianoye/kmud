@@ -81,6 +81,10 @@ class BaseFileSecurity extends EventEmitter {
         throw new NotImplementedError('getSafeCredential');
     }
 
+    initSecurityAsync() {
+        throw new NotImplementedError('initSecurityAsync');
+    }
+
     isSystemFile(path) {
         return false;
     }

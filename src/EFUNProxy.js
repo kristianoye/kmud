@@ -157,6 +157,30 @@ class EFUNProxy {
         else throw new Error(`Bad argument 1 to assemble_class(); Expected array got ${typeof arr}`);
     }
 
+    /**
+      * Attempt to create a regular expression from a file pattern
+      * @param {string} expr The string to convert
+      * @param {boolean} exactMatch The pattern must match exactly
+      */
+    buildFilenamePattern(expr, exactMatch = true) {
+        expr = expr.replace(/\]/g, ']{1}')
+        expr = expr.replace(/\//g, '\\/');
+        expr = expr.replace(/\./g, '\\.');
+        expr = expr.replace(/[*]+/g, '[^/]+');
+        expr = expr.replace(/\?/g, '.');
+        try {
+            if (exactMatch)
+                return new RegExp('^' + expr + '$');
+            else
+                return new RegExp(expr + '$');
+        }
+        catch (err) {
+            console.log(err);
+        }
+        return false;
+    }
+
+
     callOut(func, delay, ...args) {
         let mxc = driver.currentContext,
             tob = mxc.thisObject,
@@ -492,6 +516,17 @@ class EFUNProxy {
 
     get config() {
         return driver.config.createExport();
+    }
+
+    /**
+     * Check to see if the string looks like a wildcard pattern
+     * @param {string} expr The expression to check
+     * @returns {boolean} Returns true if the string looks like a file pattern
+     */
+    containsWildcard(expr) {
+        if (typeof expr !== 'string')
+            return false;
+        return expr.match(/[\*\?\[\]+]/);
     }
 
     /** Gets the default export for the module */
@@ -1595,6 +1630,7 @@ class EFUNProxy {
                 return expr;
             }
             else if (m.length === 3 && !m[1]) {
+                // TODO: Remove lib-specific home directory logic
                 expr = '/realms/' + expr.slice(1);
             }
         }

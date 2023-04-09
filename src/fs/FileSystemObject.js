@@ -56,10 +56,10 @@ const { NotImplementedError, PermissionDeniedError } = require('../ErrorTypes');
 class FileSystemObject {
     /**
      * Construct a FSO
-     * @param {FileSystemObject} fso
+     * @param {FileSystemObject} statInfo
      */
-    constructor(fso, err = false) {
-        this.#fileInfo = fso;
+    constructor(statInfo, err = false) {
+        this.#fileInfo = statInfo;
     }
 
     // #region Prive Properties
@@ -566,9 +566,200 @@ class VirtualObjectFile extends FileSystemObject {
 }
 
 
+/**
+ * The basis for all filesystem wrapper objects
+ */
+class WrapperBase extends FileSystemObject {
+    /**
+     * Construct a new stat
+     * @param {FileSystemObject} data Config data
+     * @param {Error} [err] Any error associated with fetching the object
+     */
+    constructor(data, err = false) {
+        super(data, err);
+    }
+
+    async can(flags) {
+        return true;
+    }
+}
+
+/**
+ * Abstract class for implementing a directory-like structure 
+ */
+class DirectoryWrapper extends WrapperBase {
+    /**
+     * Construct a new directory object
+     * @param {FileSystemObject} stat Stat data
+     * @param {Error} err Any error associated with fetching the object
+     */
+    constructor(stat, err = undefined) {
+        super(stat, err);
+
+        /** @type {FileSystemObject[]} */
+        this.contents = [];
+        this.#instance = stat;
+    }
+
+    #instance;
+
+    getFileAsync(fileName) {
+        return this.#instance.getFileAsync(fileName);
+    }
+
+    /**
+     * Return a child object
+     * @param {string} spec The name of the file to retrieve
+     */
+    async getObject(spec) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                if (spec.indexOf('/') > -1)
+                    return reject(new Error('getObject(): Filename cannot contain directory separator'));
+                let filename = `${this.fullPath}/${spec}`,
+                    result = await driver.fileManager.getObjectAsync(filename);
+                return resolve(result);
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /**
+     * Maps a path relative to this object
+     * @param {any} expr
+     */
+    mapPath(expr) {
+        return path.posix.join(this.path, FileManager.convertPath(expr));
+    }
+
+    async readAsync(pattern = undefined, flags = 0) {
+        if (await this.can(SecurityFlags.P_LISTDIR))
+            return await this.#instance.readAsync(pattern, flags);
+        else
+            throw new PermissionDeniedError(this.fullPath, 'readAsync');
+    }
+
+    refreshAsync() {
+        return new Promise(async (resolve, reject) => {
+            super.refreshAsync()
+                .then(
+                    updated => {
+                        this.#instance = updated;
+                        resolve(true);
+                    },
+                    reason => reject(reason));
+
+        });
+    }
+}
+
+/** 
+ * Abstract class for implementing a file object 
+ */
+class FileWrapper extends WrapperBase {
+    /**
+     * Construct a new file object
+     * @param {FileSystemObject} stat Stat data
+     * @param {Error} err Any error associated with fetching the object
+     */
+    constructor(stat, err = undefined) {
+        super(stat, err);
+
+        this.#instance = stat;
+    }
+
+    // #region Method Implementations
+
+    /**
+     * Compile or re-compile a MUD module 
+     */
+    async compileAsync() {
+        if (await this.can(SecurityFlags.P_LOADOBJECT))
+            return super.compileAsync();
+        else
+            throw new PermissionDeniedError(this.fullPath, 'compileAsync');
+    }
+
+    async loadObjectAsync(request, args) {
+        if (await this.can(SecurityFlags.P_LOADOBJECT))
+            return super.loadObjectAsync(request, args);
+        else
+            throw new PermissionDeniedError(this.fullPath, 'loadObjectAsync');
+    }
+
+    async readAsync() {
+        if (await this.can(SecurityFlags.P_READ))
+            return await this.#instance.readAsync();
+        else
+            throw new PermissionDeniedError(this.fullPath, 'readAsync');
+    }
+
+    async readJsonAsync() {
+        if (await this.can(SecurityFlags.P_READ))
+            return super.readJsonAsync();
+        else
+            throw new PermissionDeniedError(this.fullPath, 'readJsonAsync');
+    }
+
+    async readYamlAsync() {
+        if (await this.can(SecurityFlags.P_READ))
+            return super.readJsonAsync();
+        else
+            throw new PermissionDeniedError(this.fullPath, 'readJsonAsync');
+    }
+
+    refreshAsync() {
+        return new Promise(async (resolve, reject) => {
+            super.refreshAsync()
+                .then(
+                    updated => {
+                        this.#instance = updated;
+                        resolve(true);
+                    },
+                    reason => reject(reason));
+
+        });
+    }
+
+    async writeAsync() {
+        if (await this.can(SecurityFlags.P_WRITE))
+            return super.writeAsync();
+        else
+            throw new PermissionDeniedError(this.fullPath, 'writeAsync');
+    }
+
+    // #endregion
+
+    // #region Properties
+    /** 
+     * The underlying implementation
+     * @type {FileSystemObject} 
+     */
+    #instance;
+
+
+    get extension() {
+        let n = this.name.lastIndexOf('.');
+        return n > 0 ? this.name.substring(n) : '';
+    }
+
+    get baseName() {
+        let n = this.path.lastIndexOf('.');
+        return n > 0 ? this.path.substring(0, n) : this.path;
+    }
+
+    // #endregion
+}
+
+
 module.exports = {
     FileSystemObject,
     ObjectNotFound,
     SecurityFlags,
-    VirtualObjectFile
+    VirtualObjectFile,
+    WrapperBase,
+    DirectoryWrapper,
+    FileWrapper
 };

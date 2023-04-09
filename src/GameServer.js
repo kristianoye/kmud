@@ -1123,6 +1123,7 @@ class GameServer extends MUDEventEmitter {
                 let ef = await this.createSimulEfuns();
                 await this.createMasterObjectAsync();
                 await this.securityManager.validateAsync(this);
+                await this.securityManager.initSecurityAsync();
                 await this.enableFeaturesAsync();
                 this.sealProtectedTypes();
             }
