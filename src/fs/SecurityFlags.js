@@ -3,7 +3,7 @@ const
         /** May read the contents of an object */
         P_READ: 1 << 0,
         /** May write/overwrite the object; Also see P_APPEND */
-        P_WRITE: 1 << 1,
+        P_WRITE: 1 << 1 | 1 << 16,
         /** May delete the object */
         P_DELETE: 1 << 2,
         /** May delete this directory */

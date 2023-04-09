@@ -1,7 +1,7 @@
 
 const
     MUDEventEmitter = require('../MUDEventEmitter'),
-    { FileSystemObject, ObjectNotFound, VirtualObjectFile, FileWrapper, DirectoryWrapper } = require('./FileSystemObject'),
+    { FileSystemObject, ObjectNotFound, VirtualObjectFile, FileWrapper, FileWrapperObject } = require('./FileSystemObject'),
     { PermissionDeniedError } = require('../ErrorTypes'),
     FileSystemRequest = require('./FileSystemRequest'),
     FileSystemQuery = require('./FileSystemQuery'),
@@ -860,7 +860,7 @@ class FileManager extends MUDEventEmitter {
             return new FileWrapper(fso);
         }
         else if (fso.isDirectory) {
-            return new DirectoryWrapper(fso);
+            return new FileWrapperObject(fso);
         }
         else if (fso instanceof ObjectNotFound === true)
             return new WrapperBase(fso);

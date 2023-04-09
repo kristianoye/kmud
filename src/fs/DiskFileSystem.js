@@ -1,4 +1,5 @@
-﻿const { isReturnStatement } = require('typescript');
+﻿const { relative } = require('path');
+const { isReturnStatement } = require('typescript');
 
 /*
  * Written by Kris Oye <kristianoye@gmail.com>
@@ -13,6 +14,7 @@ const
     async = require('async'),
     path = require('path'),
     fs = require('fs'),
+    fsPromises = fs.promises,
     Dirent = fs.Dirent;
 
 // - FileWrapper
@@ -49,6 +51,27 @@ class DiskFileObject extends DiskObjectBase {
      * @type {string} */
     #physicalLocation;
 
+    appendFileAsync(content, options = { encoding: 'utf8' }) {
+        return this.writeFileAsync(content, { flags: 'a' });
+    }
+
+    /**
+     * Attempt to create this as a directory
+     */
+    async createDirectoryAsync() {
+        return new Promise((resolve, reject) => {
+            if (this.exists)
+                return reject(`createDirectoryAsync: Path ${this.path} already exists.`);
+
+            try {
+                fs.mkdir(this.#physicalLocation, err => err ? reject(err) : resolve(true));
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
+    }
+
     /**
      * Delete the file
      */
@@ -59,16 +82,46 @@ class DiskFileObject extends DiskObjectBase {
             return this.deleteFileAsync(...args);
     }
 
-    async deleteDirectoryAsync(expr, flags = 0) {
+    /**
+     * Delete a directory
+     * @param {string | { pattern: string, confirm: function(string): boolean, flags: number }} expr
+     * @param {number} flags
+     */
+    async deleteDirectoryAsync(expr = '', flags = 0) {
+        let deleteOperation = { pattern: '', confirm: () => true, flags: 0 };
+
+        if (typeof expr === 'object') {
+            deleteOperation = Object.assign(deleteOperation, expr);
+        }
+        else if (typeof expr === 'string') {
+            deleteOperation.pattern = expr;
+        }
+
+        if (flags > 0) {
+            deleteOperation.flags |= flags;
+        }
+
         return new Promise(async (resolve, reject) => {
-            let contents = await this.readDirectoryAsync();
+            if (!this.directory)
+                return reject(`deleteFileAsync: Invalid operation: ${this.path} is a directory`);
+
+            let contents = await this.readDirectoryAsync(expr, flags);
+
+            for (let i = 0; i < contents.length; i++) {
+                if (deleteOperation.confirm(contents[i].path)) {
+                    await contents[i].deleteAsync();
+                }
+            }
         });
     }
 
     async deleteFileAsync() {
         return new Promise((resolve, reject) => {
             try {
-                fs.unlink(this.#physicalLocation, err => err ? reject(err) : resolve(true));
+                if (this.isDirectory)
+                    return reject(`deleteFileAsync: Invalid operation: ${this.path} is a directory`);
+                else
+                    fs.unlink(this.#physicalLocation, err => err ? reject(err) : resolve(true));
             }
             catch (ex) {
                 reject(ex);
@@ -76,19 +129,29 @@ class DiskFileObject extends DiskObjectBase {
         });
     }
 
+    async getFileAsync(fileName) {
+        return this.getObjectAsync(fileName);
+    }
+
     async getObjectAsync(fileName) {
         return new Promise(async (resolve, reject) => {
+            let isSystemRequest = this.hasWrapper === false;
             if (!this.isDirectory)
-                return reject('getObjectAsync() called on non-directory object');
+                return this;
+            else if (driver.efuns.containsWildcard(fileName) === false) {
+                let relativePath = path.posix.join(this.path, fileName);
+
+                return resolve(await driver.fileManager.getObjectAsync(relativePath, 0, isSystemRequest));
+            }
 
             try {
                 let pathRequested = path.posix.join(this.path, fileName);
                 let files = await this.readDirectoryAsync(fileName);
-                let isSystemRequest = this instanceof WrapperBase === false;
+                let isSystemRequest = this.hasWrapper === false;
                 let result = undefined;
 
                 if (files.length === 0)
-                    result = new DiskObjectNotFound(
+                    result = new DiskFileObject(
                         FileSystemObject.createDummyStats(
                             {
                                 directory: isSystemRequest ? this : driver.fileManager.wrapFileObject(this),
@@ -127,34 +190,97 @@ class DiskFileObject extends DiskObjectBase {
     }
 
     /**
-     * 
+     * Read information from a directory
      * @param {string} pattern
      * @param {number} flags
      * @returns {Promise<FileSystemObject[]>}
      */
     async readDirectoryAsync(pattern = '', flags = 0) {
-        let isSystemRequest = this instanceof WrapperBase === false;
+        let isSystemRequest = this.hasWrapper === false;
 
         if (pattern.indexOf('/') > -1) {
             return driver.fileManager.queryFileSystemAsync(pattern, isSystemRequest);
         }
         return new Promise(async (resolve, reject) => {
-            try {
-                fs.readdir(this.#physicalLocation, { withFileTypes: true }, async (err, files) => {
-                    if (err)
-                        return reject(err);
+            let returnResults = async (err = undefined, objectList = []) => {
+                let directoriesOnly = false,
+                    searchSubdirectories = false,
+                    extraPattern = false,
+                    results = [];
+                let regex = pattern && DiskFileSystem.createPattern(pattern);
 
-                    let promiseList = files.map(stat => driver.fileManager
-                        .getObjectAsync(path.posix.join(this.path, stat.name), undefined, this.systemObj));
+                if (err)
+                    return reject(err);
 
-                    let results = await Promise.allWithLimit(promiseList);
+                if (pattern) {
+                    if (typeof pattern !== 'string') {
+                        throw new Error(`Unexpected pattern: ${pattern}`);
+                    }
+                    if (pattern.contains('/')) {
+                        let parts = pattern.split('/');
 
-                    return await returnResults(undefined, results);
-                });
-            }
-            catch (err) {
-                reject(err);
-            }
+                        pattern = parts.shift();
+                        directoriesOnly = true;
+
+                        if (parts.length)
+                            extraPattern = parts.join('/');
+                    }
+                    if (pattern.contains('**')) {
+                        let thisPattern = pattern.replace(/[\*]{2,}/, '*');
+
+                        regex = DiskFileSystem.createPattern(thisPattern);
+
+                        let workers = objectList.map(fo =>
+                            new Promise(async (res, rej) => {
+                                try {
+                                    if (fo.isDirectory)
+                                        return res(await fo.readAsync(pattern));
+                                    else if (regex.test(fo.name))
+                                        return res(fo);
+                                    else
+                                        return res(false);
+                                }
+                                catch (err) {
+                                    rej(err);
+                                }
+                            }));
+
+                        results = await Promise.allWithLimit(workers);
+                        results = results.where(f => f !== false).selectMany().sort();
+                        resolve(results);
+                    }
+                }
+                results = objectList
+                    .filter(f => {
+                        if (directoriesOnly) {
+                            if (!f.isDirectory)
+                                return false;
+                            else if (regex)
+                                return regex.test(f.name);
+                            else
+                                return true;
+                        }
+                        else if (f.name === '.acl') //  TODO: Add proper system file filter
+                            return false;
+                        if (!regex || regex.test(f.name))
+                            return true;
+                        return false;
+                    });
+
+                if (driver.efuns.checkFlags(flags, MUDFS.GetDirFlags.FullPath))
+                    return resolve(results = results.map(f => f.path));
+                else
+                    return resolve(results);
+            };
+
+            fs.readdir(this.#physicalLocation, { withFileTypes: true }, async (err, files) => {
+                if (err) return reject(err);
+                let promiseList = files.map(stat => driver.fileManager
+                    .getObjectAsync(path.posix.join(this.path, stat.name), undefined, this.systemObj));
+
+                let results = await Promise.allWithLimit(promiseList);
+                return await returnResults(undefined, results);
+            });
         });
     }
 
@@ -187,28 +313,54 @@ class DiskFileObject extends DiskObjectBase {
         });
     }
 
+    async refreshAsync() {
+
+    }
+
+    async writeAsync(...args) {
+        if (this.isDirectory)
+            return this.writeDirectoryAsync(...args);
+        else
+            return this.writeFileAsync(...args);
+    }
+
     /**
-     * Write 
-     * @param {any} content
-     * @param {any} encoding
+     * Write to one or more files in the directory.
+     * @param {string | Object.<string,string|Buffer|(string) => string>} fileNameOrContent
+     * @param {any} options
      */
-    writeFileAsync(content, options = { encoding: 'utf8', flag: 'w' }) {
-        return new Promise(async (resolve, reject) => {
-            if (await this.can(SecurityFlags.P_WRITE)) {
-                try {
-                    fs.writeFile(this.#physicalLocation, content, options, err => {
-                        if (err)
-                            reject(err);
-                        else
-                            resolve(true);
-                    });
-                }
-                catch (err) {
-                    reject(err);
+    async writeDirectoryAsync(fileNameOrContent, content , options = { encoding: 'utf8', flag: 'w' }) {
+        let writes = [];
+
+        if (typeof fileNameOrContent === 'object') {
+            for (let [filename, data] of Object.entries(fileNameOrContent)) {
+                if (typeof filename === 'string') {
+                    if (typeof data === 'function')
+                        data = data(filename);
+
+                    writes.push(this.writeDirectoryAsync(filename, data, options));
                 }
             }
-            else
-                reject(new PermissionDeniedError(this.fullPath, 'writeFileAsync'));
+            await Promise.all(writes);
+        }
+        else if (typeof fileNameOrContent === 'string') {
+            return fsPromises.writeFile(fileNameOrContent, content, options);
+        }
+    }
+
+    /**
+     * Write to a single file
+     * @param {string | Buffer} content
+     * @param {{ encoding?: string, flags?: string }} options
+     */
+    writeFileAsync(content, options = { encoding: 'utf8', flags: 'w' }) {
+        return new Promise((resolve, reject) => {
+            try {
+                fs.writeFile(this.#physicalLocation, content, options, () => resolve(true));
+            }
+            catch (ex) {
+                reject(ex);
+            }
         });
     }
 }
@@ -333,11 +485,11 @@ class DiskDirectoryObject extends DiskObjectBase {
             try {
                 let pathRequested = path.posix.join(this.path, fileName);
                 let files = await this.readAsync(fileName);
-                let isSystemRequest = this instanceof WrapperBase === false;
+                let isSystemRequest = this.hasWrapper === false;
                 let result = undefined;
 
                 if (files.length === 0)
-                    result = new DiskObjectNotFound(
+                    result = new DiskFileObject(
                         FileSystemObject.createDummyStats(
                             {
                                 directory: isSystemRequest ? this : driver.fileManager.wrapFileObject(this),
@@ -588,12 +740,7 @@ class DiskFileSystem extends BaseFileSystem {
             throw new Error('Oops.  Invalid stat object');
         }
 
-        if (normal.isDirectory)
-            return new DiskDirectoryObject(normal, physicalPath);
-        if (normal.isFile)
-            return new DiskFileObject(normal, physicalPath);
-        else if (!normal.exists)
-            return new DiskObjectNotFound(normal, physicalPath);
+        return new DiskFileObject(normal, physicalPath);
     }
 
     /**
@@ -629,7 +776,7 @@ class DiskFileSystem extends BaseFileSystem {
             data.isSymbolicLink = data.isSymbolicLink();
 
             if (data.isDirectory)
-                return new DiskDirectoryObject(data, physicalPath);
+                return new DiskFileObject(data, physicalPath);
             else if (data.isFile)
                 return new DiskFileObject(data, physicalPath);
         }
@@ -1026,7 +1173,7 @@ class DiskFileSystem extends BaseFileSystem {
             try {
                 fs.stat(fullPath, async (err, data) => {
                     if (err) {
-                        result = new DiskObjectNotFound(FileSystemObject.createDummyStats(stat, err), err);
+                        result = new DiskFileObject(FileSystemObject.createDummyStats(stat, err), err);
                     }
                     else {
                         stat = Object.assign(data, stat, {

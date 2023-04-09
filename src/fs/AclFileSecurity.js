@@ -378,7 +378,8 @@ class AclFileSecurity extends BaseFileSecurity {
      * @param {FileSystemObject} fso
      */
     async createAcl(fso) {
-        let initialAcl = await driver.callApplyAsync(this.createAclApply, fso.directory.path);
+        let initialAcl = await driver.callApplyAsync(this.createAclApply,
+            typeof fso.directory === 'string' ? fso.directory : fso.directory.path);
         let acl = new DirectoryAcl(fso.directory, fso.name);
 
         acl.merge(initialAcl.data);

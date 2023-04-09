@@ -526,7 +526,7 @@ class EFUNProxy {
     containsWildcard(expr) {
         if (typeof expr !== 'string')
             return false;
-        return expr.match(/[\*\?\[\]+]/);
+        return /[\*\?\[\]]+/.test(expr);
     }
 
     /** Gets the default export for the module */

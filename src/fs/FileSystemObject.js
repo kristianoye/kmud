@@ -60,12 +60,15 @@ class FileSystemObject {
      */
     constructor(statInfo, err = false) {
         this.#fileInfo = statInfo;
+        this.#hasWrapper = false;
     }
 
     // #region Prive Properties
 
     /** @type {FileSystemObject} */
     #fileInfo;
+
+    #hasWrapper;
 
     // #endregion
 
@@ -141,6 +144,10 @@ class FileSystemObject {
 
     get gid() {
         return this.#fileInfo.gid || -1;
+    }
+
+    get hasWrapper() {
+        return this.#hasWrapper;
     }
 
     get ino() {
@@ -240,6 +247,10 @@ class FileSystemObject {
                 reject(err);
             }
         });
+    }
+
+    configureWrapper(wrapper) {
+        this.#hasWrapper = true;
     }
 
     /**
@@ -753,11 +764,332 @@ class FileWrapper extends WrapperBase {
     // #endregion
 }
 
+/** 
+ * Wraps a filesystem object with security checks and such
+ * !!! WARNING: IT IS VITAL THAT **ALL** NATIVE METHODS ARE
+ * WRAPPED WITH SECURITY CHECKS !!!
+ */
+class FileWrapperObject extends FileSystemObject {
+    /**
+     * Wrap a native filesystem object
+     * @param {FileSystemObject} nativeObject
+     */
+    constructor(nativeObject) {
+        super(nativeObject);
+
+        this.#instance = nativeObject;
+        nativeObject.configureWrapper(this);
+    }
+
+    //#region Properties
+
+    /**
+     * The underlying, native object that needs protection
+     * @type {FileSystemObject}
+     */
+    #instance;
+
+    /**
+     * The ID of the filesystem this object lives on
+     * @type {string} 
+     */
+    get fileSystemId() {
+        return this.#instance.fileSystemId || undefined;
+    }
+
+    get mountPoint() {
+        return this.#instance.mountPoint || undefined;
+    }
+
+    get atime() {
+        return this.#instance.atime || new Date(0);
+    }
+
+    get atimeMs() {
+        return this.atime.getMilliseconds();
+    }
+
+    get baseName() {
+        let n = this.path.lastIndexOf('.'),
+            s = this.path.lastIndexOf('/');
+
+        return n > s ? this.path.slice(0, n) : this.path.slice(0);
+    }
+
+    get birthtime() {
+        return this.#instance.birthtime || new Date(0);
+    }
+
+    get birthtimeMs() {
+        return this.birthtime.getMilliseconds();
+    }
+
+    get blksize() {
+        return this.#instance.blksize || 4096;
+    }
+
+    get blocks() {
+        return this.#instance.blocks;
+    }
+
+    get ctime() {
+        return this.#instance.ctime || new Date(0);
+    }
+
+    get ctimeMs() {
+        return this.ctime.getMilliseconds();
+    }
+
+    get dev() {
+        return this.#instance.dev || -1;
+    }
+
+    get directory() {
+        return this.#instance.directory || undefined;
+    }
+
+    get exists() {
+        return this.#instance.exists;
+    }
+
+    get extension() {
+        if (this.isFile) {
+            let n = this.fullPath.lastIndexOf('.');
+            if (n > 0) return this.fullPath.slice(n);
+        }
+        return '';
+    }
+
+    get fullPath() {
+        return this.path;
+    }
+
+    get gid() {
+        return this.#instance.gid || -1;
+    }
+
+    get ino() {
+        return this.#instance.ino || -1;
+    }
+
+    get isBlockDevice() {
+        return this.#instance.isBlockDevice || false;
+    }
+
+    get isCharacterDevice() {
+        return this.#instance.isCharacterDevice || false;
+    }
+
+    get isDirectory() {
+        return this.#instance.isDirectory || false;
+    }
+
+    get isFile() {
+        return this.#instance.isFile || false;
+    }
+
+    get isFIFO() {
+        return this.#instance.isFIFO || false;
+    }
+
+    get isSocket() {
+        return this.#instance.isSocket || false;
+    }
+
+    get isSymbolicLink() {
+        return this.#instance.isSymbolicLink || false;
+    }
+
+    get isSystemFile() {
+        return this.#instance.isSystemFile || false;
+    }
+
+    get isVirtual() {
+        return false;
+    }
+
+    get mode() {
+        return this.#instance.mode || -1;
+    }
+
+    get mtime() {
+        return this.#instance.mtime || new Date(0);
+    }
+
+    get mtimeMs() {
+        return this.mtime.getMilliseconds();
+    }
+
+    get name() {
+        return this.#instance.name;
+    }
+
+    /** @type {string} */
+    get path() {
+        return this.#instance.path;
+    }
+
+    get rdev() {
+        return this.#instance.rdev || -1;
+    }
+
+    get size() {
+        return this.#instance.size || -1;
+    }
+
+    get uid() {
+        return this.#instance.uid || -1;
+    }
+
+    //#endregion
+
+    // #region Methods
+
+    async appendFileAsync(content, options = { encoding: 'utf8' }) {
+        if (await this.can(SecurityFlags.P_APPEND)) {
+            return this.#instance.appendFileAsync(content, options);
+        }
+    }
+
+    /**
+     * Check to see if the action can be performed
+     * @param {number} perm
+     */
+    async can(perm) {
+        return driver.securityManager.can(this, perm);
+    }
+
+    configureWrapper(t) {
+        //  Does nothing
+    }
+
+    async createDirectoryAsync() {
+        if (await this.can(SecurityFlags.P_CREATEDIR)) {
+            return this.#instance.createDirectoryAsync();
+        }
+    }
+
+    /**
+     * Delete the file
+     */
+    async deleteAsync(...args) {
+        if (this.isDirectory) {
+            return this.deleteDirectoryAsync(...args);
+        }
+            
+        else
+            return this.deleteFileAsync(...args);
+    }
+
+    /**
+     * Delete a directory
+     */
+    async deleteDirectoryAsync(...args) {
+        if (await this.can(SecurityFlags.P_DELETEDIR)) {
+            return this.#instance.deleteDirectoryAsync(...args);
+        }
+    }
+
+
+    async deleteFileAsync() {
+        if (await this.can(SecurityFlags.P_DELETE)) {
+            return this.#instance.deleteFileAsync();
+        }
+    }
+
+    async getFileAsync(fileName) {
+        return this.#instance.getObjectAsync(fileName);
+    }
+
+    async getObjectAsync(fileName) {
+        if (this.isDirectory) {
+            if (await this.can(SecurityFlags.P_LISTDIR))
+                return this.driver.fileManager.wrapFileObject(this.#instance.getObjectAsync(fileName));
+        }
+        else {
+            return this;
+        }
+    }
+
+    async readAsync(...args) {
+        if (this.isDirectory)
+            return this.readDirectoryAsync(...args);
+        else
+            return this.readFileAsync(...args);
+    }
+
+    /**
+     * Read information from a directory
+     * @returns {Promise<FileSystemObject[]>}
+     */
+    async readDirectoryAsync(...args) {
+        if (this.can(SecurityFlags.P_LISTDIR)) {
+            return this.#instance.readDirectoryAsync(...args);
+        }
+    }
+
+    async readFileAsync(...args) {
+        if (this.can(SecurityFlags.P_READ)) {
+            return this.#instance.readFileAsync(...args);
+        }
+    }
+
+    async refreshAsync() {
+        await this.#instance.refreshAsync();
+        return this;
+    }
+
+    async writeAsync(...args) {
+        if (this.isDirectory)
+            return this.writeDirectoryAsync(...args);
+        else
+            return this.writeFileAsync(...args);
+    }
+
+    /**
+     * Write to one or more files in the directory.
+     * @param {string | Object.<string,string|Buffer|(string) => string>} fileNameOrContent
+     * @param {any} options
+     */
+    async writeDirectoryAsync(fileNameOrContent, content, options = { encoding: 'utf8', flag: 'w' }) {
+        let writes = [];
+
+        if (typeof fileNameOrContent === 'object') {
+            for (let [filename, data] of Object.entries(fileNameOrContent)) {
+                if (typeof filename === 'string') {
+                    if (typeof data === 'function')
+                        data = data(filename);
+
+                    writes.push(this.writeDirectoryAsync(filename, data, options));
+                }
+            }
+            await Promise.all(writes);
+        }
+        else if (typeof fileNameOrContent === 'string') {
+            let fso = this.getObjectAsync(fileNameOrContent);
+            return fso.writeFileAsync(content);
+        }
+    }
+
+    /**
+     * Write to a single file
+     */
+    async writeFileAsync(...args) {
+        if (await this.can(SecurityFlags.P_WRITE)) {
+            return this.#instance.writeFileAsync(...args);
+        }
+    }
+
+
+    // #endregion
+}
+
 
 module.exports = {
-    FileSystemObject,
-    ObjectNotFound,
     SecurityFlags,
+    FileSystemObject,
+    FileWrapperObject,
+    ObjectNotFound,
     VirtualObjectFile,
     WrapperBase,
     DirectoryWrapper,
