@@ -4,9 +4,9 @@
  * Date: October 1, 2017
  */
 const
-    BaseFileSecurity = require('./BaseFileSecurity');
+    BaseSecurityManager = require('./BaseSecurityManager');
 
-class DefaultFileSecurity extends BaseFileSecurity {
+class BasicSecurityManager extends BaseSecurityManager {
    /**
      * Check to see if the caller may append to file.
      * @param {EFUNProxy} efuns
@@ -118,4 +118,4 @@ class DefaultFileSecurity extends BaseFileSecurity {
     }
 }
 
-module.exports = DefaultFileSecurity;
+module.exports = BasicSecurityManager;

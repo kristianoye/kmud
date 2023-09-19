@@ -58,6 +58,15 @@ class SecurityHelper {
         return promise;
     }
 
+    /**
+     * Check to see if the specified user is in a particular group
+     * @param {string} username
+     * @param {string} groupName
+     */
+    static isGroupMember(username, groupName) {
+        return driver.securityManager.isGroupMember(username, groupName);
+    }
+
     static parseAclTree(data) {
         throw new NotImplementedError('parseAclTree');
     }

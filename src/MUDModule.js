@@ -5,6 +5,7 @@
  */
 const
     MUDEventEmitter = require('./MUDEventEmitter');
+const MUDObject = require('./MUDObject');
 
 var
     useAuthorStats = false,
@@ -291,6 +292,8 @@ class MUDModule extends MUDEventEmitter {
 
     async createInstanceAsync(type, instanceData, args, factory = false, callingFile = false) {
         try {
+            let instance = false, store = false;
+
             if (typeof type === 'string' && !this.isVirtual) {
                 if (type in this.exports === false) {
                     //  Always allow module to create its own types
@@ -310,40 +313,48 @@ class MUDModule extends MUDEventEmitter {
                 else
                     type = this.types[type];
             }
-            let ecc = driver.getExecution();
-            let virtualContext = ecc && ecc.popVirtualCreationContext();
-
-            if (virtualContext) {
-                virtualContext.module.addVirtualType(this, type);
-                return await virtualContext.module.createInstanceAsync(type, virtualContext, args);
+            //  Total hack for now
+            else if (this.isVirtual && this.exports.length === 0 && this.defaultExport instanceof MUDObject) {
+                instance = this.defaultExport;
+                store = driver.storage.get(instance);
             }
-            if (!instanceData)
-                instanceData = this.getNewContext(type, false, args);
+            if (instance === false) {
+                let ecc = driver.getExecution();
+                let virtualContext = ecc && ecc.popVirtualCreationContext();
 
-            if (typeof instanceData.instanceId !== "number") {
-                let instances = this.instanceMap[type.constructor.name];
-                instanceData.instanceId = instances.length;
-                instanceData.uuid = driver.efuns.getNewId();
+                if (virtualContext) {
+                    virtualContext.module.addVirtualType(this, type);
+                    return await virtualContext.module.createInstanceAsync(type, virtualContext, args);
+                }
+                if (!instanceData)
+                    instanceData = this.getNewContext(type, false, args);
+
+                if (typeof instanceData.instanceId !== "number") {
+                    let instances = this.instanceMap[type.constructor.name];
+                    instanceData.instanceId = instances.length;
+                    instanceData.uuid = driver.efuns.getNewId();
+                }
+                // Storage needs to be set before starting...
+                store = driver.storage.createForId(instanceData.filename, instanceData.instanceId);
+
+                ecc.addCreationContext(instanceData);
+                ecc.storage = store;
+
+                instance = factory ? factory(type, ...args) : new type(...args);
+                this.finalizeInstance(instance, !instance.filename && instanceData);
+
+                if (typeof this.compilerOptions.onInstanceCreated === 'function') {
+                    this.compilerOptions.onInstanceCreated(instance);
+                }
+
+                if (typeof instance.create === 'function') {
+                    await ecc.withObject(instance, 'create', async () => {
+                        return await instance.create(...args);
+                    }, true, true);
+                }
             }
-            // Storage needs to be set before starting...
-            let store = driver.storage.createForId(instanceData.filename, instanceData.instanceId);
-
-            ecc.addCreationContext(instanceData);
-            ecc.storage = store;
-
-            let instance = factory ? factory(type, ...args) : new type(...args);
-            this.finalizeInstance(instance, !instance.filename && instanceData);
-
-            if (typeof this.compilerOptions.onInstanceCreated === 'function') {
-                this.compilerOptions.onInstanceCreated(instance);
-            }
-
-            if (typeof instance.create === 'function') {
-                await ecc.withObject(instance, 'create', async () => {
-                    return await instance.create(...args);
-                }, true, true);
-            }
-            await driver.driverCallAsync('initStorage', async () => await store.eventInitialize(instance));
+            if (store !== false && instance !== false)
+                await driver.driverCallAsync('initStorage', async () => await store.eventInitialize(instance));
 
             return instance;
         }

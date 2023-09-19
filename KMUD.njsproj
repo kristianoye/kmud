@@ -533,14 +533,14 @@
     <Content Include="src\features\MUDEditor.js" />
     <Content Include="src\features\SecurityFileACL.js" />
     <Content Include="src\features\VerbSystem.js" />
-    <Content Include="src\fs\AclFileSecurity.js" />
-    <Content Include="src\fs\BaseFileSecurity.js">
+    <Content Include="src\security\AclSecurityManager.js" />
+    <Content Include="src\security\BaseSecurityManager.js">
       <SubType>Code</SubType>
     </Content>
     <Content Include="src\fs\BaseFileSystem.js">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="src\fs\DefaultFileSecurity.js" />
+    <Content Include="src\security\BasicSecurityManager.js" />
     <Content Include="src\fs\DiskFileSystem.js" />
     <Content Include="src\fs\FileManager.js" />
     <Content Include="src\fs\FileSystemFlags.js">
@@ -557,7 +557,8 @@
     </Content>
     <Content Include="src\fs\MySqlFilesystem.js" />
     <Content Include="src\fs\README.md" />
-    <Content Include="src\fs\UnixSecurityManager.js">
+    <Content Include="src\security\SecurityFlags.js" />
+    <Content Include="src\security\UnixSecurityManager.js">
       <SubType>Code</SubType>
     </Content>
     <Content Include="src\GameServer.js" />
@@ -961,6 +962,7 @@
     <Folder Include="src\network\servers\HTTPServer\handlers\" />
     <Folder Include="src\extensions\" />
     <Folder Include="src\loader\" />
+    <Folder Include="src\security\" />
     <Folder Include="src\setup\" />
     <Folder Include="src\setup\general\" />
   </ItemGroup>

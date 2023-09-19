@@ -84,9 +84,7 @@ class EFUNProxy {
      * @returns {boolean} True if the target is an administrator.
      */
     adminp(target) {
-        return unwrap(target, player => {
-            return driver.inGroup(target, 'admin');
-        });
+        return driver.callApplySync('isAdmin', target);
     }
 
     /**
@@ -95,9 +93,7 @@ class EFUNProxy {
      * @returns {boolean} True if the target is an arch.ca
      */
     archp(target) {
-        return unwrap(target, player => {
-            return driver.inGroup(target, 'admin', 'arch');
-        });
+        return driver.callApplySync('isArch', target);
     }
 
     get arrays() { return ArrayHelper; }
@@ -1657,7 +1653,7 @@ class EFUNProxy {
                     parts = this.parsePath($type),
                     ecc = driver.getExecution();
 
-                if (ecc.guarded(f => driver.validRead(f, $type))) {
+                if (await ecc.guarded(f => driver.validRead(f, $type))) {
                     let clone = await this.cloneObjectAsync($type),
                         store = driver.storage.get(clone);
                     return !!store && await store.eventRestore(pathOrObject);
@@ -1980,7 +1976,7 @@ class EFUNProxy {
             throw new Error(`Bad argument 1 to unguarded; expected function got ${typeof callback}`);
         let ecc = driver.getExecution();
 
-        ecc.push(ecc.thisObject, 'unguarded', this.fileName);
+        ecc.push(ecc.thisObject, 'unguarded', this.fileName, undefined, undefined, undefined, true);
         ecc.stack[0].unguarded = true;
 
         try {

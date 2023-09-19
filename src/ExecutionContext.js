@@ -321,6 +321,10 @@ class ExecutionContext extends MUDEventEmitter {
         let isAsync = driver.efuns.isAsync(callback);
         for (let i = 0, max = this.length, c = {}; i < max; i++) {
             let frame = this.getFrame(i);
+
+            if (frame.unguarded === true)
+                break;
+
             if (!frame.object && !frame.file)
                 continue; // Does this ever happen?
             else if (frame.object === driver)
@@ -333,8 +337,6 @@ class ExecutionContext extends MUDEventEmitter {
                 return false;
             else if ((c[frame.file] = callback(frame)) === false)
                 return false;
-            if (frame.unguarded === true)
-                break;
         }
         if (action) {
             try {
@@ -443,14 +445,26 @@ class ExecutionContext extends MUDEventEmitter {
             .map(f => f.object);
     }
 
-    push(object, method, file, isAsync, lineNumber, callString) {
+    /**
+     * Push a new frame onto the stack
+     * @param {any} object
+     * @param {any} method
+     * @param {any} file
+     * @param {any} isAsync
+     * @param {any} lineNumber
+     * @param {any} callString
+     * @param {boolean} [isUnguarded]
+     * @returns
+     */
+    push(object, method, file, isAsync, lineNumber, callString, isUnguarded) {
         this.stack.unshift({
             object,
             method,
             file,
             isAsync: isAsync === true || method.startsWith('async '),
             lineNumber,
-            callString: callString || method
+            callString: callString || method,
+            unguarded: isUnguarded === true
         });
         return this;
     }

@@ -4,7 +4,7 @@
  * Date: October 1, 2017
  */
 const
-    BaseFileSecurity = require('./BaseFileSecurity');
+    { BaseSecurityManager } = require('./BaseSecurityManager');
 
 class FilePermissions {
     constructor(stat, acl) {
@@ -19,7 +19,7 @@ class FilePermissions {
 }
 
 /** Mimics UNIX-like file-based permissions */
-class UnixSecurityManager extends BaseFileSecurity {
+class UnixSecurityManager extends BaseSecurityManager {
     constructor(fileManager, fileSystem, options) {
         super(fileManager, fileSystem, options);
 
@@ -33,7 +33,7 @@ class UnixSecurityManager extends BaseFileSecurity {
      */
     async getAcl(stat) {
         if (stat.isFile) {
-            let parent = await stat.getParent(),
+            let parent = await stat.getParentAsync(),
                 parentAcl = await this.getAcl(parent);
             return parentAcl;
         }
@@ -43,7 +43,7 @@ class UnixSecurityManager extends BaseFileSecurity {
 
             let aclData = await driver.fileManager.getSystemFileAsync(stat.mapPath('.acl'), 1);
             if (!aclData.exists) {
-                let parent = await stat.getParent();
+                let parent = await stat.getParentAsync();
                 if (parent) return await this.getAcl(parent);
             }
             let data = await aclData.readJsonAsync();

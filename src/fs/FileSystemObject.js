@@ -10,43 +10,8 @@
  */
 const
     path = require('path'),
-    yaml = require('js-yaml')
-    SecurityFlags = Object.freeze({
-        /** May read the contents of an object */
-        P_READ: 1 << 0,
-        /** May write/overwrite the object; Also see P_APPEND */
-        P_WRITE: 1 << 1,
-        /** May delete the object */
-        P_DELETE: 1 << 2,
-        /** May delete this directory */
-        P_DELETEDIR: 1 << 3,
-        /** May read the contents of a directory */
-        P_LISTDIR: 1 << 4,
-        /** May create a file in the directory */
-        P_CREATEFILE: 1 << 5,
-        /** May create a new directory */
-        P_CREATEDIR: 1 << 6,
-        /** May change permissions on an object */
-        P_CHANGEPERMS: 1 << 7,
-        /** May view the permissions on an object */
-        P_READPERMS: 1 << 8,
-        /** May take ownership of an object */
-        P_TAKEOWNERSHIP: 1 << 9,
-        /** Can you read the associated metadata? */
-        P_READMETADATA: 1 << 10,
-        /** Can you write to the associated metadata? */
-        P_WRITEMETADATA: 1 << 11,
-        /** Can the user read filesystem files? */
-        P_VIEWSYSTEMFILES: 1 << 12,
-        /** Can the user load types from the file module? */
-        P_LOADOBJECT: 1 << 13,
-        /** Can the user execute the type as a command? */
-        P_EXECUTE: 1 << 14,
-        /** Can the user destruct the objects created from the module? */
-        P_DESTRUCTOBJECT: 1 << 15,
-        /** May append but may not be able to truncate */
-        P_APPEND: 1 << 16
-    });
+    yaml = require('js-yaml'),
+    SecurityFlags = require('../security/SecurityFlags');
 
 const { NotImplementedError, PermissionDeniedError } = require('../ErrorTypes');
 
@@ -186,6 +151,10 @@ class FileSystemObject {
         return this.#fileInfo.isSystemFile || false;
     }
 
+    get isSystemRequest() {
+        return this.hasWrapper === false;
+    }
+
     get isVirtual() {
         return false;
     }
@@ -204,6 +173,14 @@ class FileSystemObject {
 
     get name() {
         return this.#fileInfo.name;
+    }
+
+    get parent() {
+        //  Special case for root
+        if (this.#fileInfo.path === '/')
+            return false;
+        else
+            return path.posix.join(this.#fileInfo.path, '..');
     }
 
     /** @type {string} */
@@ -227,13 +204,17 @@ class FileSystemObject {
 
     // #region Methods
 
+    async cloneObjectAsync(...args) {
+
+    }
+
     /**
      * Compile or re-compile a MUD module 
      */
     async compileAsync() {
         return new Promise(async (resolve, reject) => {
             if (this.isDirectory)
-                throw new Error(`Operation not supported: ${this.fullPath} is a directory.`);
+                return reject(`Operation not supported: ${this.fullPath} is a directory.`);
             try {
                 await driver.compiler.compileObjectAsync({
                     args: [],
@@ -332,13 +313,29 @@ class FileSystemObject {
         throw new NotImplementedError('deleteAsync', this);
     }
 
+    /**
+     * Called to delete the object
+     * @param {FileSystemRequest} request
+     */
+    async deleteDirectoryAsync(request) {
+        throw new NotImplementedError('deleteDirectoryAsync', this);
+    }
+
+    /**
+     * Called to delete the object
+     * @param {FileSystemRequest} request
+     */
+    async deleteFileAsync(request) {
+        throw new NotImplementedError('deleteFileAsync', this);
+    }
+
     /** 
      * Get the parent of this object.
      * @returns {Promise<DirectoryWrapper>}  Returns the parent object
      */
-    async getParent() {
+    async getParentAsync() {
         let parentPath = this.path === '/' ? '/' : path.posix.resolve(this.path, '..');
-        return await driver.fileManager.getObjectAsync(parentPath);
+        return await driver.fileManager.getDirectoryAsync(parentPath);
     }
 
     /**
@@ -356,7 +353,7 @@ class FileSystemObject {
      * Refresh the information about this object
      */
     async refreshAsync() {
-        let stats = await driver.fileManager.getObjectAsync(this.path);
+        let stats = await driver.fileManager.getFileAsync(this.path);
 
         this.#fileInfo = stats;
         return stats;
@@ -511,6 +508,25 @@ class FileSystemObject {
 
     }
 
+    async writeJsonAsync(data, options = { indent: true, encoding: 'utf8' }) {
+        let exportText = '';
+        if (options.indent) {
+            if (typeof options.indent === 'number')
+                exportText = JSON.stringify(data, undefined, options.indent);
+            else if (options.indent === true)
+                exportText = JSON.stringify(data, undefined, 3);
+        }
+        else
+            exportText = JSON.stringify(data);
+
+        await this.writeFileAsync(exportText, options);
+    }
+
+    async writeYamlAsync(data) {
+        let test = yaml.dump(data, { sortKeys: true })
+        return await this.writeFileAsync(test);
+    }
+
     // #endregion
 }
 
@@ -628,7 +644,7 @@ class DirectoryWrapper extends WrapperBase {
                 if (spec.indexOf('/') > -1)
                     return reject(new Error('getObject(): Filename cannot contain directory separator'));
                 let filename = `${this.fullPath}/${spec}`,
-                    result = await driver.fileManager.getObjectAsync(filename);
+                    result = await driver.fileManager.getFileAsync(filename);
                 return resolve(result);
             }
             catch (err) {
@@ -904,6 +920,10 @@ class FileWrapperObject extends FileSystemObject {
         return this.#instance.isSystemFile || false;
     }
 
+    get isSystemRequest() {
+        return false;
+    }
+
     get isVirtual() {
         return false;
     }
@@ -922,6 +942,10 @@ class FileWrapperObject extends FileSystemObject {
 
     get name() {
         return this.#instance.name;
+    }
+
+    get parent() {
+        return this.#instance.parent;
     }
 
     /** @type {string} */
@@ -959,6 +983,18 @@ class FileWrapperObject extends FileSystemObject {
         return driver.securityManager.can(this, perm);
     }
 
+    async cloneObjectAsync(...args) {
+        if (await this.can(SecurityFlags.P_LOADOBJECT)) {
+            return this.#instance.cloneObjectAsync(...args);
+        }
+    }
+
+    async compileAsync() {
+        if (await this.can(SecurityFlags.P_LOADOBJECT)) {
+            return this.#instance.compileAsync();
+        }
+    }
+
     configureWrapper(t) {
         //  Does nothing
     }
@@ -976,7 +1012,6 @@ class FileWrapperObject extends FileSystemObject {
         if (this.isDirectory) {
             return this.deleteDirectoryAsync(...args);
         }
-            
         else
             return this.deleteFileAsync(...args);
     }
@@ -1066,7 +1101,7 @@ class FileWrapperObject extends FileSystemObject {
             await Promise.all(writes);
         }
         else if (typeof fileNameOrContent === 'string') {
-            let fso = this.getObjectAsync(fileNameOrContent);
+            let fso = this.getFileAsync(fileNameOrContent);
             return fso.writeFileAsync(content);
         }
     }
@@ -1080,6 +1115,17 @@ class FileWrapperObject extends FileSystemObject {
         }
     }
 
+    async writeJsonAsync(...args) {
+        if (await this.can(SecurityFlags.P_WRITE)) {
+            return this.#instance.writeJsonAsync(...args);
+        }
+    }
+
+    async writeYamlAsync(...args) {
+        if (await this.can(SecurityFlags.P_WRITE)) {
+            return this.#instance.writeYamlAsync(...args);
+        }
+    }
 
     // #endregion
 }

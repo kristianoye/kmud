@@ -84,9 +84,10 @@ class FileSystemHelper {
      * Get a file object
      * @param {string} expr The file expression to fetch
      * @param {any} flags Flags to control the operation
+     * @returns {Promise<FileSystemObject>}
      */
-    static async getFileAsync(expr, flags = 0) {
-        return await driver.fileManager.getFileAsync(expr, flags);
+    static getFileAsync(expr, flags = 0) {
+        return driver.fileManager.getFileAsync(expr, flags);
     }
 
     /**

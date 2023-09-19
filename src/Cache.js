@@ -123,6 +123,7 @@ class Cache {
         while (this.count >= this.capacity) {
             let last = this.last,
                 prev = last.prev;
+            delete this.hashLookup[last.hashKey];
             this.last = prev;
             this.last.next = null;
             count--;
@@ -134,8 +135,10 @@ class Cache {
      * @param {any} value
      * @param {string} key The specific key to cache
      */
-    store(value) {
-        let key = this.keyGenerator(value), item;
+    store(value, key = false) {
+        let item = undefined;
+
+        key = key || this.keyGenerator(value);
 
         if (key in this.hashLookup === false) {
             //  The new item goes in at the beginning

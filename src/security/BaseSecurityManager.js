@@ -7,7 +7,7 @@ const
     { EventEmitter } = require('events'),
     { NotImplementedError, SecurityError } = require('../ErrorTypes');
 
-class BaseFileSecurity extends EventEmitter {
+class BaseSecurityManager extends EventEmitter {
     /**
      * Construct a file security model that acts as a firewall
      * between mudlib and filesystem.
@@ -445,4 +445,4 @@ class BaseSecurityGroup extends EventEmitter {
     }
 }
 
-module.exports = { BaseFileSecurity, BaseSecurityCredential, BaseSecurityGroup };
+module.exports = { BaseSecurityManager, BaseSecurityCredential, BaseSecurityGroup };

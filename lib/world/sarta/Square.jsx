@@ -23,7 +23,7 @@ class Square extends Room {
         this.keyId = 'Square';
         this.shortDesc = 'The Central Square of Sarta';
         this.longDesc = <div>
-            <p>Hello, {formatName()}</p>
+            <p>Hello, {function () { formatName() }}</p>
             <p>This is the heart of the main city in Sarta.  There are many tall buildings
             surrounding the square and hundreds of people mill about the street conducting
                 business.</p>

@@ -4,17 +4,18 @@ DEFAULT GROUP NAME: '$ALL'
 #  Objects assigned to this group have full access to the MUD system
 SYSTEM GROUP NAME: '$SYSTEM'
 
-$SYSTEM:
-  name: Priveledged System Objects
-  description: Priveledged system objects have few restrictions on mudlib access
-  members:
-    - mudlib\system
-
 $ADMIN:
   name: Administrators
   description: Contains a list of superusers that have global control over MUD operations.
   members:
     - creators\kriton
+
+$SYSTEM:
+  name: Priveledged System Objects
+  description: Priveledged system objects have few restrictions on mudlib access
+  members:
+    - mudlib\system
+    - $ADMIN
 
 $APPROVAL:
   name: Approval Group

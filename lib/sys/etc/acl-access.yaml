@@ -34,7 +34,7 @@ DIRECTORY /:
    permissions:
       - $ALL: DEFAULT
 
-DIRECTORY /lib:
+DIRECTORY /base:
     description: The directory containing base mudlib objects
     permissions:
         - $MUDLIB: RWCL
@@ -48,6 +48,13 @@ DIRECTORY /sys:
 
 DIRECTORY /sys/etc:
     description: Location of important configuration filesystem
+    inherits: false
+    permissions:
+        - $ARCH: R
+        - $ALL: NONE
+  
+FILE /sys/etc/acl-access.yaml:
+    description: Security initialization data
     inherits: false
     permissions:
         - $ARCH: R

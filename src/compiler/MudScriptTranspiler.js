@@ -101,7 +101,10 @@ class JSXTranspilerOp {
             this.callerId = false;
             this.source = false;
             this.max = -1;
-            return this.output + this.appendText;
+            return (this.output + this.appendText)
+                .split('\n')
+                .map((line, lineNumber) => line.replaceAll('__LINE__', lineNumber + 1))
+                .join('\n');
         }
         finally {
             this.output = false;
@@ -309,17 +312,17 @@ function parseElement(op, e, depth) {
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
                     ret += op.readUntil(e.body.start);
                     if (e.body.type === 'BlockStatement') {
-                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}); try `;
+                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__); try `;
                         ret += parseElement(op, e.body);
                         ret += ` finally { __efc(__mec, '${funcName}'); } }`;
                     }
                     else if (e.body.type === 'MemberExpression') {
-                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}); try { return `;
+                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__); try { return `;
                         ret += parseElement(op, e.body);
                         ret += `; } finally { __efc(__mec, '${funcName}'); } }`;
                     }
                     else {
-                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}); try { return (`;
+                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__); try { return (`;
                         ret += parseElement(op, e.body);
                         ret += `); } finally { __efc(__mec, '${funcName}'); } }`;
                     }
@@ -575,7 +578,7 @@ function parseElement(op, e, depth) {
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
                     if (op.thisClass) {
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(${op.thisParameter}, 'public', '${e.id.name}', __FILE__, false); try { `,
+                            `let __mec = __bfc(${op.thisParameter}, 'public', '${e.id.name}', __FILE__, false, __LINE__); try { `,
                             ` } finally { __efc(__mec, '${e.id.name}'); }`);
                     }
                     else
@@ -594,13 +597,13 @@ function parseElement(op, e, depth) {
                         if (op.method === 'constructor' && op.thisClass) {
                             addRuntimeAssert(e,
                                 (op.forcedInheritance && op.wroteConstructorName === false ? 'super();' : '') +
-                                `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false, ${op.thisClass}); try { `,
+                                `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false, __LINE__, ${op.thisClass}); try { `,
                                 ` } finally { __efc(__mec, '${op.method}'); }`, true);
                             op.wroteConstructorName = true;
                         }
                         else {
                             addRuntimeAssert(e,
-                                `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false); try { `,
+                                `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false, __LINE__); try { `,
                                 ` } finally { __efc(__mec, '${op.method}'); }`, false);
                         }
                     }
@@ -758,7 +761,7 @@ function parseElement(op, e, depth) {
                         ret += op.source.slice(op.pos, e.end);
                         op.pos = e.end;
                     }
-                    ret += ')';
+                    ret += ', __LINE__)';
                 }
                 break;
 

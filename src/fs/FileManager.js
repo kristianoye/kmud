@@ -5,7 +5,7 @@ const
     { PermissionDeniedError } = require('../ErrorTypes'),
     FileSystemRequest = require('./FileSystemRequest'),
     FileSystemQuery = require('./FileSystemQuery'),
-    SecurityFlags = require('./SecurityFlags'),
+    SecurityFlags = require('../security/SecurityFlags'),
     Cache = require('../Cache'),
     crypto = require('crypto'),
     yaml = require('js-yaml'),
@@ -100,7 +100,7 @@ class FileManager extends MUDEventEmitter {
      * @returns {MUDWrapper} The wrapped instance.
      */
     async cloneObjectAsync(expr, args = []) {
-        return this.loadObjectAsync(expr, args, 2);
+        return await this.loadObjectAsync(expr, args, 2);
     }
 
     /**
@@ -425,12 +425,16 @@ class FileManager extends MUDEventEmitter {
                     result = this.cache.get(req.fullPath);
 
                 if (!result) {
-                    result = await req.fileSystem.getObjectAsync(req)
-                        .catch(err => reject(err));
-
-                    this.cache.store(result);
+                    await req.fileSystem.getFileAsync(req)
+                        .then(fso => {
+                            if (!fso.isDirectory)
+                                return reject(`getDirectoryAsync: ${expr} is not a directory`);
+                            this.cache.store(fso);
+                            return resolve(fso);
+                        })
                 }
-                resolve(result);
+                else
+                    resolve(result);
             }
             catch (err) {
                 reject(err);
@@ -444,13 +448,16 @@ class FileManager extends MUDEventEmitter {
      * @param {number} flags Flags associated with the request
      * @returns {Promise<FileObject>}
      */
-    getFileAsync(expr, flags = 0) {
+    getFileAsync(expr, flags = 0, isSystemRequest = false) {
         return new Promise(async (resolve, reject) => {
             try {
                 let request = this.createFileRequest('getFileAsync', expr, flags);
-                let directory = await this.getDirectoryAsync(request.directory);
-                let result = await directory.getFileAsync(request.name);
-                return resolve(result);
+                let fso = await request.fileSystem.statAsync(request);
+
+                if (isSystemRequest)
+                    return resolve(fso);
+                else
+                    return resolve(this.wrapFileObject(fso));
             }
             catch (err) {
                 reject(err);
@@ -619,7 +626,7 @@ class FileManager extends MUDEventEmitter {
     isDirectoryAsync(expr) {
         return new Promise(async resolve => {
             try {
-                let directory = await this.getObjectAsync(expr)
+                let directory = await this.getFileAsync(expr)
                     .catch(err => resolve(false));
                 resolve(directory && directory.exists && directory.isDirectory);
             }
@@ -663,7 +670,7 @@ class FileManager extends MUDEventEmitter {
                     pattern = new RegExp(driver.compiler.extensionPattern),
                     result = false;
                 let { file, type, instance, extension } = driver.efuns.parsePath(request.fullPath),
-                    targetFile = extension && await this.getObjectAsync(request.fullPath);
+                    targetFile = extension && await this.getFileAsync(request.fullPath);
 
                 if (extension && pattern.test(targetFile.fullPath)) {
                     result = await targetFile.loadObjectAsync(request, args)
@@ -675,7 +682,7 @@ class FileManager extends MUDEventEmitter {
                 else {
                     //  Extension was not specified... try them all
                     for (let i = 0; i < exts.length; i++) {
-                        let fileWithExtension = await this.getObjectAsync(file + exts[i], flags);
+                        let fileWithExtension = await this.getFileAsync(file + exts[i], flags);
 
                         if (fileWithExtension.exists) {
                             result = await fileWithExtension.loadObjectAsync(request, args)
@@ -740,7 +747,7 @@ class FileManager extends MUDEventEmitter {
         return new Promise(async (resolve, reject) => {
             try {
                 /** @type {FileObject} */
-                let fileObject = await request.fileSystem.getObjectAsync(request);
+                let fileObject = await request.fileSystem.getFileAsync(request);
                 if (fileObject.exists) {
                     let result = fileObject.readAsync(options.encoding, options.flags)
                         .catch(err => reject(err));
@@ -765,7 +772,7 @@ class FileManager extends MUDEventEmitter {
     readJsonAsync(expr, options = {}) {
         return new Promise(async (resolve, reject) => {
             try {
-                let o = await this.getObjectAsync(expr),
+                let o = await this.getFileAsync(expr),
                     result = await o.readJsonAsync(options)
                         .catch(err => reject(err));
                 return resolve(result);
@@ -856,16 +863,7 @@ class FileManager extends MUDEventEmitter {
         if (Array.isArray(fso)) {
             return fso.map(f => this.wrapFileObject(f));
         }
-        else if (fso.isFile) {
-            return new FileWrapper(fso);
-        }
-        else if (fso.isDirectory) {
-            return new FileWrapperObject(fso);
-        }
-        else if (fso instanceof ObjectNotFound === true)
-            return new WrapperBase(fso);
-        else
-            throw new Error(`Unhandled object type for ${fso}`);
+        return new FileWrapperObject(fso);
     }
 
     /**

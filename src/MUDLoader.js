@@ -80,7 +80,7 @@ class MUDLoader {
                         //  to be incremented prior to checking method access
                         ecc
                             .alarm()
-                            .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync);
+                            .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync, lineNumber);
                     }
                     access && access !== "public" && ecc.assertAccess(ob, access, method, fileName);
                     if (false) {
@@ -95,7 +95,7 @@ class MUDLoader {
                         return ecc
                             .alarm()
                             //  Previously only allowed objects inheriting from MUDObject to be allowed on stack
-                            .push(/* ob instanceof MUDObject && */ ob, method || '(undefined)', fileName, isAsync);
+                            .push(/* ob instanceof MUDObject && */ ob, method || '(undefined)', fileName, isAsync, lineNumber);
 
                     return ecc;
                 },
@@ -110,19 +110,10 @@ class MUDLoader {
                 enumerable: false,
                 writable: false
             },
-            __LINE__: {
-                get: function () {
-                    let foo = new Error('').stack.split('\n'), re = /((\d+):(\d+))/;
-                    for (let i = 0, m = null, c = 0; i < foo.length; i++) {
-                        if ((m = re.exec(foo[i])) && c++ === 1)
-                            return parseInt(m[1]);
-                    }
-                }
-            },
             __pcc: {
                 //  Perform Constructor Call -- Only used by built-in types
-                value: function (thisObject, type, file, method, con) {
-                    let ecc = driver.getExecution(thisObject, 'constructor', file, false);
+                value: function (thisObject, type, file, method, con, lineNumber) {
+                    let ecc = driver.getExecution(thisObject, 'constructor', file, false, lineNumber);
 
                     try {
                         if (type.prototype && type.prototype.baseName)

@@ -103,7 +103,7 @@ class DiskFileObject extends DiskObjectBase {
 
         return new Promise(async (resolve, reject) => {
             if (!this.directory)
-                return reject(`deleteFileAsync: Invalid operation: ${this.path} is a directory`);
+                return reject(`deleteFileAsync: Invalid operation: ${this.path} is not a directory`);
 
             let contents = await this.readDirectoryAsync(expr, flags);
 
@@ -130,12 +130,9 @@ class DiskFileObject extends DiskObjectBase {
     }
 
     async getFileAsync(fileName) {
-        return this.getObjectAsync(fileName);
-    }
-
-    async getObjectAsync(fileName) {
         return new Promise(async (resolve, reject) => {
             let isSystemRequest = this.hasWrapper === false;
+
             if (!this.isDirectory)
                 return this;
             else if (driver.efuns.containsWildcard(fileName) === false) {
@@ -158,9 +155,51 @@ class DiskFileObject extends DiskObjectBase {
                                 fileSystemId: this.fileSystemId,
                                 path: pathRequested,
                                 name: fileName
-                            },
-                            new Error(`File not found: ${pathRequested}`),
-                            'getFileAsync'));
+                            }),
+                            path.join(this.#physicalLocation, fileName));
+                else if (files.length > 1)
+                    return reject(`Ambiguous file request: ${pathRequested}; Matched: ${files.map(f => f.name).join(', ')}`);
+                else
+                    result = files[0];
+
+                if (isSystemRequest === true)
+                    return resolve(result);
+                else
+                    return resolve(driver.fileManager.wrapFileObject(result));
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    async getObjectAsync(fileName) {
+        return new Promise(async (resolve, reject) => {
+            let isSystemRequest = this.hasWrapper === false;
+            if (!this.isDirectory)
+                return this;
+            else if (driver.efuns.containsWildcard(fileName) === false) {
+                let relativePath = path.posix.join(this.path, fileName);
+
+                return resolve(await driver.fileManager.getFileAsync(relativePath, 0, isSystemRequest));
+            }
+
+            try {
+                let pathRequested = path.posix.join(this.path, fileName);
+                let files = await this.readDirectoryAsync(fileName);
+                let isSystemRequest = this.hasWrapper === false;
+                let result = undefined;
+
+                if (files.length === 0)
+                    result = new DiskFileObject(
+                        FileSystemObject.createDummyStats(
+                        {
+                            directory: isSystemRequest ? this : driver.fileManager.wrapFileObject(this),
+                            fileSystemId: this.fileSystemId,
+                            path: pathRequested,
+                            name: fileName
+                        }),
+                        path.join(this.#physicalLocation, fileName));
                 else if (files.length > 1)
                     return reject(`Ambiguous file request: ${pathRequested}; Matched: ${files.map(f => f.name).join(', ')}`);
                 else
@@ -276,7 +315,7 @@ class DiskFileObject extends DiskObjectBase {
             fs.readdir(this.#physicalLocation, { withFileTypes: true }, async (err, files) => {
                 if (err) return reject(err);
                 let promiseList = files.map(stat => driver.fileManager
-                    .getObjectAsync(path.posix.join(this.path, stat.name), undefined, this.systemObj));
+                    .getFileAsync(path.posix.join(this.path, stat.name), undefined, this.isSystemRequest));
 
                 let results = await Promise.allWithLimit(promiseList);
                 return await returnResults(undefined, results);
@@ -322,6 +361,20 @@ class DiskFileObject extends DiskObjectBase {
             return this.writeDirectoryAsync(...args);
         else
             return this.writeFileAsync(...args);
+    }
+
+    async writeJsonAsync(data, options = { indent: true, encoding: 'utf8' }) {
+        let exportText = '';
+        if (options.indent) {
+            if (typeof options.indent === 'number')
+                exportText = JSON.stringify(data, undefined, options.indent);
+            else if (options.indent === true)
+                exportText = JSON.stringify(data, undefined, 3);
+        }
+        else
+            exportText = JSON.stringify(data);
+
+        await this.writeFileAsync(exportText, options);
     }
 
     /**
@@ -463,7 +516,7 @@ class DiskDirectoryObject extends DiskObjectBase {
             fs.readdir(this.#physicalLocation, { withFileTypes: true }, async (err, files) => {
                 if (err) return reject(err);
                 let promiseList = files.map(stat => driver.fileManager
-                    .getObjectAsync(path.posix.join(this.path, stat.name), undefined, this.systemObj));
+                    .getFileAsync(path.posix.join(this.path, stat.name), undefined, this.systemObj));
 
                 let results = await Promise.allWithLimit(promiseList);
                 return await returnResults(undefined , results);
@@ -491,14 +544,13 @@ class DiskDirectoryObject extends DiskObjectBase {
                 if (files.length === 0)
                     result = new DiskFileObject(
                         FileSystemObject.createDummyStats(
-                            {
-                                directory: isSystemRequest ? this : driver.fileManager.wrapFileObject(this),
-                                fileSystemId: this.fileSystemId,
-                                path: pathRequested,
-                                name: fileName
-                            },
-                            new Error(`File not found: ${pathRequested}`),
-                            'getFileAsync'));
+                        {
+                            directory: isSystemRequest ? this : driver.fileManager.wrapFileObject(this),
+                            fileSystemId: this.fileSystemId,
+                            path: pathRequested,
+                            name: fileName
+                        }),
+                        path.join(this.#physicalLocation, fileName));
                 else if (files.length > 1)
                     return reject(`Ambiguous file request: ${pathRequested}; Matched: ${files.map(f => f.name).join(', ')}`);
                 else
@@ -678,7 +730,7 @@ class DiskFileSystem extends BaseFileSystem {
 
         for (let i = 0, max = parts.length; i < max; i++) {
             let dir = path.posix.join(this.mountPoint, path.posix.sep, ...parts.slice(0, i + 1)),
-                stat = await driver.fileManager.getObjectAsync(dir);
+                stat = await driver.fileManager.getFileAsync(dir);
 
             if (stat.exists && !stat.isDirectory)
                 return false;
@@ -831,9 +883,8 @@ class DiskFileSystem extends BaseFileSystem {
     async getFileAsync(request) {
         return new Promise(async (resolve, reject) => {
             try {
-                let directory = await driver.fileManager.getDirectoryAsync(request.directory),
-                    result = await directory.getFileAsync(request.fileName);
-                return resolve(result);
+                await this.statAsync(request)
+                    .then(fso => resolve(fso), err => reject(err));
             }
             catch (err) { reject(err);  }
         });
@@ -1020,7 +1071,7 @@ class DiskFileSystem extends BaseFileSystem {
         let stat = await this.getDirectoryAsync(request);
 
         if (!stat.isDirectory) {
-            let parent = await stat.getParent();
+            let parent = await stat.getParentAsync();
             return await parent.readAsync(stat.name || request.fileName, request.flags);
         }
         else
@@ -1173,7 +1224,7 @@ class DiskFileSystem extends BaseFileSystem {
             try {
                 fs.stat(fullPath, async (err, data) => {
                     if (err) {
-                        result = new DiskFileObject(FileSystemObject.createDummyStats(stat, err), err);
+                        result = new DiskFileObject(FileSystemObject.createDummyStats(stat, err), fullPath);
                     }
                     else {
                         stat = Object.assign(data, stat, {

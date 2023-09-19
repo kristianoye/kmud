@@ -299,6 +299,22 @@ class GameServer extends MUDEventEmitter {
         }, undefined, true);
     }
 
+    /**
+     * Call an apply in the master object and return the result
+     * @param {string} applyName The name of the apply to call
+     * @param {...any} args
+     */
+    callApplySync(applyName, ...args) {
+        return this.driverCall(applyName, ecc => {
+            if (typeof this.masterObject[applyName] !== 'function')
+                throw new Error(`Master object ${this.masterFilename} does not contain apply '${applyName}'`);
+            if (this.efuns.isAsync(this.masterObject[applyName]))
+                throw new Error(`Cannot call async method ${applyName} in synchronous context`);
+            else
+                return this.masterObject[applyName](...args);
+        }, undefined, true);
+    }
+
     async createSecurityManager() {
         return await this.driverCallAsync('createSecurityManager', async () => {
             return this.securityManager = this.fileManager.securityManager;
@@ -729,7 +745,8 @@ class GameServer extends MUDEventEmitter {
         }
         finally {
             ecc.pop(method);
-            this.executionContext = prevContext;
+            if (ecc.stack.length === 0)
+                this.executionContext = prevContext;
         }
         return result;
     }
