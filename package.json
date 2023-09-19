@@ -18,7 +18,7 @@
     "js-yaml": "^3.14.1",
     "monaco-editor": "^0.10.1",
     "mysql": "^2.18.1",
-    "semver": "^5.7.1",
+    "semver": "^5.7.2",
     "socket.io": "^4.6.1",
     "sprintf": "^0.1.5",
     "uuid": "^3.4.0"
