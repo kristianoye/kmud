@@ -12,7 +12,6 @@ const
     HTTPServer = require('../../servers/HTTPServer'),
     MudPort = require('../../../config/MudPort'),
     DesktopClient = require('./DesktopClient'),
-    io = require('socket.io'),
     path = require('path');
 
 class DesktopServer extends ClientEndpoint {

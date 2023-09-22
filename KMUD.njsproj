@@ -444,6 +444,7 @@
     <Content Include="lib\world\sarta\classHalls\Fighter.jsx">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\wwwroot\js\socket.io.js" />
     <Content Include="mudconfig.json" />
     <Content Include="src\ActionBinder.js">
       <SubType>Code</SubType>
@@ -939,6 +940,7 @@
     <Folder Include="src\efuns\" />
     <Folder Include="src\features\" />
     <Folder Include="src\fs\" />
+    <Folder Include="src\fs\disk\" />
     <Folder Include="src\inputs\" />
     <Folder Include="src\network\" />
     <Folder Include="src\network\clients\" />

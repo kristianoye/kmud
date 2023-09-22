@@ -10,6 +10,7 @@ const
     http = require('http'),
     https = require('https'),
     path = require('path'),
+    io = require('socket.io'),
     fs = require('fs');
 
 const
