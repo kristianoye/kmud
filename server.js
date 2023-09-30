@@ -19,7 +19,7 @@ try {
             .then(
                 () => console.log('Game startup complete'),
                 err => {
-                    console.log(`Game crashed with error: ${err}`);
+                    console.log(`Game crashed with error: ${err}`, err.stack);
                     exitCode = -2;
                 }));
     }

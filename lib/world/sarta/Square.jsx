@@ -12,7 +12,7 @@ function formatName() {
     if (tp)
         return tp.name;
 
-    return '';
+    return 'unknown';
 }
 
 /**
@@ -22,18 +22,21 @@ class Square extends Room {
     private create() {
         this.keyId = 'Square';
         this.shortDesc = 'The Central Square of Sarta';
-        this.longDesc = <div>
-            <p>Hello, {function () { formatName() }}</p>
-            <p>This is the heart of the main city in Sarta.  There are many tall buildings
-            surrounding the square and hundreds of people mill about the street conducting
-                business.</p>
-            <p>To the south is the city port of entry for the large ships that dock here
-                every day to supply the city with food and other vital supplies.</p>
-        </div>;
         this.addExit('fighter', 'classHalls/Fighter');
         this.addExit('out', '/realms/kriton/Workroom');
         this.addExit('north', 'streets/northMain01');
         this.addExit('south', 'streets/southmain01');
+    }
+
+    get longDesc() {
+        return <div>
+            <p>Hello, {formatName()}</p>
+            <p>This is the heart of the main city in Sarta.  There are many tall buildings
+                surrounding the square and hundreds of people mill about the street conducting
+                business.</p>
+            <p>To the south is the city port of entry for the large ships that dock here
+                every day to supply the city with food and other vital supplies.</p>
+        </div>;
     }
 
     async resetAsync() {

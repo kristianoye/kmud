@@ -83,8 +83,14 @@ class FileManager extends MUDEventEmitter {
         return this;
     }
 
+    /**
+     * Ensure the filesystems are all okay.
+     * @param {any} fsconfig
+     * @returns
+     */
     async bootstrap(fsconfig) {
         await fsconfig.eachFileSystem(async (config, index) => await this.createFileSystem(config, index));
+        await this.ensureMountPointsExist();
         return this;
     }
 
@@ -203,6 +209,23 @@ class FileManager extends MUDEventEmitter {
             isSystemRequest
         });
         return result;
+    }
+
+    /**
+     * Ensure each, non-root filesystem has a valid mount point on the MUD fs
+     */
+    async ensureMountPointsExist() {
+        await this.eachFileSystemAsync(async (fs, mp) => {
+            if (mp !== '/') {
+                let parentPath = path.posix.resolve(mp, '..');
+                let parent = await this.getDirectoryAsync(parentPath);
+
+                if (!parent.isDirectory)
+                    throw new Error(`Invalid mount point for ${mp}: ${parent.fullPath} is not a directory`);
+
+                console.log(`Ensuring mount point ${mp} exists`);
+            }
+        });
     }
 
     /**
@@ -413,6 +436,19 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
+     * Iterate over the filesystems and perform an action for each.
+     * @param {function(FileSystem,string,number):any[]} callback
+     * @returns {any[]} The result of all the actions taken, one element for each filesystem.
+     */
+    async eachFileSystemAsync(callback) {
+        let keys = Object.keys(this.fileSystems);
+        for (let i = 0; i < keys.length; i++) {
+            let id = keys[i];
+            await callback(this.fileSystems[id], id, i);
+        }
+    }
+
+    /**
      * Get a directory object
      * @param {string} expr The directory expression to fetch
      * @param {number} flags Flags to control the operation
@@ -452,12 +488,12 @@ class FileManager extends MUDEventEmitter {
         return new Promise(async (resolve, reject) => {
             try {
                 let request = this.createFileRequest('getFileAsync', expr, flags);
-                let fso = await request.fileSystem.statAsync(request);
+                let fso = await request.fileSystem.getFileAsync(request);
 
                 if (isSystemRequest)
                     return resolve(fso);
                 else
-                    return resolve(this.wrapFileObject(fso));
+                    return resolve(new FileWrapperObject(fso));
             }
             catch (err) {
                 reject(err);
@@ -529,16 +565,16 @@ class FileManager extends MUDEventEmitter {
 
         return new Promise(async (resolve, reject) => {
             try {
-                await request.fileSystem.statAsync(request, isSystemRequest === true)
+                await request.fileSystem.getObjectAsync(request)
                     .then(stat => {
                         if (isSystemRequest === true)
                             resolve(stat);
                         else
-                            resolve(this.wrapFileObject(stat));
+                            resolve(new FileWrapperObject(stat));
                     }, reason => reject(reason));
             }
             catch (ex) {
-                result = new ObjectNotFound(FileSystemObject.createDummyStats(request), ex);
+                let result = new ObjectNotFound(FileSystemObject.createDummyStats(request), ex);
                 reject(result);
             }
         });
@@ -793,6 +829,7 @@ class FileManager extends MUDEventEmitter {
             try {
                 let request = this.createFileRequest('readYamlAsync', expr);
                 let directory = await this.getDirectoryAsync(request.directory);
+
                 if (!directory.exists)
                     reject(new Error(`Directory ${request.directory} does not exist.`));
                 let file = await directory.getFileAsync(request.name);

@@ -135,8 +135,10 @@ class ObjectHelper {
             if (typeof target === 'function' && target.isWrapper) {
                 target = unwrap(target);
             }
-            else
-                target = unwrap(await ObjectHelper.loadObjectAsync(destination));
+            else {
+                target = await ObjectHelper.loadObjectAsync(destination);
+                target = unwrap(target);
+            }
         }
 
         if (target && target.canAcceptItem(thisObject)) {

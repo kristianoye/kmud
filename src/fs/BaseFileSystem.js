@@ -38,7 +38,7 @@ class BaseFileSystem extends MUDEventEmitter {
         this.flags = opts.flags || FS_NONE;
 
         /** @type {FileManager} */
-        this.manager = fileManager;
+        this.fileManager = fileManager;
 
         /** @type {string} */
         this.mp = this.mountPoint = opts.mountPoint;
