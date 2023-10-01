@@ -2,11 +2,56 @@
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
+ * 
+ * BasicSecurityManager routes all security requests through the master object
+ * like an LP driver.  Does not provide granular control over permissions, but
+ * some people might prefer that.
  */
 const
-    BaseSecurityManager = require('./BaseSecurityManager');
+    BaseSecurityManager = require('./BaseSecurityManager'),
+    SecurityFlags = require('./SecurityFlags'),
+    BasicFlags = Object.freeze({
+        P_WRITELIKE:
+            SecurityFlags.P_APPEND
+            | SecurityFlags.P_CHANGEPERMS
+            | SecurityFlags.P_CREATEDIR
+            | SecurityFlags.P_CREATEFILE
+            | SecurityFlags.P_DELETE
+            | SecurityFlags.P_DELETEDIR
+            | SecurityFlags.P_TAKEOWNERSHIP
+            | SecurityFlags.P_WRITE
+            | SecurityFlags.P_WRITEMETADATA,
+        P_READLIKE:
+            SecurityFlags.P_DESTRUCTOBJECT
+            | SecurityFlags.P_EXECUTE
+            | SecurityFlags.P_LISTDIR
+            | SecurityFlags.P_LOADOBJECT
+            | SecurityFlags.P_READ
+            | SecurityFlags.P_READMETADATA
+            | SecurityFlags.P_READPERMS
+            | SecurityFlags.P_VIEWSYSTEMFILES
+    });
 
+/**
+ * Routes all security requests through MUD's master object
+ */
 class BasicSecurityManager extends BaseSecurityManager {
+    /**
+     * Perform basic security check
+     * @param {FileSystemObject} fo
+     * @param {number} flags
+     * @returns {boolean}
+     */
+    async can(fo, flags) {
+        if ((flags & BasicFlags.P_WRITELIKE) > 0)
+            return this.validWriteFile(fo.fullPath);
+        else if ((flags & BasicFlags.P_READLIKE) > 0)
+            return this.validReadFile(fo.fullPath);
+        else {
+            console.log(`BasicSecurityManager.can() received unrecognized flag value: ${flags}`);
+        }
+    }
+
    /**
      * Check to see if the caller may append to file.
      * @param {EFUNProxy} efuns
@@ -95,7 +140,7 @@ class BasicSecurityManager extends BaseSecurityManager {
      */
     async validReadFile(filename) {
         return await driver.getExecution()
-            .guarded(async f => await driver.validRead(f, filename));
+            .guarded(async f => await driver.callApplyAsyc(driver.applyValidRead, filename, f.owner, f.method));
     }
 
     /**
@@ -114,7 +159,7 @@ class BasicSecurityManager extends BaseSecurityManager {
      */
     validWriteFile(expr) {
         return driver.getExecution()
-            .guarded(f => driver.validWrite(f, expr));
+            .guarded(async f => await driver.callApplyAsyc(driver.applyValidWrite, filename, f.owner, f.method));
     }
 }
 
