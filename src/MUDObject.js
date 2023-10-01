@@ -76,6 +76,11 @@ class MUDObject extends MUDEventEmitter {
             return true;
     }
 
+    get $credential() {
+        let store = driver.storage.get(this);
+        return !!store && store.getSafeCredential();
+    }
+
     get directory() {
         let parts = efuns.parsePath(this.filename),
             dir = parts.file.slice(0, parts.file.lastIndexOf('/'));

@@ -322,9 +322,6 @@ class ExecutionContext extends MUDEventEmitter {
         for (let i = 0, max = this.length, c = {}; i < max; i++) {
             let frame = this.getFrame(i);
 
-            if (frame.unguarded === true)
-                break;
-
             if (!frame.object && !frame.file)
                 continue; // Does this ever happen?
             else if (frame.object === driver)
@@ -337,6 +334,8 @@ class ExecutionContext extends MUDEventEmitter {
                 return false;
             else if ((c[frame.file] = callback(frame)) === false)
                 return false;
+            else if (frame.unguarded === true)
+                break;
         }
         if (action) {
             try {

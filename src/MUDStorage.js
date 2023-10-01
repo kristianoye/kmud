@@ -28,6 +28,9 @@ class MUDStorage extends MUDEventEmitter {
         this.component = false;
         this.clientCaps = ClientCaps.DefaultCaps;
 
+        if (driver.masterObject)
+            this.$credential = driver.securityManager.getCredential(owner);
+
         /** @type {MUDObject} The current environment */
         this.$environment = null;
 
@@ -460,6 +463,14 @@ class MUDStorage extends MUDEventEmitter {
             this.playerName = flag;
         }
         this.flag(MUDStorage.PROP_ISPLAYER, flag !== false);
+    }
+
+    getSafeCredential() {
+        let result = {
+            userId: this.$credential.userId,
+            groups: this.$credential.groupIds
+        };
+        return result;
     }
 
     /**

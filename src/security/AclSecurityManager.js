@@ -44,6 +44,10 @@ var securityManager;
  * @property {string} description The description of the directory
  * @property {boolean} [fixupEnabled] Ensure data from perms file exists in ACL regardless of current state
  * @property {Object.<string,string>[]} permissions A mapping of groups and objects and their permissions
+ * 
+ * @typedef {Object} AclEffectivePermission
+ * @property {string} source The ACL file that defines the permission
+ * @property {number} perms The permissions allowed
  */
 
 class SecurityAcl {
@@ -55,13 +59,33 @@ class SecurityAcl {
      * @param {SecurityAcl} aclData The ACL data
      */
     constructor(parent, isDirectory, aclFilename, aclData = {}) {
-        this.#children = isDirectory ? {} : false;
+        if (isDirectory) {
+            this.#children = {};
+
+            for (let [fileName, data] of Object.entries(aclData.children || {})) {
+                let child = new SecurityAcl(this, false, aclFilename, data);
+                this.#children[fileName] = child;
+            }
+        }
+        else
+            this.#children = false;
         this.#filename = aclFilename;
         this.#inherits = typeof aclData.inherits === 'boolean' ? aclData.inherits : true;
         this.#metadata = aclData.metadata || {};
         this.#owner = aclData.owner;
         this.#parent = parent || false;
-        this.#permissions = aclData.permissions || {};
+
+        //  YAML data comes in as an array
+        if (Array.isArray(aclData.permissions)) {
+            this.#permissions = {};
+            aclData.permissions.forEach(p => {
+                for (const [id, perm] of Object.entries(p)) {
+                    this.#permissions[id] = securityManager.parsePerms(perm);
+                }
+            });
+        }
+        else
+            this.#permissions = aclData.permissions || {};
     }
 
     //#region Properties
@@ -120,7 +144,7 @@ class SecurityAcl {
      * @type {string}
      */
     get owner() {
-        return this.#owner;
+        return this.#owner || (this.#parent ? this.#parent.owner : false);
     }
 
     #permissions;
@@ -134,8 +158,46 @@ class SecurityAcl {
      * @param {boolean} flags
      */
     async can(flags) {
-        //  Temporary 
-        return true;
+        try {
+            let ecc = driver.getExecution(),
+                perms = await this.getEffectivePermissions();
+
+            securityManager.applyWildcardAcls(perms);
+
+            let result = await ecc.guarded(frame => {
+                if (frame.object) {
+                    /** @type {{ userId: string, groups: string[] }} */
+                    let $creds = frame.object.$credential;
+
+                    //  Owner always succeeds
+                    if (this.owner === $creds.userId)
+                        return true;
+
+                    //  System group always succeeds
+                    if (securityManager.systemGroupName && $creds.groups.indexOf(securityManager.systemGroupName) > -1)
+                        return true;
+
+                    //  Calculate effective permissions
+                    let ep = 0;
+                    for (const [id, data] of Object.entries(perms)) {
+                        if ($creds.groups.indexOf(id) > -1)
+                            ep |= data.perms;
+                    }
+                    if ((flags & ep) === flags)
+                        return true;
+                }
+                else {
+                    console.log('need something here');
+                }
+                return false;
+            });
+
+            return result;
+        }
+        catch (err) {
+            console.log(`!!! CRITICAL !!! Permission check failure: ${err}`);
+        }
+        return false;
     }
 
     /**
@@ -156,6 +218,24 @@ class SecurityAcl {
     }
 
     /**
+     * 
+     * @param {Object.<string,AclEffectivePermission} result
+     * @returns {Object.<string,AclEffectivePermission}
+     */
+    async getEffectivePermissions(result = {}) {
+        for (const [id, perms] of Object.entries(this.#permissions)) {
+            result[id] = {
+                perms: perms,
+                source: this.filename
+            };
+        }
+        if (this.inherits && this.#parent)
+            await this.#parent.getEffectivePermissions(result);
+
+        return result;
+    }
+
+    /**
      * Save the ACL data to file
      */
     async saveAsync() {
@@ -166,16 +246,13 @@ class SecurityAcl {
             let aclFile = await driver.fileManager.getFileAsync(this.filename, 0, true);
             let exportChildren = () => {
                 let result = {};
-                Object.keys(this.#children).forEach(/** @param {string} name */ name => {
-                    /** @type {SecurityAcl} */
-                    let acl = this.#children[name];
-
-                    result[name] = {
+                for (const [fileName, acl] of Object.entries(this.#children)) {
+                    result[fileName] = {
                         inherits: typeof acl.inherits === 'boolean' ? acl.inherits : true,
                         owner: acl.owner || this.owner,
                         permissions: acl.#permissions || {}
                     };
-                });
+                }
                 return result;
             };
 
@@ -310,8 +387,13 @@ class AclSecurityManager extends BaseSecurityManager {
      */
     applyWildcardAcls(acl) {
         this.wildcardPermissions.forEach(wc => {
-            if (wc.pattern.test(acl.directoryName) || wc.directory === '*') {
-                acl.merge(wc);
+            if (wc.directory === '*') {
+                for (const [id, perm] of Object.entries(wc.permissions)) {
+                    if (id in acl)
+                        acl[id].perms |= perm;
+                    else
+                        acl[id] = { perms: perm, source: this.permissionsFile };
+                }
             }
         });
     }
@@ -645,10 +727,10 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {string} filename
      * @returns {AclSecurityCredential}
      */
-    async getCredential(filename) {
-        return await driver.driverCallAsync('getCredentialApply', async () => {
+    getCredential(filename) {
+        return driver.driverCall('getCredentialApply', () => {
             /** @type {{ IsUser: boolean, UserId: string, IsWizard: boolean, Groups: string[]}} */
-            let result = await driver.masterObject[this.getCredentialApply](filename);
+            let result = driver.masterObject[this.getCredentialApply](filename);
 
             if (!result || typeof result !== 'object')
                 throw new Error(`Master object ${driver.filename}.${this.getCredentialApply} did not return valid credentials for ${filename}`);
@@ -659,17 +741,16 @@ class AclSecurityManager extends BaseSecurityManager {
             if (!Array.isArray(result.Groups))
                 result.Groups = [];
 
-            Object.keys(this.groups).forEach(gid => {
-                let group = this.groups[gid];
-                if (group.isMember(result.UserId, filename))
+            for (const [gid, group] of Object.entries(this.groups)) {
+                if (group.isMember(result.UserId, filename)) {
                     result.Groups.push(gid);
-            });
-
+                }
+            }
             if (this.defaultGroupName)
                 result.Groups.push(this.defaultGroupName);
 
             for (let i = 0; i < result.Groups.length; i++) {
-                result.Groups[i] = await this.resolveGroupAsync(result.Groups[i]);
+                result.Groups[i] = this.resolveGroup(result.Groups[i]);
             }
             return (this.credentials[result.UserId] = new AclSecurityCredential(this, result));
         }, __filename, true, true);
@@ -729,7 +810,7 @@ class AclSecurityManager extends BaseSecurityManager {
             return {};
     }
 
-    async resolveGroupAsync(groupName) {
+    resolveGroup(groupName) {
         if (groupName in this.groups)
             return this.groups[groupName];
     }

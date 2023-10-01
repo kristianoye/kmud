@@ -269,6 +269,10 @@ class BaseSecurityCredential extends EventEmitter {
     /** @type {string} */
     #userId;
 
+    get groupIds() {
+        return this.#groups.map(g => g.gid);
+    }
+
     get groupNames() {
         return this.#groups.map(g => g.name);
     }
@@ -327,7 +331,7 @@ class BaseSecurityGroup extends EventEmitter {
      */
     constructor(manager, id, name, desc, members = []) {
         super();
-        this.gID = id;
+        this.#gid = id;
         this.#owner = manager;
         this.#description = desc;
         this.#members = Array.isArray(members) ? members : [];
@@ -336,7 +340,7 @@ class BaseSecurityGroup extends EventEmitter {
 
     createSafeExport() {
         return Object.freeze({
-            id: this.gID,
+            id: this.gid,
             name: this.name,
             description: this.description,
             members: this.members.length
@@ -348,6 +352,13 @@ class BaseSecurityGroup extends EventEmitter {
 
     get description() {
         return this.#description.slice(0);
+    }
+
+    /** @type {string} */
+    #gid;
+
+    get gid() {
+        return this.#gid.slice(0);
     }
 
     isEqual(info) {
