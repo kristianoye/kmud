@@ -13,3 +13,4 @@ shadowfs/
 /KMUD.sln
 .vs
 **/.acl
+**/acl.json

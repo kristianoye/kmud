@@ -33,7 +33,8 @@ const
     { FileSystemObject } = require('../fs/FileSystemObject'),
     SecurityFlags = require('./SecurityFlags'),
     DefaultGroupName = '$ALL',
-    DefaultSystemName = '$SYSTEM';
+    DefaultSystemName = '$SYSTEM',
+    path = require('path/posix');
 
 /** @type {AclSecurityManager} */
 var securityManager;
@@ -263,7 +264,7 @@ class WildcardAcl {
 class AclSecurityManager extends BaseSecurityManager {
     constructor(fileManager, options) {
         super(fileManager, options = Object.assign({
-            aclFileName: '.acl',
+            aclFileName: 'acl.json',
             defaultGroupName: DefaultGroupName,
             systemGroupName: DefaultSystemName,
             createAclApply: 'aclCreateDefault',
@@ -278,7 +279,7 @@ class AclSecurityManager extends BaseSecurityManager {
         this.aclCache = {};
 
         /** @type {string} */
-        this.aclFileName = options.aclFileName || '.acl';
+        this.aclFileName = options.aclFileName || 'acl.json';
 
         /** @type {Object.<string, AclSecurityCredential>} */
         this.credentials = {};
@@ -371,9 +372,9 @@ class AclSecurityManager extends BaseSecurityManager {
             else if (fo.isDirectory) {
                 if (fo.path in this.aclCache)
                     return resolve(this.aclCache[fo.path]);
-
-                let aclFile = await fo.getFileAsync(this.aclFileName),
-                    existingData = aclFile.exists ? await this.readAclData(aclFile.fullPath) : false,
+                let aclFilename = await this.getAclFilename(fo);
+                let aclFile = await driver.fileManager.getFileAsync(aclFilename, 0, true),
+                    existingData = aclFile.exists ? await this.readAclData(aclFilename) : false,
                     parentAcl = fo.parent ? await this.getAcl(fo.parent) : false,
                     requireSave = !aclFile.exists;
 
@@ -404,6 +405,31 @@ class AclSecurityManager extends BaseSecurityManager {
     }
 
     /**
+     * Get the filename of the ACL file for the provided object
+     * @param {FileSystemObject} fso
+     * @returns string The full MUD path of the ACL file
+     */
+    async getAclFilename(fso) {
+        if (this.shadowFilesystem) {
+            const aclPath = fso.isDirectory ?
+                path.join(this.shadowFilesystem, fso.fullPath.slice(1)) :
+                path.join(this.shadowFilesystem, fso.directory.slice(1));
+            let aclDir = await driver.fileManager.getFileAsync(aclPath, 0, true);
+
+            if (!aclDir.exists) {
+                await aclDir.createDirectoryAsync(true);
+            }
+            return path.join(aclPath, this.aclFileName);
+        }
+        else {
+            const aclPath = fso.isDirectory ?
+                path.join(fso.fullPath, this.aclFileName) :
+                path.join(fso.directory, this.aclFileName);
+            return aclPath;
+        }
+    }
+
+    /**
      * Fetch a particular group
      * @param {string} groupName
      */
@@ -429,11 +455,8 @@ class AclSecurityManager extends BaseSecurityManager {
             if (!shadowFS.exists) {
                 console.log(`Creating shadow volumne: ${shadowFS.fullPath}`);
                 await shadowFS.createDirectoryAsync(true);
-                await shadowFS.refreshAsync();
-                console.log('How did we get here?');
             }
         }
-        console.log('Does this get called?');
     }
 
     /**
@@ -581,7 +604,8 @@ class AclSecurityManager extends BaseSecurityManager {
                         else if (fso.exists) {
                             console.log(`\tEnsuring permissions for directory: ${fso.path}`);
 
-                            let aclFile = await fso.getFileAsync(this.aclFileName),
+                            const aclFilename = await this.getAclFilename(fso);
+                            let aclFile = await driver.fileManager.getFileAsync(aclFilename, 0, true), // await fso.getFileAsync(this.aclFileName),
                                 existingData = await this.readAclData(aclFile.fullPath),
                                 parentAcl = fso.parent ? await this.getAcl(fso.parent) : false;
 
