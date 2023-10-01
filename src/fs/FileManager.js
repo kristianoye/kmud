@@ -1,11 +1,11 @@
-
+/*
+ *
+ */
 const
     MUDEventEmitter = require('../MUDEventEmitter'),
-    { FileSystemObject, ObjectNotFound, VirtualObjectFile, FileWrapper, FileWrapperObject } = require('./FileSystemObject'),
-    { PermissionDeniedError } = require('../ErrorTypes'),
+    { FileSystemObject, ObjectNotFound, VirtualObjectFile, FileWrapperObject } = require('./FileSystemObject'),
     FileSystemRequest = require('./FileSystemRequest'),
     FileSystemQuery = require('./FileSystemQuery'),
-    SecurityFlags = require('../security/SecurityFlags'),
     Cache = require('../Cache'),
     crypto = require('crypto'),
     yaml = require('js-yaml'),
@@ -94,6 +94,11 @@ class FileManager extends MUDEventEmitter {
         return this;
     }
 
+    /**
+     * Bootstrap the security manager
+     * @param {object} masterObject
+     * @returns
+     */
     async bootstrapSecurity(masterObject) {
         await this.securityManager.bootstrap(masterObject);
         return this.securityManager;

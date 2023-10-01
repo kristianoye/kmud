@@ -296,6 +296,7 @@ class AclSecurityManager extends BaseSecurityManager {
         this.getFileOwnerApply = options.getFileOwnerApply || 'getFileOwner';
         this.createAclApply = options.createAclApply || 'aclCreateDefault';
         this.externalGroupFiles = options.externalGroupFiles || [];
+        this.shadowFilesystem = options.shadowFilesystem || false;
 
         /** @type {WildcardAcl[]} */
         this.wildcardPermissions = [];
@@ -423,7 +424,16 @@ class AclSecurityManager extends BaseSecurityManager {
      * Initialize permissions on the filesystem
      */
     async initSecurityAsync() {
-
+        if (this.shadowFilesystem !== false) {
+            let shadowFS = await driver.fileManager.getFileAsync(this.shadowFilesystem, 0, true);
+            if (!shadowFS.exists) {
+                console.log(`Creating shadow volumne: ${shadowFS.fullPath}`);
+                await shadowFS.createDirectoryAsync(true);
+                await shadowFS.refreshAsync();
+                console.log('How did we get here?');
+            }
+        }
+        console.log('Does this get called?');
     }
 
     /**

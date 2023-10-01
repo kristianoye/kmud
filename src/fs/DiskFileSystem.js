@@ -81,13 +81,39 @@ class DiskFileObject extends FileSystemObject {
     /**
      * Attempt to create this as a directory
      */
-    async createDirectoryAsync() {
-        return new Promise((resolve, reject) => {
-            if (this.exists)
-                return reject(`createDirectoryAsync: Path ${this.path} already exists.`);
+    async createDirectoryAsync(createAsNeeded = false) {
+        return new Promise(async (resolve, reject) => {
+            if (this.exists) {
+                if (createAsNeeded)
+                    return resolve(true);
+                else if (!this.isDirectory)
+                    reject(`createDirectoryAsync: Path ${this.path} is not a directory.`);
+                else
+                    return reject(`createDirectoryAsync: Path ${this.path} already exists.`);
+            }
 
             try {
-                fs.mkdir(this.#physicalLocation, err => err ? reject(err) : resolve(true));
+                if (createAsNeeded === true) {
+                    let parts = this.fullPath.split('/').filter(s => s.length > 0);
+                    if (parts.length > 1) {
+                        for (let i = 1, max = parts.length; i < max; i++) {
+                            let parentPath = path.posix.join('/', ...parts.slice(0, i));
+                            let parent = await driver.fileManager.getFileAsync(parentPath, 0, false === this.isWrapper());
+
+                            if (!parent.exists) {
+                                await parent.createDirectoryAsync();
+                            }
+                        }
+                    }
+                }
+                fs.mkdir(this.#physicalLocation, async err => {
+                    if (err)
+                        return reject(err);
+                    else {
+                        await this.refreshAsync();
+                        return resolve(true);
+                    }
+                });
             }
             catch (err) {
                 reject(err);
@@ -331,8 +357,9 @@ class DiskFileObject extends FileSystemObject {
         return new Promise((resolve, reject) => {
             try {
                 fs.stat(this.#physicalLocation, (err, stat) => {
-                    stat = this.#manager.createNormalizedStats(this.#physicalLocation, stat, err);
+                    stat = this.#manager.createNormalizedStats(this.#physicalLocation, stat || {}, err);
                     super.refreshAsync(stat);
+                    resolve(true);
                 });
             }
             catch (err) {
