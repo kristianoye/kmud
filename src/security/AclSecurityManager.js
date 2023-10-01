@@ -162,6 +162,7 @@ class SecurityAcl {
             let ecc = driver.getExecution(),
                 perms = await this.getEffectivePermissions();
 
+            //  Silently inject wildcard perms
             securityManager.applyWildcardAcls(perms);
 
             let result = await ecc.guarded(frame => {
@@ -218,16 +219,19 @@ class SecurityAcl {
     }
 
     /**
-     * 
+     * Get the effective permissions
      * @param {Object.<string,AclEffectivePermission} result
      * @returns {Object.<string,AclEffectivePermission}
      */
     async getEffectivePermissions(result = {}) {
         for (const [id, perms] of Object.entries(this.#permissions)) {
-            result[id] = {
-                perms: perms,
-                source: this.filename
-            };
+            //  Do not overwrite permissions inherited from a higher level
+            if (false === id in result) {
+                result[id] = {
+                    perms: perms,
+                    source: this.filename
+                };
+            }
         }
         if (this.inherits && this.#parent)
             await this.#parent.getEffectivePermissions(result);
