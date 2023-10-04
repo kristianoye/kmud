@@ -484,7 +484,7 @@ class MUDStorage extends MUDEventEmitter {
         }
         //  Do not store direct references to objects.
         if (value instanceof MUDObject) {
-            value = wrap(value);
+            value = value.wrapper;
         }
         collection[propertyName] = value;
         return true;
@@ -633,7 +633,7 @@ class MUDStorage extends MUDEventEmitter {
         unwrap(this.environment, env => {
             let store = driver.storage.get(env);
 
-            if (store && store.removeInventory(this)) {
+            if (store && store.removeInventory(this.owner)) {
                 if (this.actions) {
                     store.inventory.forEach(inv => {
                         this.actionBinder.unbindActions(inv);
@@ -645,14 +645,9 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     removeInventory(item) {
-        this.inventory
-            .map((ow, i) => {
-                if (ow.filename === item.filename) return i;
-            })
-            .reverse().forEach(i => {
-                this.$inventory.splice(i, 1);
-            });
-        return true;
+        let index = this.$inventory.findIndex(o => unwrap(item) === unwrap(o));
+        let result = index > -1 ? this.$inventory.splice(index, 1) : false;
+        return !!result;
     }
 
     /**

@@ -16,6 +16,9 @@ class MUDObject extends MUDEventEmitter {
     constructor() {
         super();
 
+        if (!new.target)
+            throw new Error('Illegal constructor call');
+
         let ecc = driver.getExecution(this, 'constructor', this.__proto__.fileName, this.constructor);
         try {
             if (ecc && ecc.newContext) {
