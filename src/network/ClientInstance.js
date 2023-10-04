@@ -200,6 +200,63 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
         }
         return this.echoEnabled;
     }
+
+    static async registerComponent(client, data) {
+        try {
+            let component = client.getComponentById(data.id) || new ClientComponent(client, data);
+
+            if (component.requiresShell) {
+                if (data.attachTo === 'newLogin') {
+                    try {
+                        let shell = component.attachShell(new CommandShell(component, data.shellOptions));
+                        let newLogin = await driver.connect(client.port, client.clientType);
+
+                        if (newLogin) {
+                            shell.attachPlayer(newLogin)
+                            if (driver.connections.indexOf(component) === -1)
+                                driver.connections.push(component);
+                        }
+                        else
+                            throw new Error('Login not available');
+
+                        component.eventSend({ type: 'connected', data: efuns.mudName() });
+                    }
+                    catch (err) {
+                        client.writeLine('Sorry, something is very wrong right now; Please try again later.');
+                        client.close('No Login Object Available');
+                    }
+                }
+                else if (data.auth) {
+                    let credentials = client.endpoint.decryptAuthToken(data.auth);
+                    if (credentials != false) {
+                        try {
+                            let result = await driver.connect(client.port, client.clientType, credentials);
+                            let [user, shellOptions] = Array.isArray(result) ? result : [result, {}];
+                            if (user) {
+                                let shell = component.attachShell(new CommandShell(component, shellOptions));
+                                shell.attachPlayer(user)
+
+                                if (driver.connections.indexOf(component) === -1)
+                                    driver.connections.push(component);
+                                component.eventSend({ type: 'connected', data: efuns.mudName() });
+                            }
+                        }
+                        catch (err) {
+                            client.writeLine('Sorry, something is very wrong right now; Please try again later.');
+                            client.close('No Login Object Available');
+                            console.log(err);
+                        }
+                    }
+                }
+            }
+
+
+            return component;
+        }
+        catch (err) {
+            console.log(`What just happened? ${ex}`);
+        }
+    }
 }
 
 ClientInstance.configureForRuntime = function(driver) {
@@ -208,63 +265,6 @@ ClientInstance.configureForRuntime = function(driver) {
     maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime;
     maxCommandsPerSecond = driver.config.driver.maxCommandsPerSecond;
     maxCommandStackSize = driver.config.driver.maxCommandStackSize;
-};
-
-/**
- * Registers a component with a particular client
- * @param {ClientInstance} client The client that controls the component
- * @param {Object.<string,any>} data Info Component registration details.
- */
-ClientInstance.registerComponent = async function (client, data) {
-    let component = client.getComponentById(data.id) || new ClientComponent(client, data);
-
-    if (component.requiresShell) {
-        if (data.attachTo === 'newLogin') {
-            try {
-                let shell = component.attachShell(new CommandShell(component, data.shellOptions));
-                let newLogin = await driver.connect(client.port, client.clientType);
-
-                if (newLogin) {
-                    shell.attachPlayer(newLogin)
-                    if (driver.connections.indexOf(component) === -1)
-                        driver.connections.push(component);
-                }
-                else
-                    throw new Error('Login not available');
-
-                component.eventSend({ type: 'connected', data: efuns.mudName() });
-            }
-            catch (err) {
-                client.writeLine('Sorry, something is very wrong right now; Please try again later.');
-                client.close('No Login Object Available');
-            }
-        }
-        else if (data.auth) {
-            let credentials = client.endpoint.decryptAuthToken(data.auth);
-            if (credentials != false) {
-                try {
-                    let result = await driver.connect(client.port, client.clientType, credentials);
-                    let [user, shellOptions] = Array.isArray(result) ? result : [result, {}];
-                    if (user) {
-                        let shell = component.attachShell(new CommandShell(component, shellOptions));
-                        shell.attachPlayer(user)
-
-                        if (driver.connections.indexOf(component) === -1)
-                            driver.connections.push(component);
-                        component.eventSend({ type: 'connected', data: efuns.mudName() });
-                    }
-                }
-                catch (err) {
-                    client.writeLine('Sorry, something is very wrong right now; Please try again later.');
-                    client.close('No Login Object Available');
-                    console.log(err);
-                }
-            }
-        }
-    }
-
-
-    return component;
 };
 
 module.exports = ClientInstance;

@@ -6,6 +6,8 @@
  * Description: Server side representation of a remote client component.
  */
 
+const CommandShell = require('./CommandShell');
+
 const
     MUDEventEmitter = require('./MUDEventEmitter'),
     ComponentData = {};
@@ -30,22 +32,14 @@ class ClientComponent extends MUDEventEmitter {
     constructor(client, options = {}) {
         super();
 
-        Object.defineProperties(this, {
-            _id: {
-                value: options.id,
-                writable: false
-            },
-            _client: {
-                value: client,
-                writable: false
-            }
-        });
+        this.#client = client;
+        this.#id = options.id;
 
         if (typeof this.id !== 'string' || this.id.length < 10)
             throw new Error('Invalid component ID');
 
         if (client.addComponent(this)) {
-            ComponentData[options.id] = Object.assign({
+            ComponentData[this.id] = Object.assign({
                 shell: false,
                 attachTo: false,
                 requiresShell: false
@@ -64,10 +58,9 @@ class ClientComponent extends MUDEventEmitter {
     }
 
     attachShell(shell) {
-        let $t = $(this);
-        if ($t.requiresShell) {
+        if (this.requiresShell) {
             // TODO: Disconnect old shell if exists?
-            $t.shell = shell;
+            this.#shell = shell;
             return shell;
         }
         return false;
@@ -90,8 +83,11 @@ class ClientComponent extends MUDEventEmitter {
     }
 
     /** @type {ClientInstance} */
+    #client;
+
+    /** @type {ClientInstance} */
     get client() {
-        return this._client;
+        return this.#client;
     }
 
     //  Something in the game told the remote client to delete this component.
@@ -109,9 +105,14 @@ class ClientComponent extends MUDEventEmitter {
         this.emit('remoteDisconnect', reason);
     }
 
+    /**
+     * The unique GUID of this component
+     * @type {string} */
+    #id;
+
     /** @type {string} */
     get id() {
-        return this._id;
+        return this.#id;
     }
 
     matchId(id) {
@@ -188,11 +189,16 @@ class ClientComponent extends MUDEventEmitter {
         });
     }
 
+    /** 
+     * @type {CommandShell}
+     */
+    #shell;
+
     /**
      * Return the shell object associated with this component (if any)
      */
     get shell() {
-        return $(this).shell || false;
+        return this.#shell || false;
     }
 
     get storage() {

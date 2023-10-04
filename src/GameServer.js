@@ -394,11 +394,11 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
-     * 
+     * Connect an incoming player to the game.
      * @param {any} port
      * @param {any} type
      */
-    async connect(port, type) {
+    async connect(port, type, credentials = false) {
         return await this.driverCallAsync('connect', async () => {
             return await this.applyConnect(port, type);
         });
