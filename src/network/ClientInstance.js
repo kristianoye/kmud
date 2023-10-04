@@ -203,7 +203,10 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
 
     static async registerComponent(client, data) {
         try {
-            let component = client.getComponentById(data.id) || new ClientComponent(client, data);
+            //  If this is a new client, then it will never find existing components...
+            let component = client.getComponentById(data.id)
+                || ClientComponent.getComponentById(data.id)
+                || new ClientComponent(client, data);
 
             if (component.requiresShell) {
                 if (data.attachTo === 'newLogin') {

@@ -348,10 +348,7 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
 
             this.baseUrl = url;
             this.sessionCookie = '';
-
-            if (navigator.cookieEnabled) {
-                let sessionId = this.cookies[SessionCookie];
-            }
+            this.sessionId = uuidv1();
 
             $('.new-connection').on('dblclick', e => {
                 e.preventDefault();
@@ -396,7 +393,13 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
          * Connect to the remote MUD
          */
         connect() {
-            _webSocket = io({
+            let socketOptions = {
+                extraHeaders: {
+                    MUDSessionID: this.sessionId
+                },
+                query: {
+                    clientId: this.sessionId
+                },
                 transportOptions: {
                     polling: {
                         extraHeaders: {
@@ -405,7 +408,9 @@ const { BaseComponent, DesktopClientClass } = (function (Ventus) {
                     }
                 },
                 transports: ['websocket']
-            });
+            };
+
+            _webSocket = io(socketOptions);
 
             _webSocket.on('connect', () => {
                 _connected = true;

@@ -12,11 +12,24 @@ const
     MUDHtml = require('../../../MUDHtml');
 
 class DesktopClient extends ClientInstance {
-    constructor(endpoint, client) {
+    constructor(endpoint, client, clientId) {
         super(endpoint, client, client.conn.remoteAddress);
+
+        this.#clientId = clientId;
         this.eventQueue = [];
         this.eventTimer = false;
         this.windows = {};
+        this.caps = new ClientCaps(this);
+        this.bindClient(client);
+    }
+
+    #client;
+
+    /** @type {string} */
+    #clientId;
+
+    bindClient(client) {
+        this.#client = client;
 
         client.on('disconnect', () => this.remoteDisconnect());
         client.on('kmud', async evt => await this.receiveEvent(evt));
@@ -25,8 +38,9 @@ class DesktopClient extends ClientInstance {
             type: 'terminalType',
             data: 'kmud'
         });
-        this.caps = new ClientCaps(this);
     }
+
+    get clientId() { return this.#clientId; }
 
     get clientProtocol() { return 'http'; }
 

@@ -14,6 +14,7 @@ const
     DesktopClient = require('./DesktopClient'),
     path = require('path');
 
+
 class DesktopServer extends ClientEndpoint {
     /**
      * Construct a new HTTP client endpoint.
@@ -27,6 +28,12 @@ class DesktopServer extends ClientEndpoint {
             pingInterval: 25000,
             pingTimeout: 60000
         }, config.options.websocket || {});
+
+        /**
+         * Contains all desktop clients connected during this runtime
+         * @type {Object.<string,DesktopClient>} 
+         */
+        this.clients = {};
     }
 
     bind() {
@@ -46,10 +53,14 @@ class DesktopServer extends ClientEndpoint {
                 console.log('Client has requested to upgrade to websocket');
             })
             .on('connection', client => {
-                let wrapper = new DesktopClient(this, client);
-                this.emit('kmud.connection', wrapper);
-                this.emit('kmud.connection.new', wrapper, 'http');
+                let { existing, client: instance } = this.getOrCreateClient(client);
 
+                this.emit('kmud.connection', instance);
+
+                if (false === existing)
+                    this.emit('kmud.connection.new', instance, 'http');
+                else
+                    instance.bindClient(client);
             })
             .start();
 
@@ -89,6 +100,15 @@ class DesktopServer extends ClientEndpoint {
         if (this.server.authManager != null)
             return this.server.authManager.decrypt(authToken.auth);
         return false;
+    }
+
+    getOrCreateClient(client) {
+        let clientId = client.handshake?.query?.clientId;
+
+        if (clientId in this.clients)
+            return { existing: true, client: this.clients[clientId] };
+        else
+            return { existing: false, client: (this.clients[clientId] = new DesktopClient(this, client, clientId)) };
     }
 }
 

@@ -32,6 +32,11 @@ class ClientComponent extends MUDEventEmitter {
     constructor(client, options = {}) {
         super();
 
+        if (!options.id)
+            throw new Error('ClientComponent requires parameter id');
+        else if (!client)
+            throw new Error('ClientComponent requires parameter client');
+
         this.#client = client;
         this.#id = options.id;
 
@@ -228,6 +233,18 @@ class ClientComponent extends MUDEventEmitter {
         if (!textOrBuffer.endsWith(efuns.eol))
             textOrBuffer = textOrBuffer + efuns.eol;
         return this.write(textOrBuffer);
+    }
+
+    /**
+     * Get a component by unique ID
+     * @param {string} id The GUID/UUID of the component to find
+     * @returns {ClientComponent}
+     */
+    static getComponentById(id) {
+        if (id in ComponentData)
+            return ComponentData[id];
+        else
+            return false;
     }
 }
 
