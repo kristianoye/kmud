@@ -922,15 +922,11 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Push a new frame onto the execution stack
-     * @param {any} info
+     * @param {ExecutionFrame} info
      * @returns {ExecutionFrame}
      */
     pushFrame(info) {
-        if (!info.ob)
-            info.ob = this.executionContext.thisObject;
-
-        let { ob, method, fileName, isAsync, lineNumber, callString } = info;
-        return this.executionContext.pushFrame(ob, method, fileName, isAsync, lineNumber, callString || method);
+        return this.executionContext.pushFrameObject(info);
     }
 
     /**

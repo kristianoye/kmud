@@ -8,6 +8,7 @@ const
     MUDHtml = require('./MUDHtml'),
     { TimeoutError } = require('./ErrorTypes'),
     BaseInput = require('./inputs/BaseInput'),
+    { ExecutionContext, ExectionFrame, CallOrigin } = require('./ExecutionContext'),
     loopsPerAssert = 10000;
 
 var /** @type {Object.<number,ExecutionContext>} */
@@ -461,12 +462,12 @@ class MUDLoader {
             throw new Error('Interval cannot be less than 50ms');
 
         //  Fork execution
-        let ecc = driver.getExecution(),
+        let /** @type {ExecutionContext} */ ecc = driver.getExecution(),
             childContext = ecc.fork(),
             thisObject = ecc.thisObject;
 
         //  Push this frame onto the stack as a placeholder
-        let frame = childContext.pushFrame(thisObject, 'setInterval');
+        let frame = childContext.pushFrameObject({ object: thisObject, method: 'setInterval', origin: CallOrigin.Callout });
 
         let ident = global.setInterval(async () => {
             //  Make this context the active one
@@ -509,12 +510,12 @@ class MUDLoader {
             throw new Error('Interval cannot be less than 50ms');
 
         //  Fork execution
-        let ecc = driver.getExecution(),
+        let /** @type {ExecutionContext} */ ecc = driver.getExecution(),
             childContext = ecc.fork(),
             thisObject = ecc.thisObject;
 
         //  Push this frame onto the stack as a placeholder
-        let frame = childContext.pushFrame(thisObject, 'setInterval');
+        let frame = childContext.pushFrameObject({ object: thisObject, method: 'setTimeout', origin: CallOrigin.Callout });
 
         let ident = global.setTimeout(async () => {
             //  Make this context the active one
@@ -555,7 +556,7 @@ class MUDLoader {
         return driver.convertUnits(units, unitType);
     }
 
-    wrapper(...args) { 
+    wrapper(...args) {
         return global.wrapper(...args);
     }
 

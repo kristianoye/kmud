@@ -34,7 +34,8 @@ const
     TextHelper = require('./efuns/TextHelper'),
     TimeHelper = require('./efuns/Time'),
     UserHelper = require('./efuns/UserHelper');
-const MUDObject = require('./MUDObject');
+    const { ExecutionContext, CallOrigin } = require('./ExecutionContext');
+    const MUDObject = require('./MUDObject');
 
 var
     IncludeCache = {},
@@ -62,7 +63,7 @@ class EFUNProxy {
      * @returns {number} The unsigned absolute value.
      */
     abs(n) {
-        let frame = driver.pushFrame({ method: 'abs' });
+        let frame = driver.pushFrame({ method: 'abs', origin: CallOrigin.DriverEfun });
         try {
             return Math.abs(n);
         }
@@ -77,7 +78,7 @@ class EFUNProxy {
      * @param {function} callback The callback that executes when the action is triggered.
      */
     addAction(verb, callback) {
-        let frame = driver.pushFrame({ method: 'addAction' });
+        let frame = driver.pushFrame({ method: 'addAction', origin: CallOrigin.DriverEfun });
         try {
             let prevObject = this.previousObject(),
                 thisObject = this.thisObject(),
@@ -98,7 +99,7 @@ class EFUNProxy {
      * @returns {boolean} True if the target is an administrator.
      */
     adminp(target) {
-        let frame = driver.pushFrame({ method: 'adminp' });
+        let frame = driver.pushFrame({ method: 'adminp', origin: CallOrigin.DriverEfun });
         try {
             return driver.callApplySync('isAdmin', target);
         }
@@ -113,7 +114,7 @@ class EFUNProxy {
      * @returns {boolean} True if the target is an arch.ca
      */
     archp(target) {
-        let frame = driver.pushFrame({ method: 'archp' });
+        let frame = driver.pushFrame({ method: 'archp', origin: CallOrigin.DriverEfun });
         try {
             return driver.callApplySync('isArch', target);
         }
@@ -133,7 +134,7 @@ class EFUNProxy {
      * @returns {string} The consolidated string
      */
     arrayToSentence(list, useOr = false, consolidate = true, useNumbers = false) {
-        let frame = driver.pushFrame({ method: 'arrayToSentence' });
+        let frame = driver.pushFrame({ method: 'arrayToSentence', origin: CallOrigin.DriverEfun });
 
         try {
             useOr = typeof useOr === 'boolean' ? useOr : false;
@@ -223,7 +224,7 @@ class EFUNProxy {
 
 
     callOut(func, delay, ...args) {
-        let ecc = driver.getExecution(),
+        let /** @type {ExecutionContext} */ ecc = driver.getExecution(),
             tob = ecc.thisObject,
             callback = typeof func === 'function' ? func : false;
 
