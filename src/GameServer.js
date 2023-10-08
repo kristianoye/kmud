@@ -4,7 +4,7 @@
  * Date: October 1, 2017
  */
 const
-    ExecutionContext = require('./ExecutionContext'),
+    { ExecutionContext, ExecutionFrame } = require('./ExecutionContext'),
     { NetUtil } = require('./network/NetUtil'),
     { LinkedList, LinkedListWithID, LinkedListWithLookup } = require('./LinkedList'),
     MUDObject = require('./MUDObject'),
@@ -64,6 +64,7 @@ class GameServer extends MUDEventEmitter {
 
         /** @type {MUDConfig} */
         this.config = config;
+        /** @type {ExecutionContext} */
         this.executionContext = false;
 
         ResetInterval = config.mudlib.objectResetInterval;
@@ -913,11 +914,31 @@ class GameServer extends MUDEventEmitter {
     getExecution(ob, method, fileName, isAsync, lineNumber, callString) {
         if (arguments.length === 0)
             return this.executionContext || false;
-
         if (!this.executionContext) {
             this.executionContext = new ExecutionContext();
         }
         return this.executionContext.push(ob, method, fileName, isAsync, lineNumber, callString || method);
+    }
+
+    /**
+     * Push a new frame onto the execution stack
+     * @param {any} info
+     * @returns {ExecutionFrame}
+     */
+    pushFrame(info) {
+        if (!info.ob)
+            info.ob = this.executionContext.thisObject;
+
+        let { ob, method, fileName, isAsync, lineNumber, callString } = info;
+        return this.executionContext.pushFrame(ob, method, fileName, isAsync, lineNumber, callString || method);
+    }
+
+    /**
+     * Get all outstanding/unfinished execution contexts
+     * @returns {Object.<string,ExecutionContext>}
+     */
+    getExecutionContexts() {
+        return ExecutionContext.getContexts();
     }
 
     async getGroups(target) {
@@ -1094,12 +1115,18 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Restores context after an async call has completed.
-     * @param {ExecutionContext} ecc The context to restore
+     * @param {ExecutionContext | false} ecc The context to restore
      */
     restoreContext(ecc = false) {
-        if (this.executionContext && ecc && this.executionContext !== ecc)
-            throw new Error(`There is already an execution context that appears to be running!`); // FATAL
-        this.executionContext = ecc || false;
+        let prev = this.executionContext;
+
+        if (true === ecc instanceof ExecutionContext)
+            this.executionContext = ecc;
+        else if (ecc === false)
+            this.executionContext = false;
+        else
+            throw 'Illegal call to restoreContext()';
+        return prev;
     }
 
     /**

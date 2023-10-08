@@ -9,77 +9,126 @@
  */
 const
     CreationContext = require('./CreationContext'),
-    MUDEventEmitter = require('./MUDEventEmitter'),
-    uuidv1 = require('uuid/v1');
+    uuidv1 = require('uuid/v1'),
+    MUDObject = require('./MUDObject');
 
-/** @typedef {{ object: MUDObject, method: string, file: string }} ObjectStackItem */
+var
+    contexts = {};
+
+/**
+ * Represents a single frame on the MUD call stack
+ */
+class ExecutionFrame {
+    /**
+     * Construct a new frame
+     * @param {ExecutionContext} context The context in which this frame is executing
+     * @param {MUDObject} thisObject The object performing the action
+     * @param {string} filename The file in which the executing method exists
+     * @param {string} method The name of the method being executed
+     * @param {number} lineNumber The line number at which the call was made
+     * @param {string} callstring This USUALLY the same as the method
+     * @param {boolean} isAsync More informative than useful, now
+     * @param {boolean} isUnguarded Unguarded frames short-circuit security and prevent checks against previous objects
+     */
+    constructor(context, thisObject, filename, method, lineNumber, callstring = false, isAsync = false, isUnguarded = false) {
+        /** 
+         * The unique UUID of this frame
+         * @type {string}
+         */
+        this.id = uuidv1();
+
+        /** 
+         * The context in which this frame is executing 
+         * @type {ExecutionContext}
+         */
+        this.context = context;
+        /**
+         * The object performing the action 
+         * @type {MUDObject}
+         */
+        this.object = thisObject || context.thisObject;
+        /** 
+         * The method name + extra decorations (e.g. static async [method]) 
+         * @type {string}
+         */
+        this.callString = callstring || method;
+        /** 
+         * The file in which the executing method exists 
+         * @type {string}
+         */
+        this.file = filename || thisObject.filename;
+        /** 
+         * The name of the method being executed 
+         * @type {string}
+         */
+        this.method = method;
+        /** 
+         * The line number at which the call was made 
+         * @type {number}
+         */
+        this.lineNumber = lineNumber || 0;
+        /** More informative than useful, now
+         * @type {boolean}
+         */
+        this.isAsync = isAsync === true;
+        /**
+         * Unguarded frames short-circuit security and prevent checks against previous objects 
+         * @type {boolean}
+         */
+        this.unguarded = isUnguarded === true;
+    }
+
+    /**
+     * Pop this frame off the execution stack
+     */
+    pop() {
+        this.context.pop(this.method);
+    }
+}
 
 /**
  * Maitains execution and object stacks for the MUD.
  */
-class ExecutionContext extends MUDEventEmitter {
+class ExecutionContext {
     /**
      * 
      * @param {ExecutionContext} parent The parent context (if one exists)
      * @param {string} handleId The child UUID that identifies child to parent
      */
-    constructor(parent = false, handleId = false, detached = false) {
-        super();
+    constructor(parent = false) {
+        /** 
+         * Storage for custom runtime variables
+         * @type {Object.<string,any>} 
+         */
+        this.customVariables = {};
+
+        /** @type {function[]} */
+        this.onComplete = [];
+        this.handleId = uuidv1();
+        this.completed = false;
+
+        /** @type {ExecutionFrame[]} */
+        this.stack = [];
 
         if (parent) {
+            /** @type {ExecutionFrame[]} */
             this.stack = parent.stack.slice(0);
-
-            /** @type {Object.<string,ExecutionContext>} */
-            this.asyncChildren = { length: 0 };
-            this.alarmTime = parent.alarmTime;
-            this.async = true;
-            this.awaited = false;
-            this.completed = false;
-            this.currentVerb = parent.currentVerb;
-            this.handleId = handleId || uuidv1();
-
-            /** @type {ExecutionContext} */
-            if (!detached) {
-                this.parent = parent;
-                this.onComplete = parent.onComplete;
-            }
-            else
-                this.onComplete = [];
             this.forkedAt = parent.stack.length;
-
+            this.alarmTime = parent.alarmTime;
+            this.currentVerb = parent.currentVerb || false;
             this.client = parent.client;
             this.player = parent.player;
             this.truePlayer = parent.truePlayer;
-
-            this.virtualParents = [];
-
-            if (!detached) {
-                parent.asyncChildren[this.handleId] = this;
-            }
         }
         else {
-            /** @type {ObjectStackItem[]} */
-            this.stack = [];
-
             /** @type {Object.<string,ExecutionContext>} */
-            this.asyncChildren = { length: 0 };
             this.alarmTime = Number.MAX_SAFE_INTEGER;
-            this.async = false;
-            this.awaited = undefined;
-            this.completed = false;
             this.currentVerb = false;
-            this.handleId = handleId || uuidv1();
-
-            /** @type {ExecutionContext} */
-            this.parent = false;
             this.forkedAt = 0;
-            this.onComplete = [];
-            /** @type {ObjectStackItem} */
-            this.originalFrame = false;
             this.player = false;
             this.truePlayer = false;
-            this.virtualParents = [];
         }
+        contexts[this.handleId] = this;
     }
 
     /**
@@ -92,6 +141,17 @@ class ExecutionContext extends MUDEventEmitter {
             this.creationContexts = [];
         this.creationContexts.unshift(new CreationContext(creationContext));
         return this.creationContexts[0];
+    }
+
+    /**
+     * Add a custom value
+     * @param {string} key
+     * @param {any} val
+     */
+    addCustomVariable(key, val) {
+        if (typeof key === 'string' && key.length > 0)
+            this.customVariables[key] = val;
+        return this;
     }
 
     /**
@@ -161,120 +221,67 @@ class ExecutionContext extends MUDEventEmitter {
         return true;
     }
 
-    asyncBegin() {
-        let child = this.fork();
-        child.lostFrame = this.stack.shift();
-        return child;
-    }
-
-    asyncCall(awaitExpr) {
-        return this.asyncResult = awaitExpr;
-    }
-
-    get asyncResult() {
-        return this._asyncResult;
-    }
-
-    set asyncResult(val) {
-        this._asyncResult = val;
-    }
-
-    asyncRestore() {
-        driver.restoreContext(this);
-    }
-
-    async awaitAsync(type, promiseLike) {
-        let ret = [undefined, undefined],
-            frame = this.stack.shift();
-        try {
-            if (promiseLike.completed)
-                ret = promiseLike.result;
-            else {
-                let child = this.asyncChildren[promiseLike.handleId];
-                if (child) child.frame = frame;
-                this.inAsyncCall = true;
-                ret = await promiseLike;
-                delete this.inAsyncCall;
-            }
-            if (type === 'ArrayPattern')
-                return [ret.result, ret.error];
-            else if (type === 'ObjectPattern')
-                return ret;
-            else if (ret.error)
-                throw ret.error;
-            else
-                return ret.result;
-        }
-        catch (ex) {
-            console.log(`FATAL: ${ex.message}`);
-        }
-        finally {
-            //  Do context stuff here
-            this.join(promiseLike.handleId, frame);
-        }
-    }
-
     /**
      * Complete execution
      * @returns {ExecutionContext} Reference to this context.
+     * @param {boolean} forceCompletion If true then the context is forced to be finish regardless of state
      */
-    complete() {
-        let parent = this.parent;
-        if (parent) {
-            if (this.handleId in parent.asyncChildren === false)
-                throw new Error('Crash'); // TODO: Add ability to crash the game
-            delete parent.asyncChildren[this.handleId];
-            parent.asyncChildren.length--;
-            this.completed = true;
-            return parent.complete();
-        }
-        if (this.stack.length === this.forkedAt) {
-            if (this.asyncChildren.length === 0) {
-                if (this.parent) {
-                    this.parent.complete(this);
+    async complete(forceCompletion=false) {
+        try {
+            if (this.stack.length === this.forkedAt || true === forceCompletion) {
+                for (let i = 0; i < this.onComplete; i++) {
+                    try {
+                        let callback = this.onComplete[i];
+
+                        if (efuns.isAsync(callback))
+                            await callback();
+                        else
+                            callback();
+                    }
+                    catch (err) {
+                        console.log(`Error in context onCompletion: ${err}`);
+                    }
                 }
-                //  Make sure not to call completion twice
-                if (!this.completed) {
-                    this.completed = true;
-                    this.onComplete.forEach(cb => {
-                        try {
-                            cb(this);
-                        }
-                        catch (err) {
-                            logger.log('Error in onComplete handler:', err.message);
-                        }
-                    });
-                    this.emit('complete', this);
-                }
+                driver.restoreContext(false);
             }
-            // My children may or may not be done, but the context needs to be cleared anyway
-            driver.restoreContext(false);
+            else {
+                driver.restoreContext(this);
+            }
         }
-        else
-            driver.restoreContext(this);
+        finally {
+            delete contexts[this.handleId];
+        }
         return this;
     }
 
     get currentFileName() {
         let frame = this.stack[0];
-        return frame.file;
-    }
-
-    finishAsync() {
-        if (this.parent) {
-            let parent = this.parent;
-            delete parent.asyncChildren[this.handleId];
-            parent.stack.unshift(this.originalFrame);
-        }
+        return frame.file || false;
     }
 
     /**
-     * Registers a new async call on this execution context.
-     * @returns {ExecutionContext} Returns a child context to be used once the async code continues.
+     * Spawn a new child context for an async process like setTimeout or setInterval
+     * @returns {ExecutionContext} Returns a child context.
      */
-    fork(detached = false) {
-        if (!detached) this.asyncChildren.length++;
-        return new ExecutionContext(this, false, detached);
+    fork() {
+        return new ExecutionContext(this, false);
+    }
+
+    /**
+     * Get all executing? contexts
+     * @returns {Object.<string,ExecutionContext>}
+     */
+    static getContexts() {
+        return Object.assign({}, contexts);
+    }
+
+    /**
+     * Get a custom variable
+     * @param {string} key
+     */
+    getCustomVariable(key) {
+        if (key in this.customVariables)
+            return this.customVariables[key];
     }
 
     /**
@@ -313,7 +320,7 @@ class ExecutionContext extends MUDEventEmitter {
 
     /**
      * Check access to a guarded function.
-     * @param {function(ObjectStackItem):boolean} callback Calls the callback for each frame.
+     * @param {function(ExecutionFrame):boolean} callback Calls the callback for each frame.
      * @param {function(...any): any} [action] An optional action to perform
      * @returns {boolean} Returns true if the operation is permitted or false if it should fail.
      */
@@ -352,23 +359,6 @@ class ExecutionContext extends MUDEventEmitter {
         return true;
     }
 
-    isValidApplyCall(method, callee) {
-        return this.thisObject === driver || this.thisObject === callee;
-    }
-
-    /**
-     * Join an async result after it has completed
-     * @param {string} handleId The unique ID of the child context
-     * @param {MUDObjectStack} frame The stack snapshot from just before the async call.
-     */
-    join(handleId, frame) {
-        let child = this.asyncChildren[handleId];
-
-        if (child) child.frame = frame;
-
-        return this;
-    }
-
     get length() {
         return this.stack.length;
     }
@@ -388,10 +378,14 @@ class ExecutionContext extends MUDEventEmitter {
 
     /**
      * Pops a MUD frame off the stack
-     * @param {any} method
+     * @param {string | ExecutionFrame} method
      */
     pop(method) {
         let lastFrame = this.stack.shift();
+
+        if (method instanceof ExecutionFrame)
+            method = method.callString;
+
         if (!lastFrame || lastFrame.callString !== method) {
             if (lastFrame) {
                 console.log(`ExecutionContext out of sync; Expected ${method} but found ${lastFrame.callString}`);
@@ -399,10 +393,21 @@ class ExecutionContext extends MUDEventEmitter {
             else
                 console.log(`ExecutionContext out of sync... no frames left!`);
         }
-        if (this.stack.length === this.forkedAt)
-            return this.complete();
+
+        if (this.stack.length === this.forkedAt) {
+            this.completed = true;
+            process.nextTick(async () => {
+                await this.complete();
+            });
+            return this;
+        }
 
         return lastFrame;
+    }
+
+    popCurrentFrame() {
+        let frame = this.stack[0];
+        return this.pop(frame.callString);
     }
 
     popCreationContext() {
@@ -453,28 +458,56 @@ class ExecutionContext extends MUDEventEmitter {
      * @param {any} lineNumber
      * @param {any} callString
      * @param {boolean} [isUnguarded]
-     * @returns
+     * @returns {ExecutionContext}
      */
     push(object, method, file, isAsync, lineNumber, callString, isUnguarded) {
-        this.stack.unshift({
-            object,
-            method,
-            file,
-            isAsync: isAsync === true || method.startsWith('async '),
-            lineNumber,
-            callString: callString || method,
-            unguarded: isUnguarded === true
-        });
+        let newFrame = new ExecutionFrame(this, object, file, method, lineNumber, callString, isAsync, isUnguarded);
+        this.stack.unshift(newFrame);
         return this;
+    }
+
+    /**
+     * Push a new frame onto the stack
+     * @param {MUDObject} object
+     * @param {string} method
+     * @param {string} file
+     * @param {boolean} isAsync
+     * @param {number} lineNumber
+     * @param {string} callString
+     * @param {boolean} [isUnguarded]
+     * @returns {ExecutionFrame}
+     */
+    pushFrame(object, method, file, isAsync, lineNumber, callString = false, isUnguarded = false) {
+        //  TODO: Consider safety of assuming masterObject as default object
+        let newFrame = new ExecutionFrame(this, object, file, method, lineNumber, callString, isAsync, isUnguarded);
+        this.stack.unshift(newFrame);
+        return newFrame;
+    }
+
+    /**
+     * Remove a custom variable
+     * @param {string} id
+     */
+    removeCustomVariable(id) {
+        if (typeof id === 'string' && id in this.customVariables)
+            delete this.customVariables[id];
+    }
+
+    /**
+     * Remove a frame out of order based on its ID
+     * @param {string} frameId The frame's UUID
+     */
+    removeFrameById(frameId) {
+        let index = this.stack.findIndex(frame => frame.id === frameId);
+        if (index > -1) {
+            let result = this.stack.splice(index, 1);
+            return result.length > 0;
+        }
+        return false;
     }
 
     restore() {
         driver.restoreContext(this);
-        return this;
-    }
-
-    suspend() {
-        driver.restoreContext();
         return this;
     }
 
@@ -485,6 +518,7 @@ class ExecutionContext extends MUDEventEmitter {
     get thisObject() {
         for (let i = 0, m = this.stack.length; i < m; i++) {
             let ob = this.stack[i].object;
+
             if (ob instanceof MUDObject)
                 return ob;
 
@@ -512,6 +546,15 @@ class ExecutionContext extends MUDEventEmitter {
         return this;
     }
 
+    /**
+     * Perform an object with a particular object as the current / thisObject
+     * @param {MUDObject} obj
+     * @param {string} method
+     * @param {any} callback
+     * @param {any} isAsync
+     * @param {any} rethrow
+     * @returns
+     */
     async withObject(obj, method, callback, isAsync = false, rethrow = true) {
         try {
             let result = undefined;
@@ -581,11 +624,11 @@ class ExecutionContext extends MUDEventEmitter {
     }
 
     /**
- * Execute an action with an alternate thisPlayer
- * @param {MUDStorage} storage The player that should be "thisPlayer"
- * @param {function(MUDObject, ExecutionContext): any} callback The action to execute
- * @param {boolean} restoreOldPlayer Restore the previous player 
- */
+     * Execute an action with an alternate thisPlayer
+     * @param {MUDStorage} storage The player that should be "thisPlayer"
+     * @param {function(MUDObject, ExecutionContext): any} callback The action to execute
+     * @param {boolean} restoreOldPlayer Restore the previous player 
+     */
     async withPlayerAsync(storage, callback, restoreOldPlayer = true, methodName = false, catchErrors = true) {
         let player = false;
 
@@ -617,7 +660,8 @@ class ExecutionContext extends MUDEventEmitter {
             if (catchErrors === false) throw err;
         }
         finally {
-            if (methodName) ecc.pop(methodName);
+            if (methodName)
+                ecc.pop(methodName);
             if (restoreOldPlayer) {
                 if (oldPlayer) this.player = oldPlayer;
                 if (oldClient) this.client = oldClient;
@@ -628,5 +672,5 @@ class ExecutionContext extends MUDEventEmitter {
     }
 }
 
-module.exports = ExecutionContext;
+module.exports = { ExecutionContext, ExecutionFrame };
 

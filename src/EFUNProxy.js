@@ -37,8 +37,9 @@ const
 
 var
     IncludeCache = {},
-    MUDStorage = require('./MUDStorage'),
+    Intervals = {},
     SaveExtension = '.json',
+    Timeouts = {},
     { MUDHtmlComponent } = require('./MUDHtml');
 
 class EFUNProxy {
@@ -60,7 +61,13 @@ class EFUNProxy {
      * @returns {number} The unsigned absolute value.
      */
     abs(n) {
-        return Math.abs(n);
+        let frame = driver.pushFrame({ method: 'abs' });
+        try {
+            return Math.abs(n);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -69,12 +76,18 @@ class EFUNProxy {
      * @param {function} callback The callback that executes when the action is triggered.
      */
     addAction(verb, callback) {
-        let prevObject = this.previousObject(),
-            thisObject = this.thisObject(),
-            storage = driver.storage.get(prevObject);
+        let frame = driver.pushFrame({ method: 'addAction' });
+        try {
+            let prevObject = this.previousObject(),
+                thisObject = this.thisObject(),
+                storage = driver.storage.get(prevObject);
 
-        if (prevObject) {
-            storage.actionBinder.bindAction(verb, thisObject, callback);
+            if (prevObject) {
+                storage.actionBinder.bindAction(verb, thisObject, callback);
+            }
+        }
+        finally {
+            frame.pop();
         }
     }
 
@@ -84,7 +97,13 @@ class EFUNProxy {
      * @returns {boolean} True if the target is an administrator.
      */
     adminp(target) {
-        return driver.callApplySync('isAdmin', target);
+        let frame = driver.pushFrame({ method: 'adminp' });
+        try {
+            return driver.callApplySync('isAdmin', target);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -93,7 +112,13 @@ class EFUNProxy {
      * @returns {boolean} True if the target is an arch.ca
      */
     archp(target) {
-        return driver.callApplySync('isArch', target);
+        let frame = driver.pushFrame({ method: 'archp' });
+        try {
+            return driver.callApplySync('isArch', target);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     get arrays() { return ArrayHelper; }
@@ -107,50 +132,42 @@ class EFUNProxy {
      * @returns {string} The consolidated string
      */
     arrayToSentence(list, useOr = false, consolidate = true, useNumbers = false) {
-        useOr = typeof useOr === 'boolean' ? useOr : false;
-        consolidate = typeof consolidate === 'boolean' ? consolidate : true;
-        useNumbers = typeof useNumbers === 'boolean' ? useNumbers : false;
+        let frame = driver.pushFrame({ method: 'arrayToSentence' });
 
-        list = list.map(o => {
-            let uw = unwrap(o);
-            return uw ? uw.toString() : o.toString();
-        });
+        try {
+            useOr = typeof useOr === 'boolean' ? useOr : false;
+            consolidate = typeof consolidate === 'boolean' ? consolidate : true;
+            useNumbers = typeof useNumbers === 'boolean' ? useNumbers : false;
 
-        if (consolidate) {
-            let uniq = {}, count = 0;
-            list.forEach(s => {
-                if (s in uniq[s] === false) { uniq[s] = 0; count++; }
-                uniq[s]++;
+            list = list.map(o => {
+                let uw = unwrap(o);
+                return uw ? uw.toString() : o.toString();
             });
-            if (count === 0) return '';
-            list = Object.mapEach(uniq, (k, v) => 
-                `${(useNumbers ? v.toString() : this.cardinal(v))} ${(v > 1 ? this.pluralize(k) : k)}`);
-        }
-        var len = list.length;
-        if (len === 0)
-            return '';
-        else if (len === 1)
-            return list[0];
-        else if (len === 2)
-            return list[0] + (useOr ? ' or ' : ' and ') + list[1];
-        else
-            return list.slice(0, len - 1).join(', ') +
-                (useOr ? ' or ' : ' and ') + list[len - 1];
-    }
 
-    /**
-     * Not sure what MudOS does with this, but okay...
-     * @param {any[]} arr The data to construct.
-     * @returns {object} The result of the assemble class
-     */
-    assembleClass(arr) {
-        var s = '(function() { return function(o) {\n';
-        if (Array.isArray(arr)) {
-            arr.forEach(el => s += `  this.${el} ` + '= typeof o === \'object\' ? o.' + el + ' : undefined;\n');
-            s += '};})()';
-            return eval(s);
+            if (consolidate) {
+                let uniq = {}, count = 0;
+                list.forEach(s => {
+                    if (s in uniq[s] === false) { uniq[s] = 0; count++; }
+                    uniq[s]++;
+                });
+                if (count === 0) return '';
+                list = Object.mapEach(uniq, (k, v) =>
+                    `${(useNumbers ? v.toString() : this.cardinal(v))} ${(v > 1 ? this.pluralize(k) : k)}`);
+            }
+            var len = list.length;
+            if (len === 0)
+                return '';
+            else if (len === 1)
+                return list[0];
+            else if (len === 2)
+                return list[0] + (useOr ? ' or ' : ' and ') + list[1];
+            else
+                return list.slice(0, len - 1).join(', ') +
+                    (useOr ? ' or ' : ' and ') + list[len - 1];
         }
-        else throw new Error(`Bad argument 1 to assemble_class(); Expected array got ${typeof arr}`);
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -178,28 +195,30 @@ class EFUNProxy {
 
 
     callOut(func, delay, ...args) {
-        let mxc = driver.currentContext,
-            tob = mxc.thisObject,
+        let ecc = driver.getExecution(),
+            tob = ecc.thisObject,
             callback = typeof func === 'function' ? func : false;
 
         if (typeof func === 'string') {
             let method = tob[func];
             if (typeof method === 'function') {
-                callback = method.bind(tob, args);
+                callback = method.bind(tob, ...args);
             }
         }
         if (typeof callback !== 'function')
             throw new Error(`Bad argument 1 to function; Expected string or function but got ${typeof func}`);
-        let ctx = driver.currentContext.clone();
+
         let handle = setTimeout(() => {
+            let prev = ecc.restore();
             try {
-                ctx.restore();
+                
                 callback();
             }
             finally {
-                ctx.release();
+                prev.restore();
             }
         }, delay);
+
         return handle;
     }
 
@@ -636,35 +655,6 @@ class EFUNProxy {
     }
 
     /**
-     * Return filenames matching the specified file pattern.
-     * @param {string} expr The pattern to match.
-     * @param {number} flags Additional detail flags.
-     * @param {function} callback An optional callback for async operation.
-     * @returns {void}
-     */
-    async readDirectory(expr, flags, callback) {
-        if (typeof flags === 'function') (callback = flags), (flags = 0);
-        if (typeof callback === 'function') {
-            return driver.fileManager.readDirectory(this.resolvePath(expr), flags, callback);
-        }
-        else if (callback === true)
-            return driver.fileManager.readDirectory(this.resolvePath(expr), flags, true);
-        else
-            return driver.fileManager.readDirectory(this.resolvePath(expr), flags);
-    }
-
-    /**
-     * Read a directory asyncronously.
-     * @param {string} expr The path expression to read.
-     * @param {number} flags Flags to indicate what type of information is being requested.
-     * @returns {Promise<string[]>|void} Returns a Promise unless 
-     */
-    async readDirectoryAsync(expr, flags = 0) {
-        return await driver.fileManager.readDirectoryAsync(
-            this.resolvePath(expr, this.directory), flags);
-    }
-
-    /**
      * Converts a numeric storage size into a human-friendly form.
      * @param {number} n A number of bytes
      * @returns {string} A human-friendly string.
@@ -716,20 +706,6 @@ class EFUNProxy {
     }
 
     /**
-     * Determine if the expression is an async function.
-     * @param {any} expr The expression to evaluate
-     * @returns {boolean} True if the expression is an async function
-     */
-    isAsyncCallback(expr) {
-        if (typeof expr !== 'function')
-            return false;
-        else if (!expr.constructor)
-            return false;
-        else
-            return expr.constructor.name === 'AsyncFunction';
-    }
-
-    /**
      * Checks to see if the value is a class.
      * @param {any} o The value to check.
      * @returns {boolean} True if the value is a class reference.
@@ -770,11 +746,6 @@ class EFUNProxy {
      */
     isFile(expr, flags) {
         return this.isFileSync(expr, flags);
-    }
-
-    async isFileAsync(expr, flags) {
-        let stat = await driver.fileManager.statAsync(expr, flags || 0);
-        return stat.isFile;
     }
 
     isFunction(expr) {
@@ -1661,8 +1632,8 @@ class EFUNProxy {
                 return false;
             }
             else {
-                let etc = driver.getExecution(),
-                    thisOb = etc.thisObject,
+                let ecc = driver.getExecution(),
+                    thisOb = ecc.thisObject,
                     restoreFile = this.resolvePath(pathOrObject, thisOb.directory);
 
                 if (thisOb) {

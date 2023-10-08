@@ -7,21 +7,13 @@ const
     MUDObject = require('./MUDObject'),
     MUDHtml = require('./MUDHtml'),
     { TimeoutError } = require('./ErrorTypes'),
-    DriverApplies = [
-        'connect',        // Called when a user connects with their body
-        'create',         // Called and acts like a secondary constructor
-        'destroy',        // Called when an object is destructed
-        'disconnect',     // Called when a player disconnects from their body
-        'heartbeat',      // Called periodically in "living" objects
-        'init',           // Called when objects interact with one another
-        'moveObject',     // Called to move the object from one location to another
-        'prepareCommand', // Called while parsing command to override shell settings
-        'processInput',   // Called to process user input
-        'receiveMessage', // Called when an object receives a message
-        'reset'           // Called periodically to reset the object state
-    ],
     BaseInput = require('./inputs/BaseInput'),
     loopsPerAssert = 10000;
+
+var /** @type {Object.<number,ExecutionContext>} */
+    Intervals = {};
+var /** @type {Object.<number,ExecutionContext>} */
+    Callouts = {};
 
 class MUDLoader {
     /**
@@ -83,13 +75,6 @@ class MUDLoader {
                             .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync, lineNumber);
                     }
                     access && access !== "public" && ecc.assertAccess(ob, access, method, fileName);
-                    if (false) {
-                        //  Optional security check to prevent non-driver calls to driver applies
-                        if (method && DriverApplies.indexOf(method) > -1) {
-                            if (!ecc.isValidApplyCall(method, ob))
-                                throw new Error(`Illegal call to driver apply '${method}'`);
-                        }
-                    }
                     //  Check access prior to pushing the new frame to the stack
                     if (access && !newContext)
                         return ecc
@@ -247,10 +232,6 @@ class MUDLoader {
                 },
                 writable: false
             },
-            setTimeout: {
-                value: global.setTimeout,
-                writable: false
-            },
             PRIVATE: {
                 value: 3,
                 writable: false
@@ -308,8 +289,46 @@ class MUDLoader {
         return driver.createEfunInstance(fn);
     }
 
+    /**
+     * Remove an interval
+     * @param {number} timer
+     * @returns {boolean}
+     */
     clearInterval(ident) {
-        return global.clearInterval(ident);
+        if (typeof ident === 'number' && ident > 0) {
+            if (ident in Intervals) {
+                let ctx = Intervals[ident],
+                    varId = `setInterval-${ident}`,
+                    frameId = ctx.getCustomVariable(varId);
+                    
+                ctx.removeFrameById(frameId);
+                ctx.removeCustomVariable(varId);
+            }
+            global.clearInterval(ident);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Remove an timeout/callout
+     * @param {number} timer The unique timer ID
+     * @returns {boolean} Returns true on success, false if timer did not exist
+     */
+    clearTimeout(ident) {
+        if (typeof ident === 'number' && ident > 0) {
+            if (ident in Callouts) {
+                let ctx = Callouts[ident],
+                    varId = `setTimeout-${ident}`,
+                    frameId = ctx.getCustomVariable(varId);
+
+                ctx.removeFrameById(frameId);
+                ctx.removeCustomVariable(varId);
+            }
+            global.clearTimeout(ident);
+            return true;
+        }
+        return false;
     }
 
     createElement() {
@@ -429,32 +448,99 @@ class MUDLoader {
         return store && store.set(definingType, propertyName, value);
     }
 
-    setInterval(callback, timer) {
-        if (timer < 1000)
-            throw new Error('Interval cannot be less than 1000ms');
+    /**
+     * Periodically call a function
+     * @param {any} callback
+     * @param {any} timer
+     * @param {...any} args
+     * @returns
+     */
+    setInterval(callback, timer, ...args) {
+        //  TODO: Make this configurable
+        if (timer < 50)
+            throw new Error('Interval cannot be less than 50ms');
 
-        //  Create a detached child
+        //  Fork execution
         let ecc = driver.getExecution(),
-            child = !!ecc && ecc.fork(true),
+            childContext = ecc.fork(),
             thisObject = ecc.thisObject;
 
-        let ident = global.setInterval(function (callback, childContext) {
+        //  Push this frame onto the stack as a placeholder
+        let frame = childContext.pushFrame(thisObject, 'setInterval');
+
+        let ident = global.setInterval(async () => {
+            //  Make this context the active one
+            childContext.restore();
+
+            //  Check for the health of this timer
+            let hasError = false;
+
             try {
-                childContext.restore();
-                childContext.push(thisObject, 'setInterval', thisObject.filename);
-                callback();
+                if (efuns.isAsync(callback))
+                    await callback.apply(thisObject, args);
+                else
+                    callback.apply(thisObject, args);
             }
             catch (err) {
                 logger.log('Error in setInterval() callback; Disabling.');
-                global.clearInterval(ident);
+                hasError = true;
             }
             finally {
-                childContext.pop('setInterval');
-                childContext.suspend();
+                if (hasError === true)
+                    this.clearInterval(typeof ident === 'number' ? ident : ident[Symbol.toPrimitive]());
             }
-        }, timer, callback, child);
+        }, timer);
 
-        return ident;
+        let timerId = typeof ident === 'number' ? ident : ident[Symbol.toPrimitive]();
+        Intervals[ident] = childContext.addCustomVariable(`setInterval-${timerId}`, frame.id);
+        return timerId;
+    }
+
+    /**
+     * Periodically call a function
+     * @param {any} callback
+     * @param {any} timer
+     * @param {...any} args
+     * @returns
+     */
+    setTimeout(callback, timer, ...args) {
+        //  TODO: Make this configurable
+        if (timer < 50)
+            throw new Error('Interval cannot be less than 50ms');
+
+        //  Fork execution
+        let ecc = driver.getExecution(),
+            childContext = ecc.fork(),
+            thisObject = ecc.thisObject;
+
+        //  Push this frame onto the stack as a placeholder
+        let frame = childContext.pushFrame(thisObject, 'setInterval');
+
+        let ident = global.setTimeout(async () => {
+            //  Make this context the active one
+            childContext.restore();
+
+            try {
+                if (efuns.isAsync(callback))
+                    await callback.apply(thisObject, args);
+                else
+                    callback.apply(thisObject, args);
+            }
+            catch (err) {
+                hasError = true;
+            }
+            finally {
+                frame.pop();
+            }
+        }, timer);
+
+        let timerId = typeof ident === 'number' ? ident : ident[Symbol.toPrimitive]();
+        Intervals[ident] = childContext.addCustomVariable(`setTimeout-${timerId}`, frame.id);
+        return timerId;
+    }
+
+    setTimeout(callback, timer, ...args) {
+
     }
 
     thisPlayer(flag) {
