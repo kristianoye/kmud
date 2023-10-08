@@ -1,5 +1,5 @@
 # kmud
-MudOS-inspired Node-based MUD 
+MudOS/FluffOS-inspired Node-based MUD 
 
 # Setup
 
