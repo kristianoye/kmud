@@ -34,6 +34,7 @@ const
     TextHelper = require('./efuns/TextHelper'),
     TimeHelper = require('./efuns/Time'),
     UserHelper = require('./efuns/UserHelper');
+const MUDObject = require('./MUDObject');
 
 var
     IncludeCache = {},
@@ -168,6 +169,33 @@ class EFUNProxy {
         finally {
             frame.pop();
         }
+    }
+
+    /**
+     * Create a function binding
+     * @param {MUDObject} [target] Optional target object
+     * @param {string} methodName The method to bind
+     * @param {...any} args
+     * @returns {function():any}
+     */
+    bindFunctionByName(target, methodName, ...args) {
+        //  First parameter was not an explicit MUD object; Use thisObject
+        if (typeof target === 'string') {
+            target = this.thisObject();
+            args.unshift(methodName);
+            methodName = target;
+        }
+
+        if (!targetFunction)
+            throw `bindFunctionByName(): Object ${target.filename} does not contain method ${methodName}`;
+        else if (typeof targetFunction !== 'function')
+            throw `bindFunctionByName(): Object ${target.filename} does not contain method ${methodName}`;
+        else if (target instanceof MUDObject === false)
+            throw `bindFunctionByName(): Target object is not a valid MUD object`;
+
+        let targetFunction = target[methodName];
+
+        return targetFunction.bind(target, ...args);
     }
 
     /**
@@ -1828,6 +1856,19 @@ class EFUNProxy {
     get out() {
         let ecc = driver.getExecution();
         return ecc.shell && ecc.shell.stdout;
+    }
+
+    /**
+     * Produce a random number in the specified range
+     * @param {number} min
+     * @param {number} max
+     * @returns
+     */
+    random(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+
+        return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
     /**

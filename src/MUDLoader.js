@@ -313,7 +313,7 @@ class MUDLoader {
     /**
      * Remove an timeout/callout
      * @param {number} timer The unique timer ID
-     * @returns {boolean} Returns true on success, false if timer did not exist
+     * @returns {boolean}
      */
     clearTimeout(ident) {
         if (typeof ident === 'number' && ident > 0) {
@@ -450,10 +450,10 @@ class MUDLoader {
 
     /**
      * Periodically call a function
-     * @param {any} callback
-     * @param {any} timer
-     * @param {...any} args
-     * @returns
+     * @param {function} callback The function to execute after the timer has expired
+     * @param {number} timer The amount of time to delay execution (in ms)
+     * @param {...any} args Additional parameters to pass to callback
+     * @returns {number} Returns the unique ID/handle for the timer
      */
     setInterval(callback, timer, ...args) {
         //  TODO: Make this configurable
@@ -497,11 +497,11 @@ class MUDLoader {
     }
 
     /**
-     * Periodically call a function
-     * @param {any} callback
-     * @param {any} timer
-     * @param {...any} args
-     * @returns
+     * Call a function after the specified time has past
+     * @param {function} callback The function to execute after the timer has expired
+     * @param {number} timer The amount of time to delay execution (in ms)
+     * @param {...any} args Additional parameters to pass to callback
+     * @returns {number} Returns the unique ID/handle for the timer
      */
     setTimeout(callback, timer, ...args) {
         //  TODO: Make this configurable
@@ -537,10 +537,6 @@ class MUDLoader {
         let timerId = typeof ident === 'number' ? ident : ident[Symbol.toPrimitive]();
         Intervals[ident] = childContext.addCustomVariable(`setTimeout-${timerId}`, frame.id);
         return timerId;
-    }
-
-    setTimeout(callback, timer, ...args) {
-
     }
 
     thisPlayer(flag) {

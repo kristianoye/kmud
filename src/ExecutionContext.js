@@ -10,7 +10,18 @@
 const
     CreationContext = require('./CreationContext'),
     uuidv1 = require('uuid/v1'),
-    MUDObject = require('./MUDObject');
+    MUDObject = require('./MUDObject'),
+    CallOrigin = Object.freeze({
+        Unknown: 0,
+        Driver: 1 << 0,
+        LocalCall: 1 << 1,
+        CallOther: 1 << 2,
+        SimulEfun: 1 << 3,
+        Callout: 1 << 4,
+        DriverEfun: 1 << 5,
+        FunctionPointer: 1 << 6,
+        Functional: 1 << 7
+    });
 
 var
     contexts = {};
@@ -42,17 +53,25 @@ class ExecutionFrame {
          * @type {ExecutionContext}
          */
         this.context = context;
+
         /**
          * The object performing the action 
          * @type {MUDObject}
          */
         this.object = thisObject || context.thisObject;
-        /** 
+
+        /**
+         * How was this method invoked?
+         */
+        this.origin = CallOrigin.Unknown;
+
+        /**
          * The method name + extra decorations (e.g. static async [method]) 
          * @type {string}
          */
         this.callString = callstring || method;
-        /** 
+
+        /**
          * The file in which the executing method exists 
          * @type {string}
          */
@@ -62,15 +81,18 @@ class ExecutionFrame {
          * @type {string}
          */
         this.method = method;
-        /** 
+
+        /**
          * The line number at which the call was made 
          * @type {number}
          */
         this.lineNumber = lineNumber || 0;
+
         /** More informative than useful, now
          * @type {boolean}
          */
         this.isAsync = isAsync === true;
+
         /**
          * Unguarded frames short-circuit security and prevent checks against previous objects 
          * @type {boolean}
