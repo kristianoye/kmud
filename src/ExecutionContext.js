@@ -244,6 +244,33 @@ class ExecutionContext {
     }
 
     /**
+     * Await an asyncronous call and yield back the execution time
+     * @param {function(...):any} asyncCode
+     */
+    awaitResult(asyncCode) {
+        return new Promise(async (resolve, reject) => {
+            let startTime = new Date().getTime();
+            try {
+                await asyncCode()
+                    .then(result => resolve(result))
+                    .catch(err => reject(err));
+            }
+            catch (err) {
+                reject(err);
+            }
+            finally {
+                let ellapsed = (new Date().getTime() - startTime);
+
+                //  Do not overflow
+                if (this.alarmTime < Number.MAX_SAFE_INTEGER)
+                    this.alarmTime += ellapsed;
+
+                this.restore();
+            }
+        });
+    }
+
+    /**
      * Complete execution
      * @returns {ExecutionContext} Reference to this context.
      * @param {boolean} forceCompletion If true then the context is forced to be finish regardless of state
@@ -528,6 +555,10 @@ class ExecutionContext {
         return false;
     }
 
+    /**
+     * Restore this context to the active context in the driver
+     * @returns
+     */
     restore() {
         driver.restoreContext(this);
         return this;

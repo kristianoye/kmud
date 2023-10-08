@@ -341,22 +341,11 @@ function parseElement(op, e, depth) {
 
             case 'AwaitExpression':
                 {
-                    // Step 1: Suspend context,
-                    // Step 2: Make the async call,
-                    // Step 3: Restore the context and continue... sounds simple enough...
+                    let tmp = parseElement(op, e.argument, depth + 1);
+                    ret += `await __mec.awaitResult(async () => ${tmp})`;
 
-                    // ret += `await __mec.awaitAsync('${e.idType || ''}', `;
-                    // ret += parseElement(op, e.argument, depth + 1).slice(5);
-                    // ret += ')';
-
-
-                    //ret += '(async () => { let __err, __ctx = __mec.asyncBegin(); try { ';
-                    //ret += '__ctx.asyncResult = ' + parseElement(op, e.argument, depth + 1) ;
-                    //ret += '.catch(e => { _err = e; }); if(__err) throw __err; return __ctx.asncResult; ';
-                    //ret += ' } finally {  __ctx.asyncRestore();  } })()';
-
-                    ret += parseElement(op, e.argument, depth + 1);
-                    //ret += '.always(() => __ctx.restore())';
+                    // Previous working version prior to adding awaitResult():
+                    // ret += parseElement(op, e.argument, depth + 1);
                 }
                 break;
 
