@@ -507,8 +507,6 @@ function parseElement(op, e, depth) {
                         if (false === nowrap) {
                             if (!ret.contains('await'))
                                 ret = `__mec.validSyncCall(() => ${ret})`;
-                        //    else
-                        //        ret = `await __mec.validAsyncCall(async () => ${ret})`;
                         }
                     }
                 }
@@ -762,7 +760,9 @@ function parseElement(op, e, depth) {
 
             case 'MemberExpression':
                 {
+                    ret += op.readUntil(e.object.start);
                     ret += parseElement(op, e.object, depth + 1);
+                    ret += op.readUntil(e.property.start);
                     ret += parseElement(op, e.property, depth + 1);
                 }
                 break;
@@ -783,7 +783,10 @@ function parseElement(op, e, depth) {
                     let callee = op.source.slice(e.callee.start, e.callee.end);
                     op.pos = e.callee.end;
                     ret += `__pcc(${op.thisParameter}, ${callee}, __FILE__, '${op.method}', ct => new ct`;
-                    e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
+                    e.arguments.forEach(_ => {
+                        ret += op.readUntil(_.start);
+                        ret += parseElement(op, _, depth + 1);
+                    });
                     if (op.pos !== e.end) {
                         if (op.pos > e.end) throw new Error('Oops?');
                         ret += op.source.slice(op.pos, e.end);
