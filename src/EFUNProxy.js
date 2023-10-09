@@ -735,6 +735,27 @@ class EFUNProxy {
     }
 
     /**
+     * Check to see if the current call has been awaited
+     * @param {boolean} assertIfNotAwaited If true and the call is not awaited then a runtime exception is thrown
+     * @returns {boolean}
+     */
+    isAwaited(assertIfNotAwaited = false, methodName = 'unknown') {
+        let ecc = driver.getExecution(),
+            result = ecc && ecc.isAwaited,
+            frame = ecc && ecc.stack[0] || false;
+
+        if (frame && frame.method === 'constructor')
+            throw `Constructor in ${frame.file} [line ${frame.lineNumber}] attempted to call '${methodName}' which is async; Constructors cannot call async methods.`;
+        if (!result && assertIfNotAwaited === true) {
+            if (frame)
+                throw `Method ${frame.method} in ${frame.file} [line ${frame.lineNumber}] requires the use of await; Example: await ${methodName}(...)`;
+            else
+                throw `Unknown method requires use of await`;
+        }
+        return result === true;
+    }
+
+    /**
      * Checks to see if the value is a class.
      * @param {any} o The value to check.
      * @returns {boolean} True if the value is a class reference.

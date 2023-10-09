@@ -43,6 +43,11 @@ class ExecutionFrame {
      * @param {boolean} isUnguarded Unguarded frames short-circuit security and prevent checks against previous objects
      */
     constructor(context, thisObject, filename, method, lineNumber, callstring = false, isAsync = false, isUnguarded = false, origin = 0) {
+        /**
+         * Is this frame awaiting a result?
+         */
+        this.awaitCount = 0;
+
         /** 
          * The unique UUID of this frame
          * @type {string}
@@ -250,8 +255,10 @@ class ExecutionContext {
      */
     awaitResult(asyncCode) {
         return new Promise(async (resolve, reject) => {
-            let startTime = new Date().getTime();
+            let startTime = new Date().getTime(),
+                frame = this.stack[0];
             try {
+                frame.awaitCount++;
                 await asyncCode()
                     .then(result => resolve(result))
                     .catch(err => reject(err));
@@ -266,6 +273,7 @@ class ExecutionContext {
                 if (this.alarmTime < Number.MAX_SAFE_INTEGER)
                     this.alarmTime += ellapsed;
 
+                frame.awaitCount--;
                 this.restore();
             }
         });
@@ -407,6 +415,10 @@ class ExecutionContext {
             return false;
         }
         return true;
+    }
+
+    get isAwaited() {
+        return this.stack.length > 0 && this.stack[0].awaitCount > 0;
     }
 
     get length() {
@@ -617,6 +629,24 @@ class ExecutionContext {
                 return driver.masterObject || driver;
         }
         return false;
+    }
+
+    async validAsyncCall(expr) {
+        let result = await expr();
+        if (result instanceof Promise) {
+            throw new Error(`All asyncronous method calls must be awaited`);
+        }
+        return result;
+    }
+
+    validSyncCall(expr) {
+        if (efuns.isAsync(expr))
+            throw new Error(`All asyncronous method calls must be awaited`);
+        let result = expr();
+        if (result instanceof Promise) {
+            throw new Error(`All asyncronous method calls must be awaited`);
+        }
+        return result;
     }
 
     get virtualContext() {

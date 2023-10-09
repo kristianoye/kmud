@@ -392,6 +392,16 @@ class MUDLoader {
     }
 
     /**
+     * Check to see if the current call has been awaited
+     * @param {boolean} assertIfNotAwaited If true and the call is not awaited then a runtime exception is thrown
+     * @param {string} methodName The name of the async method being called
+     * @returns {boolean}
+     */
+    isAwaited(assertIfNotAwaited = false, methodName = 'unknown') {
+        return efuns.isAwaited(assertIfNotAwaited, methodName);
+    }
+
+    /**
      * Send a message to one or more objects.
      * @param {any} messageType
      * @param {any} expr

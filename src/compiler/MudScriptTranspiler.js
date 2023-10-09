@@ -297,11 +297,17 @@ function parseElement(op, e, depth) {
         }
         switch (e.type) {
             case 'ArrayExpression':
-                e.elements.forEach(_ => ret += parseElement(op, _, depth + 1));
+                e.elements.forEach(_ => {
+                    ret += op.readUntil(_.start);
+                    ret += parseElement(op, _, depth + 1);
+                });
                 break;
 
             case 'ArrayPattern':
-                e.elements.forEach(_ => ret += parseElement(op, _, depth + 1));
+                e.elements.forEach(_ => {
+                    ret += op.readUntil(_.start);
+                    ret += parseElement(op, _, depth + 1);
+                });
                 break;
 
             case 'ArrowFunctionExpression':
@@ -330,7 +336,9 @@ function parseElement(op, e, depth) {
                 break; 
 
             case 'AssignmentExpression':
+                ret += op.readUntil(e.left.start);
                 ret += parseElement(op, e.left, depth + 1);
+                ret += op.readUntil(e.right.start);
                 ret += parseElement(op, e.right, depth + 1);
                 break;
 
@@ -351,6 +359,8 @@ function parseElement(op, e, depth) {
 
             case 'BinaryExpression':
                 ret += parseElement(op, e.left, depth + 1);
+                ret += op.readUntil(e.operator);
+                ret += op.readUntil(e.right.start);
                 ret += parseElement(op, e.right, depth + 1);
                 break;
 
@@ -479,7 +489,28 @@ function parseElement(op, e, depth) {
                     if (writeCallee)
                         ret += callee;
                     if (!isCallout)
-                        e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
+                        e.arguments.forEach(_ => {
+                            ret += op.readUntil(_.start);
+                            ret += parseElement(op, _, depth + 1);
+                        });
+                    ret += op.readUntil(e.end);
+                    if (!ret.startsWith('await')) {
+                        let nowrap = false;
+
+                        if (callee === 'super' && !ret.contains('.'))
+                            nowrap = true;
+                        else if (!ret.startsWith(callee))
+                            nowrap = true;
+
+                        // Ensure unawaited function calls are not calling async
+                        // Only wrap calls if we feel certain not to screw up
+                        if (false === nowrap) {
+                            if (!ret.contains('await'))
+                                ret = `__mec.validSyncCall(() => ${ret})`;
+                            else
+                                ret = `__mec.validAsyncCall(async () => ${ret})`;
+                        }
+                    }
                 }
                 break;
 
@@ -511,8 +542,11 @@ function parseElement(op, e, depth) {
                 break;
 
             case 'ConditionalExpression':
+                ret += op.readUntil(e.test.start);
                 ret += parseElement(op, e.test, depth + 1);
+                ret += op.readUntil(e.consequent.start);
                 ret += parseElement(op, e.consequent, depth + 1);
+                ret += op.readUntil(e.alternate.start);
                 ret += parseElement(op, e.alternate, depth + 1);
                 break;
 
@@ -623,10 +657,13 @@ function parseElement(op, e, depth) {
                 break;
 
             case 'IfStatement':
+                ret += op.readUntil(e.test.start);
                 ret += parseElement(op, e.test, depth + 1);
                 ret += parseElement(op, e.consequent, depth + 1);
-                // BUG: Wow alternates were not being processed at all.
-                if (e.alternate) ret += parseElement(op, e.alternate);
+                if (e.alternate) {
+                    ret += op.readUntil(e.alternate.start);
+                    ret += parseElement(op, e.alternate);
+                }
                 break;
 
             case 'JSXAttribute':
@@ -717,7 +754,9 @@ function parseElement(op, e, depth) {
                 break;
 
             case 'LogicalExpression':
+                ret += op.readUntil(e.left.start);
                 ret += parseElement(op, e.left, depth + 1);
+                ret += op.readUntil(e.right.start);
                 ret += parseElement(op, e.right, depth + 1);
                 break;
 
@@ -763,9 +802,12 @@ function parseElement(op, e, depth) {
                 break;
 
             case 'Property':
+                ret += op.readUntil(e.key.start);
                 ret += parseElement(op, e.key, depth + 1);
-                if (e.key.start !== e.value.start)
+                if (e.key.start !== e.value.start) {
+                    ret += op.readUntil(e.value.start);
                     ret += parseElement(op, e.value, depth + 1);
+                }
                 break;
 
             case 'RestElement':
@@ -774,7 +816,10 @@ function parseElement(op, e, depth) {
                 break;
 
             case 'ReturnStatement':
-                ret += parseElement(op, e.argument, depth + 1);
+                if (e.argument) {
+                    ret += op.readUntil(e.argument.start);
+                    ret += parseElement(op, e.argument, depth + 1);
+                }
                 break;
 
             case 'RuntimeAssertion':
@@ -790,7 +835,9 @@ function parseElement(op, e, depth) {
                 e.expressions.forEach(_ => ret += parseElement(op, _, depth + 1));
                 break;
 
+            //  '...' 
             case 'SpreadElement':
+                ret += op.readUntil(e.argument.start);
                 ret += parseElement(op, e.argument, depth + 1);
                 break;
 
@@ -800,8 +847,12 @@ function parseElement(op, e, depth) {
                 break;
 
             case 'SwitchStatement':
+                ret += op.readUntil(e.discriminant.start);
                 ret += parseElement(op, e.discriminant, depth + 1);
-                e.cases.forEach(_ => ret += parseElement(op, _, depth + 1));
+                e.cases.forEach(_ => {
+                    ret += op.readUntil(_.start);
+                    ret += parseElement(op, _, depth + 1);
+                });
                 break;
 
             case 'TemplateElement':
@@ -814,7 +865,10 @@ function parseElement(op, e, depth) {
                     let items = []
                         .concat(e.quasis.slice(0), e.expressions.slice(0))
                         .sort((a, b) => a.start < b.start ? -1 : a.start === b.start ? 0 : 1);
-                    items.forEach(_ => ret += parseElement(op, _, depth + 1));
+                    items.forEach(_ => {
+                        ret += op.readUntil(_.start);
+                        ret += parseElement(op, _, depth + 1);
+                    });
                 }
                 break;
 
@@ -834,6 +888,7 @@ function parseElement(op, e, depth) {
                 break;
 
             case 'UnaryExpression':
+                ret += op.readUntil(e.argument.start);
                 ret += parseElement(op, e.argument, depth + 1);
                 break;
 
@@ -846,6 +901,7 @@ function parseElement(op, e, depth) {
                 ret += parseElement(op, e.id, depth + 1);
                 if (e.init) {
                     e.init.idType = e.id.type;
+                    ret += op.readUntil(e.init.start);
                     ret += parseElement(op, e.init, depth + 1);
                 }
                 break;
