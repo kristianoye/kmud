@@ -507,8 +507,8 @@ function parseElement(op, e, depth) {
                         if (false === nowrap) {
                             if (!ret.contains('await'))
                                 ret = `__mec.validSyncCall(() => ${ret})`;
-                            else
-                                ret = `__mec.validAsyncCall(async () => ${ret})`;
+                        //    else
+                        //        ret = `await __mec.validAsyncCall(async () => ${ret})`;
                         }
                     }
                 }
