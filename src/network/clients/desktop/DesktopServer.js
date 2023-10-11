@@ -29,11 +29,7 @@ class DesktopServer extends ClientEndpoint {
             pingTimeout: 60000
         }, config.options.websocket || {});
 
-        /**
-         * Contains all desktop clients connected during this runtime
-         * @type {Object.<string,DesktopClient>} 
-         */
-        this.clients = {};
+        this.#clients = {};
     }
 
     bind() {
@@ -53,7 +49,7 @@ class DesktopServer extends ClientEndpoint {
                 console.log('Client has requested to upgrade to websocket');
             })
             .on('connection', client => {
-                let { existing, client: instance } = this.getOrCreateClient(client);
+                let { existing, client: instance } = this.#getOrCreateClient(client);
 
                 this.emit('kmud.connection', instance);
 
@@ -90,6 +86,12 @@ class DesktopServer extends ClientEndpoint {
         return this;
     }
 
+    /**
+     * Contains all desktop clients connected during this runtime
+     * @type {Object.<string,DesktopClient>}
+     */
+    #clients;
+
     createAuthToken(username, password) {
         if (this.server.authManager != null) 
             return this.server.authManager.create(username, password);
@@ -102,13 +104,13 @@ class DesktopServer extends ClientEndpoint {
         return false;
     }
 
-    getOrCreateClient(client) {
+    #getOrCreateClient(client) {
         let clientId = client.handshake?.query?.clientId;
 
-        if (clientId in this.clients)
-            return { existing: true, client: this.clients[clientId] };
+        if (clientId in this.#clients)
+            return { existing: true, client: this.#clients[clientId] };
         else
-            return { existing: false, client: (this.clients[clientId] = new DesktopClient(this, client, clientId)) };
+            return { existing: false, client: (this.#clients[clientId] = new DesktopClient(this, client, clientId)) };
     }
 }
 

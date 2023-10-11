@@ -1,6 +1,5 @@
 ﻿const
-    bcrypt = require('bcrypt'),
-    ExecutionContext = require('../ExecutionContext');
+    bcrypt = require('bcrypt');
 
 /**
  * Config object responsible for controlling how passwords are created and used.

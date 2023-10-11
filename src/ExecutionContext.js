@@ -100,17 +100,35 @@ class ExecutionFrame {
         this.isAsync = isAsync === true;
 
         /**
+         * When was the method put on the stack?
+         */
+        this.startTime = driver.efuns.ticks;
+
+        /**
          * Unguarded frames short-circuit security and prevent checks against previous objects 
          * @type {boolean}
          */
         this.unguarded = isUnguarded === true;
     }
 
+    getContext() {
+        return this.context;
+    }
+
     /**
      * Pop this frame off the execution stack
+     * @param {boolean} yieldBack
      */
-    pop() {
-        this.context.pop(this.method);
+    pop(yieldBack = false) {
+        this.context.pop(this.method, this.isAsync === true || yieldBack === true);
+    }
+
+    /**
+     * The execution cost of this frame in ticks
+     * @returns {number}
+     */
+    get ticks() {
+        return this.startTime - driver.efuns.ticks;
     }
 }
 
@@ -149,8 +167,7 @@ class ExecutionContext {
             this.truePlayer = parent.truePlayer;
         }
         else {
-            /** @type {Object.<string,ExecutionContext>} */
-            this.alarmTime = Number.MAX_SAFE_INTEGER;
+            this.alarmTime = Number.MAX_SAFE_INTEGER;// driver.efuns.ticks + 5000;
             this.currentVerb = false;
             this.forkedAt = 0;
             this.player = false;
@@ -257,22 +274,20 @@ class ExecutionContext {
         return new Promise(async (resolve, reject) => {
             let startTime = new Date().getTime(),
                 frame = this.stack[0];
+
             try {
                 frame.awaitCount++;
-                await asyncCode()
-                    .then(result => resolve(result))
-                    .catch(err => reject(err));
+                this.restore();
+                let result = await asyncCode();
+
+                resolve(result);
             }
             catch (err) {
                 reject(err);
             }
             finally {
                 let ellapsed = (new Date().getTime() - startTime);
-
-                //  Do not overflow
-                if (this.alarmTime < Number.MAX_SAFE_INTEGER)
-                    this.alarmTime += ellapsed;
-
+                this.alarmTime += ellapsed;
                 frame.awaitCount--;
                 this.restore();
             }
@@ -441,8 +456,9 @@ class ExecutionContext {
     /**
      * Pops a MUD frame off the stack
      * @param {string | ExecutionFrame} method
+     * @param {boolean} yieldBack If true, then the call duration is yielded back to the alarm time
      */
-    pop(method) {
+    pop(method, yieldBack=false) {
         let lastFrame = this.stack.shift();
 
         if (method instanceof ExecutionFrame)
@@ -454,6 +470,10 @@ class ExecutionContext {
             }
             else
                 console.log(`ExecutionContext out of sync... no frames left!`);
+        }
+
+        if (true === yieldBack) {
+            this.alarmTime += lastFrame.ticks;
         }
 
         if (this.stack.length === this.forkedAt) {
@@ -573,7 +593,8 @@ class ExecutionContext {
         let { object, file, method, lineNumber, callString, isAsync, isUnguarded, origin } = frameInfo;
         let frame = this.pushFrame(object || this.thisObject,
             file || object?.filename,
-            method, lineNumber || 0,
+            method,
+            lineNumber || 0,
             callString || method,
             isAsync || false,
             isUnguarded || false,
@@ -631,20 +652,16 @@ class ExecutionContext {
         return false;
     }
 
-    async validAsyncCall(expr) {
-        let result = await expr();
-        if (result instanceof Promise) {
-            throw new Error(`All asyncronous method calls must be awaited`);
-        }
-        return result;
-    }
+    validSyncCall(filename, lineNumber, expr) {
+        let ecc = driver.getExecution(),
+            frame = ecc && ecc.stack[0] || false;
 
-    validSyncCall(expr) {
-        if (efuns.isAsync(expr))
-            throw new Error(`All asyncronous method calls must be awaited`);
         let result = expr();
-        if (result instanceof Promise) {
-            throw new Error(`All asyncronous method calls must be awaited`);
+        if (driver.efuns.isPromise(result)) {
+            if (frame)
+                throw new Error(`${frame.file}.${frame.method} [Line ${lineNumber}]; Call to must be awaited; e.g. await ${expr}`);
+            else
+                throw new Error(`All asyncronous method calls must be awaited`);
         }
         return result;
     }

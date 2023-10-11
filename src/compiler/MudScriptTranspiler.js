@@ -14,7 +14,8 @@ const
     ],
     acorn = require('acorn'),
     modifiers = require('./SecurityModifiers'),
-    jsx = require('acorn-jsx');
+    jsx = require('acorn-jsx'),
+    { CallOrigin } = require('../ExecutionContext');
 
 const
     //  These cannot be used as identifiers (reserved words)
@@ -60,6 +61,7 @@ class JSXTranspilerOp {
         this.allowLiteralCallouts = p.allowLiteralCallouts;
         this.allowJsx = p.allowJsx;
 
+        this.awaitDepth = 0;
         this.appendText = '';
         this.callerId = [];
         this.context = p.context;
@@ -101,10 +103,11 @@ class JSXTranspilerOp {
             this.callerId = false;
             this.source = false;
             this.max = -1;
-            return (this.output + this.appendText)
+            let result = (this.output + this.appendText)
                 .split('\n')
                 .map((line, lineNumber) => line.replaceAll('__LINE__', lineNumber + 1))
                 .join('\n');
+            return result;
         }
         finally {
             this.output = false;
@@ -318,17 +321,17 @@ function parseElement(op, e, depth) {
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
                     ret += op.readUntil(e.body.start);
                     if (e.body.type === 'BlockStatement') {
-                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__); try `;
+                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try `;
                         ret += parseElement(op, e.body);
                         ret += ` finally { __efc(__mec, '${funcName}'); } }`;
                     }
                     else if (e.body.type === 'MemberExpression') {
-                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__); try { return `;
+                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return `;
                         ret += parseElement(op, e.body);
                         ret += `; } finally { __efc(__mec, '${funcName}'); } }`;
                     }
                     else {
-                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__); try { return (`;
+                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return (`;
                         ret += parseElement(op, e.body);
                         ret += `); } finally { __efc(__mec, '${funcName}'); } }`;
                     }
@@ -349,9 +352,10 @@ function parseElement(op, e, depth) {
 
             case 'AwaitExpression':
                 {
+                    op.awaitDepth++;
                     let tmp = parseElement(op, e.argument, depth + 1);
                     ret += `await __mec.awaitResult(async () => ${tmp})`;
-
+                    op.awaitDepth--;
                     // Previous working version prior to adding awaitResult():
                     // ret += parseElement(op, e.argument, depth + 1);
                 }
@@ -365,7 +369,12 @@ function parseElement(op, e, depth) {
                 break;
 
             case 'BlockStatement':
-                e.body.forEach(_ => ret += parseElement(op, _, depth + 1));
+                {
+                    let prevDepth = op.awaitDepth;
+                    op.awaitDepth = 0;
+                    e.body.forEach(_ => ret += parseElement(op, _, depth + 1));
+                    op.awaitDepth = prevDepth;
+                }
                 break;
 
             case 'BreakStatement':
@@ -505,8 +514,8 @@ function parseElement(op, e, depth) {
                         // Ensure unawaited function calls are not calling async
                         // Only wrap calls if we feel certain not to screw up
                         if (false === nowrap) {
-                            if (!ret.contains('await'))
-                                ret = `__mec.validSyncCall(() => ${ret})`;
+                            if (!ret.contains('await') && op.awaitDepth === 0)
+                                ret = `__mec.validSyncCall(__FILE__, __LINE__, () => ${ret})`;
                         }
                     }
                 }
@@ -596,15 +605,16 @@ function parseElement(op, e, depth) {
                     else if (SettersGetters.indexOf(functionName) > -1)
                         throw new Error(`Illegal function name: ${functionName}`);
                     ret += parseElement(op, e.id, depth + 1);
+                    let isAsync = ret.startsWith('async');
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
                     if (op.thisClass) {
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(${op.thisParameter}, 'public', '${e.id.name}', __FILE__, false, __LINE__); try { `,
+                            `let __mec = __bfc(${op.thisParameter}, 'public', '${e.id.name}', __FILE__, ${isAsync}, __LINE__); try { `,
                             ` } finally { __efc(__mec, '${e.id.name}'); }`);
                     }
                     else
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, 'public', '${e.id.name}', __FILE__, false); try { `,
+                            `let __mec = __bfc(this, 'public', '${e.id.name}', __FILE__,  ${isAsync}, __LINE__); try { `,
                             ` } finally { __efc(__mec, '${e.id.name}'); }`);
                     ret += parseElement(op, e.body, depth + 1, e.id);
                 }
@@ -994,7 +1004,7 @@ class MudScriptTranspiler extends PipelineComponent {
         });
         try {
             if (this.enabled) {
-                let source = op.source = 'await (async (x) => { ' + op.source + ' })(42)';
+                let source = op.source = 'await (async () => { ' + op.source + ' })()';
                 op.ast = this.parser.parse(source, op.acornOptions);
                 op.output += `__rmt("${op.filename}");`
                 op.ast.body.forEach(n => op.output += parseElement(op, n, 0));

@@ -637,6 +637,28 @@ class InputHelper {
         ecc.shell && ecc.shell.addPrompt(prompt);
     }
 
+    static async promptAsync(type, opts = {}) {
+        return new Promise((resolve, reject) => {
+            let prompt = BaseInput.create(type, opts),
+                ecc = driver.getExecution(),
+                originalCallback = prompt.callback || false;
+
+            prompt.callback = (input) => {
+                try {
+                    if (originalCallback)
+                        resolve(originalCallback(input));
+                    else
+                        resolve(input);
+                }
+                catch (err) {
+                    reject(err);
+                }
+            };
+
+            ecc.shell && ecc.shell.addPrompt(prompt);
+        });
+    }
+
     /**
      * Splits a string into command arguments; Quoted values return as a single arg.
      * @param {string} input The input to parse

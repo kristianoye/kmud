@@ -54,13 +54,16 @@ class MUDLoader {
             },
             __bfc: {
                 //  Begin Function Call
-                value: function (ob, access, method, fileName, isAsync, lineNumber, type) {
+                value: function (ob, access, method, fileName, isAsync, lineNumber, type, origin) {
                     let ecc = driver.getExecution(),
                         newContext = false;
 
                     if (method.length === 0) {
                         method = '(MAIN)';
                     }
+
+                    if (isAsync === false && method.startsWith('async '))
+                        isAsync = true;
 
                     if (!ecc) {
                         if (!ob) // Crasher?
@@ -73,7 +76,7 @@ class MUDLoader {
                         //  to be incremented prior to checking method access
                         ecc
                             .alarm()
-                            .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync, lineNumber);
+                            .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, origin);
                     }
                     access && access !== "public" && ecc.assertAccess(ob, access, method, fileName);
                     //  Check access prior to pushing the new frame to the stack
@@ -81,11 +84,10 @@ class MUDLoader {
                         return ecc
                             .alarm()
                             //  Previously only allowed objects inheriting from MUDObject to be allowed on stack
-                            .push(/* ob instanceof MUDObject && */ ob, method || '(undefined)', fileName, isAsync, lineNumber);
+                            .push(/* ob instanceof MUDObject && */ ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, origin);
 
                     return ecc;
-                },
-                enumerable: false,
+                },                enumerable: false,
                 writable: false
             },
             __efc: {
@@ -348,6 +350,15 @@ class MUDLoader {
     }
 
     /**
+     * Attempt to destruct an object
+     * @param {any} target
+     * @param {...any} args
+     * @returns
+     */
+    destruct(target, ...args) {
+        return efuns.destruct(target, ...args);
+    }
+    /**
      * Write to standard error
      * @param {...any} args
      */
@@ -416,6 +427,10 @@ class MUDLoader {
         return Object.assign({}, global.MUDFS);
     }
 
+    previousObject(n) {
+        return efuns.previousObject(n);
+    }
+
     /**
      * Capture the next line of user input
      * @param {string} type The type of control to create
@@ -439,6 +454,23 @@ class MUDLoader {
         }, options), callback);
     }
 
+    async promptAsync(type, options = {}) {
+        if (typeof options === 'string') {
+            options = { text: options };
+        }
+        if (typeof type === 'string') {
+            if (!BaseInput.knownType(type)) {
+                options = Object.assign({ text: type }, options);
+                type = 'text';
+            }
+        }
+        return efuns.input.promptAsync(type, Object.assign({
+            default: false,
+            text: 'Prompt: ',
+            type: 'text'
+        }, options));
+    }
+
     /**
      * Sets a value (and creates if needed).
      * @param {any} definingType The class reference attempting to set the value
@@ -457,6 +489,32 @@ class MUDLoader {
         }
         let store = driver.storage.get(this, key);
         return store && store.set(definingType, propertyName, value);
+    }
+
+    /**
+     * Allows us to unwind the Javascript stack without unwinding the MUD stack
+     * @param {any} callback
+     */
+    setImmediate(callback) {
+        let ecc = driver.getExecution(),
+            child = ecc.fork(),
+            isAsync = efuns.isAsync(callback);
+
+        global.setImmediate(async () => {
+            child.restore();
+
+            let frame = child.pushFrameObject({ method: 'setImmediate', isAsync });
+            try
+            {
+                if (isAsync)
+                    await callback();
+                else
+                    callback();
+            }
+            finally {
+                frame.pop();
+            }
+        });
     }
 
     /**

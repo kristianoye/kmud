@@ -438,7 +438,7 @@ class EFUNProxy {
      */
     destruct(target, ...args) {
         let ecc = driver.getExecution();
-        let ob = unwrap(target) || ecc.thisObject();
+        let ob = unwrap(target) || this.thisObject();
         if (ob) {
             let store = driver.storage.get(ob);
             if (store) {
@@ -829,9 +829,15 @@ class EFUNProxy {
      * @returns {boolean} Returns true if the item looks like an Promise object.
      */
     isPromise(item) {
-        if (typeof item === 'object') {
-            if (item.constructor.name === 'Promise') {
-                return ('then' in item) && ('catch' in item);
+        if (!!item && typeof item === 'object') {
+            try {
+                let proto = Object.getPrototypeOf(item);
+                if (proto.constructor?.name === 'Promise') {
+                    return ('then' in item) && ('catch' in item);
+                }
+            }
+            catch (e) {
+                console.log(item);
             }
         }
         return false;
@@ -2008,10 +2014,8 @@ class EFUNProxy {
     async unguarded(callback) {
         if (typeof callback !== 'function')
             throw new Error(`Bad argument 1 to unguarded; expected function got ${typeof callback}`);
-        let ecc = driver.getExecution();
-
-        ecc.push(ecc.thisObject, 'unguarded', this.fileName, undefined, undefined, undefined, true);
-        ecc.stack[0].unguarded = true;
+        let ecc = driver.getExecution(),
+            frame = ecc.pushFrameObject({ method: 'unguarded', isAsync: this.isAsync(callback), isUnguarded: true });
 
         try {
             if (this.isAsync(callback))
@@ -2020,7 +2024,7 @@ class EFUNProxy {
                 return callback();
         }
         finally {
-            ecc.pop('unguarded');
+            frame.pop();
         }
     }
 

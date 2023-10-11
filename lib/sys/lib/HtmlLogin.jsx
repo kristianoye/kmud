@@ -12,7 +12,9 @@ const
     LoginTimeout = efuns.time.timespan('10 minutes');
 
 class HtmlLogin extends MUDObject {
-    get allowInputEscape() { return false; }
+    private getShellSettings() {
+        return { allowEscaping: false };
+    }
 
     private applyInputError(error) {
         let countDown = 10,
@@ -27,7 +29,7 @@ class HtmlLogin extends MUDObject {
         write('Disconnecting in 10 seconds .');
     }
 
-    private connect() {
+    private async connect() {
         efuns.living.enableHeartbeat(true);
 
         eventSend({
@@ -37,8 +39,7 @@ class HtmlLogin extends MUDObject {
                 position: 'center'
             }
         });
-        this.enterUsername();
-        return { allowEscaping: false };
+        await this.enterUsername();
     }
 
     private disconnect(reason) {
@@ -69,50 +70,52 @@ class HtmlLogin extends MUDObject {
         });
     }
 
-    private async enterPassword(name, playerData, opts = {}) {
+    private async enterPassword(name, playerData, opts = {}, attemptsLeft = 3) {
         opts = Object.assign({ text: 'Enter password: ' }, opts);
-        return prompt(Inputs.InputTypePassword, opts, async (pwd) => {
-            if (pwd.length === 0) {
-                this.client.close();
-            }
-            else if (!efuns.checkPassword(pwd, playerData.properties['/base/Player'].password)) {
-                this.enterPassword(name, playerData, { error: 'Password incorrect' });
-            }
-            else {
-                //  Player authenticated successfully
-                let player = efuns.living.findPlayer(name);
 
-                eventSend({
-                    type: 'windowAuth',
-                    data: {
-                        username: efuns.normalizeName(name),
-                        password: playerData.properties['/base/Player'].password
-                    }
-                });
+        let pwd = await promptAsync(Inputs.InputTypePassword, opts);
 
-                if (player) {
-                    if (efuns.living.isConnected(player)) {
-                        this.confirmTakeover(player);
-                    }
-                    else {
-                        await efuns.unguarded(async () => {
-                            await efuns.exec(this, player, async () => {
-                                eventSend({
-                                    type: 'windowHint',
-                                    data: {
-                                        mode: 'normal',
-                                        position: 'center'
-                                    }
-                                });
-                                player.writeLine('Reconnected');
-                                efuns.destruct(this);
-                            });
-                        });
-                    }
+        if (!efuns.checkPassword(pwd, playerData.properties['/base/Player'].password)) {
+            if (--attemptsLeft === 0) {
+                destruct();
+            }
+            else
+                await this.enterPassword(name, playerData, { error: 'Password incorrect' }, attemptsLeft);
+        }
+        else {
+            let player = efuns.living.findPlayer(name);
+
+            eventSend({
+                type: 'windowAuth',
+                data: {
+                    username: efuns.normalizeName(name),
+                    password: playerData.properties['/base/Player'].password
+                }
+            });
+            if (player) {
+                if (efuns.living.isConnected(player)) {
+                    this.confirmTakeover(player);
                 }
                 else {
-                    player = await efuns.restoreObjectAsync(playerData);
-                    player && await efuns.unguarded(async () => {
+                    await efuns.unguarded(async () => {
+                        await efuns.exec(this, player, async () => {
+                            eventSend({
+                                type: 'windowHint',
+                                data: {
+                                    mode: 'normal',
+                                    position: 'center'
+                                }
+                            });
+                            player.writeLine('Reconnected');
+                            efuns.destruct(this);
+                        });
+                    });
+                }
+            }
+            else {
+                player = await efuns.restoreObjectAsync(playerData);
+                if (player)
+                    await efuns.unguarded(async () => {
                         logger.log('Switching from Login to Player Instance');
                         await efuns.exec(this, player, async () => {
                             eventSend({
@@ -127,9 +130,10 @@ class HtmlLogin extends MUDObject {
                             });
                         });
                     });
-                }
+                else
+                    throw 'Unable to restore player data';
             }
-        });
+        }
     }
 
     private async enterUsername(playerData) {
@@ -141,26 +145,17 @@ class HtmlLogin extends MUDObject {
             minLengthError: 'Your username must be at least 3 characters'
         }, playerData);
 
-        return prompt(Inputs.InputTypeText, opts, /** @param {string} name */ async (name) => {
-            if (name.length === 0) {
-                return efuns.destruct(this);
-            }
-            await PlayerDaemon().playerExists(name, true, (player, error) => {
-                if (error) {
-                    this.enterUsername({ error: 'Something went wrong; Try another name or come back again later.' });
-                }
-                else if (!player) 
-                    prompt(Inputs.InputTypeYesNo, { text: `Is ${name} the name you really want? `, default: 'yes' }, resp => {
-                        if (resp !== 'yes') {
-                            return this.enterUsername({ error: 'Enter the name you really want, then.' });
-                        }
-                        else
-                            return this.selectPassword({ displayName: name, keyId: efuns.normalizeName(name) });
-                    });
-                else 
-                    this.enterPassword(name, player);
-            });
-        });
+        let name = await promptAsync(Inputs.InputTypeText, opts);
+        if (name.length === 0) {
+            return efuns.destruct(this);
+        }
+        try {
+            let player = await PlayerDaemon().playerExistsAsync(name, true);
+            await this.enterPassword(name, player);
+        }
+        catch(err) {
+            await this.enterUsername({ error: 'Something went wrong; Try another name or come back again later.' });
+        }
     }
 
     get maxIdleTime() { return LoginTimeout; }
