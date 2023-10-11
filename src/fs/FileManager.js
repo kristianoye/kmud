@@ -812,6 +812,9 @@ class FileManager extends MUDEventEmitter {
      */
     readJsonAsync(expr, options = {}) {
         return new Promise(async (resolve, reject) => {
+            let ecc = driver.getExecution();
+            let frame = ecc.pushFrame(driver.masterObject, 'readJsonAsync', __filename, true, 817);
+
             try {
                 let o = await this.getFileAsync(expr),
                     result = await o.readJsonAsync(options)
@@ -820,6 +823,9 @@ class FileManager extends MUDEventEmitter {
             }
             catch (err) {
                 reject(err);
+            }
+            finally {
+                ecc.pop(frame);
             }
         });
     }

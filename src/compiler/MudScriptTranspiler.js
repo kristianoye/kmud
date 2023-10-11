@@ -289,9 +289,10 @@ function addRuntimeAssert(e, preText, postText, isCon) {
  * @param {JSXTranspilerOp} op The current operation
  * @param {NodeType} e The current node
  * @param {number} depth The stack depth
+ * @param {Object.<string,any>} xtra Additional info from parent node
  * @returns {string} The element as source code.
  */
-function parseElement(op, e, depth) {
+function parseElement(op, e, depth, xtra = {}) {
     let ret = '';
     if (e) {
         if (e.start > op.pos) {
@@ -616,25 +617,27 @@ function parseElement(op, e, depth) {
                         addRuntimeAssert(e,
                             `let __mec = __bfc(this, 'public', '${e.id.name}', __FILE__,  ${isAsync}, __LINE__); try { `,
                             ` } finally { __efc(__mec, '${e.id.name}'); }`);
-                    ret += parseElement(op, e.body, depth + 1, e.id);
+                    ret += parseElement(op, e.body, depth + 1, { name: functionName });
                 }
                 break;
 
             case 'FunctionExpression':
                 {
+                    let callType = xtra.callType || 0;
+
                     ret += parseElement(op, e.id, depth + 1);
                     e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
                     if (op.thisClass && op.thisMethod) {
                         if (op.method === 'constructor' && op.thisClass) {
                             addRuntimeAssert(e,
                                 (op.forcedInheritance && op.wroteConstructorName === false ? 'super();' : '') +
-                                `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false, __LINE__, ${op.thisClass}); try { `,
+                                `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false, __LINE__, ${op.thisClass}, ${CallOrigin.Constructor}); try { `,
                                 ` } finally { __efc(__mec, '${op.method}'); }`, true);
                             op.wroteConstructorName = true;
                         }
                         else {
                             addRuntimeAssert(e,
-                                `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false, __LINE__); try { `,
+                                `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false, __LINE__, ${op.thisClass}, ${callType}); try { `,
                                 ` } finally { __efc(__mec, '${op.method}'); }`, false);
                         }
                     }
@@ -778,14 +781,25 @@ function parseElement(op, e, depth) {
                 break;
 
             case 'MethodDefinition':
-                if (e.access) {
-                    op.pos = e.access.end;
-                    op.eatWhitespace();
+                {
+                    if (e.access) {
+                        op.pos = e.access.end;
+                        op.eatWhitespace();
+                    }
+                    let methodName = op.setMethod(parseElement(op, e.key, depth + 1), e.accessKind, e.static);
+                    let info = {
+                        callType: 0,
+                        methodName
+                    };
+
+                    if (methodName.startsWith('get '))
+                        info.callType |= CallOrigin.GetProperty;
+                    if (methodName.startsWith('set '))
+                        info.callType |= CallOrigin.SetProperty;
+                    ret += methodName;
+                    ret += parseElement(op, e.value, depth + 1, info);
+                    op.setMethod();
                 }
-                let methodName = op.setMethod(parseElement(op, e.key, depth + 1), e.accessKind, e.static);
-                ret += methodName;
-                ret += parseElement(op, e.value, depth + 1, methodName);
-                op.setMethod();
                 break;
 
             case 'NewExpression':

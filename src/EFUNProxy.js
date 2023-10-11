@@ -63,7 +63,7 @@ class EFUNProxy {
      * @returns {number} The unsigned absolute value.
      */
     abs(n) {
-        let frame = driver.pushFrame({ method: 'abs', origin: CallOrigin.DriverEfun });
+        let frame = driver.pushFrame({ method: 'abs', callType: CallOrigin.DriverEfun });
         try {
             return Math.abs(n);
         }
@@ -78,7 +78,7 @@ class EFUNProxy {
      * @param {function} callback The callback that executes when the action is triggered.
      */
     addAction(verb, callback) {
-        let frame = driver.pushFrame({ method: 'addAction', origin: CallOrigin.DriverEfun });
+        let frame = driver.pushFrame({ method: 'addAction', callType: CallOrigin.DriverEfun });
         try {
             let prevObject = this.previousObject(),
                 thisObject = this.thisObject(),
@@ -99,7 +99,7 @@ class EFUNProxy {
      * @returns {boolean} True if the target is an administrator.
      */
     adminp(target) {
-        let frame = driver.pushFrame({ method: 'adminp', origin: CallOrigin.DriverEfun });
+        let frame = driver.pushFrame({ method: 'adminp', callType: CallOrigin.DriverEfun });
         try {
             return driver.callApplySync('isAdmin', target);
         }
@@ -114,7 +114,7 @@ class EFUNProxy {
      * @returns {boolean} True if the target is an arch.ca
      */
     archp(target) {
-        let frame = driver.pushFrame({ method: 'archp', origin: CallOrigin.DriverEfun });
+        let frame = driver.pushFrame({ method: 'archp', callType: CallOrigin.DriverEfun });
         try {
             return driver.callApplySync('isArch', target);
         }
@@ -134,7 +134,7 @@ class EFUNProxy {
      * @returns {string} The consolidated string
      */
     arrayToSentence(list, useOr = false, consolidate = true, useNumbers = false) {
-        let frame = driver.pushFrame({ method: 'arrayToSentence', origin: CallOrigin.DriverEfun });
+        let frame = driver.pushFrame({ method: 'arrayToSentence', callType: CallOrigin.DriverEfun });
 
         try {
             useOr = typeof useOr === 'boolean' ? useOr : false;

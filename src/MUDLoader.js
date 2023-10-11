@@ -54,7 +54,7 @@ class MUDLoader {
             },
             __bfc: {
                 //  Begin Function Call
-                value: function (ob, access, method, fileName, isAsync, lineNumber, type, origin) {
+                value: function (ob, access, method, fileName, isAsync, lineNumber, type, callType) {
                     let ecc = driver.getExecution(),
                         newContext = false;
 
@@ -76,7 +76,7 @@ class MUDLoader {
                         //  to be incremented prior to checking method access
                         ecc
                             .alarm()
-                            .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, origin);
+                            .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, callType);
                     }
                     access && access !== "public" && ecc.assertAccess(ob, access, method, fileName);
                     //  Check access prior to pushing the new frame to the stack
@@ -84,7 +84,7 @@ class MUDLoader {
                         return ecc
                             .alarm()
                             //  Previously only allowed objects inheriting from MUDObject to be allowed on stack
-                            .push(/* ob instanceof MUDObject && */ ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, origin);
+                            .push(/* ob instanceof MUDObject && */ ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, callType);
 
                     return ecc;
                 },                enumerable: false,
@@ -535,7 +535,7 @@ class MUDLoader {
             thisObject = ecc.thisObject;
 
         //  Push this frame onto the stack as a placeholder
-        let frame = childContext.pushFrameObject({ object: thisObject, method: 'setInterval', origin: CallOrigin.Callout });
+        let frame = childContext.pushFrameObject({ object: thisObject, method: 'setInterval', callType: CallOrigin.Callout });
 
         let ident = global.setInterval(async () => {
             //  Make this context the active one
@@ -583,7 +583,7 @@ class MUDLoader {
             thisObject = ecc.thisObject;
 
         //  Push this frame onto the stack as a placeholder
-        let frame = childContext.pushFrameObject({ object: thisObject, method: 'setTimeout', origin: CallOrigin.Callout });
+        let frame = childContext.pushFrameObject({ object: thisObject, method: 'setTimeout', callType: CallOrigin.Callout });
 
         let ident = global.setTimeout(async () => {
             //  Make this context the active one

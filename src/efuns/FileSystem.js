@@ -9,6 +9,7 @@
 const
     path = require('path'),
     { FileSystemQueryFlags } = require('../fs/FileSystemFlags');
+const { CallOrigin } = require('../ExecutionContext');
     
 
 class DeleteDirectoryOptions {
@@ -77,7 +78,15 @@ class FileSystemHelper {
      * @param {any} flags Flags to control the operation
      */
     static async getDirectoryAsync(expr, flags = 0) {
-        return await driver.fileManager.getDirectoryAsync(expr, flags);
+        efuns.isAwaited(true);
+        let frame = driver.pushFrame({ method: 'getDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            let result = await driver.fileManager.getDirectoryAsync(expr, flags);
+            return result;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -86,8 +95,15 @@ class FileSystemHelper {
      * @param {any} flags Flags to control the operation
      * @returns {Promise<FileSystemObject>}
      */
-    static getFileAsync(expr, flags = 0) {
-        return driver.fileManager.getFileAsync(expr, flags);
+    static async getFileAsync(expr, flags = 0) {
+        let frame = driver.pushFrame({ method: 'getFileAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            let result = await driver.fileManager.getFileAsync(expr, flags);
+            return result;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -99,17 +115,20 @@ class FileSystemHelper {
         return driver.fileManager.getObjectAsync(expr, flags);
     }
 
-    static async getFileACL(expr) {
-        return await driver.fileManager.getFileACL(expr);
-    }
-
     /**
      * Check to see if the file expression is a directory
      * @param {string} expr The path to check
      * @returns {Promise<boolean>} Returns promise to check directory status
      */
     static async isDirectoryAsync(expr) {
-        return await driver.fileManager.isDirectoryAsync(expr);
+        let frame = driver.pushFrame({ method: 'isDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            let result = await driver.fileManager.getFileAsync(expr);
+            return result && result.exists && result.isDirectory;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -175,12 +194,17 @@ class FileSystemHelper {
      * @returns {Promise<object>} The resulting object
      */
     static async readJsonAsync(expr, options = {}) {
+        let ecc = driver.getExecution();
+        let frame = ecc.pushFrame(driver.masterObject, 'readJsonAsync', __filename, true, 179, false);
         try {
             let result = await driver.fileManager.readJsonAsync(expr, options);
             return result;
         }
         catch (err) {
             throw err;
+        }
+        finally {
+            ecc.pop(frame);
         }
     }
 

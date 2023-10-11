@@ -455,7 +455,7 @@ class FileSystemObject extends events.EventEmitter {
                 if (this.isDirectory) {
                     console.log('Reading json from a directory?');
                 }
-                this.readAsync()
+                await this.readAsync()
                     .then(
                         content => {
                             if (content) {

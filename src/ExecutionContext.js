@@ -20,7 +20,10 @@ const
         Callout: 1 << 4,
         DriverEfun: 1 << 5,
         FunctionPointer: 1 << 6,
-        Functional: 1 << 7
+        Functional: 1 << 7,
+        Constructor: 1 << 8,
+        GetProperty: 1 << 9,
+        SetProperty: 1 << 10
     });
 
 var
@@ -39,10 +42,10 @@ class ExecutionFrame {
      * @param {number} lineNumber The line number at which the call was made
      * @param {string} callstring This USUALLY the same as the method
      * @param {boolean} isAsync More informative than useful, now
-     * @param {number} origin The call origin type
+     * @param {number} callType The call origin type
      * @param {boolean} isUnguarded Unguarded frames short-circuit security and prevent checks against previous objects
      */
-    constructor(context, thisObject, filename, method, lineNumber, callstring = false, isAsync = false, isUnguarded = false, origin = 0) {
+    constructor(context, thisObject, filename, method, lineNumber, callstring = false, isAsync = false, isUnguarded = false, callType = 0) {
         /**
          * Is this frame awaiting a result?
          */
@@ -69,7 +72,7 @@ class ExecutionFrame {
         /**
          * How was this method invoked?
          */
-        this.origin = origin || CallOrigin.Unknown;
+        this.callType = callType || CallOrigin.Unknown;
 
         /**
          * The method name + extra decorations (e.g. static async [method]) 
@@ -113,6 +116,24 @@ class ExecutionFrame {
 
     getContext() {
         return this.context;
+    }
+
+    /**
+     * How did this call originate?
+     */
+    get origin() {
+        let prev = this.context.length > 1 ? this.context.stack[1] : false,
+            val = CallOrigin.Unknown;
+
+        if (prev) {
+            if (prev.object !== this.object)
+                val |= CallOrigin.CallOther;
+            else if (prev.object == this.object)
+                val |= CallOrigin.LocalCall;
+
+            val |= prev.callType;
+        }
+        return val;
     }
 
     /**
@@ -542,25 +563,9 @@ class ExecutionContext {
      * @param {boolean} [isUnguarded]
      * @returns {ExecutionContext}
      */
-    push(object, method, file, isAsync, lineNumber, callString, isUnguarded, origin = 0) {
-        let newFrame = new ExecutionFrame(this, object, file, method, lineNumber, callString, isAsync, isUnguarded, origin),
-            previous = this.stack[0] || false;
-
-        if (previous) {
-            newFrame.origin |= (previous.object === driver.masterObject ? CallOrigin.Driver : 0);
-            newFrame.origin |= (previous.origin & CallOrigin.Callout > 0) ? CallOrigin.Callout : 0;
-            newFrame.origin |= (previous.object !== object) ? CallOrigin.CallOther : 0;
-
-            if (!newFrame.origin)
-                newFrame.origin = CallOrigin.LocalCall;
-        }
-        else {
-            newFrame.origin |= (object === driver || object === driver.masterObject) ? CallOrigin.Driver : 0;
-            newFrame.origin |= CallOrigin.LocalCall;
-        }
-
+    push(object, method, file, isAsync, lineNumber, callString, isUnguarded, callType = 0) {
+        let newFrame = new ExecutionFrame(this, object, file, method, lineNumber, callString, isAsync, isUnguarded, callType);
         this.stack.unshift(newFrame);
-
         return this;
     }
 
@@ -575,14 +580,14 @@ class ExecutionContext {
      * @param {boolean} [isUnguarded]
      * @returns {ExecutionFrame}
      */
-    pushFrame(object, method, file, isAsync, lineNumber, callString = false, isUnguarded = false, origin = 0) {
-        this.push(object, file, method, lineNumber, callString, isAsync, isUnguarded, origin);
+    pushFrame(object, method, file, isAsync, lineNumber, callString = false, isUnguarded = false, callType = 0) {
+        this.push(object, file, method, lineNumber, callString, isAsync, isUnguarded, callType);
         return this.stack[0];
     }
 
     /**
      * Shortcut for pushing partial frames to stack
-     * @param {{object:MUDObject?, file:string?, method:string, lineNumber:number?, callString:string?, isAsync:boolean?, isUnguarded:boolean?, origin:number? }} frameInfo
+     * @param {{object:MUDObject?, file:string?, method:string, lineNumber:number?, callString:string?, isAsync:boolean?, isUnguarded:boolean?, callType:number? }} frameInfo
      */
     pushFrameObject(frameInfo) {
         if (typeof frameInfo !== 'object')
@@ -590,7 +595,7 @@ class ExecutionContext {
         else if (typeof frameInfo.method !== 'string')
             throw new Error('CRASH: pushFrameObject() received invalid parameter');
 
-        let { object, file, method, lineNumber, callString, isAsync, isUnguarded, origin } = frameInfo;
+        let { object, file, method, lineNumber, callString, isAsync, isUnguarded, callType } = frameInfo;
         let frame = this.pushFrame(object || this.thisObject,
             file || object?.filename,
             method,
@@ -598,7 +603,7 @@ class ExecutionContext {
             callString || method,
             isAsync || false,
             isUnguarded || false,
-            origin || 0);
+            callType || 0);
         return frame;
     }
 
