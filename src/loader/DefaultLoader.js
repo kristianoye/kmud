@@ -83,13 +83,6 @@ class DefaultLoader {
                             .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync);
                     }
                     access && access !== "public" && ecc.assertAccess(ob, access, method, fileName);
-                    if (false) {
-                        //  Optional security check to prevent non-driver calls to driver applies
-                        if (method && DriverApplies.indexOf(method) > -1) {
-                            if (!ecc.isValidApplyCall(method, ob))
-                                throw new Error(`Illegal call to driver apply '${method}'`);
-                        }
-                    }
                     //  Check access prior to pushing the new frame to the stack
                     if (access && !newContext)
                         return ecc
@@ -444,8 +437,8 @@ class DefaultLoader {
 
         //  Create a detached child
         let ecc = driver.getExecution(),
-            child = !!ecc && ecc.fork(true),
-            thisObject = ecc.thisObject;
+            child = ecc.fork(),
+            thisObject = child.thisObject;
 
         let ident = global.setInterval(function (callback, childContext) {
             try {
@@ -459,7 +452,6 @@ class DefaultLoader {
             }
             finally {
                 childContext.pop('setInterval');
-                childContext.suspend();
             }
         }, timer, callback, child);
 

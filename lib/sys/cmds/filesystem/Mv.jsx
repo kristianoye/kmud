@@ -102,7 +102,7 @@ class MoveCommand extends Command {
         let count = 0;
         op.source = Array(fileList.length);
         fileList.forEach((expr, index) => {
-            efuns.readDirectory(expr, MUDFS.GetDirFlags.Defaults | MUDFS.GetDirFlags.ResolveParent, (files, err) => {
+            efuns.fs.readDirectory(expr, MUDFS.GetDirFlags.Defaults | MUDFS.GetDirFlags.ResolveParent, (files, err) => {
                 op.source[index] = err || files;
                 if (++count === fileList.length)
                     return this.executeMove(evt, op);

@@ -276,6 +276,9 @@ class FileSystemObject extends events.EventEmitter {
         throw new NotImplementedError('copyAsync', this);
     }
 
+    async createDirectoryAsync(...args) {
+    }
+
     /**
      * Generate a dummy stat.
      * @param {Error} err An error that occurred.
@@ -458,6 +461,7 @@ class FileSystemObject extends events.EventEmitter {
                 await this.readAsync()
                     .then(
                         content => {
+                            let ecc = driver.getExecution();
                             if (content) {
                                 content = content.toString(localOptions.encoding);
                                 if (localOptions.stripBOM) {
@@ -840,9 +844,9 @@ class FileWrapperObject extends FileSystemObject {
         //  Does nothing
     }
 
-    async createDirectoryAsync() {
+    async createDirectoryAsync(...args) {
         if (await this.can(SecurityFlags.P_CREATEDIR)) {
-            return this.#instance.createDirectoryAsync();
+            return this.#instance.createDirectoryAsync(...args);
         }
     }
 

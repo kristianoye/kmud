@@ -427,6 +427,10 @@ class MUDLoader {
         return Object.assign({}, global.MUDFS);
     }
 
+    origin(...args) {
+        return efuns.origin(...args);
+    }
+
     previousObject(n) {
         return efuns.previousObject(n);
     }

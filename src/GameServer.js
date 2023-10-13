@@ -343,7 +343,7 @@ class GameServer extends MUDEventEmitter {
             v = /[a-zA-Z0-9\\\/\._]/,
             newStack = [];
 
-        while (!l[0].match(/^\s+at /)) {
+        while (l[0] && !l[0].match(/^\s+at /)) {
             newStack.push(l.shift());
         }
 

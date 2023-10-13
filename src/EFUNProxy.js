@@ -1039,6 +1039,13 @@ class EFUNProxy {
         return typeof arg;
     }
 
+    origin() {
+        let ecc = driver.getExecution(),
+            frame = ecc && ecc.stack[0];
+
+        return frame ? frame.origin : 0;
+    }
+
     /**
      * Determines whether a value is a player or not.
      * @param {any} target The value to check.

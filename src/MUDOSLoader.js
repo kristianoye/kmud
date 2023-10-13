@@ -421,9 +421,7 @@ class MUDOSLoader extends MUDLoader {
      * TODO: Need to implement ExecutionFrame.origin
      */
     origin() {
-        let ecc = driver.getExecution();
-
-        return ecc.stack[0]?.origin || 0;
+        return super.origin();
     }
 
     /**

@@ -149,7 +149,7 @@ class ExecutionFrame {
      * @returns {number}
      */
     get ticks() {
-        return this.startTime - driver.efuns.ticks;
+        return driver.efuns.ticks - this.startTimes;
     }
 }
 

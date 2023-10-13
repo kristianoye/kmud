@@ -196,7 +196,7 @@ class SecurityAcl {
             return result;
         }
         catch (err) {
-            console.log(`!!! CRITICAL !!! Permission check failure: ${err}`);
+            console.log(`!!! CRITICAL !!! Permission check failure: ${err}\n${err.stack}`);
         }
         return false;
     }
@@ -430,6 +430,7 @@ class AclSecurityManager extends BaseSecurityManager {
                 if (!driver.masterObject)
                     return resolve(true);
 
+                let ecc = driver.getExecution();
                 let acl = await this.getAcl(fo);
                 resolve(await acl.can(flags));
             }
@@ -456,29 +457,39 @@ class AclSecurityManager extends BaseSecurityManager {
                 return resolve(await parentAcl.getChildAsync(fo.name));
             }
             else if (fo.isDirectory) {
-                if (fo.path in this.aclCache)
-                    return resolve(this.aclCache[fo.path]);
-                let aclFilename = await this.getAclFilename(fo);
-                let aclFile = await driver.fileManager.getFileAsync(aclFilename, 0, true),
-                    existingData = aclFile.exists ? await this.readAclData(aclFilename) : false,
-                    parentAcl = fo.parent ? await this.getAcl(fo.parent) : false,
-                    requireSave = !aclFile.exists;
+                let ecc = driver.getExecution();
+                try {
+                    if (fo.path in this.aclCache)
+                        return resolve(this.aclCache[fo.path]);
+                    let aclFilename = await this.getAclFilename(fo);
+                    ecc = driver.getExecution();
+                    let aclFile = await driver.fileManager.getFileAsync(aclFilename, 0, true);
+                    ecc = driver.getExecution();
+                    let existingData = aclFile.exists ? await this.readAclData(aclFilename) : false;
+                    ecc = driver.getExecution();
+                    let parentAcl = fo.parent ? await this.getAcl(fo.parent) : false;
+                    ecc = driver.getExecution();
+                    let requireSave = !aclFile.exists;
 
-                //  There was no data for this directory; Ask the master
-                if (existingData === false) {
-                    existingData = await driver.callApplyAsync(this.createAclApply, fo.fullPath);
+                    //  There was no data for this directory; Ask the master
+                    if (existingData === false) {
+                        existingData = await driver.callApplyAsync(this.createAclApply, fo.fullPath);
+                    }
+
+                    if (!existingData.owner)
+                        existingData.owner = await driver.callApplySync(this.getFileOwnerApply, fo.fullPath);
+
+                    /** @type {SecurityAcl} */
+                    let acl = new SecurityAcl(parentAcl, true, aclFile.fullPath, existingData);
+
+                    if (requireSave)
+                        await acl.saveAsync();
+
+                    return resolve(this.aclCache[fo.path] = acl);
                 }
-
-                if (!existingData.owner)
-                    existingData.owner = await driver.callApplySync(this.getFileOwnerApply, fo.fullPath);
-
-                /** @type {SecurityAcl} */
-                let acl = new SecurityAcl(parentAcl, true, aclFile.fullPath, existingData);
-
-                if (requireSave)
-                    await acl.saveAsync();
-
-                return resolve(this.aclCache[fo.path] = acl);
+                catch (err) {
+                    reject(err);
+                }
             }
             else if (!fo.exists && ignoreParent === false)
             {

@@ -154,7 +154,6 @@ class DesktopClient extends ClientInstance {
      * @param {any} text
      */
     write(text) {
-        let test = this.caps.do('expandColors', text);
         this.eventSend({ type: 'write', data: text });
         return this;
     }
