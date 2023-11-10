@@ -474,7 +474,7 @@ class AclSecurityManager extends BaseSecurityManager {
                     }
 
                     if (!existingData.owner)
-                        existingData.owner = await driver.callApplySync(this.getFileOwnerApply, fo.fullPath);
+                        existingData.owner = await driver.callApplySync(this.getFileOwnerApply, fo.fullPath, fo.isDirectory);
 
                     /** @type {SecurityAcl} */
                     let acl = new SecurityAcl(parentAcl, true, aclFile.fullPath, existingData);
@@ -491,7 +491,10 @@ class AclSecurityManager extends BaseSecurityManager {
             else if (!fo.exists && ignoreParent === false)
             {
                 //  Look for the first parent that does exist
-                resolve(null);
+                let parent = await fo.getParentAsync(),
+                    parentAcl = await this.getAcl(parent);
+
+                return resolve(await parentAcl.getChildAsync(fo.name));
             }
             else
                 reject(`Invalid request:`)

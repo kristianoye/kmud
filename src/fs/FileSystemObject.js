@@ -227,17 +227,16 @@ class FileSystemObject extends events.EventEmitter {
     /**
      * Compile or re-compile a MUD module 
      */
-    async compileAsync() {
+    async compileAsync(options = {}) {
         return new Promise(async (resolve, reject) => {
             if (this.isDirectory)
                 return reject(`Operation not supported: ${this.fullPath} is a directory.`);
             try {
-                await driver.compiler.compileObjectAsync({
+                await driver.compiler.compileObjectAsync(Object.assign({
                     args: [],
                     file: this.fullPath,
                     reload: true
-                }).catch(err => reject(err));
-
+                }, options));
                 resolve(true);
             }
             catch (err) {
@@ -830,10 +829,11 @@ class FileWrapperObject extends FileSystemObject {
         }
     }
 
-    async compileAsync() {
+    async compileAsync(options = {}) {
         if (await this.can(SecurityFlags.P_LOADOBJECT)) {
-            return this.#instance.compileAsync();
+            return this.#instance.compileAsync(options);
         }
+        throw new Error(`Permission denied: Could not compile ${this.fullPath}`);
     }
 
     configureWrapper(t) {

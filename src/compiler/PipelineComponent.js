@@ -1,5 +1,6 @@
 ﻿const
-    PipelineContext = require('./PipelineContext').PipelineContext
+    { PipelineContext } = require('./PipelineContext'),
+    MUDCompilerOptions = require('./MUDCompilerOptions');
 
 class PipelineComponent {
     constructor(config) {
@@ -11,8 +12,11 @@ class PipelineComponent {
     /**
      * 
      * @param {PipelineContext} context
+     * @param {MUDCompilerOptions} options
+     * @param {number} step
+     * @param {number} maxStep
      */
-    run(context) {
+    async runAsync(context, options, step, maxStep) {
         throw new Error('Not implemented');
     }
 }

@@ -1,0 +1,7 @@
+{
+   "$type": "/sys/cmds/player/Save$SaveCommand",
+   "environment": false,
+   "flags": 0,
+   "inventory": [],
+   "properties": {}
+}

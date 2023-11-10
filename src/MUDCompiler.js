@@ -5,6 +5,7 @@
  */
 const
     fs = require('fs');
+const MUDCompilerOptions = require('./compiler/MUDCompilerOptions');
 const DriverCompiler = require('./config/DriverCompiler');
 
 const
@@ -197,6 +198,9 @@ class MUDCompiler {
         if (typeof moreOptions === 'object') {
             options = Object.assign(options, moreOptions);
         }
+        if (false === options instanceof MUDCompilerOptions) {
+            options = new MUDCompilerOptions(options);
+        }
         let context = await PipeContext.PipelineContext.create(options, this.extensionPattern),
             module = this.driver.cache.get(context.basename),
             t0 = efuns.ticks,
@@ -221,7 +225,7 @@ class MUDCompiler {
                 throw new Error(`Could not load ${context.filename} [${pipeline.name} - not enabled]`);
 
             await driver.driverCallAsync('compileObjectAsync', async () => {
-                await pipeline.executeAsync(context);
+                await pipeline.executeAsync(context, options);
             }, context.filename, true);
 
             if (context.state === PipeContext.CTX_FINISHED) {

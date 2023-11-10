@@ -460,6 +460,7 @@
     <Content Include="src\CommandShell.js" />
     <Content Include="src\compiler\CompilerPipeline.js" />
     <Content Include="src\compiler\LPCPreprocessor.js" />
+    <Content Include="src\compiler\MUDCompilerOptions.js" />
     <Content Include="src\compiler\MudScriptTranspiler.js" />
     <Content Include="src\compiler\PipelineComponent.js" />
     <Content Include="src\compiler\PipelineContext.js" />

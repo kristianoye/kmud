@@ -6,6 +6,7 @@
 const
     PipelineComponent = require('./PipelineComponent'),
     PipeContext = require('./PipelineContext'),
+    MUDCompilerOptions = require('./MUDCompilerOptions'),
     SettersGetters = [
         'del',          // Delete a value
         'get',          // Get a value
@@ -980,7 +981,15 @@ class MudScriptTranspiler extends PipelineComponent {
 
     }
 
-    run(context) {
+    /**
+     * Transpile the source code
+     * @param {any} context
+     * @param {MUDCompilerOptions} options
+     * @param {number} step
+     * @param {number} maxStep
+     * @returns
+     */
+    async runAsync(context, options, step, maxStep) {
         let op = new JSXTranspilerOp({
             acornOptions: Object.assign({}, this.acornOptions, context.acornOptions),
             allowJsx: this.allowJsx,
@@ -992,32 +1001,7 @@ class MudScriptTranspiler extends PipelineComponent {
         });
         try {
             if (this.enabled) {
-                op.ast = this.parser.parse(op.source, op.acornOptions);
-                op.output += `__rmt("${op.filename}");`
-                op.ast.body.forEach(n => op.output += parseElement(op, n, 0));
-                op.output += op.readUntil(op.max);
-                op.output += op.appendText;
-                return context.update(PipeContext.CTX_RUNNING, op.finish());
-            }
-        }
-        catch (x) {
-            console.log(`MudScriptTranspiler.run compiling ${context.basename}`, x.message);
-            throw x;
-        }
-    }
-
-    async runAsync(context) {
-        let op = new JSXTranspilerOp({
-            acornOptions: Object.assign({}, this.acornOptions, context.acornOptions),
-            allowJsx: this.allowJsx,
-            allowLiteralCallouts: this.allowLiteralCallouts,
-            filename: context.basename,
-            context,
-            source: context.content,
-            injectedSuperClass: 'MUDObject'
-        });
-        try {
-            if (this.enabled) {
+                options.onDebugOutput(`\t\tRunning pipeline stage ${step} of ${maxStep}: ${this.name}`, 3);
                 let source = op.source = 'await (async () => { ' + op.source + ' })()';
                 op.ast = this.parser.parse(source, op.acornOptions);
                 op.output += `__rmt("${op.filename}");`
@@ -1026,6 +1010,9 @@ class MudScriptTranspiler extends PipelineComponent {
                 op.output += op.appendText;
                 op.injectedSuperClass = 'MUDObject';
                 return context.update(PipeContext.CTX_RUNNING, op.finish());
+            }
+            else {
+                options.onDebugOutput(`\t\tSkipping disabled pipeline stage ${step} of ${maxStep}: ${this.name}`, 3);
             }
         }
         catch (x) {
