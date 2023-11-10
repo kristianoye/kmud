@@ -8,7 +8,6 @@ const
     { NetUtil } = require('./network/NetUtil'),
     { LinkedList, LinkedListWithID, LinkedListWithLookup } = require('./LinkedList'),
     MUDObject = require('./MUDObject'),
-    semver = require('semver'),
     async = require('async');
 
 
@@ -49,12 +48,6 @@ class GameServer extends MUDEventEmitter {
                 console.log(`Error including extension file ${file}: ${ex.message}\n` + ex.stack);
             }
         });
-
-        let test = new ArrayWithMax(2);
-        test.push(1, 2, 3, 4, 5);
-
-        var foo = test.slice();
-
         this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
 
         /** @type {EFUNProxy} */
@@ -1032,18 +1025,6 @@ class GameServer extends MUDEventEmitter {
                 })(method, proto[method]);
             });
         }
-    }
-
-    /**
-     * Check to see if the node version is at least this version
-     * @param {string} versionCheck The minimum version to check for.
-     * @returns {boolean} True if the version is at least specified version .
-     */
-    nodeVersion(versionCheck) {
-        if (semver.lt(process.version, versionCheck)) {
-            return false;
-        }
-        return true;
     }
 
     /**

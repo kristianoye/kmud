@@ -6,7 +6,6 @@
  * Helper methods for user input interactions
  */
 const
-    semver = require('semver'),
     BaseInput = require('../inputs/BaseInput');
 
 const
@@ -25,20 +24,6 @@ const
     T_WORD = 'WORD';
 
 class InputHelper {
-    /**
-     * Add a prompt to the current user's input stack.
-     * @param {string} The type of input to create
-     * @param {Object.<string,any>} opts Optional parameters to construct the prompt
-     * @param {function(string):void} callback The callback that fires when the user has entered text.
-     */
-    static addPrompt(type, opts = {}, callback = false) {
-        let ecc = driver.getExecution();
-        if (ecc && ecc.shell) {
-            let input = BaseInput.create(type, opts, callback);
-            ecc.shell.addPrompt(input);
-        }
-    }
-
     /**
      * @typedef {Object} SplitCommandOptions
      * @property {Object.<string,string>} [aliases] The user's aliases
@@ -351,10 +336,7 @@ class InputHelper {
                                         }
                                     }
                                     else if (nc === 's' || nc === 'g') {
-                                        if (semver.lt(process.version, '9.0.0')) {
-                                            throw new Error('Search and replace is only available in Node v9+');
-                                        }
-                                        else if (take('&')) {
+                                        if (take('&')) {
                                             if (!history.lastReplace)
                                                 throw new Error(':g&: no previous substitution');
                                         }
@@ -630,32 +612,75 @@ class InputHelper {
         return [text.slice(0, i), text.slice(i).trim()];
     }
 
-    static prompt(type, opts = {}) {
-        let prompt = BaseInput.create(type, opts),
+    static prompt(type, options = {}, callback=false) {
+        if (typeof options === 'string') {
+            options = { text: options };
+        }
+        if (typeof type === 'string') {
+            if (!BaseInput.knownType(type)) {
+                options = Object.assign({ text: type }, options);
+                type = 'text';
+            }
+        }
+        if (typeof callback === 'function')
+            options.callback = callback;
+
+        options = Object.assign({
+            default: false,
+            text: 'Prompt: ',
+            type: 'text'
+        }, options);
+
+        let prompt = BaseInput.create(type, options, typeof options.callback === 'function' && options.callback),
             ecc = driver.getExecution();
 
-        ecc.shell && ecc.shell.addPrompt(prompt);
+        ecc.shell.addPrompt(prompt);
     }
 
     static async promptAsync(type, opts = {}) {
-        return new Promise((resolve, reject) => {
-            let prompt = BaseInput.create(type, opts),
-                ecc = driver.getExecution(),
-                originalCallback = prompt.callback || false;
+        if (typeof opts === 'string') {
+            opts = { text: opts };
+        }
 
-            prompt.callback = (input) => {
+        if (typeof type === 'string') {
+            if (!BaseInput.knownType(type)) {
+                opts = Object.assign({ text: type }, opts);
+                type = 'text';
+            }
+        }
+
+        opts = Object.assign({
+            default: false,
+            text: 'Prompt: ',
+            type: 'text'
+        }, opts);
+
+        return new Promise((resolve, reject) => {
+            let ecc = driver.getExecution();
+
+            if (ecc && ecc.shell) {
                 try {
-                    if (originalCallback)
-                        resolve(originalCallback(input));
-                    else
-                        resolve(input);
+                    let prompt = BaseInput.create(type, opts),
+                        originalCallback = typeof prompt.callback === 'function' && prompt.callback;
+
+                    prompt.callback = (input) => {
+                        try {
+                            if (originalCallback)
+                                originalCallback(input);
+                            resolve(input);
+                        }
+                        catch (err) {
+                            reject(err);
+                        }
+                    };
+                    ecc.shell.addPrompt(prompt);
                 }
                 catch (err) {
                     reject(err);
                 }
-            };
-
-            ecc.shell && ecc.shell.addPrompt(prompt);
+            }
+            else
+                reject('No command shell present');
         });
     }
 

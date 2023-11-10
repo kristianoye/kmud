@@ -442,37 +442,11 @@ class MUDLoader {
      * @param {function(string):void} callback A callback that will receive the user's input
      */
     prompt(type, options = {}, callback = false) {
-        if (typeof options === 'string') {
-            options = { text: options };
-        }
-        if (typeof type === 'string') {
-            if (!BaseInput.knownType(type)) {
-                options = Object.assign({ text: type }, options);
-                type = 'text';
-            }
-        }
-        efuns.input.addPrompt(type, Object.assign({
-            default: false,
-            text: 'Prompt: ',
-            type: 'text'
-        }, options), callback);
+        efuns.input.prompt(type, options, callback);
     }
 
-    async promptAsync(type, options = {}) {
-        if (typeof options === 'string') {
-            options = { text: options };
-        }
-        if (typeof type === 'string') {
-            if (!BaseInput.knownType(type)) {
-                options = Object.assign({ text: type }, options);
-                type = 'text';
-            }
-        }
-        return efuns.input.promptAsync(type, Object.assign({
-            default: false,
-            text: 'Prompt: ',
-            type: 'text'
-        }, options));
+    promptAsync(type, options = {}) {
+        return efuns.input.promptAsync(type, options);
     }
 
     /**

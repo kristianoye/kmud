@@ -24,10 +24,19 @@ const
         Constructor: 1 << 8,
         GetProperty: 1 << 9,
         SetProperty: 1 << 10
-    });
+    }),
+    SignalState = Object.freeze({
+        Running: 0,
+        None: 0,
+        Aborted: 1,
+        Suspended: 2
+    }),
+    events = require('events');
 
 var
-    contexts = {};
+    /** @type {Object.<string,ExecutionContext>} */ contexts = {},
+    /** @type {Object.<number,ExecutionContext>} */ contextsByPID = {},
+    nextPID = 1;
 
 /**
  * Represents a single frame on the MUD call stack
@@ -154,15 +163,93 @@ class ExecutionFrame {
 }
 
 /**
+ * Process controller to allow for aborting or suspending processes
+ */
+class ExecutionSignaller extends events.EventEmitter {
+    constructor() {
+        super();
+
+        this.#error = false;
+        this.#state = SignalState.Running;
+        this.#suspendTime = 0;
+    }
+
+    /**
+     * Error to throw at first opportunity
+     * @type {Error}
+     */
+    #error;
+
+    /** What state is the signaller in? */
+    #state;
+
+    /** The time at which the suspend signal was given */
+    #suspendTime;
+
+    /**
+     * Send the abort signal
+     * @param {string | Error} [reason] A descriptive reason as to why the abort was sent
+     */
+    abort(reason = false) {
+        this.#error = reason instanceof Error ? reason : new Error(reason || 'Execution aborted');
+        this.#state = SignalState.Aborted;
+        this.emit('abort', this.#error);
+    }
+
+    get error() {
+        return this.#error;
+    }
+
+    isListening(eventName, handler) {
+        let listeners = this.rawListeners(eventName),
+            index = listeners.indexOf(handler);
+
+        return (index > -1);
+    }
+
+    resume() {
+        if (this.state === SignalState.Suspended) {
+            this.#state = SignalState.Running;
+            this.emit('resume', Date().getTime() - this.#suspendTime);
+            this.#suspendTime = 0;
+        }
+    }
+
+    suspend() {
+        if (this.state === SignalState.Running) {
+            this.#suspendTime = new Date().getTime();
+            this.#state = SignalState.Suspended;
+            this.emit('suspend');
+        }
+    }
+
+    onlyOnce(eventName, handler, ...args) {
+        if (!this.isListening(eventName, handler))
+            this.once(eventName, handler, ...args);
+    }
+
+    onlyOne(eventName, handler, ...args) {
+        if (!this.isListening(eventName, handler))
+            this.on(eventName, handler, ...args);
+    }
+
+    get state() {
+        return this.#state;
+    }
+}
+
+/**
  * Maitains execution and object stacks for the MUD.
  */
-class ExecutionContext {
+class ExecutionContext extends events.EventEmitter {
     /**
      * 
      * @param {ExecutionContext} parent The parent context (if one exists)
      * @param {string} handleId The child UUID that identifies child to parent
      */
     constructor(parent = false) {
+        super();
+
         /** 
          * Storage for custom runtime variables
          * @type {Object.<string,any>} 
@@ -173,6 +260,10 @@ class ExecutionContext {
         this.onComplete = [];
         this.handleId = uuidv1();
         this.completed = false;
+        this.pid = nextPID++;
+
+        /** @type {ExecutionSignaller} */
+        this.controller = new ExecutionSignaller();
 
         /** @type {ExecutionFrame[]} */
         this.stack = [];
@@ -195,6 +286,7 @@ class ExecutionContext {
             this.truePlayer = false;
         }
         contexts[this.handleId] = this;
+        contextsByPID[this.pid] = this;
     }
 
     /**
@@ -232,8 +324,13 @@ class ExecutionContext {
         return this.virtualCreationContexts[0];
     }
 
+    /**
+     * Check to see if this thread has exceeded the max execution time
+     * @returns {ExecutionContext}
+     */
     alarm() {
         if (this.alarmTime && efuns.ticks > this.alarmTime) {
+            this.emit('complete', 'MAXEXT');
             let err = new Error(`Maxiumum execution time exceeded`);
             err.code = 'MAXECT';
             throw err;
@@ -288,6 +385,33 @@ class ExecutionContext {
     }
 
     /**
+     * Check the state of the context to see if we can proceed
+     * @param {boolean} canAwait Indicates whether we can currently pause for a suspended state
+     */
+    async assertStateAsync(canAwait = false) {
+        if (this.controller.state !== SignalState.Running) {
+            if (this.controller.state === SignalState.err)
+                throw this.controller.error;
+
+            if (canAwait && this.controller.state === SignalState.Suspended) {
+                let ellapsed = await this.awaitResume();
+                this.alarmTime += ellapsed;
+            }
+        }
+    }
+
+    /**
+     * Check the state of the context to see if we can proceed.  Since this is a sync call,
+     * we cannot wait for a resume.
+     */
+    assertStateSync() {
+        if (this.controller.state !== SignalState.Running) {
+            if (this.controller.state === SignalState.err)
+                throw this.controller.error;
+        }
+    }
+
+    /**
      * Await an asyncronous call and yield back the execution time
      * @param {function(...):any} asyncCode
      */
@@ -297,10 +421,11 @@ class ExecutionContext {
                 frame = this.stack[0];
 
             try {
+                await this.assertStateAsync(true);
                 frame.awaitCount++;
                 this.restore();
                 let result = await asyncCode();
-
+                await this.assertStateAsync(true);
                 resolve(result);
             }
             catch (err) {
@@ -316,6 +441,17 @@ class ExecutionContext {
     }
 
     /**
+     * Wait for the context to be resumed
+     * @returns {Promise<number}
+     */
+    awaitResume() {
+        return new Promise((resolve, reject) => {
+            this.controller.onlyOnce('resume', (ticks) => resolve(ticks));
+            this.controller.onlyOnce('abort', () => reject(this.controller.error));
+        });
+    }
+
+    /**
      * Complete execution
      * @returns {ExecutionContext} Reference to this context.
      * @param {boolean} forceCompletion If true then the context is forced to be finish regardless of state
@@ -323,6 +459,7 @@ class ExecutionContext {
     async complete(forceCompletion=false) {
         try {
             if (this.stack.length === this.forkedAt || true === forceCompletion) {
+                this.emit('complete', 'complete');
                 for (let i = 0; i < this.onComplete; i++) {
                     try {
                         let callback = this.onComplete[i];
@@ -344,6 +481,7 @@ class ExecutionContext {
         }
         finally {
             delete contexts[this.handleId];
+            delete contextsByPID[this.pid];
         }
         return this;
     }
@@ -367,6 +505,17 @@ class ExecutionContext {
      */
     static getContexts() {
         return Object.assign({}, contexts);
+    }
+
+    /**
+     * Get a context by its PID
+     * @param {number} pid
+     * @returns {ExecutionContext}
+     */
+    static getContextByPID(pid) {
+        if (typeof pid === 'number' && pid in contextByPID)
+            return contextsByPID[pid];
+        return false;
     }
 
     /**
@@ -420,6 +569,7 @@ class ExecutionContext {
      */
     async guarded(callback, action = false, rethrow = false) {
         let isAsync = driver.efuns.isAsync(callback);
+        await this.assertStateAsync(isAsync);
         for (let i = 0, max = this.length, c = {}; i < max; i++) {
             let frame = this.getFrame(i);
 
@@ -440,13 +590,25 @@ class ExecutionContext {
         }
         if (action) {
             try {
-                if (driver.efuns.isAsync(action))
-                    return await action();
-                else
-                    return action();
+                let result = undefined;
+
+                if (driver.efuns.isAsync(action)) {
+                    await this.assertStateAsync(true);
+                    result = await action();
+                    await this.assertStateAsync(true);
+                }
+                else {
+                    this.assertStateSync();
+                    result = action();
+                    this.assertStateSync();
+                }
+                return result;
             }
             catch (err) {
                 if (rethrow) throw err;
+            }
+            finally {
+                this.restore();
             }
             return false;
         }
@@ -504,6 +666,8 @@ class ExecutionContext {
             });
             return this;
         }
+        else
+            this.assertStateSync();
 
         return lastFrame;
     }
@@ -631,10 +795,32 @@ class ExecutionContext {
 
     /**
      * Restore this context to the active context in the driver
-     * @returns
+     * @returns {ExecutionContext}
      */
     restore() {
         driver.restoreContext(this);
+        return this;
+    }
+
+    /**
+     * Resume the thread/context
+     * @returns {ExecutionContext}
+     */
+    resume() {
+        this.controller.resume();
+        return this;
+    }
+
+    get state() {
+        return this.controller.state;
+    }
+
+    /**
+     * (Try and...) Suspend the thread/context
+     * @returns {ExecutionContext}
+     */
+    suspend() {
+        this.controller.suspend();
         return this;
     }
 
@@ -676,6 +862,16 @@ class ExecutionContext {
             return false;
         else
             return this.virtualCreationContexts[0];
+    }
+
+    /**
+     * Wait for the completion of the context
+     * @returns {Promise<string>} Returns the state of the context
+     */
+    async waitComplete() {
+        return new Promise(resolve => {
+            this.on('complete', (state) => resolve(state));
+        });
     }
 
     /**
@@ -813,5 +1009,5 @@ class ExecutionContext {
     }
 }
 
-module.exports = { ExecutionContext, ExecutionFrame, CallOrigin };
+module.exports = { ExecutionContext, ExecutionFrame, CallOrigin, ExecutionSignaller };
 

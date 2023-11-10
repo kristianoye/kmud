@@ -404,7 +404,7 @@ class DefaultLoader {
                 type = 'text';
             }
         }
-        efuns.input.addPrompt(type, Object.assign({
+        efuns.input.prompt(type, Object.assign({
             default: false,
             text: 'Prompt: ',
             type: 'text'

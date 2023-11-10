@@ -458,26 +458,22 @@ class FileSystemObject extends events.EventEmitter {
                 if (this.isDirectory) {
                     console.log('Reading json from a directory?');
                 }
-                await this.readAsync()
-                    .then(
-                        content => {
-                            let ecc = driver.getExecution();
-                            if (content) {
-                                content = content.toString(localOptions.encoding);
-                                if (localOptions.stripBOM) {
-                                    content = driver.efuns.stripBOM(content);
-                                }
-                            }
-                            if (typeof content === 'string') {
-                                let result = JSON.parse(content);
-                                return resolve(result);
-                            }
-                            else if (typeof content === 'object')
-                                return resolve(content);
-                            else
-                                reject(new Error(`readJsonAsync(): Could not produce object`));
-                        },
-                        reason => reject(reason));
+                let content = await this.readAsync();
+                let ecc = driver.getExecution();
+                if (content) {
+                    content = content.toString(localOptions.encoding);
+                    if (localOptions.stripBOM) {
+                        content = driver.efuns.stripBOM(content);
+                    }
+                }
+                if (typeof content === 'string') {
+                    let result = JSON.parse(content);
+                    return resolve(result);
+                }
+                else if (typeof content === 'object')
+                    return resolve(content);
+                else
+                    reject(new Error(`readJsonAsync(): Could not produce object`));
             }
             catch (ex) {
                 reject(ex);
@@ -907,13 +903,13 @@ class FileWrapperObject extends FileSystemObject {
      * @returns {Promise<FileSystemObject[]>}
      */
     async readDirectoryAsync(...args) {
-        if (this.can(SecurityFlags.P_LISTDIR)) {
+        if (await this.can(SecurityFlags.P_LISTDIR)) {
             return this.#instance.readDirectoryAsync(...args);
         }
     }
 
     async readFileAsync(...args) {
-        if (this.can(SecurityFlags.P_READ)) {
+        if (await this.can(SecurityFlags.P_READ)) {
             return this.#instance.readFileAsync(...args);
         }
     }

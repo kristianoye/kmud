@@ -896,8 +896,17 @@ class EFUNProxy {
      * @returns {boolean} True on success.
      */
     async log(file, message) {
-        let logPath = path.posix.join(driver.config.mudlib.logDirectory, file);
-        return await driver.fileManager.writeFileAsync(logPath, message + this.eol, 'a');
+        let frame = driver.pushFrame({ method: 'log', callType: CallOrigin.DriverEfun, isAsync: true });
+
+        try {
+            let logPath = path.posix.join(driver.config.mudlib.logDirectory, file),
+                logFile = await driver.fileManager.getFileAsync(logPath);
+
+            return await logFile.appendFileAsync(message + this.eol);
+        }
+        finally {
+            frame.pop(true);
+        }
     }
 
     merge(...o) {

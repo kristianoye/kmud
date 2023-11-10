@@ -432,7 +432,9 @@ class AclSecurityManager extends BaseSecurityManager {
 
                 let ecc = driver.getExecution();
                 let acl = await this.getAcl(fo);
-                resolve(await acl.can(flags));
+                
+                let result = await acl.can(flags);
+                resolve(result);
             }
             catch (err) {
                 reject(err);
@@ -457,18 +459,13 @@ class AclSecurityManager extends BaseSecurityManager {
                 return resolve(await parentAcl.getChildAsync(fo.name));
             }
             else if (fo.isDirectory) {
-                let ecc = driver.getExecution();
                 try {
                     if (fo.path in this.aclCache)
                         return resolve(this.aclCache[fo.path]);
                     let aclFilename = await this.getAclFilename(fo);
-                    ecc = driver.getExecution();
                     let aclFile = await driver.fileManager.getFileAsync(aclFilename, 0, true);
-                    ecc = driver.getExecution();
                     let existingData = aclFile.exists ? await this.readAclData(aclFilename) : false;
-                    ecc = driver.getExecution();
                     let parentAcl = fo.parent ? await this.getAcl(fo.parent) : false;
-                    ecc = driver.getExecution();
                     let requireSave = !aclFile.exists;
 
                     //  There was no data for this directory; Ask the master

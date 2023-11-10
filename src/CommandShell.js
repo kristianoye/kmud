@@ -7,11 +7,11 @@
  */
 const
     IO = require('./StandardIO'),
+    { ExecutionSignaller } = require('./ExecutionContext'),
     { LinkedList } = require('./LinkedList'),
-    MUDEventEmitter = require('./MUDEventEmitter'),
     BaseInput = require('./inputs/BaseInput'),
     CommandParser = require('./CommandParser'),
-    semver = require('semver'),
+    events = require('events'),
     CommandInterval = 5,
     path = require('path');
 
@@ -44,7 +44,7 @@ const
     B_TRUE = 'true',
     B_FALSE = 'false';
 
-class CommandShell extends MUDEventEmitter {
+class CommandShell extends events.EventEmitter {
     /**
      * Construct a new command shell object.
      * @param {ClientComponent} component The component that is bound to this shell.
@@ -99,6 +99,9 @@ class CommandShell extends MUDEventEmitter {
         //  LIFO stack for modal inputs
         this.inputStack = [];
 
+        /** @type {ExecutionSignaller} */
+        this.inputController = false;
+
         /** @type {BaseInput} */
         this.inputTo = undefined;
 
@@ -108,6 +111,11 @@ class CommandShell extends MUDEventEmitter {
             if (this.storage) {
                 this.storage.eventExec(false);
             }
+        });
+
+        this.on('addPrompt', async () => {
+            if (!this.inputController)
+                this.startInputLoop();
         });
     }
 
@@ -120,7 +128,7 @@ class CommandShell extends MUDEventEmitter {
         if (prompt instanceof BaseInput === false)
             throw new Error('Illegal call to addPrompt(); Must be a valid input type');
         this.inputStack.unshift(prompt);
-        this.renderPrompt();
+        this.emit('addPrompt', prompt);
     }
 
     /**
@@ -313,10 +321,7 @@ class CommandShell extends MUDEventEmitter {
                             }
                         }
                         else if (nc === 's' || nc === 'g') {
-                            if (semver.lt(process.version, '9.0.0')) {
-                                throw new Error('Search and replace is only available in Node v9+');
-                            }
-                            else if (take('&')) {
+                            if (take('&')) {
                                 if (!history.lastReplace)
                                     throw new Error(':g&: no previous substitution');
                             }
@@ -379,45 +384,38 @@ class CommandShell extends MUDEventEmitter {
      */
     async executeCommands(cmds) {
         if (cmds.length) {
-            setTimeout(async () => {
-                try {
-                    let cmd = cmds[0], result, err;
-                    if (cmd) {
-                        if (cmd.subType === TT.Assignment) {
-                            let result;
-                            if (typeof cmd.value === 'undefined') {
-                                result = cmd.lhs.value in this.env;
-                                delete this.env[cmd.lhs.value];
-                            }
-                            else
-                                result = this.env[cmd.lhs.value] = cmd.value, cmds;
+            try {
+                let cmd = cmds[0],
+                    result = undefined;
 
-                            return this.executeResult(result, cmds);
+                if (cmd) {
+                    if (cmd.subType === TT.Assignment) {
+                        let result;
+                        if (typeof cmd.value === 'undefined') {
+                            result = cmd.lhs.value in this.env;
+                            delete this.env[cmd.lhs.value];
                         }
+                        else
+                            result = this.env[cmd.lhs.value] = cmd.value, cmds;
 
-                        if (this.options.allowAliases) {
-                            this.expandAliases(cmd);
-                        }
-
-                        result = await this.storage.eventCommand(cmd);
-
-                        if (efuns.isPromise(result)) {
-                            return await result
-                                .then(r => this.executeResult(r, cmds))
-                                .catch(e => this.executeResult(e, cmds));
-                        }
                         return this.executeResult(result, cmds);
                     }
-                    else
-                        return this.renderPrompt(false);
+
+                    if (this.options.allowAliases) {
+                        this.expandAliases(cmd);
+                    }
+
+                    result = await this.storage.eventCommand(cmd);
+
+                    if (efuns.isPromise(result)) {
+                        throw new Error('eventCommand() returned promise')
+                    }
+                    return await this.executeResult(result, cmds);
                 }
-                catch (err) {
-                    this.executeResult(err, cmds);
-                }
-            }, CommandInterval);
-        }
-        else {
-            return this.renderPrompt(false);
+            }
+            catch (err) {
+                await this.executeResult(err, cmds);
+            }
         }
     }
 
@@ -426,7 +424,7 @@ class CommandShell extends MUDEventEmitter {
      * @param {any} result The result of the last command
      * @param {ParsedCommand[]} cmds The commands that are executing.
      */
-    executeResult(result, cmds) {
+    async executeResult(result, cmds) {
         try {
             let cmd = cmds.shift(),
                 success = result === true || result === 0; // result !== false && result instanceof Error === false;
@@ -443,40 +441,37 @@ class CommandShell extends MUDEventEmitter {
             if (success) {
                 if (cmd.pipeline) {
                     cmds.unshift(cmd.pipeline);
-                    return setTimeout(() => this.executeCommands(cmds), CommandInterval);
+                    return await this.executeCommands(cmds);
                 }
                 else if (cmd.conditional) {
                     cmds.unshift(cmd.conditional);
-                    return setTimeout(() => this.executeCommands(cmds), CommandInterval);
+                    return await this.executeCommands(cmds);
                 }
             }
             else {
                 if (cmd.pipeline) {
                     cmds.unshift(cmd.pipeline);
-                    return setTimeout(() => this.executeCommands(cmds), CommandInterval);
+                    return await this.executeCommands(cmds);
                 }
                 else if (cmd.alternate) {
                     cmds.unshift(cmd.alternate);
-                    return setTimeout(() => this.executeCommands(cmds), CommandInterval);
+                    return await this.executeCommands(cmds);
                 }
                 else if (cmd.conditional) {
                     while (cmd = cmd.conditional) {
                         if (cmd.alternate) {
                             cmds.unshift(cmd.alternate);
-                            return setTimeout(() => this.executeCommands(cmds), CommandInterval);
+                            return await this.executeCommands(cmds);
                         }
                     }
                 }
             }
-            return setTimeout(() => this.executeCommands(cmds), CommandInterval);
+            return await this.executeCommands(cmds);
         }
         catch (err) {
             this.handleError(err);
-            if (cmds && cmds.length)
-                setTimeout(() => this.executeCommands(cmds), CommandInterval);
-            else
-                this.renderPrompt();
         }
+        return await this.executeCommands(cmds);
     }
 
     /**
@@ -1248,121 +1243,79 @@ class CommandShell extends MUDEventEmitter {
      * @param {string} input The user's line of input.
      */
     async processInput(input) {
-        driver.driverCallAsync('input', async ecc => {
-            let originalSource = input;
+        if (this.inputTo) {
+            let inputTo = this.inputTo;
+            //  This should not happen, but just in case the current input dissappears...
+            if (!inputTo) {
+                this.stderr.writeLine(`-kmsh: WARNING: Input frame dissappeared unexpectedly!`);
+                return false;
+            }
+            if (this.options.allowEscaping && input.charAt(0) === '!') {
+                input = input.slice(1);
+                return false;
+            }
+            else {
+                //  Allow input control to alter the content per internal logic
+                input = inputTo.normalize(input, this.client);
+                if (typeof input === 'string') {
+                    let ecc = driver.getExecution();
 
-            //  Set up for the next command
-            ecc.whenCompleted(() => {
-                this.inputTo = false;
-                /* TODO: Add check to make sure output buffers have been flushed before drawing prompt  */
-                !this.executing && this.renderPrompt();
-            });
-
-            try {
-                if (this.inputTo) {
-                    let inputTo = this.inputTo;
-
-                    let inputTrapped = await ecc.withPlayerAsync(this.storage, async () => {
-                        //  This should not happen, but just in case the current input dissappears...
-                        if (!inputTo) {
-                            this.stderr.writeLine(`-kmsh: WARNING: Input frame dissappeared unexpectedly!`);
-                            return false;
-                        }
-                        if (this.options.allowEscaping && input.charAt(0) === '!') {
-                            input = input.slice(1);
-                            return false;
-                        }
-                        else {
-                            //  Allow input control to alter the content per internal logic
-                            input = inputTo.normalize(input, this.client);
-                            if (typeof input === 'string') {
-                                let ecc = driver.getExecution();
-
-                                if (!ecc)
-                                    throw new Error('FATAL: Execution stack has gone away!');
-
-                                try {
-                                    let result = await ecc.withPlayerAsync(this.storage, async () => {
-                                        return await inputTo.callback(input);
-                                    }, false, 'processInput');
-
-                                    ecc.restore();
-
-                                    if (result !== true) {
-                                        //  The modal frame did not recapture the user input
-                                        let index = this.inputStack.indexOf(inputTo);
-                                        if (index > -1) {
-                                            this.inputStack.splice(index, 1);
-                                        }
-                                    }
-                                    return true;
-                                }
-                                catch (err) {
-                                    this.component.writeLine(efuns.eol + 'A serious error occurred!');
-                                }
-                                return false;
-
-                            }
-                            else if (input instanceof Error) {
-                                this.stderr.write(efuns.eol + `${input.message}` + efuns.eol + efuns.eol);
-                                inputTo.error = input.message;
-                            }
-                            return true;
-                        }
-                    });
-
-                    if (inputTrapped === true) {
-                        this.flushAll();
-                        return this.renderPrompt(this.inputTo = false);
-                    }
-                    else if (typeof inputTrapped === 'undefined') {
-                        //  Async call
-                        this.flushAll();
-                        return true;
-                    }
-                }
-                try {
-                    if (this.options.allowHistory) {
-                        let newInput = this.expandHistory(input);
-                        if (newInput !== input)
-                            this.stdout.writeLine(newInput);
-                        this.history && this.history.push(newInput);
-                        input = newInput;
-                    }
-
-                    let cmds = this.process(input);
+                    if (!ecc)
+                        throw new Error('FATAL: Execution stack has gone away!');
 
                     try {
-                        let parser = new CommandParser(originalSource);
-                        let cmd;
+                        let result;
+                        
+                        if (driver.efuns.isAsync(inputTo.callback))
+                            await inputTo.callback(input);
+                        else
+                            inputTo.callback(input);
 
-                        while (typeof (cmd = await parser.nextCommand()) === 'object') {
-                            switch (cmd.operator) {
-                                default:
-                                    // No operator, just run the command
-                                    break;
+                        if (result !== true) {
+                            //  The modal frame did not recapture the user input
+                            let index = this.inputStack.indexOf(inputTo);
+                            if (index > -1) {
+                                this.inputStack.splice(index, 1);
                             }
                         }
+                        else
+                            this.inputStack.unshift(inputTo);
+
+                        return true;
                     }
                     catch (err) {
-                        console.log(err);
+                        this.component.writeLine(efuns.eol + 'A serious error occurred: ' + err);
                     }
+                    return false;
 
+                }
+                else if (input instanceof Error) {
+                    this.stderr.write(efuns.eol + `${input.message}` + efuns.eol + efuns.eol);
+                    inputTo.error = input.message;
+                }
+                return true;
+            }
+            return;
+        }
+        try {
+            if (this.options.allowHistory) {
+                let newInput = this.expandHistory(input);
+                if (newInput !== input)
+                    this.stdout.writeLine(newInput);
+                this.history && this.history.push(newInput);
+                input = newInput;
+            }
 
-                    if (cmds.some(c => c.hasFileExpressions)) {
-                        await this.expandFileExpressions(cmds);
-                    }
-                    return this.executeCommands(cmds);
-                }
-                catch (err) {
-                    this.handleError(err);
-                    this.renderPrompt(false);
-                }
+            let cmds = this.process(input);
+            if (cmds.some(c => c.hasFileExpressions)) {
+                await this.expandFileExpressions(cmds);
             }
-            catch (err) {
-                this.stderr.writeLine(`CRITICAL: ${err.message}`);
-            }
-        });
+            return await this.executeCommands(cmds);
+        }
+        catch (err) {
+            this.handleError(err);
+            //this.renderPrompt(false);
+        }
     }
 
     /**
@@ -1395,11 +1348,12 @@ class CommandShell extends MUDEventEmitter {
                     incomplete = false;
 
                 if (incomplete) {
-                    return this.renderPrompt('> ');
+                    return await this.drawPrompt('> ');
                 }
                 else {
-                    this.executing = true;
-                    await this.processInput(commandBuffer);
+                    //this.executing = true;
+                    //await this.processInput(commandBuffer);
+                    this.emit('receiveInput', commandBuffer);
                     this.commandBuffer = '';
                 }
             }
@@ -1425,54 +1379,101 @@ class CommandShell extends MUDEventEmitter {
         return result;
     }
 
-    /**
-     * The actual displaying of the prompt is dependent on the client.
-     * The shell just tells the client what to render...
-     * @param {BaseInput} [inputTo] The frame to render
-     */
-    renderPrompt(inputTo) {
-        if (inputTo === false) {
-            inputTo = undefined;
-            this.executing = false;
-        }
-        //  We are already waiting for the prompt to be rendered
-        if (this.promptTimer)
-            return;
+    drawPrompt() {
+        return new Promise(async (resolve, reject) => {
+            let inputTo = this.inputStack.length > 0 && this.inputStack[0],
+                rejector = function () { reject('input aborted'); };
 
-        this.promptTimer = setTimeout(() => {
+            this.inputController.onlyOnce('abort', rejector);
+
             try {
-                if (this.storage && this.storage.connected && !this.executing) {
-                    try {
-                        this.flushAll();
-
-                        if (!this.inputTo) {
-                            if (!inputTo && this.inputStack.length)
-                                inputTo = this.inputTo = this.inputStack[0];
-
-                            else if (typeof inputTo === 'string')
-                                throw new Error('Invalid input');
-
-                            if (inputTo) {
-                                this.component.renderPrompt(inputTo);
+                if (!inputTo) {
+                    let text = await driver.driverCallAsync('drawPrompt', async ecc => {
+                        return await ecc.withPlayerAsync(this.storage, async player => {
+                            if (typeof player.getCommandPrompt === 'function') {
+                                if (driver.efuns.isAsync(player.getCommandPrompt))
+                                    return await player.getCommandPrompt();
+                                else
+                                    return player.getCommandPrompt();
                             }
-                            else {
-                                this.component.renderPrompt({ type: 'text', text: this.prompt, console: true });
-                            }
-                        }
+                            else
+                                return false;
+                        });
+                    });
+                    if (false === text) {
+                        this.once('addPrompt', prompt => {
+                            this.component.renderPrompt(prompt);
+                            resolve(prompt)
+                        });
+                        return;
                     }
-                    catch (err) {
-                        this.component && this.component.writeLine(`CRITICAL: ${err.message}`);
-                        this.client && this.client.write('> ');
-                    }
-                    finally {
-                        this.flushAll();
+                    else {
+                        //  This is a normal command shell, not an input frame
+                        this.component.renderPrompt({ type: 'text', text, console: true });
+                        return resolve(false);
                     }
                 }
+                this.component.renderPrompt(inputTo);
+                return resolve(inputTo);
             }
             finally {
-                this.promptTimer = false;
+                this.removeListener('abort', rejector);
             }
-        }, CommandInterval);
+        });
+    }
+
+    abortInputs() {
+        this.inputTo = false;
+        this.inputStack = [];
+        this.inputController.abort('abortInputs');
+    }
+
+    async getUserInput() {
+        return new Promise((resolve, reject) => {
+            let rejector = function () { reject('input aborted'); },
+                resolver = function (s) { resolve(s); };
+
+            try {
+                this.inputController.onlyOnce('abort', rejector);
+                this.once('receiveInput', input => resolver(input));
+            }
+            catch (err) {
+                reject(err);
+            }
+            finally {
+                this.inputController.removeListener('abort', rejector);
+                this.removeListener('receiveInput', resolver);
+            }
+        });
+    }
+
+    /**
+     * 
+     * @returns
+     */
+    async startInputLoop() {
+        if (!this.inputController) {
+            this.inputController = new ExecutionSignaller();
+
+            try {
+                do {
+                    this.flushAll();
+                    this.inputTo = await this.drawPrompt();
+                    let input = await this.getUserInput();
+
+                    await driver.driverCallAsync('input', async ecc => {
+                        await ecc.withPlayerAsync(this.storage, async () => {
+                            await this.processInput(input);
+                        });
+                    });
+                }
+                while (true);
+            }
+            catch (err) {
+                this.inputController = false;
+            }
+        }
+        return this;
     }
 
     /**

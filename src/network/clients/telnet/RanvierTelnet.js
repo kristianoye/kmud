@@ -49,9 +49,11 @@ exports.Sequences = Seq;
 
 const Opts = {
     OPT_ECHO: 1,
+    OPT_NOGA: 3,
     OPT_TTYPE: 24,
     OPT_EOR: 25,
     OPT_NAWS: 31,
+    OPT_LINEMODE: 34,
     OPT_ENV: 39,
     OPT_MCP1: 85, // MCP v1 - Obsolete
     OPT_MCCP: 86, // MCP v2 http://www.zuggsoft.com/zmud/mcp.htm
@@ -60,7 +62,33 @@ const Opts = {
     OPT_GMCP: 201
 };
 
+/**
+ * Line Mode per RFC 1116 [https://datatracker.ietf.org/doc/html/rfc1116#section-1]
+ */
+const LineMode = Object.freeze({
+    /**  Unspecified -- use Default settings which varies by port number with Port 23 being special */
+    DEFAULT: 0,
+    /**  Unspecified -- use Default settings which varies by port number with Port 23 being special */
+    UNSPECIFIED: 0,
+
+    /** Do not use line mode */
+    DISABLED: -1,
+
+    /** 
+     * The client should process input and only send completed lines to the server; If unset then 
+     * all characters are sent to the server for processing.
+     */
+    EDIT: 1 << 0,
+
+    /**  Client should convert signals into a Telnet equivelant, e.g. Ctrl-C might become ABORT or BRK */
+    TRAPSIG: 1 << 1,
+
+    //  Used to confirm the current line mode
+    MODE_ACK: 1 << 2
+});
+
 exports.Options = Opts;
+exports.LineMode = LineMode;
 
 class TelnetSocket extends EventEmitter {
     constructor(opts = {}) {
@@ -75,10 +103,15 @@ class TelnetSocket extends EventEmitter {
         this.msp = false;
         this.mxp = false;
 
-        this.offerGMCP = opts.offerGMCP || false;
-        this.offerMCP = opts.offerMCP || false;
-        this.offerMSP = opts.offerMSP || false;
-        this.offerMXP = opts.offerMXP || false;
+        this.offerGMCP = opts.offerGMCP === true;
+        this.offerMCP = opts.offerMCP === true;
+        this.offerMSP = opts.offerMSP === true;
+        this.offerMXP = opts.offerMXP === true;
+        this.lineMode = LineMode.DEFAULT;
+        if (typeof opts.lineMode === 'number') {
+            //  Only get the valid bits
+            this.lineMode = opts.lineMode === -1 ? -1 : opts.lineMode & (LineMode.EDIT | LineMode.TRAPSIG);
+        }
     }
 
     get readable() {
@@ -225,55 +258,70 @@ class TelnetSocket extends EventEmitter {
 
         this.telnetCommand(Seq.DO, Opts.OPT_NAWS);
         this.telnetCommand(Seq.DO, Opts.OPT_TTYPE);
-        if (this.offerMCP) this.telnetCommand(Seq.WILL, Opts.OPT_MCCP);
-        if (this.offerMSP) this.telnetCommand(Seq.WILL, Opts.OPT_MSP);
-        if (this.offerMXP) this.telnetCommand(Seq.WILL, Opts.OPT_MXP);
-        this.transmit(Buffer.from("\r\n"));
-
-        connection.on('data', (databuf) => {
-            databuf.copy(inputbuf, inputlen);
-            inputlen += databuf.length;
-
-            // immediately start consuming data if we begin receiving normal data
-            // instead of telnet negotiation
-            if (connection.fresh && databuf[0] !== Seq.IAC) {
-                connection.fresh = false;
+        if (this.lineMode !== LineMode.DEFAULT) {
+            if (this.lineMode === LineMode.DISABLED) {
+                this.telnetCommand(Seq.WILL, Opts.OPT_ECHO);
+                this.telnetCommand(Seq.WILL, Opts.OPT_NOGA);
+                //this.telnetCommand(Seq.WONT, Opts.OPT_LINEMODE);
             }
-
-            databuf = inputbuf.slice(0, inputlen);
-            // fresh makes sure that even if we haven't gotten a newline but the client
-            // sent us some initial negotiations to still interpret them
-            if (!databuf.toString().match(/[\r\n]/) && !connection.fresh) {
-                return;
+            else {
+                this.telnetCommand(Seq.DO, Opts.OPT_LINEMODE);
             }
+        }
+        if (this.offerMCP)
+            this.telnetCommand(Seq.WILL, Opts.OPT_MCCP);
+        if (this.offerMSP)
+            this.telnetCommand(Seq.WILL, Opts.OPT_MSP);
+        if (this.offerMXP)
+            this.telnetCommand(Seq.WILL, Opts.OPT_MXP);
+        //this.transmit(Buffer.from("\r\n"));
 
-            // If multiple commands were sent \r\n separated in the same packet process
-            // them separately. Some client auto-connect features do this
-            let bucket = [];
-            for (let i = 0; i < inputlen; i++) {
-                if (databuf[i] === 3) { // ctrl-c 
-                    bucket = [];
-                    continue; //eat it
+        connection.on('data', (databuf) => { 
+            try {
+                databuf.copy(inputbuf, inputlen);
+                inputlen += databuf.length;
+
+                // immediately start consuming data if we begin receiving normal data
+                // instead of telnet negotiation
+                if (connection.fresh && databuf[0] !== Seq.IAC) {
+                    connection.fresh = false;
                 }
-                if (databuf[i] !== 10 && databuf[i] !== 13) { // neither LF nor CR
-                    bucket.push(databuf[i]);
-                } else {
-                    // look ahead to see if our newline delimiter is part of a combo.
-                    if (i+1 < inputlen && (databuf[i+1] === 10 || databuf[i+1 === 13])
-                        && databuf[i] !== databuf[i+1]) {
-                        i++;
+
+                databuf = inputbuf.slice(0, inputlen);
+                // fresh makes sure that even if we haven't gotten a newline but the client
+                // sent us some initial negotiations to still interpret them
+                if (!databuf.toString().match(/[\r\n]/) && !connection.fresh) {
+                    return;
+                }
+
+                // If multiple commands were sent \r\n separated in the same packet process
+                // them separately. Some client auto-connect features do this
+                let bucket = [];
+                for (let i = 0; i < inputlen; i++) {
+                    if (databuf[i] !== 10 && databuf[i] !== 13) { // neither LF nor CR
+                        bucket.push(databuf[i]);
+                    } else {
+                        // look ahead to see if our newline delimiter is part of a combo.
+                        if (i + 1 < inputlen
+                            && (databuf[i + 1] === 10 || databuf[i + 1 === 13])
+                            && databuf[i] !== databuf[i + 1]) {
+                            i++;
+                        }
+                        this.input(Buffer.from(bucket), true);
+                        bucket = [];
                     }
-                    this.input(Buffer.from(bucket));
-                    bucket = [];
                 }
-            }
 
-            if (bucket.length) {
-                this.input(Buffer.from(bucket));
-            }
+                if (bucket.length) {
+                    this.input(Buffer.from(bucket), true);
+                }
 
-            inputbuf = Buffer.alloc(this.maxInputLength);
-            inputlen = 0;
+                inputbuf = Buffer.alloc(this.maxInputLength);
+                inputlen = 0;
+            }
+            catch (err) {
+                console.log(`RanvierTelnet: ${err}`);
+            }
         });
 
         connection.on('close', _ => {
@@ -301,7 +349,7 @@ class TelnetSocket extends EventEmitter {
      * @fires TelnetSocket#data
      * @fires TelnetSocket#unknownAction
      */
-    input(inputbuf) {
+    input(inputbuf, sendBuffer=false) {
         // strip any negotiations
         let cleanbuf = Buffer.alloc(inputbuf.length);
         let i = 0;
@@ -312,6 +360,15 @@ class TelnetSocket extends EventEmitter {
         while (i < inputbuf.length) {
             if (inputbuf[i] !== Seq.IAC) {
                 if (inputbuf[i] < 32) { // Skip any freaky control codes.
+                    if (inputbuf[i] > 0 && inputbuf[i] < 27) {
+                        let controlCharacterEvent = {
+                            clearBuffer: false,
+                            controlKey: `Control-${String.fromCharCode(inputbuf[i] + 64)}`,
+                            controlCode: inputbuf[i],
+                            handled: false
+                        };
+                        this.emit('controlKey', controlCharacterEvent);
+                    }
                     i++;
                 } else {
                     cleanbuf[cleanlen++] = inputbuf[i++];
@@ -346,6 +403,10 @@ class TelnetSocket extends EventEmitter {
                             this.mxp = true;
                             break;
 
+                        case Opts.OPT_LINEMODE:
+                            i += 2;
+                            break;
+
                         default:
                             /**
                              * @event TelnetSocket#DO
@@ -365,6 +426,9 @@ class TelnetSocket extends EventEmitter {
                         case Opts.OPT_MCCP:
                             if (this.mcp === 2) this.mcp = 0;
                             break;
+                        case Opts.OPT_LINEMODE:
+                            this.telnetCommand(Seq.WONT, Opts.OPT_LINEMODE);
+                            console.log('nope');
                             break;
                         default:
                             /**
@@ -384,6 +448,9 @@ class TelnetSocket extends EventEmitter {
                     switch (opt) {
                         case Opts.OPT_TTYPE:
                             this.telnetCommand(Seq.SB, [Opts.OPT_TTYPE, 1, Seq.IAC, Seq.SE]);
+                            break;
+                        case Opts.OPT_LINEMODE:
+                            console.log('will linemode');
                             break;
                     }
                     this.emit('WILL', opt);
@@ -405,15 +472,15 @@ class TelnetSocket extends EventEmitter {
                     subnegOpt = inputbuf[i++];
                     subnegBuffer = Buffer.alloc(inputbuf.length - i, ' ');
 
-                    let sublen = 0;
-                    while (inputbuf[i] !== Seq.IAC) {
-                        subnegBuffer[sublen++] = inputbuf[i++];
-                    }
 
                     switch (opt) {
                         case Opts.OPT_MXP:
                         case Opts.OPT_TTYPE:
                             {
+                                let sublen = 0;
+                                while (inputbuf[i] !== Seq.IAC) {
+                                    subnegBuffer[sublen++] = inputbuf[i++];
+                                }
                                 let tte = {
                                     terminalType: subnegBuffer.slice(1).toString('utf8').trim()
                                 };
@@ -421,6 +488,17 @@ class TelnetSocket extends EventEmitter {
                                     this.emit('kmud', { type: 'terminalType', data: tte.terminalType });
                                     if (typeof tte.terminalType !== 'undefined')
                                         this.telnetCommand(Seq.SB, [Opts.OPT_TTYPE, 1, Seq.IAC, Seq.SE]);
+                                }
+                            }
+                            break;
+
+                        case Opts.OPT_LINEMODE:
+                            {
+                                let modeCommand = inputbuf[i++];
+                                let clientLineMode = inputbuf[i++];
+
+                                if (clientLineMode !== this.lineMode) {
+                                    this.telnetCommand(Seq.DO, [Seq.SB, Opts.OPT_LINEMODE, 3, this.lineMode, Seq.IAC, Seq.SE]);
                                 }
                             }
                             break;
@@ -445,6 +523,9 @@ class TelnetSocket extends EventEmitter {
                             width: subnegBuffer.readInt16BE(0),
                             height: subnegBuffer.readInt16BE(2)
                         });
+                    }
+                    else if (subnegOpt === Opts.OPT_LINEMODE) {
+                        console.log('LineMode');
                     }
                     else {
                         /**
@@ -478,7 +559,7 @@ class TelnetSocket extends EventEmitter {
          * @event TelnetSocket#data
          * @param {Buffer} data
          */
-        this.emit('data', cleanbuf.slice(0, cleanlen >= cleanbuf.length ? undefined : cleanlen));  // special processing required for slice() to work.
+        sendBuffer && this.emit('data', cleanbuf.slice(0, cleanlen >= cleanbuf.length ? undefined : cleanlen));  // special processing required for slice() to work.
     }
 }
 

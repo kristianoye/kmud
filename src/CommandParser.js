@@ -194,7 +194,7 @@ class CommandParser {
      * Return the next command
      * @returns {{ operator: string, command: ParsedCommand }} 
      */
-    async nextCommand() {
+    nextCommand() {
         /** @type {ParsedCommand} */
         let cmd;
 
@@ -235,25 +235,7 @@ class CommandParser {
                             throw new Error(`-kmsh: Unexpected token ${token.tokenType} '${token.tokenValue}' found at position ${token.start}; Expected verb.`);
                 }
 
-                if (verbLookup) {
-                    await driver.driverCallAsync('nextCommand', async ecc => {
-                        let modifiers = await ecc.getShellOptionsAsync(verbLookup);
-
-                        // If the verb did not match ANY commands recognized by the MUD,
-                        // then the input is assumed to be an expression.
-                        if (modifiers === false && this.options.allowObjectShell) {
-                            cmd.cmdType = CMD_EXPR;
-                        }
-                        else if (!cmd.cmdType) {
-                            if (modifiers.allowObjectShell)
-                                cmd.cmdType = CMD_SHELL;
-                            else
-                                cmd.cmdType = CMD_MUD;
-                        }
-
-                        //  Command updates options available to the next command (if any)
-                        cmd.options = { ...this.options, ...modifiers };
-                    });
+                if (verbLookup && false) {
                 }
             }
             else {

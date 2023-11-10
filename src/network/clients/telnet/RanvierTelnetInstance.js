@@ -25,6 +25,9 @@ class RanvierTelnetInstance extends ClientInstance {
                 origin: this.mainWindow.id
             });
         });
+        this.client.on('controlKey', ctrlKey => {
+            console.log(`Got a ${ctrlKey.controlKey}`);
+        });
         this.client.on('close', () => this.remoteDisconnect());
         this.client.on('disconnect', () => this.disconnect());
         this.client.on('drain', () => this.emit('drain'));

@@ -30,7 +30,8 @@ class RanvierTelnetEndpoint extends ClientEndpoint {
      */
     bind() {
         let server = new TelnetServer(async socket => {
-            let client = new TelnetSocket(this.options).attach(socket);
+            let client = new TelnetSocket(this.options)
+                .attach(socket);
             let wrapper = new RanvierTelnetInstance(this, client);
 
             await wrapper.connect();

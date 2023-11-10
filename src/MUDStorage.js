@@ -147,11 +147,10 @@ class MUDStorage extends MUDEventEmitter {
         console.log('eventExec');
         try {
             if (component instanceof ClientComponent) {
-                let streams = false;
-
                 //  If the client has an old body, the client needs to be dissassociated with it
                 if (component.body) {
                     let store = driver.storage.get(component.body);
+
                     if (store) {
                         await driver.driverCallAsync('disconnect', async context => {
                             await context.withPlayerAsync(store, async player => {
@@ -167,6 +166,8 @@ class MUDStorage extends MUDEventEmitter {
                                 });
                             });
                         });
+
+                        component.shell.abortInputs();
                     }
                     else
                         return false;
@@ -201,7 +202,6 @@ class MUDStorage extends MUDEventEmitter {
                             let shellSettings = typeof player['getShellSettings'] === 'function' ? player.getShellSettings() : false;
                             this.shell.update(shellSettings || {});
                             await player.connect(...args);
-                            context.whenCompleted(() => this.shell.renderPrompt());
                         });
                     }, false);
                 });
