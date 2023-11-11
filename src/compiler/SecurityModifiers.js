@@ -12,12 +12,18 @@ const
     tt = acorn.tokTypes,
     TokenType = acorn.TokenType;
 
-const
-    tokenTypes = {
-        kmudCallOther: new TokenType('KMUDCallOther')
-    };
+acorn.tokTypes.arrowCall = new acorn.TokenType("->");
 
 function plugin(options, Parser) {
+    function DestructuringErrors() {
+        this.shorthandAssign =
+            this.trailingComma =
+            this.parenthesizedAssign =
+            this.parenthesizedBind =
+            this.doubleProto =
+            -1;
+    }
+
     return class extends Parser {
         parseClassElement(constructorAllowsSuper) {
             if (this.eat(tt.semi)) return null;
@@ -104,29 +110,30 @@ function plugin(options, Parser) {
             return this.finishNode(method, "MethodDefinition");
         }
 
-        /*
         updateContext(prevType) {
             return super.updateContext(prevType);
         }
 
-        readToken(code) {
-            let context = this.curContext();
-            if (this.input.slice(this.pos, this.pos + 7) === 'target.') {
-                console.log('stop here');
-            }
-            if (options.allowCallOtherArrow) {
-                if (code === 45) {
-                    let next = this.input.charCodeAt(this.pos + 1);
-                    if (next === 62) {
-                        this.pos += 2;
-                        return this.finishToken(tokenTypes.kmudCallOther);
-                    }
-                }
-            }
-            return super.readToken(code);
-        }
-        */
-    };
+        //parseExprAtom(refDestructuringErrors) {
+        //    if (this.eat(acorn.tokTypes.arrowCall)) {
+        //        const node = this.startNode();
+        //        this.next();
+        //        node.callee = this.parseExprAtom();
+        //        node.arguments = this.parseCallExpressionArguments();
+        //        return this.finishNode(node, "DereferencedCallExpression");
+        //    }
+        //    return super.parseExprAtom(refDestructuringErrors);
+        //}
+
+        parseCallExpressionArguments() {
+            return this.parseExprList(
+                acorn.tokTypes.parenL,
+                acorn.tokTypes.parenR,
+                this.options.ecmaVersion >= 6,
+                false,
+                null
+            );
+        }    };
 }
 
 module.exports = function (optionsIn) {
@@ -143,4 +150,4 @@ module.exports = function (optionsIn) {
     };
 };
 
-module.exports.tokTypes = tokenTypes;
+//module.exports.tokTypes = tokenTypes;

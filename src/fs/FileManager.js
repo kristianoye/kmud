@@ -228,7 +228,7 @@ class FileManager extends MUDEventEmitter {
                 if (!parent.isDirectory)
                     throw new Error(`Invalid mount point for ${mp}: ${parent.fullPath} is not a directory`);
 
-                console.log(`Ensuring mount point ${mp} exists`);
+                console.log(`\tEnsuring mount point ${mp} exists`);
             }
         });
     }

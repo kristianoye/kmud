@@ -21,7 +21,9 @@ class MUDOSLoader extends MUDLoader {
                 value: function (n) { return _efuns.abs(n); }
             },
             adminp: {
-                get: function (target) { return _efuns.adminp(target); }
+                get: function (target) {
+                    return efuns.adminp(target);
+                }
             },
             archp: {
                 value: function (target) { return _efuns.archp(target); }

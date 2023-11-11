@@ -15,13 +15,7 @@ try {
         config.entryDirectory = __dirname;
         config.entryScript = process.argv[1];
 
-        setImmediate(async () => await config.run()
-            .then(
-                () => console.log('Game startup complete'),
-                err => {
-                    console.log(`Game crashed with error: ${err}`, err.stack);
-                    exitCode = -2;
-                }));
+        setImmediate(async () => await config.run());
     }
     catch (e) {
         console.error(e.message);

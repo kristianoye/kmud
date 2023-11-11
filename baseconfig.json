@@ -101,25 +101,6 @@
     "maxCommandStackSize": 100,
     "maxEvalTime": 5000,
     "features": {
-      "ACLSecurity": {
-        "enabled": false,
-        "module": "./features/SecurityFileACL",
-        "name": "ACL-Based Security Filesystem",
-        "parameters": {
-          "shadowDirectory": "../../shadowfs",
-          "shadowGranularity": "file",
-          "accessDataFile": "../../lib/sys/etc/accessMk3.json",
-          "applyNameValidCreate": "aclValidCreate",
-          "applyNameValidDelete": "aclValidDelete",
-          "applyNameValidDestruct": "aclValidDestruct->aclValidWrite",
-          "applyNameValidGrant": "aclValidGrant",
-          "applyNameValidLoad": "aclValidLoad->aclValidRead",
-          "applyNameValidRead": "aclValidRead",
-          "applyNameValidWrite": "aclValidWrite",
-
-          "efunNameQueryAcl": "queryPerms"
-        }
-      },
       "DomainStats": {
         "enabled": true,
         "module": "./features/DomainStats",

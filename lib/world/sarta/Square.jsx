@@ -26,12 +26,20 @@ class Square extends Room {
         this.addExit('out', '/realms/kriton/Workroom');
         this.addExit('north', 'streets/northMain01');
         this.addExit('south', 'streets/southmain01');
+        this
+            .addItem('default', {
+                smell: 'It smells like horse dung.',
+                listen: 'You hear the bustle of shoppers, merchants, and horses.'
+            })
+            .addItem('buildings', {
+                description: 'There are buildings of all different sizes, shape, and height'
+            });
     }
 
     get longDesc() {
         return <div>
             <p>Hello, {formatName()}</p>
-            <p>This is the heart of the main city in Sarta.  There are many tall buildings
+            <p>This is the heart of the city of Sarta.  There are many tall buildings
                 surrounding the square and hundreds of people mill about the street conducting
                 business.</p>
             <p>To the south is the city port of entry for the large ships that dock here

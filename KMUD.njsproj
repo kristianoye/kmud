@@ -447,6 +447,7 @@
     </Content>
     <Content Include="lib\wwwroot\js\socket.io.js" />
     <Content Include="mudconfig.json" />
+    <Content Include="mudlibdefaults.json" />
     <Content Include="src\ActionBinder.js">
       <SubType>Code</SubType>
     </Content>

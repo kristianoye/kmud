@@ -47,7 +47,7 @@ class UpdateCommand extends Command {
                 return {
                     file,
                     onDebugOutput: (msg, level) => {
-                        if (level >= this.verbose)
+                        if (level <= this.verbose)
                             writeLine(msg);
                     }
                 }
@@ -60,7 +60,8 @@ class UpdateCommand extends Command {
 
             if (arg.startsWith('-')) {
                 if (!arg.startsWith('--')) {
-                    let switches = arg.split('')
+                    let switches = arg.slice(1)
+                        .split('')
                         .filter(s => s.length === 1);
 
                     for (let j = 0; j < switches.length; j++) {
@@ -153,7 +154,7 @@ Usage:       update [options] file1 [...fileN]
 ------------------------------------------------------------------------------
 Options:
     -h, --help
-        Shows this text.
+        Shows this helpful text.
 
     -i, --intermediate <directory>
         Saves intermediate and final compiler output to the specified path.

@@ -570,6 +570,10 @@ function parseElement(op, e, depth, xtra = {}) {
                 op.pos = e.end;
                 break;
 
+            case 'DereferencedCallExpression':
+                op.pos = e.end;
+                break;
+
             case 'DoWhileStatement':
                 addRuntimeAssert(e, '__ala(); ');
                 ret += parseElement(op, e.body, depth + 1);
@@ -585,6 +589,13 @@ function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'ForInStatement':
+                ret += parseElement(op, e.left, depth + 1);
+                ret += parseElement(op, e.right, depth + 1);
+                addRuntimeAssert(e, '__ala(); ');
+                ret += parseElement(op, e.body, depth + 1);
+                break;
+
+            case 'ForOfStatement':
                 ret += parseElement(op, e.left, depth + 1);
                 ret += parseElement(op, e.right, depth + 1);
                 addRuntimeAssert(e, '__ala(); ');
@@ -997,7 +1008,8 @@ class MudScriptTranspiler extends PipelineComponent {
             filename: context.basename,
             context,
             source: context.content,
-            injectedSuperClass: 'MUDObject'
+            injectedSuperClass: 'MUDObject',
+            ecmaVersion: '2021'
         });
         try {
             if (this.enabled) {

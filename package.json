@@ -10,7 +10,7 @@
     "name": "Kristian Oye <kristianoye@gmail.com>"
   },
   "dependencies": {
-    "acorn": "^6.4.2",
+    "acorn": "^8.11.2",
     "acorn-jsx": "^5.3.2",
     "async": "^2.6.4",
     "bcrypt": "^5.0.1",
@@ -20,7 +20,7 @@
     "mysql": "^2.18.1",
     "semver": "^5.7.2",
     "socket.io": "^4.7.2",
-    "sprintf": "^0.1.5",
+    "sprintf": "^0.1.5", 
     "uuid": "^3.4.0"
   },
   "devDependencies": {

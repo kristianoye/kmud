@@ -218,7 +218,7 @@ class VerbRule {
         if (!method)
             return false;
 
-        return await method.call(handler, this.verb, this.rule, matchData, this.parse);
+        return await method.apply(handler, matchData);
     }
 
     /**
@@ -887,7 +887,7 @@ class VerbContainer {
     async tryParseSentence(input, player, scopes) {
         let words = input.trim().split(/\s+/),
             verbName = words.shift() || false;
-        return this.tryParseVerb(verbName, words, player, scopes);
+        return await this.tryParseVerb(verbName, words, player, scopes);
     }
 
     /**
