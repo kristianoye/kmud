@@ -6,6 +6,9 @@
 const
     MUDEventEmitter = require('./MUDEventEmitter');
 
+const
+    symMixinVTable = Symbol('symMixinVTable');
+
 var
     UseLazyResets = false;
 
@@ -62,9 +65,21 @@ class MUDObject extends MUDEventEmitter {
         }
     }
 
-    create() { }
+    callMixinImpl(methodName, mixinName, ...args) {
+        return MUDMixin.$__virtualCall(this, methodName, mixinName, args);
+    }
 
-    createAsync() { }
+    async callMixinImplAsync(methodName, mixinName, ...args) {
+        return await MUDMixin.$__virtualCallAsync(this, methodName, mixinName, args);
+    }
+
+    create(...args) {
+        this.callMixinImpl('create', undefined, ...args)
+    }
+
+    async createAsync(...args) {
+        await this.callMixinImplAsync('createAsync', undefined, ...args)
+    }
 
     get environment() {
         let store = driver.storage.get(this);
@@ -213,31 +228,117 @@ class MUDObject extends MUDEventEmitter {
     }
 }
 
-const $blockedMethods = ['constructor', '$extendType', '$copyMethods'];
+const
+    $blockedMethods = ['constructor', '$extendType', '$__copyMethods', '$getVirtualTable', '$virtualCall', '$virtualCallAsync'];
 
 class MUDMixin {
-}
+    static $__copyMethods(type, proto, listOrMethod) {
+        let filter = listOrMethod || function (s) { return s !== 'constructor'; },
+            mixinName = proto.constructor.name;
 
-MUDMixin.$copyMethods = function (type, proto, listOrMethod) {
-    let filter = listOrMethod || function (s) { return s !== 'constructor'; };
-    if (Array.isArray(listOrMethod)) {
-        filter = function (s) { return listOrMethod.indexOf(s) > -1; };
+        if (Array.isArray(listOrMethod)) {
+            filter = function (s) { return listOrMethod.indexOf(s) > -1; };
+        }
+        let methodList = Object.getOwnPropertyNames(proto)
+            .filter(s => filter(s) && $blockedMethods.indexOf(s) === -1)
+            .map(s => [s, Object.getOwnPropertyDescriptor(proto, s)])
+            .filter(s => !!s);
+
+        if (typeof type.prototype[symMixinVTable] !== 'object')
+            type.prototype[symMixinVTable] = {};
+
+        type.prototype[symMixinVTable][mixinName] = {};
+
+        for (const info of methodList) {
+            let [name, prop] = info;
+
+            if (typeof type.prototype[name] === 'undefined') {
+                Object.defineProperty(type.prototype, name, prop);
+            }
+            if (typeof prop.value === 'function')
+                type.prototype[symMixinVTable][mixinName][name] = prop.value;
+        }
     }
-    let methodList = Object.getOwnPropertyNames(proto)
-        .filter(s => typeof proto[s] === 'function' && filter(s) && $blockedMethods.indexOf(s) === -1);
 
-    methodList
-        .forEach(mn => {
-            if (typeof type.prototype[mn] === 'undefined')
-                type.prototype[mn] = proto[mn];
-        });
-};
+    static $__extendType(type, mixin) {
+        if (!mixin)
+            throw new Error('Invalid mixin type');
+        MUDMixin.$__copyMethods(type, mixin.prototype);
+        return type;
+    }
 
-MUDMixin.$extendType = function (type, mixin) {
-    if (!mixin)
-        throw new Error('Invalid mixin type');
-    MUDMixin.$copyMethods(type, mixin.prototype);
-};
+    static $__getVirtualTable(proto) {
+        let results = proto[symMixinVTable] || {};
+        
+        if (proto.constructor.name !== 'MUDEventEmitter') {
+            results = Object.assign(this.$__getVirtualTable(proto.__proto__), results);
+        }
+        return results;
+    }
+
+    static $__virtualCall(instance, methodName, mixinName, args) {
+        let $vt = MUDMixin.$__getVirtualTable(instance.constructor.prototype),
+            $vtSize = Object.keys($vt).length;
+
+        if ($vtSize > 0 && typeof methodName === 'string') {
+            let mixinList = (mixinName ? [$vt[mixinName]] : Object.keys($vt))
+                .filter(m => typeof m === 'string')
+                .map(m => $vt[m]),
+                results = [];
+
+            if (mixinList.length === 0 && mixinName)
+                throw new Error(`Type '${instance.constructor.name}'' does not inherit mixin named '${mixinName}'`);
+
+            for (const table of mixinList) {
+                if (typeof table[methodName] === 'function') {
+                    results.push(table[methodName].apply(instance, args));
+                }
+                else if (typeof table[methodName] !== 'undefined') {
+                    results.push(table[methodName]);
+                }
+                else if (mixinName) {
+                    throw new Error(`Type '${instance.constructor.name}'' method not found: '${mixinName}.${methodName}'`);
+                }
+                else {
+                    results.push(undefined);
+                }
+            }
+
+            return mixinName ? results[0] : results;
+        }
+    }
+
+    static async $__virtualCallAsync(instance, methodName, mixinName, args) {
+        let $vt = MUDMixin.$__getVirtualTable(instance.constructor.prototype),
+            $vtSize = Object.keys($vt).length;
+
+        if ($vtSize > 0 && typeof methodName === 'string') {
+            let mixinList = (mixinName ? [$vt[mixinName]] : Object.keys($vt))
+                .filter(m => typeof m === 'object'),
+                results = [];
+
+            if (mixinList.length === 0 && mixinName)
+                throw new Error(`Type '${instance.constructor.name}'' does not inherit mixin named '${mixinName}'`);
+
+            for (const table of mixinList) {
+                if (typeof table[methodName] === 'function') {
+                    if (driver.efuns.isAsync(table[methodName]))
+                        results.push(await table[methodName].apply(instance, args));
+                    else
+                        results.push(table[methodName].apply(instance, args));
+                }
+                else if (typeof table[methodName] !== 'undefined') {
+                    results.push(table[methodName]);
+                }
+                else if (mixinName) {
+                    throw new Error(`Type '${instance.constructor.name}'' method not found: '${mixinName}.${methodName}'`);
+                }
+            }
+
+            return mixinName ? results[0] : results;
+        }
+    }
+}
 
 module.exports = MUDObject;
 global.MUDObject = MUDObject;

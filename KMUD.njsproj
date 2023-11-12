@@ -97,9 +97,6 @@
     <Compile Include="lib\base\Room.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\base\Partials\Senses.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="lib\base\Sign.js">
       <SubType>Code</SubType>
     </Compile>
@@ -411,6 +408,7 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="libman.json" />
+    <Content Include="lib\base\Verbs\Listen.js" />
     <Content Include="lib\cmds\admin\placeholder.txt">
       <SubType>Code</SubType>
     </Content>
@@ -852,7 +850,6 @@
     <Folder Include="lib\base\" />
     <Folder Include="lib\base\include\" />
     <Folder Include="lib\base\Combat\" />
-    <Folder Include="lib\base\Partials\" />
     <Folder Include="lib\base\Verbs\" />
     <Folder Include="lib\cmds\creator\" />
     <Folder Include="lib\cmds\admin\" />

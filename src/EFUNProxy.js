@@ -536,7 +536,7 @@ class EFUNProxy {
             throw new Error(`Failed to load required module '${filename}'`);
         if (!mixinType)
             throw new Error(`Failed to load required mixin '${typeName || module.name}'`);
-        MUDMixin.$extendType(target, mixinType);
+        MUDMixin.$__extendType(target, mixinType);
     }
 
     /**

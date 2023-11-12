@@ -48,7 +48,15 @@ const
         '__pcc',    // Perform Constructor Call
 
         //  Reserved for passing the execution context
-        '__mec'     // MUD Execution Context 
+        '__mec',     // MUD Execution Context
+
+        //  Reserved for MUDMixin logic
+        '$__extendType',
+        '$__copyMethods',
+        '$__getVirtualTable',
+        '$__virtualCall',
+        '$__virtualCallAsync'
+
     ];
 
 /** @typedef {{ allowJsx: boolean, context: PipeContext, source: string }} OpParams */
