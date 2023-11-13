@@ -44,13 +44,13 @@ class UpdateCommand extends Command {
             verbose: 0,
 
             createCompilerOptions: function (file) {
-                return {
+                return Object.assign({}, this, {
                     file,
                     onDebugOutput: (msg, level) => {
                         if (level <= this.verbose)
                             writeLine(msg);
                     }
-                }
+                });
             }
         };
 
@@ -68,6 +68,7 @@ class UpdateCommand extends Command {
                         switch (switches[j]) {
                             case 'h':
                                 return this.showHelp();
+
                             case 'i':
                                 if (++i === max)
                                     return `Update: Option ${arg} requires parameter [path]`;
@@ -79,6 +80,15 @@ class UpdateCommand extends Command {
                                     options.intermediate = saveDir;
                                 }
                                 break;
+
+                            case 'c':
+                                options.noCreate = true;
+                                break;
+
+                            case 'r':
+                                options.reloadDependents = true;
+                                break;
+
                             case 'v':
                                 options.verbose++;
                                 break;
@@ -103,6 +113,14 @@ class UpdateCommand extends Command {
 
                                 options.intermediate = saveDir;
                             }
+                            break;
+
+                        case '--no-create':
+                            options.noCreate = true;
+                            break;
+
+                        case '--update-deps':
+                            options.reloadDependents = true;
                             break;
 
                         case '--verbose':
@@ -159,8 +177,15 @@ Options:
     -i, --intermediate <directory>
         Saves intermediate and final compiler output to the specified path.
 
+    -c, --no-create
+        Do not (re-)create instances after recompile.
+
+    -r, --update-deps
+        Automatically update dependencies as well (recursively).
+
     -v, --verbose
-        Displays verbose output from the compiler
+        Displays verbose output from the compiler.  Specify multiple times
+        to increase verbosity.  e.g. update -vvv (debug level 3)
 `);
     }
 }

@@ -29,7 +29,7 @@ class PipelineContext {
             this.content = '';
             this.exists = false;
             this.extension = n > -1 ? file.slice(n) : false
-            this.filename = file;
+            this.filename = this.fullPath = file;
             if (this.isEval === false)
                 this.realName = driver.fileManager.toRealPath(this.filename);
             this.resolvedName = false;
@@ -41,6 +41,7 @@ class PipelineContext {
             this.exists = file.exists;
             this.extension = file.extension;
             this.filename = file.baseName;
+            this.fullPath = file.fullPath;
             this.realPath = driver.fileManager.toRealPath(file.path);;
             this.resolvedName = this.realPath;
         }
@@ -90,8 +91,7 @@ class PipelineContext {
                 fileToUse = await driver.fileManager.getFileAsync(options.file, 0, true);
 
             if (fileToUse) {
-                let content = await fileToUse.readAsync()
-                    .catch(err => { throw err; });
+                let content = await fileToUse.readAsync();
 
                 options.fileObject = fileToUse;
 

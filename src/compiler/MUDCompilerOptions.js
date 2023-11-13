@@ -25,24 +25,24 @@ class MUDCompilerOptions {
          * Does the target module define a mixin?
          * @type {boolean}
          */
-        this.isMixin = options.isMixin === true;
+        this.isMixin = typeof options.isMixin === 'boolean' ? options.isMixin === true : false;
 
         /**
          * Is this a request to compile a virtual object?
          */
-        this.isVirtual = options.isVirtual === true;
+        this.isVirtual = typeof options.isVirtual === 'boolean' ? options.isVirtual === true : false;
 
         /**
          * No instances are created automatically by the driver if this option is true
          * @type {boolean}
          */
-        this.noCreate = options.noCreate === true;
+        this.noCreate = typeof options.noCreate === 'boolean' ? options.noCreate === true : false;
 
         /**
          * If true then types in the module can be modified in the runtime
          * @type {boolean}
          */
-        this.noSeal = options.noSeal === true;
+        this.noSeal = typeof options.noSeal === 'boolean' ? options.noSeal === true : false;
 
         /**
          * A callback that executes when the compiler completes.
@@ -78,6 +78,11 @@ class MUDCompilerOptions {
         this.reload = options.reload === true;
 
         /**
+         * Should we re-compile all dependent modules?
+         */
+        this.reloadDependents = typeof options.reloadDependents === 'boolean' ? options.reloadDependents === true : false;
+
+        /**
          * We are compiling/evaluating a block of code
          * @type {string}
          */
@@ -85,11 +90,21 @@ class MUDCompilerOptions {
 
         for (const [key, val] of Object.entries(options)) {
             if (key in this === false) {
-                this[key] = val;
+                console.log(`Warning: Unrecognized compiler option: ${key} = ${val}`);
             }
         }
     }
 
+    /**
+     * Create a child compiler option based on existing settings
+     * @param {string} filename The target module path for the new settings
+     * @returns {MUDCompilerOptions}
+     */
+    createChildOptions(filename) {
+        let clone = new MUDCompilerOptions(Object.assign({}, this, { filename, file: filename }));
+
+        return clone;
+    }
 }
 
 module.exports = MUDCompilerOptions;

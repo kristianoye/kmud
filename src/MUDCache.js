@@ -5,7 +5,9 @@
  */
 const
     MUDModule = require('./MUDModule'),
-    path = require('path');
+    path = require('path'),
+    MUDCompilerOptions = require('./compiler/MUDCompilerOptions'),
+    { PipelineContext } = require('./compiler/PipelineContext');
 
 /**
  * Contains information about all loaded MUD modules.
@@ -47,23 +49,30 @@ class MUDCache {
 
     /**
      * Gets an existing module or creates a new one and returns it.
-     * @param {string} filename The filename of the module.
-     * @param {string} fullPath The full path
-     * @param {string} muddir The mud directory
+     * @param {PipelineContext} context The compiler pipeline context
      * @param {boolean} isVirtual Is the module a virtual type?
-     * @param {boolean} [isMixin] Is the module expected to be a mixin type?
-     * @param {MUDModule} [parent] If this is a virtual object it needs a parent
+     * @param {MUDCompilerOptions} options The compiler options being used.
+     * @param {MUDModule} [parent] If this is a virtual object it needs a parent module.
      * @returns {MUDModule} The module
      */
-    getOrCreate(filename, fullPath, muddir, isVirtual, isMixin = false, parent = false) {
-        filename = this.normalize(filename);
+    getOrCreate(context, isVirtual, options, parent = false) {
+        let filename = this.normalize(context.filename);
         let module = this[filename];
         if (!module) {
-            this[filename] = module = new MUDModule(filename, fullPath, muddir, isVirtual, isMixin, parent);
+            this[filename] = module = new MUDModule(context, isVirtual, options, parent);
             this.moduleNames.push(filename);
         }
         return module;
     }
+    //getOrCreate(filename, fullPath, muddir, isVirtual, isMixin = false, parent = false) {
+    //    filename = this.normalize(filename);
+    //    let module = this[filename];
+    //    if (!module) {
+    //        this[filename] = module = new MUDModule(filename, fullPath, muddir, isVirtual, isMixin, parent);
+    //        this.moduleNames.push(filename);
+    //    }
+    //    return module;
+    //}
 
     /**
      * Attempt to fetch a class definition.

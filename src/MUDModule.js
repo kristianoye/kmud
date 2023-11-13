@@ -4,8 +4,10 @@
  * Date: October 1, 2017
  */
 const
-    MUDEventEmitter = require('./MUDEventEmitter');
-const MUDObject = require('./MUDObject');
+    MUDObject = require('./MUDObject'),
+    MUDCompilerOptions = require('./compiler/MUDCompilerOptions'),
+    { PipelineContext } = require('./compiler/PipelineContext'),
+    events = require('events');
 
 var
     useAuthorStats = false,
@@ -15,35 +17,36 @@ var
 /**
  * Contains information about a previously loaded MUD module.
  */
-class MUDModule extends MUDEventEmitter {
+class MUDModule extends events.EventEmitter {
     /**
-     * 
-     * @param {string} filename The name of the file?
-     * @param {string} absFsPath The full filesystem path
-     * @param {string} mudpath The full mud path
+     * @param {PipelineContext} context
      * @param {boolean} isVirtual Is this a virtual request?
      * @param {MUDCompilerOptions} options Options passed in from the compiler
      * @param {MUDModule} [parent] If this is a virtual object it needs a parent
      */
-    constructor(filename, absFsPath, mudpath, isVirtual, options, parent = false) {
+    constructor(context, isVirtual, options, parent = false) {
         super();
 
         let isMixin = options.isMixin === true;
-
-        /**
-         * Contains reference to all the child modules that inherit this module.
-         * @type {MUDModule[]} 
-         */
-        this.children = [];
 
         /**
          * Options passed in from the compiler
          * @type {MUDCompilerOptions} */
         this.compilerOptions = options;
 
-        this.context = null;
-
         this.$defaultExport = false;
+
+        /**
+         * A list of modules this module depends on
+         * @type {MUDModule[]} 
+         */
+        this.dependencies = [];
+
+        /**
+         * A list of modules that DEPEND on this module
+         * @type {MUDModule[]} 
+         */
+        this.dependents = [];
 
         /** Has the default been explicitly set? */
         this.explicitDefault = false;
@@ -70,13 +73,21 @@ class MUDModule extends MUDEventEmitter {
 
         this.isMixin = isMixin === true;
 
-        this.directory = mudpath;
+        this.directory = context.directory;
 
-        this.filename = filename;
+        this.filename = context.filename;
 
-        this.name = filename.slice(filename.lastIndexOf('/') + 1);
+        /**
+         * The file part of the MUD path
+         * @type {string}
+         */
+        this.name = context.filename.slice(context.filename.lastIndexOf('/') + 1);
 
-        this.fullPath = absFsPath;
+        /**
+         * The full path to the source module (including extension)
+         * @type {string}
+         */
+        this.fullPath = context.fullPath;
 
         this.isVirtual = isVirtual;
 
@@ -96,6 +107,18 @@ class MUDModule extends MUDEventEmitter {
                 /* the module should rebuild all instances */
             });
         }
+    }
+
+    /**
+     * Configure the module system for runtime
+     * @param {any} driver
+     */
+    static configureForRuntime(driver) {
+        useAuthorStats = driver.config.driver.featureFlags.authorStats === true;
+        useDomainStats = driver.config.driver.featureFlags.domainStats === true;
+        useStats = useAuthorStats | useDomainStats;
+        if (useStats)
+            DomainStats = require('./features/DomainStats');
     }
 
     get defaultExport() {
@@ -272,22 +295,6 @@ class MUDModule extends MUDEventEmitter {
             driver.storage.delete(instanceData.filename);
             throw err;
         }
-    }
-
-    createInstances(isReload) {
-        // TODO: Optionally flag to enable creating instance 0... seems silly, now
-        //Object.keys(this.types).forEach(typeName => {
-        //    let type = this.types[typeName];
-        //    if (type.prototype instanceof MUDObject) {
-        //        if (isReload || !this.instanceMap[typeName][0]) {
-        //            let ecc = driver.getExecution();
-        //            if (!ecc)
-        //                throw new Error('No execution context is currently running');
-        //            ecc.newContext = this.getNewContext(type, 0);
-        //            this.create(type, this.getNewContext(type, 0));
-        //        }
-        //    }
-        //});
     }
 
     async createInstanceAsync(type, instanceData, args, factory = false, callingFile = false) {
@@ -591,69 +598,105 @@ class MUDModule extends MUDEventEmitter {
     }
 
     /**
-     * Determines if the module is related to this module.
-     * @param {MUDModule} module The module to check.
-     * @returns {boolean} True if the module is related.
+     * Adds a module this module depends on
+     * @param {any} mod
      */
-    isRelated(module) {
-        if (module === this)
-            return true;
-        for (let i = 0, max = this.children.length; i < max; i++) {
-            if (this.children[i].isRelated(module))
-                return true;
+    eventAddDependency(mod) {
+        if (this.dependencies.indexOf(mod) === -1)
+            this.dependencies.push(mod);
+    }
+
+    /**
+     * Add a dependent module
+     * @param {MUDModule} mod
+     */
+    eventAddDependent(mod) {
+        if (this.dependents.indexOf(mod) === -1)
+            this.dependents.push(mod);
+        return this;
+    }
+
+    /**
+     * Event is called after the module is re-compiled
+     * @param {boolean} isReload
+     * @param {MUDCompilerOptions} options
+     */
+    eventCreateInstances(isReload, options) {
+        if (isReload === true) {
+
         }
-        let parent = this.parent;
-        while (parent) {
-            if (parent === module) return true;
-            parent = parent.parent;
+    }
+
+    /**
+     * Define a new type within the module
+     * @param {any} type
+     */
+    eventDefineType(type) {
+        this.types[type.name] = type;
+        this.typeNames.push(type.name);
+
+        if (type.name in this.instanceMap == false)
+            this.instanceMap[type.name] = [];
+
+        let parentType = Object.getPrototypeOf(type);
+        if (parentType && typeof parentType.prototype.baseName === 'string') {
+            let { file } = driver.efuns.parsePath(parentType.prototype.baseName),
+                parentModule = driver.cache.get(file);
+
+            parentModule.eventAddDependent(this);
+            this.eventAddDependency(parentModule);
         }
-        return false;
     }
 
     /**
      * Fires when a module is updated in-game.  This process makes sure that
      * all in-game instances are also updated and that child modules and
      * child instances are updated as well.
+     * 
+     * @param {MUDCompilerOptions} options
      */
-    recompiled() {
-        this.emit('recompiled', this);
-        // TODO: Re-implement recompile logic
-        //async.forEach(this.instances, (item, callback) => {
-        //    var instanceId = item.instanceId;
-        //    if (instanceId > 0) {
-        //        logger.log('Updating instance...');
-        //        this.createInstance(instanceId, true, []);
-        //    }
-        //    callback();
-        //}, err => {
-        //    if (err) {
-        //        logger.log('There was an error during re-compile: ' + err);
-        //    }
-        //    else {
-        //        logger.log('All instances updated, recompiling children...');
-        //        async.forEach(this.children, (childName, innerCallback) => {
-        //            try {
-        //                logger.log('Re-compiling ' + childName.filename);
-        //                driver.compiler.compileObject({ file: childName.filename, reload: true });
-        //            }
-        //            catch (e) {
-        //                driver.errorHandler(e, false);
-        //            }
-        //            innerCallback();
-        //        }, err => {
-        //            logger.log('All children of ' + this.filename + ' have been updated');
-        //        });
-        //    }
-        //});
+    async eventRecompiled(options) {
+        if (options.reloadDependents) {
+            for (const mod of this.dependents) {
+                try {
+                    let childOptions = options.createChildOptions(mod.fullPath),
+                        fso = await driver.efuns.fs.getFileAsync(mod.fullPath);
+
+                    await fso.compileAsync(childOptions);
+
+                    options.onDebugOutput(`Updating dependent module: ${mod.filename}: [Ok]`, 3);
+                }
+                catch (err) {
+                    options.onDebugOutput(`Updating dependent module: ${mod.filename}: Error: ${err}`, 3);
+                }
+            }
+        }
     }
 
-    resetModule() {
+    eventRemoveDependent(mod) {
+        let n = this.dependents.indexOf(mod);
+
+        if (n > -1) {
+            this.dependents.splice(i, 1);
+        }
+    }
+
+    eventResetModule() {
         this.exports = { length: 0 };
         this.singletons = {};
         this.typeNames = [];
         this.types = { length: 0 };
         this.defaultExport = false;
         this.explicitDefault = false;
+
+        for (const dep of this.dependencies) {
+            /** @type {MUDModule} */
+            let parentModule = driver.cache.get(dep.fullPath);
+            if (parentModule) {
+                parentModule.eventRemoveDependent(this);
+            }
+        }
+        this.dependencies = [];
     }
 
     /**
@@ -665,17 +708,5 @@ class MUDModule extends MUDEventEmitter {
         return this;
     }
 }
-
-/**
- * Configure this module for runtime.
- * @param {GameServer} driver The active game driver
- */
-MUDModule.configureForRuntime = function (driver) {
-    useAuthorStats = driver.config.driver.featureFlags.authorStats === true;
-    useDomainStats = driver.config.driver.featureFlags.domainStats === true;
-    useStats = useAuthorStats | useDomainStats;
-    if (useStats)
-        DomainStats = require('./features/DomainStats');
-};
 
 module.exports = MUDModule;

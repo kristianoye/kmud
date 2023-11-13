@@ -123,11 +123,8 @@ class MUDLoader {
                 value: function (fileName) {
                     let module = driver.cache.get(fileName);
                     if (module) {
-                        module.resetModule();
+                        module.eventResetModule();
                     }
-                    module.typeNames = [];
-                    module.types = {};
-
                     // You would THINK we could clear exports here, but no.
                     // module.exports = {};
                 },
@@ -138,10 +135,8 @@ class MUDLoader {
                 //  Define Module Type
                 value: function (fileName, type) {
                     let module = driver.cache.get(fileName);
-                    module.types[type.name] = type;
-                    module.typeNames.push(type.name);
-                    if (typeof module.instanceMap[type.name] === 'undefined') {
-                        module.instanceMap[type.name] = [];
+                    if (module) {
+                        module.eventDefineType(type);
                     }
                 }
             },

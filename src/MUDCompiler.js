@@ -179,11 +179,10 @@ class MUDCompiler {
 
     /**
      * Attempts to compile the requested file into a usable MUD object.
-     * @param {MUDCompilerOptions} options Hints for the compiler.
-     * @param {MUDCompilerOptions} moreOptions Hints for the compiler.
+     * @param {Partial<MUDCompilerOptions>} options Hints for the compiler.
      * @returns {MUDModule} The compiled module
      */
-    async compileObjectAsync(options, moreOptions) {
+    async compileObjectAsync(options) {
         if (!options)
             throw new Error('compileObject() called with invalid parameter(s)');
         else if (typeof options === 'string') {
@@ -194,9 +193,6 @@ class MUDCompiler {
         }
         else if (typeof options !== 'object') {
             throw new Error('compileObject() called with invalid parameter(s)');
-        }
-        if (typeof moreOptions === 'object') {
-            options = Object.assign(options, moreOptions);
         }
         if (false === options instanceof MUDCompilerOptions) {
             options = new MUDCompilerOptions(options);
@@ -232,12 +228,14 @@ class MUDCompiler {
                 if (!context.content)
                     throw new Error(`Could not load ${context.filename} [empty file?]`);
 
-                module = this.driver.cache.getOrCreate(
-                    context.filename,
-                    context.resolvedName,
-                    context.directory,
-                    false,
-                    options);
+                module = this.driver.cache.getOrCreate(context, false, options);
+
+                //module = this.driver.cache.getOrCreate(
+                //    context.filename,
+                //    context.resolvedName,
+                //    context.directory,
+                //    false,
+                //    options);
 
                 if (!driver.preCompile(module))
                     throw new Error(`Module ${context.filename} was rejected by driver in pre-compiler stage`);
@@ -271,10 +269,10 @@ class MUDCompiler {
                 let isReload = module.loaded;
 
                 if (!options.noCreate) {
-                    module.createInstances(isReload === true);
+                    module.eventCreateInstances(isReload === true, options);
                 }
                 if (isReload)
-                    module.recompiled();
+                    await module.eventRecompiled(options);
                 else
                 {
                     module.loaded = true;
@@ -338,12 +336,13 @@ class MUDCompiler {
         //  Attempt to compile a virtual object.
         let virtualResult = await driver.driverCallAsync('compileVirtual', async ecc => {
             try {
-                module = this.driver.cache.getOrCreate(
-                    context.filename,
-                    context.filename,
-                    context.filename.slice(0, context.filename.lastIndexOf('/')),
-                    true,
-                    options);
+                //module = this.driver.cache.getOrCreate(
+                //    context.filename,
+                //    context.filename,
+                //    context.filename.slice(0, context.filename.lastIndexOf('/')),
+                //    true,
+                //    options);
+                module = this.driver.cache.getOrCreate(context, true, options);
 
                 let args = options.args || [];
 

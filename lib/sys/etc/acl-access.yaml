@@ -20,7 +20,7 @@
 #
 
 PERMSET DEFAULT: RLp # Read, traverse directories, load objects
-PERMSET FULL: RWCDLMOS
+PERMSET FULL: RWCDLMOSU
 PERMSET NONE: '-'
 
 DIRECTORY *:

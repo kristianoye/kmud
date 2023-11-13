@@ -1021,7 +1021,7 @@ class MudScriptTranspiler extends PipelineComponent {
         });
         try {
             if (this.enabled) {
-                options.onDebugOutput(`\t\tRunning pipeline stage ${step} of ${maxStep}: ${this.name}`, 3);
+                options.onDebugOutput(`\t\tRunning pipeline stage ${(step + 1)} of ${maxStep}: ${this.name}`, 3);
                 let source = op.source = 'await (async () => { ' + op.source + ' })()';
                 op.ast = this.parser.parse(source, op.acornOptions);
                 op.output += `__rmt("${op.filename}");`

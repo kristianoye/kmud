@@ -803,6 +803,8 @@ class AclSecurityManager extends BaseSecurityManager {
                 case 'R': result |= SecurityFlags.P_LISTDIR | SecurityFlags.P_READ | SecurityFlags.P_READPERMS; break;
                 case 'w': result |= SecurityFlags.P_WRITE; break;
                 case 'x': result |= SecurityFlags.P_EXECUTE; break;
+                case 'L': result |= SecurityFlags.P_LOADOBJECT; break;
+                case 'U': result |= SecurityFlags.P_DESTRUCTOBJECT; break;
             }
         });
 

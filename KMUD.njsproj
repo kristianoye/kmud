@@ -103,9 +103,6 @@
     <Compile Include="lib\base\Verb.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\base\Verbs\ItemSupportBase.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="lib\base\Weapon.js">
       <SubType>Code</SubType>
     </Compile>
@@ -408,7 +405,11 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="libman.json" />
-    <Content Include="lib\base\Verbs\Listen.js" />
+    <Content Include="lib\base\mixins\Drop.js" />
+    <Content Include="lib\base\mixins\Get.js" />
+    <Content Include="lib\base\mixins\Listen.js" />
+    <Content Include="lib\base\mixins\Look.js" />
+    <Content Include="lib\base\mixins\Put.js" />
     <Content Include="lib\cmds\admin\placeholder.txt">
       <SubType>Code</SubType>
     </Content>
@@ -435,6 +436,7 @@
     <Content Include="lib\sys\etc\acl-groups.yaml">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\sys\include\VerbMixins.js" />
     <Content Include="lib\sys\lib\TextLogin - Copy.js" />
     <Content Include="lib\sys\shell\FileSystem.js" />
     <Content Include="lib\sys\skeleton\creator\cmds\HelloWorld.js">
@@ -533,7 +535,6 @@
     <Content Include="src\features\DomainStats.js" />
     <Content Include="src\features\FeatureBase.js" />
     <Content Include="src\features\MUDEditor.js" />
-    <Content Include="src\features\SecurityFileACL.js" />
     <Content Include="src\features\VerbSystem.js" />
     <Content Include="src\security\AclSecurityManager.js" />
     <Content Include="src\security\BaseSecurityManager.js">
@@ -850,6 +851,7 @@
     <Folder Include="lib\base\" />
     <Folder Include="lib\base\include\" />
     <Folder Include="lib\base\Combat\" />
+    <Folder Include="lib\base\mixins\" />
     <Folder Include="lib\base\Verbs\" />
     <Folder Include="lib\cmds\creator\" />
     <Folder Include="lib\cmds\admin\" />
