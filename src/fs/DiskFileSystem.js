@@ -419,6 +419,9 @@ class DiskFileObject extends FileSystemObject {
      * @param {{ encoding?: string, flags?: string }} options
      */
     writeFileAsync(content, options = { encoding: 'utf8', flags: 'w' }) {
+        if (typeof options === 'string') {
+            options = { flags: options };
+        }
         return new Promise((resolve, reject) => {
             try {
                 fs.writeFile(this.#physicalLocation, content, options, () => resolve(true));

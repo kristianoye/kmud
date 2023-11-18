@@ -78,6 +78,12 @@ class MUDLoader {
                     if (isAsync === false && method.startsWith('async '))
                         isAsync = true;
 
+                    if (driver.efuns.isClass(type) && typeof ob === 'object' && ob instanceof type === false) {
+                        if (type.prototype instanceof MUDMixin === false) {
+                            throw new SecurityError(`Illegal invocation of '${method}' in ${filename} [Line ${lineNumber}]; Callee type mismatch`)
+                        }
+                    }
+
                     if (!ecc) {
                         if (!ob) // Crasher?
                             throw new Error('What, no execution context?!');

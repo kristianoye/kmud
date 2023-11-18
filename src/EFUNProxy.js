@@ -763,7 +763,7 @@ class EFUNProxy {
      * @returns {boolean} True if the value is a class reference.
      */
     isClass (o) {
-        return typeof o === 'function' && /^\s*class /.test(o.toString());
+        return typeof o === 'function' && o.toString().substring(0, 5) === 'class';
     }
 
     /**
