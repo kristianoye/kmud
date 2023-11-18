@@ -465,7 +465,7 @@
     <Content Include="src\compiler\MudScriptTranspiler.js" />
     <Content Include="src\compiler\PipelineComponent.js" />
     <Content Include="src\compiler\PipelineContext.js" />
-    <Content Include="src\compiler\SecurityModifiers.js" />
+    <Content Include="src\compiler\MudscriptAcornPlugin.js" />
     <Content Include="src\compiler\TypeScriptProcessor.js">
       <SubType>Code</SubType>
     </Content>

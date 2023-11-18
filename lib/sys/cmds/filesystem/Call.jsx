@@ -13,9 +13,9 @@ class CallCommand extends Command {
             let input = cmdline.input,
                 endOfTarget = input.indexOf('.'),
                 target = endOfTarget > 0 ? input.slice(0, endOfTarget) : false,
-                call = endOfTarget > 0 ? input.slice(endOfTarget + 1) : false,
+                methodOrProperty = endOfTarget > 0 ? input.slice(endOfTarget + 1) : false,
                 resolved = this.resolveTarget(target),
-                source = `await (async () { let o = await efuns.loadObjectAsync("${resolved}"); return unwrap(o, ob => ob.${call}); })()`;
+                source = `await (async () { let o = await efuns.loadObjectAsync("${resolved}"); return unwrap(o, ob => ob.${methodOrProperty}); })()`;
             writeLine(source);
 
             let

@@ -14,7 +14,7 @@ const
         'set'           // Sets a value
     ],
     acorn = require('acorn'),
-    modifiers = require('./SecurityModifiers'),
+    MudscriptAcornPlugin = require('./MudscriptAcornPlugin'),
     jsx = require('acorn-jsx'),
     { CallOrigin } = require('../ExecutionContext');
 
@@ -23,6 +23,11 @@ const
     IllegalIdentifiers = [
         //  Property indicating whether an object is destroyed
         'destructed',
+
+        //  Prohited JavaScript patterns
+        'apply',
+        'bind',
+        'call',
 
         //  Async-related reserved tokens
         '__acb',    // Async Callback
@@ -35,6 +40,7 @@ const
 
         //  Execution Time Assertions
         '__ala',    // Assert Loop Alarm
+        '__asi',    // Assert Safe Index
 
         //  Method/Function execution
         '__bfc',    // Begin Function Call
@@ -59,7 +65,29 @@ const
 
     ];
 
+
 /** @typedef {{ allowJsx: boolean, context: PipeContext, source: string }} OpParams */
+
+/** 
+ *  A superset of all possible node properties.  Should separate into 
+ *  individual jsdoc types at some point...
+ *  
+ * @typedef {Object} NodeType
+ * @property {NodeType|NodeType[]} [body] A body node.
+ * @property {NodeType} [callee] The target of a method call operation.
+ * @property {number} end The ending character index for the node (and all children)
+ * @property {NodeType[]} [elements] An array of element nodes.
+ * @property {NodeType} [left] The left side of a statement.
+ * @property {NodeType[]} [param] 
+ * @property {NodeType[]} [params] Parameters to a function or method call.
+ * @property {NodeType} [right] THe right side of an assignment operation.
+ * @property {number} start The starting character index for the node.
+ * @property {NodeType} [test] The test expression for an operation.
+ * @property {string} [text] The text representation of the node.
+ * @property {string} type The type of node
+ */
+
+
 class JSXTranspilerOp {
     /**
      * Construct a transpiler op
@@ -145,6 +173,14 @@ class JSXTranspilerOp {
         return this.callerId.pop();
     }
 
+    getPosition() {
+        let before = this.source.slice(0, this.pos),
+            lines = before.split(/[\n]{1}\r*/),
+            lastLine = lines.pop();
+
+        return { line: lines.length + 1, char: lastLine.length + 1 };
+    }
+
     /**
      * Attempts to import one or more simple includes
      * @param {string[]} fileSpec One or more files to include
@@ -160,6 +196,15 @@ class JSXTranspilerOp {
 
     get method() {
         return this.thisMethod || '(MAIN)';
+    }
+
+    /**
+     * Raise an exception
+     * @param {string} err The error message
+     */
+    raise(err) {
+        let pos = this.getPosition();
+        throw new Error(`[Line ${pos.line}, Char ${pos.char}]: ${err}`);
     }
 
     /**
@@ -191,25 +236,6 @@ class JSXTranspilerOp {
         return this.thisMethod;
     }
 }
-
-/** 
- *  A superset of all possible node properties.  Should separate into 
- *  individual jsdoc types at some point...
- *  
- * @typedef {Object} NodeType
- * @property {NodeType|NodeType[]} [body] A body node.
- * @property {NodeType} [callee] The target of a method call operation.
- * @property {number} end The ending character index for the node (and all children)
- * @property {NodeType[]} [elements] An array of element nodes.
- * @property {NodeType} [left] The left side of a statement.
- * @property {NodeType[]} [param] 
- * @property {NodeType[]} [params] Parameters to a function or method call.
- * @property {NodeType} [right] THe right side of an assignment operation.
- * @property {number} start The starting character index for the node.
- * @property {NodeType} [test] The test expression for an operation.
- * @property {string} [text] The text representation of the node.
- * @property {string} type The type of node
- */
 
 /**
  * Instruments final source code with runtime assertions designed to protect against runaway code.
@@ -398,13 +424,23 @@ function parseElement(op, e, depth, xtra = {}) {
                         isCallout = false,
                         object = false,
                         propName = false,
-                        callee = false;
+                        callee = false,
+                        checkThisArg = false;
 
                     if (e.callee.type === 'MemberExpression') {
                         object = parseElement(op, e.callee.object, depth + 1);
                         propName = parseElement(op, e.callee.property, depth + 1);
-                        callee = object + propName;
+                        propName += op.readUntil(e.callee.end);
+                        if (propName === '.call' || propName === '.apply') {
+                            if (e.arguments.length === 0 || e.arguments[0].type !== 'ThisExpression') {
+                                op.raise('For security reasons, the first argument to call or apply MUST be this');
+                            }
+                        }
                         op.addCallerId(propName.slice(1));
+                        if (propName.startsWith('[')) {
+                            propName = '[__asi(' + propName.slice(1, propName.length - 1) + ', __FILE__, __LINE__)]';
+                        }
+                        callee = object + propName;
                     }
                     else if (e.callee.type === 'Identifier') {
                         propName = callee = parseElement(op, e.callee, depth + 1);
@@ -668,8 +704,10 @@ function parseElement(op, e, depth, xtra = {}) {
             case 'Identifier':
                 let identifier = op.source.slice(e.start, e.end);
 
-                if (IllegalIdentifiers.indexOf(identifier) > -1)
-                    throw new Error(`Illegal identifier: ${identifier}`);
+                if (IllegalIdentifiers.indexOf(identifier) > -1) {
+                    let pos = op.getPosition();
+                    throw new Error(`[Line ${pos.line}; Char: ${pos.char}] Illegal identifier: ${identifier}`);
+                }
                 else if (identifier in op.symbols && identifier in op.symbols.__proto__ === false) {
                     let symbolValue = op.symbols[identifier];
                     if (typeof symbolValue === 'string') {
@@ -996,7 +1034,7 @@ class MudScriptTranspiler extends PipelineComponent {
         this.extension = config.extension || '.js';
         this.parser = acorn.Parser
             .extend(jsx())
-            .extend(modifiers(config));
+            .extend(MudscriptAcornPlugin(config));
 
     }
 
@@ -1016,19 +1054,21 @@ class MudScriptTranspiler extends PipelineComponent {
             filename: context.basename,
             context,
             source: context.content,
-            injectedSuperClass: 'MUDObject',
-            ecmaVersion: '2021'
+            injectedSuperClass: 'MUDObject'
         });
         try {
             if (this.enabled) {
                 options.onDebugOutput(`\t\tRunning pipeline stage ${(step + 1)} of ${maxStep}: ${this.name}`, 3);
+
                 let source = op.source = 'await (async () => { ' + op.source + ' })()';
+
                 op.ast = this.parser.parse(source, op.acornOptions);
                 op.output += `__rmt("${op.filename}");`
                 op.ast.body.forEach(n => op.output += parseElement(op, n, 0));
                 op.output += op.readUntil(op.max);
                 op.output += op.appendText;
                 op.injectedSuperClass = 'MUDObject';
+
                 return context.update(PipeContext.CTX_RUNNING, op.finish());
             }
             else {

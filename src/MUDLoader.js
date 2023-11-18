@@ -7,8 +7,8 @@ const
     MUDObject = require('./MUDObject'),
     MUDHtml = require('./MUDHtml'),
     { TimeoutError } = require('./ErrorTypes'),
-    BaseInput = require('./inputs/BaseInput'),
-    { ExecutionContext, ExectionFrame, CallOrigin } = require('./ExecutionContext'),
+    { ExecutionContext, CallOrigin } = require('./ExecutionContext'),
+    { SecurityError } = require('./ErrorTypes'),
     loopsPerAssert = 10000;
 
 var /** @type {Object.<number,ExecutionContext>} */
@@ -48,6 +48,19 @@ class MUDLoader {
                         let ecc = driver.executionContext;
                         ecc && ecc.alarm();
                     }
+                },
+                enumerable: false,
+                writable: false
+            },
+            __asi: {
+                //  Is Safe Index (asi)
+                value: function (ind, filename, lineNumber) {
+                    if (typeof ind === 'string') {
+                        if (ind === 'call' || ind === 'apply' || ind === 'bind') {
+                            throw new SecurityError(`Illegal attempt to invoke '${ind}' in ${filename} [Line ${lineNumber}]`);
+                        }
+                    }
+                    return ind;
                 },
                 enumerable: false,
                 writable: false
