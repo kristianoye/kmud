@@ -62,6 +62,7 @@ class MUDCache {
             this[filename] = module = new MUDModule(context, isVirtual, options, parent);
             this.moduleNames.push(filename);
         }
+        context.module = module;
         return module;
     }
     //getOrCreate(filename, fullPath, muddir, isVirtual, isMixin = false, parent = false) {

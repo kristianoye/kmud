@@ -107,6 +107,7 @@ class JSXTranspilerOp {
         this.jsxDepth = 0;
         this.jsxIndent = '';
         this.max = p.source.length;
+        this.module = p.context.module;
         this.output = '';
         this.pos = 0;
         this.scopes = [];
@@ -466,22 +467,6 @@ function parseElement(op, e, depth, xtra = {}) {
                             isCallout = true;
                             writeCallee = false;
                         }
-                        else if (propName === '$include') {
-                            let fileSpec = e.arguments.map(a => {
-                                if (a.type !== 'Literal')
-                                    throw new Error(`Illegal include statement; Cannot include type ${a.type} (must be Literal)`);
-                                return a.value;
-                            });
-
-                            if (fileSpec.length === 0)
-                                throw new Error('Illegal include statement; Must specify at least one file.');
-
-                            ret += `/* included ${fileSpec.join(', ')} */`;
-                            op.include(fileSpec);
-                            writeCallee = false;
-                            isCallout = true;
-                            op.pos = e.end;
-                        }
                         else if (propName === 'create' || propName === 'createAsync') {
                             ret += callee;
                             ret += `('${op.filename}'`;
@@ -580,6 +565,11 @@ function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'ClassDeclaration':
+                if (e.modifier) {
+                    //  Do not include raw modifiers in output
+                    ret += `/** ${e.modifier.raw} */`;
+                    op.pos = e.modifier.end;
+                }
                 op.thisClass = e.id.name;
                 ret += parseElement(op, e.id, depth + 1);
 

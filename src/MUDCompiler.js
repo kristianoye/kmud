@@ -198,7 +198,7 @@ class MUDCompiler {
             options = new MUDCompilerOptions(options);
         }
         let context = await PipeContext.PipelineContext.create(options, this.extensionPattern),
-            module = this.driver.cache.get(context.basename),
+            module = context.module,
             t0 = efuns.ticks,
             cleanError = false;
 
@@ -220,6 +220,8 @@ class MUDCompiler {
             else if (!pipeline.enabled)
                 throw new Error(`Could not load ${context.filename} [${pipeline.name} - not enabled]`);
 
+            module = this.driver.cache.getOrCreate(context, false, options);
+
             await driver.driverCallAsync('compileObjectAsync', async () => {
                 await pipeline.executeAsync(context, options);
             }, context.filename, true);
@@ -227,8 +229,6 @@ class MUDCompiler {
             if (context.state === PipeContext.CTX_FINISHED) {
                 if (!context.content)
                     throw new Error(`Could not load ${context.filename} [empty file?]`);
-
-                module = this.driver.cache.getOrCreate(context, false, options);
 
                 //module = this.driver.cache.getOrCreate(
                 //    context.filename,

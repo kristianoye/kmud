@@ -47,6 +47,7 @@ class PipelineContext {
         }
         this.errors = [];
         this.state = CTX_INIT;
+        this.module = !isEval && driver.cache.get(this.basename);
     }
 
     addError(err) {
