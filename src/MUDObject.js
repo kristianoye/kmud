@@ -74,11 +74,9 @@ class MUDObject extends MUDEventEmitter {
     }
 
     create(...args) {
-        this.callMixinImpl('create', undefined, ...args)
     }
 
     async createAsync(...args) {
-        await this.callMixinImplAsync('createAsync', undefined, ...args)
     }
 
     get environment() {
@@ -229,7 +227,7 @@ class MUDObject extends MUDEventEmitter {
 }
 
 const
-    $blockedMethods = ['constructor', '$extendType', '$__copyMethods', '$getVirtualTable', '$virtualCall', '$virtualCallAsync'];
+    $blockedMethods = ['constructor', '$__extendType', '$__copyMethods', '$__getVirtualTable', '$__virtualCall', '$__virtualCallAsync'];
 
 class MUDMixin {
     static $__copyMethods(type, proto, listOrMethod) {
@@ -252,7 +250,7 @@ class MUDMixin {
         for (const info of methodList) {
             let [name, prop] = info;
 
-            if (typeof type.prototype[name] === 'undefined') {
+            if (!type.prototype.hasOwnProperty(name) && !type.prototype.__proto__.hasOwnProperty(name)) {
                 Object.defineProperty(type.prototype, name, prop);
             }
             if (typeof prop.value === 'function')
@@ -279,6 +277,9 @@ class MUDMixin {
     static $__virtualCall(instance, methodName, mixinName, args) {
         let $vt = MUDMixin.$__getVirtualTable(instance.constructor.prototype),
             $vtSize = Object.keys($vt).length;
+
+        if (!mixinName)
+            throw new Error(`$__virtualCall(): Missing required parameter 3: mixinName`);
 
         if ($vtSize > 0 && typeof methodName === 'string') {
             let mixinList = (mixinName ? [$vt[mixinName]] : Object.keys($vt))
@@ -311,6 +312,9 @@ class MUDMixin {
     static async $__virtualCallAsync(instance, methodName, mixinName, args) {
         let $vt = MUDMixin.$__getVirtualTable(instance.constructor.prototype),
             $vtSize = Object.keys($vt).length;
+
+        if (!mixinName)
+            throw new Error(`$__virtualCallAsync(): Missing required parameter 3: mixinName`);
 
         if ($vtSize > 0 && typeof methodName === 'string') {
             let mixinList = (mixinName ? [$vt[mixinName]] : Object.keys($vt))

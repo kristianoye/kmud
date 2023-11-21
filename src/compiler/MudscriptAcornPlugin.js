@@ -16,9 +16,18 @@ const acorn = require('acorn'),
     ModifierFinal = "final",
     ModifierOverride = "override",
     ModifierStatic = "static",
-    MudscriptKeywords = "break case catch continue debugger default do else finally for function if return switch throw try var while with null true false instanceof typeof void delete new in this const class extends export import super abstract singleton final",
+    MudscriptKeywords = "break case catch continue debugger default do else finally for function if return switch throw try var while with null true false instanceof typeof void delete new in this const class extends export import super abstract singleton final public private protected package override",
     memberDecorations = [AccessPublic, AccessProtected, AccessPrivate, AccessPackage, ModifierAbstract, ModifierFinal, ModifierStatic, ModifierOverride],
     securityDecorations = [AccessPublic, AccessProtected, AccessPrivate, AccessPackage],
+    MemberModifiers = Object.freeze({
+        Public: 1 << 0,
+        Protected: 1 << 1,
+        Private: 1 << 2,
+        Package: 1 << 3,
+        Abstract: 1 << 4,
+        Final: 1 << 5,
+        Override: 1 << 6
+    }),
     ClassModifiers = Object.freeze({
         Abstract: 1,
         Final: 2,
@@ -32,6 +41,11 @@ var
     regexpCache = {};
 
 function plugin(options, Parser) {
+    if ('acornOptions' in options && options.acornOptions.ecmaVersion < 8)
+        throw new Error('Incompatible ecmaVersion (requires 8+)');
+    else if ('ecmaVersion' in options && options.ecmaVersion < 8)
+        throw new Error('Incompatible ecmaVersion (requires 8+)');
+
     function DestructuringErrors() {
         this.shorthandAssign =
             this.trailingComma =
@@ -62,7 +76,26 @@ function plugin(options, Parser) {
     }
 
     // Mark a class or class member as abstract
-    types$1._abstract = kw("abstract", { beforeExpr: true, classModifier: ClassModifiers.Abstract });
+    types$1._abstract = kw("abstract", { beforeExpr: true, classModifier: ClassModifiers.Abstract, memberModifier: MemberModifiers.Abstract });
+
+    // Final class decorator
+    types$1._final = kw("final", { beforeExpr: true, classModifier: ClassModifiers.Final, memberModifier: MemberModifiers.Final });
+
+    // Public access modifier
+    types$1._public = kw("public", { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Public });
+
+    // Protected access modifier
+    types$1._protected = kw("protected", { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Protected });
+
+    // Private access modifier
+    types$1._private = kw("private", { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Private });
+
+    // Private access modifier
+    types$1._package = kw("package", { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Package });
+
+    // Private access modifier
+    types$1._override = kw("override", { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Override });
+
 
     // Dereferencing operator allows calling 3 types of possible instance references:
     //    instance->method(...)
@@ -72,9 +105,6 @@ function plugin(options, Parser) {
 
     // Scope resolution operator for "multiple inheritance"
     types$1.doubleColon = new acorn.TokenType("::");
-
-    // Final class decorator
-    types$1._final = kw("final", { beforeExpr: true, classModifier: ClassModifiers.Final });
 
     // Keyword 'uses' allows inheritance of mixins
     types$1._usesMixins = new acorn.TokenType("uses", { beforeExpr: true });
@@ -87,6 +117,19 @@ function plugin(options, Parser) {
             super(options, input, startPos);
 
             this.keywords = wordsRegexp(MudscriptKeywords);
+        }
+
+        /**
+         * Eat whitespace
+         * @returns {[ number, number ]} Returns previous location and number of spaces skipped
+         */
+        eatWhitespace() {
+            let prev = skipWhiteSpace.lastIndex = this.pos;
+            let spaceCount = skipWhiteSpace.exec(this.input)[0].length;
+
+            this.pos += spaceCount;
+
+            return [prev, spaceCount];
         }
 
         /**
@@ -112,64 +155,15 @@ function plugin(options, Parser) {
             return super.getTokenFromCode(code);
         }
 
-        parseClassMixins(node) {
-            if (this.eat(types$1._usesMixins)) {
-                node.mixins = this.parseExprSubscripts(null, false);
-                return true;
-            } 
-            node.mixins = [];
-            return false;
-        }
-
-        parseClass(node, isStatement) {
-            this.next();
-
-            // ecma-262 14.6 Class Definitions
-            // A class definition is always strict mode code.
-            var oldStrict = this.strict;
-            this.strict = true;
-
-            this.parseClassId(node, isStatement);
-            this.parseClassSuper(node);
-            this.parseClassMixins(node);
-
-            var privateNameMap = this.enterClassBody();
-            var classBody = this.startNode();
-            var hadConstructor = false;
-            classBody.body = [];
-            this.expect(types$1.braceL);
-            while (this.type !== types$1.braceR) {
-                var element = this.parseClassElement(node.superClass !== null);
-                if (element) {
-                    classBody.body.push(element);
-                    if (element.type === "MethodDefinition" && element.kind === "constructor") {
-                        if (hadConstructor) { this.raiseRecoverable(element.start, "Duplicate constructor in the same class"); }
-                        hadConstructor = true;
-                    } else if (element.key && element.key.type === "PrivateIdentifier" && isPrivateNameConflicted(privateNameMap, element)) {
-                        this.raiseRecoverable(element.key.start, ("Identifier '#" + (element.key.name) + "' has already been declared"));
-                    }
-                }
-            }
-            this.strict = oldStrict;
-            this.next();
-            node.body = this.finishNode(classBody, "ClassBody");
-            this.exitClassBody();
-            return this.finishNode(node, isStatement ? "ClassDeclaration" : "ClassExpression")
-        }
-
         parseClassElement(constructorAllowsSuper) {
             if (this.eat(types$1.semi)) return null;
 
-            let method = this.startNode();
+            let method = this.startNode(),
+                modifierNode = this.startNode();
             const tryContextual = (k, noLineBreak = false) => {
                 const start = this.start, startLoc = this.startLoc;
                 if (!this.eatContextual(k)) return false;
                 if (this.type !== types$1.parenL && (!noLineBreak || !this.canInsertSemicolon())) {
-                    if (securityDecorations.indexOf(k) > -1) {
-                        method.access = this.startNodeAt(start, startLoc);
-                        method.access.name = k;
-                        this.finishNode(method.access, "AccessSpecifier");
-                    }
                     return true;
                 }
                 if (method.key) this.unexpected();
@@ -181,51 +175,50 @@ function plugin(options, Parser) {
             };
 
             method.kind = "method";
-            let foundDecorator = false,
-                decorators = memberDecorations.slice(0);
+            method.methodModifiers = 0;
 
-            do {
-                foundDecorator = false;
-                for (let i = 0; i < decorators.length; i++) {
-                    let decorator = decorators[i];
-                    if (tryContextual(decorator)) {
-                        switch (decorator) {
-                            case AccessPrivate:
-                            case AccessProtected:
-                            case AccessPackage:
-                            case AccessPublic:
-                                if (method.accessKind)
-                                    this.raise(this.pos, `Method item cannot be both ${method.accessKind} AND ${decorator}`);
-                                method.accessKind = decorator;
-                                break;
+            this.eatWhitespace();
 
-                            case ModifierAbstract:
-                                method.isAbstract = true;
-                                break;
-
-                            case ModifierFinal:
-                                method.isFinal = true;
-                                break;
-
-                            case ModifierOverride:
-                                method.isOverride = true;
-                                break;
-
-                            case ModifierStatic:
-                                method.static = true;
-                                break;
-                        }
-                        foundDecorator = true;
-
-                        //  Do not look for this decorator again
-                        decorators.splice(i, 1);
-                        break;
-                    }
+            while (true) {
+                this.eatWhitespace();
+                if (this.eat(types$1._abstract)) {
+                    method.isAbstract = true;
+                    method.methodModifiers |= MemberModifiers.Abstract;
+                }
+                else if (this.eat(types$1._public)) {
+                    method.accessKind = 'public';
+                    method.methodModifiers |= MemberModifiers.Public;
+                }
+                else if (this.eat(types$1._protected)) {
+                    method.accessKind = 'protected';
+                    method.methodModifiers |= MemberModifiers.Protected
+                }
+                else if (this.eat(types$1._private)) {
+                    method.accessKind = 'private';
+                    method.methodModifiers |= MemberModifiers.Private;
+                }
+                else if (this.eat(types$1._package)) {
+                    method.accessKind = 'package';
+                    method.methodModifiers |= MemberModifiers.Package;
+                }
+                else if (this.eat(types$1._override)) {
+                    method.methodModifiers |= MemberModifiers.Override;
+                }
+                else if (this.eat(types$1._final)) {
+                    method.methodModifiers |= MemberModifiers.Final;
+                }
+                else {
+                    this.finishNode(modifierNode, 'MemberModifiers');
+                    if (modifierNode.end < modifierNode.start)
+                        modifierNode.end = modifierNode.start;
+                    modifierNode.raw = this.input.slice(modifierNode.start, modifierNode.end);
+                    modifierNode.value = method.methodModifiers;
+                    break;
                 }
             }
-            while (foundDecorator);
 
             method.accessKind = method.accessKind || options.defaultAccessModifier;
+            method.modifier = modifierNode;
 
             let isGenerator = this.eat(types$1.star);
             let isAsync = false;
@@ -384,6 +377,25 @@ function plugin(options, Parser) {
             return base
         }
 
+        /**
+         * Parse out all superclasses
+         * @param {any} node
+         */
+        parseClassSuper(node) {
+            node.superClass = this.eat(types$1._extends) ? this.parseExprSubscripts(null, false) : null;
+            node.parentClasses = [];
+
+            if (options.allowMultipleInheritance && node.superClass !== null) {
+                node.parentClasses.push(node.superClass);
+                this.eatWhitespace();
+                while (this.eat(types$1.comma)) {
+                    let otherClass = this.parseExprSubscripts(null, false);
+                    node.parentClasses.push(otherClass);
+                    this.eatWhitespace();
+                }
+            }
+        }
+
         parseCallExpressionArguments() {
             return this.parseExprList(
                 acorn.tokTypes.parenL,
@@ -401,6 +413,8 @@ module.exports = function (optionsIn) {
         return plugin(Object.assign({
             allowAccessModifiers: true,
             allowDereferenceOperator: true,
+            allowLazyBinding: true,
+            allowMultipleInheritance: true,
             allowScopeOperator: true,
             allowStaticProperties: true,
             allowPackageModifier: true,

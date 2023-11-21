@@ -14,6 +14,19 @@ var
     useDomainStats = false,
     useStats = false;
 
+
+class MUDModuleTypeInfo {
+    /**
+     * 
+     * @param {string} typeName The name of the type being defined
+     * @param {number} modifiers Modifiers declared by the class (final, abstract, etc.)
+     */
+    constructor(typeName, modifiers) {
+        this.typeName = typeName;
+        this.modifiers = modifiers;
+    }
+}
+
 /**
  * Contains information about a previously loaded MUD module.
  */
@@ -616,6 +629,10 @@ class MUDModule extends events.EventEmitter {
         return this;
     }
 
+    eventBeginTypeDefinition(typeName, modifiers) {
+        return this.currentTypeDef = new MUDModuleTypeInfo(typeName, modifiers);
+    }
+
     /**
      * Event is called after the module is re-compiled
      * @param {boolean} isReload
@@ -677,7 +694,7 @@ class MUDModule extends events.EventEmitter {
         let n = this.dependents.indexOf(mod);
 
         if (n > -1) {
-            this.dependents.splice(i, 1);
+            this.dependents.splice(n, 1);
         }
     }
 

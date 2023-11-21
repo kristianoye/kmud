@@ -95,6 +95,7 @@ class JSXTranspilerOp {
      */
     constructor(p) {
         this.acornOptions = p.acornOptions || false;
+        this.allowConstructors = p.allowConstructors;
         this.allowLiteralCallouts = p.allowLiteralCallouts;
         this.allowJsx = p.allowJsx;
 
@@ -117,6 +118,7 @@ class JSXTranspilerOp {
         this.thisClass = false;
         this.thisMethod = false;
         this.thisParameter = false;
+        this.typeDef = false;
         this.isStatic = false;
         this.injectedSuperClass = p.injectedSuperClass || false;
     }
@@ -156,6 +158,20 @@ class JSXTranspilerOp {
     eatWhitespace() {
         while (this.pos < this.max && this.source.charAt(this.pos).trim() === '')
             this.pos++;
+    }
+
+    eventBeginTypeDefinition(typeName, modifiers) {
+        if (this.typeDef !== false) {
+            let pos = this.getPosition();
+            throw new Error(`[Line ${pos.line}, Char ${pos.char}] Nested class definitions are not allowed (currently parsing ${this.typeDef.typeName})`);
+        }
+        return this.typeDef = this.module.eventBeginTypeDefinition(typeName, modifiers);
+    }
+
+    eventEndTypeDefinition() {
+        if (this.typeDef !== false) {
+            this.typeDef = false;
+        }
     }
 
     /**
@@ -570,7 +586,7 @@ function parseElement(op, e, depth, xtra = {}) {
                     ret += `/** ${e.modifier.raw} */`;
                     op.pos = e.modifier.end;
                 }
-                op.thisClass = e.id.name;
+                let typeDef = op.eventBeginTypeDefinition(op.thisClass = e.id.name, e.classModifiers || 0);
                 ret += parseElement(op, e.id, depth + 1);
 
                 if (e.superClass)
@@ -579,9 +595,17 @@ function parseElement(op, e, depth, xtra = {}) {
                     op.forcedInheritance = true;
                     ret += ` extends ${op.injectedSuperClass}`;
                 }
+                //  Skip passed any additional extend statements
+                op.pos = e.body.start;
 
                 ret += parseElement(op, e.body, depth + 1);
                 ret += ` ${e.id.name}.prototype.baseName = '${op.getBaseName(e.id.name)}'; __dmt("${op.filename}", ${e.id.name}); `;
+
+                if (Array.isArray(e.parentClasses)) {
+                    let parentClassList = e.parentClasses.map(pc => pc.name).join(',');
+                    ret += `extendType(${typeDef.typeName}, ${parentClassList});`;
+                }
+                op.eventEndTypeDefinition();
                 break;
 
             case 'ConditionalExpression':
@@ -834,7 +858,15 @@ function parseElement(op, e, depth, xtra = {}) {
                         op.pos = e.access.end;
                         op.eatWhitespace();
                     }
+                    if (e.modifier) {
+                        //  Do not include raw modifiers in output
+                        ret += `/** ${e.modifier.raw} */`;
+                        op.pos = e.modifier.end;
+                    }
                     let methodName = op.setMethod(parseElement(op, e.key, depth + 1), e.accessKind, e.static);
+                    if (op.allowConstructors === false && methodName === 'constructor') {
+                        op.raise(`Game objects may not define JavaScript constructors`);
+                    }
                     let info = {
                         callType: 0,
                         methodName
@@ -1039,6 +1071,7 @@ class MudScriptTranspiler extends PipelineComponent {
     async runAsync(context, options, step, maxStep) {
         let op = new JSXTranspilerOp({
             acornOptions: Object.assign({}, this.acornOptions, context.acornOptions),
+            allowConstructors: false,
             allowJsx: this.allowJsx,
             allowLiteralCallouts: this.allowLiteralCallouts,
             filename: context.basename,

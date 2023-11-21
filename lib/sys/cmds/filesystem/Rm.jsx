@@ -19,7 +19,8 @@ class RmOperation {
      * @param {number} flags The flags controlling the remove operation.
      * @param {string[]} files The files to be removed.
      */
-    constructor(flags, files) {
+    create(flags, files) {
+        super.create();
         this.flags = flags;
         this.files = files;
     }

@@ -268,6 +268,29 @@ class MUDLoader {
         });
     }
 
+    /**
+     * Extends a class using functionality from another type (pseudo-mixin)
+     * @param {function} target The target type to extend.
+     * @param {...string} moduleList The module that contains the extension
+     * 
+     */
+    extendType(target, ...moduleList) {
+        try {
+            for (const exp of moduleList) {
+                if (driver.efuns.isClass(exp)) {
+                    MUDMixin.$__extendType(target, exp);
+                }
+                else
+                    throw new Error(`Bad argument to extendType: ${exp}`)
+            }
+        }
+        catch (err) {
+            console.log(err);
+            throw err;
+        }
+    }
+
+
     async createAsync(callingFile, type, ...args) {
         if (typeof type === 'string') {
             let parts = driver.efuns.parsePath(type),

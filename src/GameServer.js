@@ -92,7 +92,7 @@ class GameServer extends MUDEventEmitter {
         this.playerObjects = new LinkedListWithID('playerName');
         this.wizardObjects = new LinkedList();
 
-        //  Locations where $include and require look for unqualified files
+        //  Locations where #include and require look for unqualified files
         this.includePath = config.mudlib.includePath || [];
 
         this.logDirectory = config.mudlib.logDirectory;

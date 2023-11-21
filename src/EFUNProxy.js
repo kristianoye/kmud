@@ -517,31 +517,6 @@ class EFUNProxy {
     }
 
     /**
-     * Extends a class using functionality from another type (pseudo-mixin)
-     * @param {function} target The target type to extend.
-     * @param {...string} moduleList The module that contains the extension
-     * 
-     */
-    async addMixin(target, ...moduleList) {
-        for (const exp of moduleList) {
-            let filename = this.resolvePath(exp, this.directory),
-                [moduleName, typeName] = filename.split('$', 2),
-                module = await driver.compiler.compileObjectAsync({
-                    file: moduleName,
-                    isMixin: true,
-                    reload: false,
-                    relativePath: this.directory
-                }),
-                mixinType = module && module.getType(typeName || module.name);
-            if (!module)
-                throw new Error(`Failed to load required module '${filename}'`);
-            if (!mixinType)
-                throw new Error(`Failed to load required mixin '${typeName || module.name}'`);
-            MUDMixin.$__extendType(target, mixinType);
-        }
-    }
-
-    /**
      * Render the exits to the client.  (There must be a better way?)
      * @param {string} prefix Not sure
      * @param {string[]} exits A list of exits available to the client.
