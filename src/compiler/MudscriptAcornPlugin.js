@@ -3,7 +3,7 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  * 
- * Extend acorn parser to support Mudscript language fatures.
+ * Extend acorn parser to support Mudscript language features.
  */
 const acorn = require('acorn'),
     AccessPublic = "public",
