@@ -459,7 +459,7 @@ class EFUNProxy {
      * @param {MUDWrapper} target The MUD object.
      */
     directoryName(target) {
-        let dir = unwrap(target, o => o.filename) || target;
+        let dir = typeof target === 'object' && unwrap(target, o => o.filename) || target;
         return typeof dir === 'string' && dir.slice(0, dir.lastIndexOf('/'));
     }
 
@@ -1539,7 +1539,11 @@ class EFUNProxy {
      * @returns {any} The results of the import.
      */
     require(moduleName) {
-        throw new Error('Method require is obsolete; Please use await requireAsync()');
+        const result = (async (moduleName) => {
+            return await this.requireAsync(moduleName);
+        })(moduleName);
+
+        return result;
     }
 
     /**

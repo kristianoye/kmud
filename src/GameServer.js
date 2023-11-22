@@ -621,7 +621,18 @@ class GameServer extends MUDEventEmitter {
                     defaultValue = hasDefault || false,
                     onSuccess = typeof success === 'function' && success || (s => s);
 
-                if (Array.isArray(target)) {
+                if (typeof target === 'function' && target.isWrapper === true) {
+                    result = target();
+                    if (!result || typeof result !== 'object' || result.constructor.name === 'Object')
+                        result = defaultValue;
+                }
+                else if (target instanceof MUDObject) { // if (typeof target === 'object' && result.constructor.name !== 'Object') {
+                    result = target;
+                }
+                else if (typeof target === 'function') {
+
+                }
+                else if (Array.isArray(target)) {
                     let items = target.map(t => global.unwrap(t))
                         .filter(o => o instanceof MUDObject);
 
@@ -632,14 +643,6 @@ class GameServer extends MUDEventEmitter {
                         return onSuccess(items);
 
                     return items;
-                }
-                else if (typeof target === 'function' && target.isWrapper === true) {
-                    result = target();
-                    if (!result || typeof result !== 'object' || result.constructor.name === 'Object')
-                        result = defaultValue;
-                }
-                else if (target instanceof MUDObject) { // if (typeof target === 'object' && result.constructor.name !== 'Object') {
-                    result = target;
                 }
                 else if (typeof defaultValue === 'function')
                     return defaultValue();

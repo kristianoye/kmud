@@ -88,7 +88,7 @@ const
  */
 
 
-class JSXTranspilerOp {
+class MudScriptAstAssembler {
     /**
      * Construct a transpiler op
      * @param {OpParams} p The constructor parameters
@@ -96,7 +96,6 @@ class JSXTranspilerOp {
     constructor(p) {
         this.acornOptions = p.acornOptions || false;
         this.allowConstructors = p.allowConstructors;
-        this.allowLiteralCallouts = p.allowLiteralCallouts;
         this.allowJsx = p.allowJsx;
 
         this.awaitDepth = 0;
@@ -192,7 +191,7 @@ class JSXTranspilerOp {
 
     getPosition() {
         let before = this.source.slice(0, this.pos),
-            lines = before.split(/[\n]{1}\r*/),
+            lines = before.split(/\r*[\n]{1}/),
             lastLine = lines.pop();
 
         return { line: lines.length + 1, char: lastLine.length + 1 };
@@ -338,7 +337,7 @@ function addRuntimeAssert(e, preText, postText, isCon) {
 
 /**
  * Parse a single element and return the transpiled source.
- * @param {JSXTranspilerOp} op The current operation
+ * @param {MudScriptAstAssembler} op The current operation
  * @param {NodeType} e The current node
  * @param {number} depth The stack depth
  * @param {Object.<string,any>} xtra Additional info from parent node
@@ -442,11 +441,20 @@ function parseElement(op, e, depth, xtra = {}) {
                         object = false,
                         propName = false,
                         callee = false,
-                        checkThisArg = false;
+                        useCallOther = false;
 
                     if (e.callee.type === 'MemberExpression') {
                         object = parseElement(op, e.callee.object, depth + 1);
-                        propName = parseElement(op, e.callee.property, depth + 1);
+                        if (e.callee.usingDerefArrow) {
+                            op.pos += 2;
+                            propName = '.' + parseElement(op, e.callee.property, depth + 1);
+
+                            if (e.callee.object.type !== 'Super' && e.callee.object.type !== 'ThisExpression')
+                                object = 'unwrap(' + object + ')';
+                        }
+                        else
+                            propName = parseElement(op, e.callee.property, depth + 1);
+
                         propName += op.readUntil(e.callee.end);
                         if (propName === '.call' || propName === '.apply') {
                             if (e.arguments.length === 0 || e.arguments[0].type !== 'ThisExpression') {
@@ -516,32 +524,7 @@ function parseElement(op, e, depth, xtra = {}) {
                     else {
                         throw new Error(`Unexpected callee type ${e.callee.type}`);
                     }
-                    if (op.allowLiteralCallouts) {
-                        if (e.callee && e.callee.type === 'MemberExpression') {
-                            let objectType = e.callee.object.type;
-                            if (objectType === 'Literal' || objectType === 'MemberExpression') {
-                                let isString = false;
-                                try {
-                                    isString = typeof eval(object) === 'string';
-                                }
-                                catch (e) { /* do nothing */ }
 
-                                if (typeof String.prototype[propName] !== 'function') {
-                                    let args = '';
-                                    ret += `typeof ${object} === 'string' && typeof String.prototype${propName} !== 'function' && unwrap(efuns.loadObjectSync(${object}), o => o${propName}`;
-                                    e.arguments.forEach(_ => args += parseElement(op, _, depth + 1));
-                                    args += op.source.slice(op.pos, e.end);
-                                    ret += `${args}) || (() => ${object}${propName}${args})()`; // Close out the wrap
-                                    isCallout = true;
-                                    op.pos = e.end;
-                                } else {
-                                    ret += object;
-                                    ret += propName;
-                                }
-                                writeCallee = false;
-                            }
-                        }
-                    }
                     if (writeCallee)
                         ret += callee;
                     if (!isCallout)
@@ -859,11 +842,19 @@ function parseElement(op, e, depth, xtra = {}) {
                         op.eatWhitespace();
                     }
                     if (e.modifier) {
-                        //  Do not include raw modifiers in output
-                        ret += `/** ${e.modifier.raw} */`;
+                        //  Comment out keywords that are not proper JavaScript
+                        ret += e.modifier.keywords
+                            .map(kw => {
+                                if (kw === 'static' || kw === 'async')
+                                    return kw;
+                                else
+                                    return `/*${kw}*/`
+                            })
+                            .join(' ');
                         op.pos = e.modifier.end;
                     }
                     let methodName = op.setMethod(parseElement(op, e.key, depth + 1), e.accessKind, e.static);
+
                     if (op.allowConstructors === false && methodName === 'constructor') {
                         op.raise(`Game objects may not define JavaScript constructors`);
                     }
@@ -1052,7 +1043,6 @@ class MudScriptTranspiler extends PipelineComponent {
         };
 
         this.allowJsx = typeof config.allowJsx === 'boolean' ? config.allowJsx : true;
-        this.allowLiteralCallouts = typeof config.allowLiteralCallouts === 'boolean' ? config.allowLiteralCallouts : true;
         this.extension = config.extension || '.js';
         this.parser = acorn.Parser
             .extend(jsx())
@@ -1069,11 +1059,10 @@ class MudScriptTranspiler extends PipelineComponent {
      * @returns
      */
     async runAsync(context, options, step, maxStep) {
-        let op = new JSXTranspilerOp({
+        let op = new MudScriptAstAssembler({
             acornOptions: Object.assign({}, this.acornOptions, context.acornOptions),
             allowConstructors: false,
             allowJsx: this.allowJsx,
-            allowLiteralCallouts: this.allowLiteralCallouts,
             filename: context.basename,
             context,
             source: context.content,

@@ -12,11 +12,15 @@ const acorn = require('acorn'),
     AccessProtected = "protected",
     AccessPrivate = "private",
     AccessPackage = "package",
+
     ModifierAbstract = "abstract",
+    ModifierAsync = "async",
     ModifierFinal = "final",
     ModifierOverride = "override",
     ModifierStatic = "static",
-    MudscriptKeywords = "break case catch continue debugger default do else finally for function if return switch throw try var while with null true false instanceof typeof void delete new in this const class extends export import super abstract singleton final public private protected package override",
+
+    //  New keywords added by MudScript
+    MudscriptKeywords = "abstract singleton final public private protected package override",
     memberDecorations = [AccessPublic, AccessProtected, AccessPrivate, AccessPackage, ModifierAbstract, ModifierFinal, ModifierStatic, ModifierOverride],
     securityDecorations = [AccessPublic, AccessProtected, AccessPrivate, AccessPackage],
     MemberModifiers = Object.freeze({
@@ -116,7 +120,26 @@ function plugin(options, Parser) {
         constructor(options, input, startPos) {
             super(options, input, startPos);
 
-            this.keywords = wordsRegexp(MudscriptKeywords);
+            this.addKeywordsToRegex(MudscriptKeywords)
+        }
+
+        /**
+         * Helper that appends our custom keywords to the parser keywords regex
+         * @param {string} moreWords Space-delimited list of MudScript keywords
+         */
+        addKeywordsToRegex(moreWords) {
+            let wordTest = /^[a-z]+$/,
+                existingWords = this.keywords.source
+                    .split(/([a-z]+)/g)
+                    .filter(w => wordTest.test(w)),
+                newWords = moreWords.split(/\s+/);
+
+            for (const word of newWords) {
+                if (existingWords.indexOf(word) ===  -1) {
+                    existingWords.push(word);
+                }
+            }
+            this.keywords = wordsRegexp(existingWords.join(' '));
         }
 
         /**
@@ -155,11 +178,16 @@ function plugin(options, Parser) {
             return super.getTokenFromCode(code);
         }
 
+        /**
+         * This override adds support for additional member modifiers (public, private, package, protected, override)
+         */
         parseClassElement(constructorAllowsSuper) {
             if (this.eat(types$1.semi)) return null;
 
             let method = this.startNode(),
-                modifierNode = this.startNode();
+                modifierNode = this.startNode(),
+                isAsync = false;
+
             const tryContextual = (k, noLineBreak = false) => {
                 const start = this.start, startLoc = this.startLoc;
                 if (!this.eatContextual(k)) return false;
@@ -181,24 +209,34 @@ function plugin(options, Parser) {
 
             while (true) {
                 this.eatWhitespace();
-                if (this.eat(types$1._abstract)) {
+                if (tryContextual('static', true)) {
+                    method.static = true;
+                }
+                else if (tryContextual('async', true)) {
+                    method.isAsync = isAsync = true;
+                }
+                else if (this.eat(types$1._abstract)) {
                     method.isAbstract = true;
                     method.methodModifiers |= MemberModifiers.Abstract;
                 }
                 else if (this.eat(types$1._public)) {
                     method.accessKind = 'public';
+                    method.isPublic = true;
                     method.methodModifiers |= MemberModifiers.Public;
                 }
                 else if (this.eat(types$1._protected)) {
                     method.accessKind = 'protected';
+                    method.isProtected = true;
                     method.methodModifiers |= MemberModifiers.Protected
                 }
                 else if (this.eat(types$1._private)) {
                     method.accessKind = 'private';
+                    method.isPrivate = true;
                     method.methodModifiers |= MemberModifiers.Private;
                 }
                 else if (this.eat(types$1._package)) {
                     method.accessKind = 'package';
+                    method.isPackage = true;
                     method.methodModifiers |= MemberModifiers.Package;
                 }
                 else if (this.eat(types$1._override)) {
@@ -211,8 +249,11 @@ function plugin(options, Parser) {
                     this.finishNode(modifierNode, 'MemberModifiers');
                     if (modifierNode.end < modifierNode.start)
                         modifierNode.end = modifierNode.start;
+
                     modifierNode.raw = this.input.slice(modifierNode.start, modifierNode.end);
+                    modifierNode.keywords = modifierNode.raw.split(/\s+/).map(s => s.trim());
                     modifierNode.value = method.methodModifiers;
+
                     break;
                 }
             }
@@ -221,13 +262,9 @@ function plugin(options, Parser) {
             method.modifier = modifierNode;
 
             let isGenerator = this.eat(types$1.star);
-            let isAsync = false;
 
-            if (!isGenerator) {
-                if (this.options.ecmaVersion >= 8 && tryContextual("async", true)) {
-                    isAsync = true;
-                    isGenerator = this.options.ecmaVersion >= 9 && this.eat(types$1.star);
-                } else if (tryContextual("get")) {
+            if (!isGenerator && !isAsync) {
+                if (tryContextual("get")) {
                     method.kind = "get";
                 } else if (tryContextual("set")) {
                     method.kind = "set";
@@ -256,6 +293,9 @@ function plugin(options, Parser) {
                 this.raiseRecoverable(method.value.params[0].start, "Setter cannot use rest params");
             if (method.isFinal && method.isAbstract)
                 this.raise(method.value.start, "Member cannot be both final and abstract");
+            else if (method.isPrivate && method.isAbstract)
+                this.raise(method.value.start, "Member cannot be both private and abstract");
+
             if (options.requireAccessModifiers && !method.accessKind) {
                 if (method.kind === "get")
                     this.raise(method.value.start, `Getter '${key.name}' must specify access decorator (public, protected, private, or package)`);
@@ -269,15 +309,38 @@ function plugin(options, Parser) {
             return method;
         }
 
-        parseClassMethod(method, isGenerator, isAsync, allowsDirectSuper) {
-            method.value = this.parseMethod(isGenerator, isAsync, allowsDirectSuper);
-            return this.finishNode(method, "MethodDefinition");
+        /**
+         * Needed to override to allow to use '->' deref operator
+         */
+        parseExprAtom(refDestructuringErrors, forInit, forNew) {
+            // If a division operator appears in an expression position, the
+            // tokenizer got confused, and we force it to read a regexp instead.
+            if (this.type === types$1.slash) { this.readRegexp(); }
+
+            var node, canBeArrow = this.potentialArrowAt === this.start;
+            switch (this.type) {
+                case types$1._super:
+                    if (!this.allowSuper) { this.raise(this.start, "'super' keyword outside a method"); }
+                    node = this.startNode();
+                    this.next();
+                    if (this.type === types$1.parenL && !this.allowDirectSuper) { this.raise(node.start, "super() call outside constructor of a subclass"); }
+                    // The `super` keyword can appear at below:
+                    // SuperProperty:
+                    //     super [ Expression ]
+                    //     super . IdentifierName
+                    // SuperCall:
+                    //     super ( Arguments )
+                    if (this.type !== types$1.dot && this.type !== types$1.bracketL && this.type !== types$1.parenL && this.type !== types$1.derefArrow) { this.unexpected(); }
+                    return this.finishNode(node, "Super");
+
+                default:
+                    return super.parseExprAtom(refDestructuringErrors, forInit, forNew);
+            }
         }
 
-        updateContext(prevType) {
-            return super.updateContext(prevType);
-        }
-
+        /**
+         * Override to add support for class modifiers (final, abstract, singleton)
+         */
         parseStatement(context, topLevel, exports) {
             var starttype = this.type,
                 classModifiers = 0,
@@ -317,15 +380,22 @@ function plugin(options, Parser) {
                 return super.parseStatement(context, topLevel, exports);
         }
 
+        /**
+         * Override adds support for -> dereferencing aka CallOther arrow
+         */
         parseSubscript(base, startPos, startLoc, noCalls, maybeAsyncArrow, optionalChained, forInit) {
             var optionalSupported = this.options.ecmaVersion >= 11;
             var optional = optionalSupported && this.eat(types$1.questionDot);
+            var isDerefCall = false;
+
             if (noCalls && optional) { this.raise(this.lastTokStart, "Optional chaining cannot appear in the callee of new expressions"); }
 
             var computed = this.eat(types$1.bracketL);
-            if (computed || (optional && this.type !== types$1.parenL && this.type !== types$1.backQuote) || this.eat(types$1.dot)) {
+            if (computed || (optional && this.type !== types$1.parenL && this.type !== types$1.backQuote) || this.eat(types$1.dot) || (isDerefCall = this.eat(types$1.derefArrow))) {
                 var node = this.startNodeAt(startPos, startLoc);
                 node.object = base;
+                node.usingDerefArrow = isDerefCall;
+
                 if (computed) {
                     node.property = this.parseExpression();
                     this.expect(types$1.bracketR);
