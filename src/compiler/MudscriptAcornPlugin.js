@@ -16,6 +16,7 @@ const acorn = require('acorn'),
     ModifierFinal = "final",
     ModifierOverride = "override",
     ModifierStatic = "static",
+    ModifierSingleton = "singleton",
 
     //  New keywords added by MudScript
     MudscriptKeywords = "abstract singleton final public private protected package override",
@@ -107,7 +108,7 @@ function plugin(options, Parser) {
     types$1.doubleColon = new acorn.TokenType("::");
 
     // Singleton class decorator--there can be only one!
-    types$1._singleton = kw("singleton", { beforeExpr: true, classModifier: ClassModifiers.Singleton });
+    types$1._singleton = kw(ModifierSingleton, { beforeExpr: true, classModifier: ClassModifiers.Singleton });
 
     return class extends Parser {
         constructor(options, input, startPos) {
