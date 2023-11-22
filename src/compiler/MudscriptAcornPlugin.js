@@ -197,6 +197,7 @@ function plugin(options, Parser) {
 
             method.kind = "method";
             method.methodModifiers = 0;
+            method.hasAccess = (flag) => (this.methodModifiers & flag) > 0;
 
             this.eatWhitespace();
 
@@ -299,6 +300,10 @@ function plugin(options, Parser) {
                 else if (method.kind === "constructor")
                     this.raise(method.value.start, "Constructor must specify access decorator (public, protected, private, or package)");
             }
+            if (method.hasAccess(MemberModifiers.Public) && method.hasAccess(MemberModifiers.Private | MemberModifiers.Protected | MemberModifiers.Package))
+                this.raise(`Member ${key.name} cannot mix public acccess with protected, private, or package`);
+            else if (method.hasAccess(MemberModifiers.Abstract) && method.hasAccess(MemberModifiers.Final))
+                this.raise(`Member ${key.name} cannot mix public acccess with protected, private, or package`);
             return method;
         }
 
