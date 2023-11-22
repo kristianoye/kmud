@@ -1,6 +1,4 @@
-﻿const { stubArray } = require('lodash');
-
-/*
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
@@ -21,8 +19,6 @@ const acorn = require('acorn'),
 
     //  New keywords added by MudScript
     MudscriptKeywords = "abstract singleton final public private protected package override",
-    memberDecorations = [AccessPublic, AccessProtected, AccessPrivate, AccessPackage, ModifierAbstract, ModifierFinal, ModifierStatic, ModifierOverride],
-    securityDecorations = [AccessPublic, AccessProtected, AccessPrivate, AccessPackage],
     MemberModifiers = Object.freeze({
         Public: 1 << 0,
         Protected: 1 << 1,
@@ -80,25 +76,25 @@ function plugin(options, Parser) {
     }
 
     // Mark a class or class member as abstract
-    types$1._abstract = kw("abstract", { beforeExpr: true, classModifier: ClassModifiers.Abstract, memberModifier: MemberModifiers.Abstract });
+    types$1._abstract = kw(ModifierAbstract, { beforeExpr: true, classModifier: ClassModifiers.Abstract, memberModifier: MemberModifiers.Abstract });
 
     // Final class decorator
-    types$1._final = kw("final", { beforeExpr: true, classModifier: ClassModifiers.Final, memberModifier: MemberModifiers.Final });
+    types$1._final = kw(ModifierFinal, { beforeExpr: true, classModifier: ClassModifiers.Final, memberModifier: MemberModifiers.Final });
 
     // Public access modifier
-    types$1._public = kw("public", { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Public });
+    types$1._public = kw(AccessPublic, { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Public });
 
     // Protected access modifier
-    types$1._protected = kw("protected", { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Protected });
+    types$1._protected = kw(AccessProtected, { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Protected });
 
     // Private access modifier
-    types$1._private = kw("private", { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Private });
+    types$1._private = kw(AccessPrivate, { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Private });
 
     // Private access modifier
-    types$1._package = kw("package", { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Package });
+    types$1._package = kw(AccessPackage, { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Package });
 
     // Private access modifier
-    types$1._override = kw("override", { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Override });
+    types$1._override = kw(ModifierOverride, { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Override });
 
 
     // Dereferencing operator allows calling 3 types of possible instance references:
@@ -109,9 +105,6 @@ function plugin(options, Parser) {
 
     // Scope resolution operator for "multiple inheritance"
     types$1.doubleColon = new acorn.TokenType("::");
-
-    // Keyword 'uses' allows inheritance of mixins
-    types$1._usesMixins = new acorn.TokenType("uses", { beforeExpr: true });
 
     // Singleton class decorator--there can be only one!
     types$1._singleton = kw("singleton", { beforeExpr: true, classModifier: ClassModifiers.Singleton });
@@ -209,10 +202,10 @@ function plugin(options, Parser) {
 
             while (true) {
                 this.eatWhitespace();
-                if (tryContextual('static', true)) {
+                if (tryContextual(ModifierStatic, true)) {
                     method.static = true;
                 }
-                else if (tryContextual('async', true)) {
+                else if (tryContextual(ModifierAsync, true)) {
                     method.isAsync = isAsync = true;
                 }
                 else if (this.eat(types$1._abstract)) {
@@ -251,7 +244,7 @@ function plugin(options, Parser) {
                         modifierNode.end = modifierNode.start;
 
                     modifierNode.raw = this.input.slice(modifierNode.start, modifierNode.end);
-                    modifierNode.keywords = modifierNode.raw.split(/\s+/).map(s => s.trim());
+                    modifierNode.keywords = modifierNode.raw ? modifierNode.raw.split(/\s+/).map(s => s.trim()) : [];
                     modifierNode.value = method.methodModifiers;
 
                     break;
@@ -336,6 +329,38 @@ function plugin(options, Parser) {
                 default:
                     return super.parseExprAtom(refDestructuringErrors, forInit, forNew);
             }
+        }
+
+        /**
+         * Override required to parse ScopedIdentifier nodes
+         */
+        parseIdent(liberal) {
+            var node = this.parseIdentNode();
+
+            this.next(!!liberal);
+            this.finishNode(node, "Identifier");
+
+            if (this.eat(types$1.doubleColon)) {
+                let scopedId = this.parseIdentNode();
+                this.next(!!liberal);
+                this.finishNode(scopedId);
+
+                let scopedNode = this.startNode();
+
+                scopedNode.scopeName = node;
+                scopedNode.scopeId = scopedId;
+
+                this.finishNode(scopedId, "Identifier");
+                this.finishNode(scopedNode, "ScopedIdentifier");
+
+                scopedNode.start = node.start;
+                node = scopedNode;
+            }
+            if (!liberal) {
+                this.checkUnreserved(node);
+                if (node.name === "await" && !this.awaitIdentPos) { this.awaitIdentPos = node.start; }
+            }
+            return node
         }
 
         /**
@@ -494,5 +519,3 @@ module.exports = function (optionsIn) {
         }, optionsIn), Parser);
     };
 };
-
-//module.exports.tokTypes = tokenTypes;

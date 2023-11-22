@@ -924,6 +924,9 @@ function parseElement(op, e, depth, xtra = {}) {
                 ret += e.text;
                 break;
 
+            case 'ScopedIdentifier':
+                break;
+
             case 'SwitchCase':
                 ret += parseElement(op, e.test, depth + 1);
                 e.consequent.forEach(_ => ret += parseElement(op, _, depth + 1));
