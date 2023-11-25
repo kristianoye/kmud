@@ -1,17 +1,4 @@
 ﻿
-declare class MUDMixin {
-    $copyMethods(type: string): MUDMixin;
-    $copyMethods(type: string, like: (spec: string) => boolean): MUDMixin;
-    $copyMethods(type: string, like: string[]): MUDMixin;
-
-    /**
-     * Extend the target type using 
-     * @param type
-     */
-    $extendType(type: string): any;
-}
-
-
 declare type MUDWrapper = () => MUDObject;
 
 declare class MUDInfo {

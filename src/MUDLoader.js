@@ -79,9 +79,7 @@ class MUDLoader {
                         isAsync = true;
 
                     if (driver.efuns.isClass(type) && typeof ob === 'object' && ob instanceof type === false) {
-                        if (type.prototype instanceof MUDMixin === false) {
-                            throw new SecurityError(`Illegal invocation of '${method}' in ${filename} [Line ${lineNumber}]; Callee type mismatch`)
-                        }
+                        throw new SecurityError(`Illegal invocation of '${method}' in ${filename} [Line ${lineNumber}]; Callee type mismatch`)
                     }
 
                     if (!ecc) {
@@ -236,7 +234,7 @@ class MUDLoader {
                 writable: false
             },
             MUDObject: {
-                value: MUDObject,
+                value: global.MUDObject,
                 writable: false
             },
             MUDMixin: {
@@ -278,7 +276,7 @@ class MUDLoader {
         try {
             for (const exp of moduleList) {
                 if (driver.efuns.isClass(exp)) {
-                    MUDMixin.$__extendType(target, exp);
+                    global.MUDVTable.extendType(target, exp);
                 }
                 else
                     throw new Error(`Bad argument to extendType: ${exp}`)

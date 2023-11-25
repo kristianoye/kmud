@@ -11,6 +11,8 @@ const acorn = require('acorn'),
     AccessPrivate = "private",
     AccessPackage = "package",
 
+    MinEcmaVersion = 10,
+
     ModifierAbstract = "abstract",
     ModifierAsync = "async",
     ModifierFinal = "final",
@@ -42,10 +44,10 @@ var
     regexpCache = {};
 
 function plugin(options, Parser) {
-    if ('acornOptions' in options && options.acornOptions.ecmaVersion < 8)
-        throw new Error('Incompatible ecmaVersion (requires 8+)');
-    else if ('ecmaVersion' in options && options.ecmaVersion < 8)
-        throw new Error('Incompatible ecmaVersion (requires 8+)');
+    if ('acornOptions' in options && options.acornOptions.ecmaVersion < MinEcmaVersion)
+        throw new Error(`Incompatible ecmaVersion (requires ${MinEcmaVersion}+ > ${options.acornOptions.ecmaVersion})`);
+    else if ('ecmaVersion' in options && options.ecmaVersion < MinEcmaVersion)
+        throw new Error(`Incompatible ecmaVersion (requires ${MinEcmaVersion}+ > ${options.acornOptions.ecmaVersion})`);
 
     function DestructuringErrors() {
         this.shorthandAssign =
@@ -341,6 +343,28 @@ function plugin(options, Parser) {
          * Override required to parse ScopedIdentifier nodes
          */
         parseIdent(liberal) {
+            let startPos = this.pos;
+
+            if (this.eat(types$1.doubleColon)) {
+                let scopeName = this.startNode();
+                let scopedId = this.parseIdentNode();
+
+                this.finishNode(scopeName, 'Identifier'); // should be ''
+                this.next(!!liberal);
+                this.finishNode(scopedId);
+
+                let scopedNode = this.startNode();
+
+                scopedNode.scopeName = scopeName;
+                scopedNode.scopeId = scopedId;
+
+                this.finishNode(scopedId, "Identifier");
+                this.finishNode(scopedNode, "ScopedIdentifier");
+
+                scopedNode.start = scopeName.start = scopeName.end = startPos - 2;
+                return scopedNode;
+            }
+
             var node = this.parseIdentNode();
 
             this.next(!!liberal);
@@ -406,6 +430,17 @@ function plugin(options, Parser) {
                     this.raise('Abstract classes may not also be singletons nor final');
                 if (context) { this.unexpected(); }
                 return this.parseClass(node, true);
+            }
+            else if (starttype === types$1._export || starttype === types$1._import) {
+                let node = this.startNode()
+                if (this.options.ecmaVersion > 10 && starttype === types$1._import) {
+                    skipWhiteSpace.lastIndex = this.pos;
+                    var skip = skipWhiteSpace.exec(this.input);
+                    var next = this.pos + skip[0].length, nextCh = this.input.charCodeAt(next);
+                    if (nextCh === 40 || nextCh === 46) // '(' or '.'
+                    { return this.parseExpressionStatement(node, this.parseExpression()) }
+                }
+                return starttype === types$1._import ? this.parseImport(node) : this.parseExport(node, exports)
             }
             else
                 return super.parseStatement(context, topLevel, exports);

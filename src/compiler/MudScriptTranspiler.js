@@ -1,4 +1,6 @@
-﻿/*
+﻿const { parse } = require('uuid');
+
+/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
@@ -56,14 +58,16 @@ const
         //  Reserved for passing the execution context
         '__mec',     // MUD Execution Context
 
-        //  Reserved for MUDMixin logic
-        '$__extendType',
-        '$__copyMethods',
-        '$__getVirtualTable',
-        '$__virtualCall',
-        '$__virtualCallAsync'
+        //  Reserved for multiple inheritance logic
+        '__callScopedImplementation',
+        '__callScopedImplementationAsync',
+        '__exportScopedProperty'
 
-    ];
+    ],
+    ScopeType = Object.freeze({
+        CallExpression: 'CallExpression',
+        AssignmentExpression: 'AssignmentExpression'
+    });
 
 
 /** @typedef {{ allowJsx: boolean, context: PipeContext, source: string }} OpParams */
@@ -104,6 +108,7 @@ class MudScriptAstAssembler {
         this.context = p.context;
         this.filename = p.filename;
         this.filepart = p.filename.slice(p.filename.lastIndexOf('/') + 1);
+        this.inCreate = false;
         this.jsxDepth = 0;
         this.jsxIndent = '';
         this.max = p.source.length;
@@ -214,6 +219,14 @@ class MudScriptAstAssembler {
         return this.thisMethod || '(MAIN)';
     }
 
+    popScope() {
+        this.scopes.shift();
+    }
+
+    pushScope(scope) {
+        this.scopes.unshift(scope);
+    }
+
     /**
      * Raise an exception
      * @param {string} err The error message
@@ -241,6 +254,10 @@ class MudScriptAstAssembler {
         let result = this.source.slice(this.pos, index);
         if (peekOnly !== true) this.pos = index;
         return result;
+    }
+
+    get scope() {
+        return this.scopes.length > 0 && this.scopes[0];
     }
 
     setMethod(s, access = "public", isStatic = false) {
@@ -391,10 +408,12 @@ function parseElement(op, e, depth, xtra = {}) {
                 break; 
 
             case 'AssignmentExpression':
+                op.pushScope(ScopeType.AssignmentExpression);
                 ret += op.readUntil(e.left.start);
                 ret += parseElement(op, e.left, depth + 1);
                 ret += op.readUntil(e.right.start);
                 ret += parseElement(op, e.right, depth + 1);
+                op.popScope();
                 break;
 
             case 'AssignmentPattern':
@@ -435,13 +454,15 @@ function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'CallExpression':
+                op.pushScope(ScopeType.CallExpression);
                 {
                     let writeCallee = true,
                         isCallout = false,
                         object = false,
                         propName = false,
                         callee = false,
-                        useCallOther = false;
+                        useCallOther = false,
+                        argsWritten = false;
 
                     if (e.callee.type === 'MemberExpression') {
                         object = parseElement(op, e.callee.object, depth + 1);
@@ -466,6 +487,21 @@ function parseElement(op, e, depth, xtra = {}) {
                             propName = '[__asi(' + propName.slice(1, propName.length - 1) + ', __FILE__, __LINE__)]';
                         }
                         callee = object + propName;
+
+                        if (e.callee.property.type === 'ScopedIdentifier') {
+                            writeCallee = false;
+                            argsWritten = true;
+                            ret += callee;
+                            if (e.arguments.length) {
+                                ret += ', '
+                                op.pos = e.arguments[0].start;
+                                e.arguments.forEach(_ => {
+                                    ret += op.readUntil(_.start);
+                                    ret += parseElement(op, _, depth + 1);
+                                });                            }
+                            ret += ')';
+                            op.pos = e.end;
+                        }
                     }
                     else if (e.callee.type === 'Identifier') {
                         propName = callee = parseElement(op, e.callee, depth + 1);
@@ -527,7 +563,7 @@ function parseElement(op, e, depth, xtra = {}) {
 
                     if (writeCallee)
                         ret += callee;
-                    if (!isCallout)
+                    if (!isCallout && !argsWritten)
                         e.arguments.forEach(_ => {
                             ret += op.readUntil(_.start);
                             ret += parseElement(op, _, depth + 1);
@@ -549,6 +585,7 @@ function parseElement(op, e, depth, xtra = {}) {
                         }
                     }
                 }
+                op.popScope();
                 break;
 
             case 'CatchClause':
@@ -732,6 +769,9 @@ function parseElement(op, e, depth, xtra = {}) {
                 }
                 break;
 
+            case 'ImportDeclaration':
+                throw new Error('Import functionality is not implemented, yet');
+
             case 'JSXAttribute':
                 if (!op.allowJsx)
                     throw new Error(`JSX is not enabled for ${this.extension} files`);
@@ -830,6 +870,16 @@ function parseElement(op, e, depth, xtra = {}) {
                 {
                     ret += op.readUntil(e.object.start);
                     ret += parseElement(op, e.object, depth + 1);
+                    if (e.usingDerefArrow) {
+                        op.pos += 2;
+                        ret += '.';
+                    }
+                    if (e.property.name === 'create') {
+                        if (!op.inCreate)
+                            op.raise('Create (constructor) may only be called within constructor');
+                        else if (e.object.type !== 'ThisExpression')
+                            op.raise('Create (constructor) may only be called within constructor');
+                    }
                     ret += op.readUntil(e.property.start);
                     ret += parseElement(op, e.property, depth + 1);
                 }
@@ -854,6 +904,8 @@ function parseElement(op, e, depth, xtra = {}) {
                         op.pos = e.modifier.end;
                     }
                     let methodName = op.setMethod(parseElement(op, e.key, depth + 1), e.accessKind, e.static);
+                    if (methodName === 'create')
+                        op.inCreate = true;
 
                     if (op.allowConstructors === false && methodName === 'constructor') {
                         op.raise(`Game objects may not define JavaScript constructors`);
@@ -870,6 +922,7 @@ function parseElement(op, e, depth, xtra = {}) {
                     ret += methodName;
                     ret += parseElement(op, e.value, depth + 1, info);
                     op.setMethod();
+                    op.inCreate = false;
                 }
                 break;
 
@@ -925,6 +978,22 @@ function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'ScopedIdentifier':
+                {
+                    let scopeName = parseElement(op, e.scopeName, depth + 1);
+                    op.pos += 2;
+                    let scopeId = parseElement(op, e.scopeId, depth + 1);
+
+                    switch (op.scope) {
+                        case ScopeType.CallExpression:
+
+                            ret += `__callScopedImplementation('${scopeId}', '${scopeName}'`;
+                            break;
+
+                        case ScopeType.AssignmentExpression:
+                            ret += `__exportScopedProperty('${scopeId}', '${scopeName}').${scopeId}`;
+                            break;
+                    }
+                }
                 break;
 
             case 'SwitchCase':
@@ -1063,7 +1132,7 @@ class MudScriptTranspiler extends PipelineComponent {
      */
     async runAsync(context, options, step, maxStep) {
         let op = new MudScriptAstAssembler({
-            acornOptions: Object.assign({}, this.acornOptions, context.acornOptions),
+            acornOptions: Object.assign({ sourceType: 'mudscript' }, this.acornOptions, context.acornOptions),
             allowConstructors: false,
             allowJsx: this.allowJsx,
             filename: context.basename,
