@@ -613,7 +613,8 @@ function parseElement(op, e, depth, xtra = {}) {
                     ret += parseElement(op, e.superClass, depth + 1);
                 else if (op.injectedSuperClass) {
                     op.forcedInheritance = true;
-                    ret += ` extends ${op.injectedSuperClass}`;
+                    ret += ` extends ${op.injectedSuperClass} `;
+                    e.parentClasses.push({ name: op.injectedSuperClass });
                 }
                 //  Skip passed any additional extend statements
                 op.pos = e.body.start;
