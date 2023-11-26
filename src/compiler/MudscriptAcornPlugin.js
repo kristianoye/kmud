@@ -29,12 +29,8 @@ const acorn = require('acorn'),
         Package: 1 << 3,
         Abstract: 1 << 4,
         Final: 1 << 5,
-        Override: 1 << 6
-    }),
-    ClassModifiers = Object.freeze({
-        Abstract: 1,
-        Final: 2,
-        Singleton: 4
+        Override: 1 << 6,
+        Singleton: 1 << 7
     });
 
 var
@@ -79,10 +75,10 @@ function plugin(options, Parser) {
     }
 
     // Mark a class or class member as abstract
-    types$1._abstract = kw(ModifierAbstract, { beforeExpr: true, classModifier: ClassModifiers.Abstract, memberModifier: MemberModifiers.Abstract });
+    types$1._abstract = kw(ModifierAbstract, { beforeExpr: true, classModifier: MemberModifiers.Abstract, memberModifier: MemberModifiers.Abstract });
 
     // Final class decorator
-    types$1._final = kw(ModifierFinal, { beforeExpr: true, classModifier: ClassModifiers.Final, memberModifier: MemberModifiers.Final });
+    types$1._final = kw(ModifierFinal, { beforeExpr: true, classModifier: MemberModifiers.Final, memberModifier: MemberModifiers.Final });
 
     // Public access modifier
     types$1._public = kw(AccessPublic, { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Public });
@@ -110,7 +106,7 @@ function plugin(options, Parser) {
     types$1.doubleColon = new acorn.TokenType("::");
 
     // Singleton class decorator--there can be only one!
-    types$1._singleton = kw(ModifierSingleton, { beforeExpr: true, classModifier: ClassModifiers.Singleton });
+    types$1._singleton = kw(ModifierSingleton, { beforeExpr: true, classModifier: MemberModifiers.Singleton });
 
     return class extends Parser {
         constructor(options, input, startPos) {
@@ -426,7 +422,7 @@ function plugin(options, Parser) {
             if (starttype === types$1._class) {
                 var node = classNode || this.startNode();
                 node.classModifiers = classModifiers;
-                if ((node.classModifiers & ClassModifiers.Abstract) && node.classModifiers !== ClassModifiers.Abstract)
+                if ((node.classModifiers & MemberModifiers.Abstract) && node.classModifiers !== MemberModifiers.Abstract)
                     this.raise('Abstract classes may not also be singletons nor final');
                 if (context) { this.unexpected(); }
                 return this.parseClass(node, true);

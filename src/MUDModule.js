@@ -23,7 +23,12 @@ class MUDModuleTypeInfo {
      */
     constructor(typeName, modifiers) {
         this.typeName = typeName;
+        this.members = {};
         this.modifiers = modifiers;
+    }
+
+    addMember(methodName, flags = 0) {
+        this.members[methodName] = flags;
     }
 }
 

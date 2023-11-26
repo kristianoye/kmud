@@ -360,7 +360,7 @@ function addRuntimeAssert(e, preText, postText, isCon) {
  * @param {Object.<string,any>} xtra Additional info from parent node
  * @returns {string} The element as source code.
  */
-function parseElement(op, e, depth, xtra = {}) {
+async function parseElement(op, e, depth, xtra = {}) {
     let ret = '';
     if (e) {
         if (e.start > op.pos) {
@@ -369,17 +369,17 @@ function parseElement(op, e, depth, xtra = {}) {
         }
         switch (e.type) {
             case 'ArrayExpression':
-                e.elements.forEach(_ => {
+                for (const _ of e.elements) {
                     ret += op.readUntil(_.start);
-                    ret += parseElement(op, _, depth + 1);
-                });
+                    ret += await parseElement(op, _, depth + 1);
+                }
                 break;
 
             case 'ArrayPattern':
-                e.elements.forEach(_ => {
+                for (const _ of e.elements) {
                     ret += op.readUntil(_.start);
-                    ret += parseElement(op, _, depth + 1);
-                });
+                    ret += await parseElement(op, _, depth + 1);
+                }
                 break;
 
             case 'ArrowFunctionExpression':
@@ -387,21 +387,23 @@ function parseElement(op, e, depth, xtra = {}) {
                     let funcName = e.async ?
                         `async ${op.getCallerId() || '(anonymous)'}(() => {})` :
                         `${op.getCallerId() || '(anonymous)'}(() => {})`;
-                    e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
+                    for (const _ of e.params) {
+                        ret += await parseElement(op, _, depth + 1);
+                    }
                     ret += op.readUntil(e.body.start);
                     if (e.body.type === 'BlockStatement') {
                         ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try `;
-                        ret += parseElement(op, e.body);
+                        ret += await parseElement(op, e.body);
                         ret += ` finally { __efc(__mec, '${funcName}'); } }`;
                     }
                     else if (e.body.type === 'MemberExpression') {
                         ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return `;
-                        ret += parseElement(op, e.body);
+                        ret += await parseElement(op, e.body);
                         ret += `; } finally { __efc(__mec, '${funcName}'); } }`;
                     }
                     else {
                         ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return (`;
-                        ret += parseElement(op, e.body);
+                        ret += await parseElement(op, e.body);
                         ret += `); } finally { __efc(__mec, '${funcName}'); } }`;
                     }
                 }
@@ -410,21 +412,21 @@ function parseElement(op, e, depth, xtra = {}) {
             case 'AssignmentExpression':
                 op.pushScope(ScopeType.AssignmentExpression);
                 ret += op.readUntil(e.left.start);
-                ret += parseElement(op, e.left, depth + 1);
+                ret += await parseElement(op, e.left, depth + 1);
                 ret += op.readUntil(e.right.start);
-                ret += parseElement(op, e.right, depth + 1);
+                ret += await parseElement(op, e.right, depth + 1);
                 op.popScope();
                 break;
 
             case 'AssignmentPattern':
-                ret += parseElement(op, e.left, depth + 1);
-                ret += parseElement(op, e.right, depth + 1);
+                ret += await parseElement(op, e.left, depth + 1);
+                ret += await parseElement(op, e.right, depth + 1);
                 break;
 
             case 'AwaitExpression':
                 {
                     op.awaitDepth++;
-                    let tmp = parseElement(op, e.argument, depth + 1);
+                    let tmp = await parseElement(op, e.argument, depth + 1);
                     ret += `await __mec.awaitResult(async () => ${tmp})`;
                     op.awaitDepth--;
                     // Previous working version prior to adding awaitResult():
@@ -433,17 +435,19 @@ function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'BinaryExpression':
-                ret += parseElement(op, e.left, depth + 1);
+                ret += await parseElement(op, e.left, depth + 1);
                 ret += op.readUntil(e.operator);
                 ret += op.readUntil(e.right.start);
-                ret += parseElement(op, e.right, depth + 1);
+                ret += await parseElement(op, e.right, depth + 1);
                 break;
 
             case 'BlockStatement':
                 {
                     let prevDepth = op.awaitDepth;
                     op.awaitDepth = 0;
-                    e.body.forEach(_ => ret += parseElement(op, _, depth + 1));
+                    for (const _ of e.body) {
+                        ret += await parseElement(op, _, depth + 1);
+                    }
                     op.awaitDepth = prevDepth;
                 }
                 break;
@@ -465,16 +469,17 @@ function parseElement(op, e, depth, xtra = {}) {
                         argsWritten = false;
 
                     if (e.callee.type === 'MemberExpression') {
-                        object = parseElement(op, e.callee.object, depth + 1);
+                        object = await parseElement(op, e.callee.object, depth + 1);
                         if (e.callee.usingDerefArrow) {
                             op.pos += 2;
-                            propName = '.' + parseElement(op, e.callee.property, depth + 1);
+                            propName = '.';
+                            propName += await parseElement(op, e.callee.property, depth + 1);
 
                             if (e.callee.object.type !== 'Super' && e.callee.object.type !== 'ThisExpression')
                                 object = 'unwrap(' + object + ')';
                         }
                         else
-                            propName = parseElement(op, e.callee.property, depth + 1);
+                            propName = await parseElement(op, e.callee.property, depth + 1);
 
                         propName += op.readUntil(e.callee.end);
                         if (propName === '.call' || propName === '.apply') {
@@ -495,18 +500,20 @@ function parseElement(op, e, depth, xtra = {}) {
                             if (e.arguments.length) {
                                 ret += ', '
                                 op.pos = e.arguments[0].start;
-                                e.arguments.forEach(_ => {
+                                for (const _ of e.arguments) {
                                     ret += op.readUntil(_.start);
-                                    ret += parseElement(op, _, depth + 1);
-                                });                            }
+                                    ret += await parseElement(op, _, depth + 1);
+                                }
+                            }
                             ret += ')';
                             op.pos = e.end;
                         }
                     }
                     else if (e.callee.type === 'Identifier') {
-                        propName = callee = parseElement(op, e.callee, depth + 1);
+                        propName = callee = await parseElement(op, e.callee, depth + 1);
                         if (SettersGetters.indexOf(propName) > -1) {
-                            let parts = (op.thisMethod || '').split(/\s+/), prop = parts.pop();
+                            let parts = (op.thisMethod || '').split(/\s+/),
+                                prop = parts.pop();
 
                             if (!op.thisClass)
                                 throw new Error(`The ${propName} operator can only be used inside a class.`);
@@ -520,7 +527,9 @@ function parseElement(op, e, depth, xtra = {}) {
                             if (e.arguments.length > 0) {
                                 ret += ', ';
                                 op.readUntil(e.arguments[0].start);
-                                e.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
+                                for (const _ of e.arguments) {
+                                    ret += await parseElement(op, _, depth + 1)
+                                }
                             }
                             op.readUntil(e.end);
                             ret += ')';
@@ -540,20 +549,22 @@ function parseElement(op, e, depth, xtra = {}) {
                             op.addCallerId(propName);
                     }
                     else if (e.callee.type === 'Super') {
-                        propName = callee = parseElement(op, e.callee, depth + 1);
+                        propName = callee = await parseElement(op, e.callee, depth + 1);
                         op.addCallerId(propName);
                     }
                     else if (e.callee.type === 'FunctionExpression') {
-                        propName = callee = parseElement(op, e.callee, depth + 1);
+                        propName = callee = await parseElement(op, e.callee, depth + 1);
                         op.addCallerId('function()');
                     }
                     else if (e.callee.type === 'ArrowFunctionExpression') {
-                        propName = callee = parseElement(op, e.callee, depth + 1);
+                        propName = callee = await parseElement(op, e.callee, depth + 1);
                         op.addCallerId('() => {}');
                     }
                     else if (e.callee.type === 'CallExpression') {
-                        ret += parseElement(op, e.callee.callee, depth + 1);
-                        e.callee.arguments.forEach(_ => ret += parseElement(op, _, depth + 1));
+                        ret += await parseElement(op, e.callee.callee, depth + 1);
+                        for (const _ of e.callee.arguments) {
+                            ret += await parseElement(op, _, depth + 1)
+                        }
                         writeCallee = false;
                         ret += '';
                     }
@@ -563,11 +574,12 @@ function parseElement(op, e, depth, xtra = {}) {
 
                     if (writeCallee)
                         ret += callee;
-                    if (!isCallout && !argsWritten)
-                        e.arguments.forEach(_ => {
+                    if (!isCallout && !argsWritten) {
+                        for (const _ of e.arguments) {
                             ret += op.readUntil(_.start);
-                            ret += parseElement(op, _, depth + 1);
-                        });
+                            ret += await parseElement(op, _, depth + 1);
+                        }
+                    }
                     ret += op.readUntil(e.end);
                     if (!ret.startsWith('await')) {
                         let nowrap = false;
@@ -589,13 +601,15 @@ function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'CatchClause':
-                ret += parseElement(op, e.param, depth + 1);
+                ret += await parseElement(op, e.param, depth + 1);
                 addRuntimeAssert(e, `__cat(${e.param.name}); `);
-                ret += parseElement(op, e.body, depth + 1);
+                ret += await parseElement(op, e.body, depth + 1);
                 break;
 
             case 'ClassBody':
-                e.body.forEach(_ => ret += parseElement(op, _, depth + 1));
+                for (const _ of e.body) {
+                    ret += await parseElement(op, _, depth + 1)
+                }
                 op.thisClass = false;
                 op.forcedInheritance = false;
                 break;
@@ -607,10 +621,10 @@ function parseElement(op, e, depth, xtra = {}) {
                     op.pos = e.modifier.end;
                 }
                 let typeDef = op.eventBeginTypeDefinition(op.thisClass = e.id.name, e.classModifiers || 0);
-                ret += parseElement(op, e.id, depth + 1);
+                ret += await parseElement(op, e.id, depth + 1);
 
                 if (e.superClass)
-                    ret += parseElement(op, e.superClass, depth + 1);
+                    ret += await parseElement(op, e.superClass, depth + 1);
                 else if (op.injectedSuperClass) {
                     op.forcedInheritance = true;
                     ret += ` extends ${op.injectedSuperClass} `;
@@ -619,7 +633,7 @@ function parseElement(op, e, depth, xtra = {}) {
                 //  Skip passed any additional extend statements
                 op.pos = e.body.start;
 
-                ret += parseElement(op, e.body, depth + 1);
+                ret += await parseElement(op, e.body, depth + 1);
                 ret += ` ${e.id.name}.prototype.baseName = '${op.getBaseName(e.id.name)}'; __dmt("${op.filename}", ${e.id.name}); `;
 
                 if (Array.isArray(e.parentClasses)) {
@@ -631,11 +645,11 @@ function parseElement(op, e, depth, xtra = {}) {
 
             case 'ConditionalExpression':
                 ret += op.readUntil(e.test.start);
-                ret += parseElement(op, e.test, depth + 1);
+                ret += await parseElement(op, e.test, depth + 1);
                 ret += op.readUntil(e.consequent.start);
-                ret += parseElement(op, e.consequent, depth + 1);
+                ret += await parseElement(op, e.consequent, depth + 1);
                 ret += op.readUntil(e.alternate.start);
-                ret += parseElement(op, e.alternate, depth + 1);
+                ret += await parseElement(op, e.alternate, depth + 1);
                 break;
 
             case 'ContinueStatement':
@@ -655,8 +669,8 @@ function parseElement(op, e, depth, xtra = {}) {
 
             case 'DoWhileStatement':
                 addRuntimeAssert(e, '__ala(); ');
-                ret += parseElement(op, e.body, depth + 1);
-                ret += parseElement(op, e.test, depth + 1);
+                ret += await parseElement(op, e.body, depth + 1);
+                ret += await parseElement(op, e.test, depth + 1);
                 break;
 
             case 'EmptyStatement':
@@ -664,29 +678,29 @@ function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'ExpressionStatement':
-                ret += parseElement(op, e.expression, depth + 1);
+                ret += await parseElement(op, e.expression, depth + 1);
                 break;
 
             case 'ForInStatement':
-                ret += parseElement(op, e.left, depth + 1);
-                ret += parseElement(op, e.right, depth + 1);
+                ret += await parseElement(op, e.left, depth + 1);
+                ret += await parseElement(op, e.right, depth + 1);
                 addRuntimeAssert(e, '__ala(); ');
-                ret += parseElement(op, e.body, depth + 1);
+                ret += await parseElement(op, e.body, depth + 1);
                 break;
 
             case 'ForOfStatement':
-                ret += parseElement(op, e.left, depth + 1);
-                ret += parseElement(op, e.right, depth + 1);
+                ret += await parseElement(op, e.left, depth + 1);
+                ret += await parseElement(op, e.right, depth + 1);
                 addRuntimeAssert(e, '__ala(); ');
-                ret += parseElement(op, e.body, depth + 1);
+                ret += await parseElement(op, e.body, depth + 1);
                 break;
 
             case 'ForStatement':
-                ret += parseElement(op, e.init, depth + 1);
-                ret += parseElement(op, e.test, depth + 1);
-                ret += parseElement(op, e.update, depth + 1);
+                ret += await parseElement(op, e.init, depth + 1);
+                ret += await parseElement(op, e.test, depth + 1);
+                ret += await parseElement(op, e.update, depth + 1);
                 addRuntimeAssert(e, '__ala(); ');
-                ret += parseElement(op, e.body, depth + 1);
+                ret += await parseElement(op, e.body, depth + 1);
                 break;
 
             case 'FunctionDeclaration':
@@ -696,9 +710,11 @@ function parseElement(op, e, depth, xtra = {}) {
                         throw new Error(`Illegal function name: ${functionName}`);
                     else if (SettersGetters.indexOf(functionName) > -1)
                         throw new Error(`Illegal function name: ${functionName}`);
-                    ret += parseElement(op, e.id, depth + 1);
+                    ret += await parseElement(op, e.id, depth + 1);
                     let isAsync = ret.startsWith('async');
-                    e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
+                    for (const _ of e.params) {
+                        ret += await parseElement(op, _, depth + 1);
+                    }
                     if (op.thisClass) {
                         addRuntimeAssert(e,
                             `let __mec = __bfc(${op.thisParameter}, 'public', '${e.id.name}', __FILE__, ${isAsync}, __LINE__); try { `,
@@ -708,7 +724,7 @@ function parseElement(op, e, depth, xtra = {}) {
                         addRuntimeAssert(e,
                             `let __mec = __bfc(this, 'public', '${e.id.name}', __FILE__,  ${isAsync}, __LINE__); try { `,
                             ` } finally { __efc(__mec, '${e.id.name}'); }`);
-                    ret += parseElement(op, e.body, depth + 1, { name: functionName });
+                    ret += await parseElement(op, e.body, depth + 1, { name: functionName });
                 }
                 break;
 
@@ -716,8 +732,10 @@ function parseElement(op, e, depth, xtra = {}) {
                 {
                     let callType = xtra.callType || 0;
 
-                    ret += parseElement(op, e.id, depth + 1);
-                    e.params.forEach(_ => ret += parseElement(op, _, depth + 1));
+                    ret += await parseElement(op, e.id, depth + 1);
+                    for (const _ of e.params) {
+                        ret += await parseElement(op, _, depth + 1);
+                    }
                     if (op.thisClass && op.thisMethod) {
                         if (op.method === 'constructor' && op.thisClass) {
                             addRuntimeAssert(e,
@@ -732,7 +750,7 @@ function parseElement(op, e, depth, xtra = {}) {
                                 ` } finally { __efc(__mec, '${op.method}'); }`, false);
                         }
                     }
-                    ret += parseElement(op, e.body, depth + 1);
+                    ret += await parseElement(op, e.body, depth + 1);
                 }
                 break;
 
@@ -762,11 +780,11 @@ function parseElement(op, e, depth, xtra = {}) {
 
             case 'IfStatement':
                 ret += op.readUntil(e.test.start);
-                ret += parseElement(op, e.test, depth + 1);
-                ret += parseElement(op, e.consequent, depth + 1);
+                ret += await parseElement(op, e.test, depth + 1);
+                ret += await parseElement(op, e.consequent, depth + 1);
                 if (e.alternate) {
                     ret += op.readUntil(e.alternate.start);
-                    ret += parseElement(op, e.alternate);
+                    ret += await parseElement(op, e.alternate);
                 }
                 break;
 
@@ -777,10 +795,10 @@ function parseElement(op, e, depth, xtra = {}) {
                 if (!op.allowJsx)
                     throw new Error(`JSX is not enabled for ${this.extension} files`);
                 op.pos = e.end;
-                ret += parseElement(op, e.name, depth + 1);
+                ret += await parseElement(op, e.name, depth + 1);
                 ret += ':';
                 op.pos = e.value.start;
-                ret += parseElement(op, e.value, depth + 1);
+                ret += await parseElement(op, e.value, depth + 1);
                 break;
 
             case 'JSXClosingElement':
@@ -799,18 +817,18 @@ function parseElement(op, e, depth, xtra = {}) {
                 }
                 ret += 'createElement(';
                 op.pos = e.start;
-                ret += parseElement(op, e.openingElement, depth + 1);
+                ret += await parseElement(op, e.openingElement, depth + 1);
                 if (e.children.length > 0) {
-                    e.children.forEach((_, i) => {
-                        if(i === 1) op.jsxDepth++;
-                        let t = parseElement(op, _, depth + 1);
+                    for (const [i, _] of e.children.entries()) {
+                        if (i === 1) op.jsxDepth++;
+                        let t = await parseElement(op, _, depth + 1);
                         if (t.length) {
                             ret += ', ' + (_.type === 'JSXElement' ? '' : '') + t;
                         }
-                    });
+                    }
                 }
                 op.pos = e.end;
-                ret += e.closingElement ? parseElement(op, e.closingElement) : ')';
+                ret += e.closingElement ? await parseElement(op, e.closingElement) : ')';
                 op.jsxDepth--;
                 break;
 
@@ -830,7 +848,7 @@ function parseElement(op, e, depth, xtra = {}) {
                 if (!op.allowJsx)
                     throw new Error(`JSX is not enabled for ${this.extension} files`);
                 op.pos = e.expression.start;
-                ret += parseElement(op, e.expression, depth + 1);
+                ret += await parseElement(op, e.expression, depth + 1);
                 op.pos = e.end;
                 break;
 
@@ -838,11 +856,12 @@ function parseElement(op, e, depth, xtra = {}) {
                 if (!op.allowJsx)
                     throw new Error(`JSX is not enabled for ${this.extension} files`);
                 op.pos = e.end;
-                ret += parseElement(op, e.name, depth + 1);
+                ret += await parseElement(op, e.name, depth + 1);
                 ret += ', {';
-                e.attributes.forEach((_, i) => {
-                    ret += (i > 0 ? ', ' : '') + parseElement(op, _, depth + 1);
-                });
+                for (const [i, _] of e.attributes.entries()) {
+                    ret += (i > 0 ? ', ' : '');
+                    ret += await parseElement(op, _, depth + 1);
+                }
                 ret += '}';
                 op.pos = e.end;
                 break;
@@ -862,15 +881,15 @@ function parseElement(op, e, depth, xtra = {}) {
 
             case 'LogicalExpression':
                 ret += op.readUntil(e.left.start);
-                ret += parseElement(op, e.left, depth + 1);
+                ret += await parseElement(op, e.left, depth + 1);
                 ret += op.readUntil(e.right.start);
-                ret += parseElement(op, e.right, depth + 1);
+                ret += await parseElement(op, e.right, depth + 1);
                 break;
 
             case 'MemberExpression':
                 {
                     ret += op.readUntil(e.object.start);
-                    ret += parseElement(op, e.object, depth + 1);
+                    ret += await parseElement(op, e.object, depth + 1);
                     if (e.usingDerefArrow) {
                         op.pos += 2;
                         ret += '.';
@@ -882,7 +901,7 @@ function parseElement(op, e, depth, xtra = {}) {
                             op.raise('Create (constructor) may only be called within constructor');
                     }
                     ret += op.readUntil(e.property.start);
-                    ret += parseElement(op, e.property, depth + 1);
+                    ret += await parseElement(op, e.property, depth + 1);
                 }
                 break;
 
@@ -904,7 +923,7 @@ function parseElement(op, e, depth, xtra = {}) {
                             .join(' ');
                         op.pos = e.modifier.end;
                     }
-                    let methodName = op.setMethod(parseElement(op, e.key, depth + 1), e.accessKind, e.static);
+                    let methodName = op.setMethod(await parseElement(op, e.key, depth + 1), e.accessKind, e.static);
                     if (methodName === 'create')
                         op.inCreate = true;
 
@@ -921,7 +940,8 @@ function parseElement(op, e, depth, xtra = {}) {
                     if (methodName.startsWith('set '))
                         info.callType |= CallOrigin.SetProperty;
                     ret += methodName;
-                    ret += parseElement(op, e.value, depth + 1, info);
+                    op.typeDef.addMember(methodName, e.methodModifiers);
+                    ret += await parseElement(op, e.value, depth + 1, info);
                     op.setMethod();
                     op.inCreate = false;
                 }
@@ -932,10 +952,10 @@ function parseElement(op, e, depth, xtra = {}) {
                     let callee = op.source.slice(e.callee.start, e.callee.end);
                     op.pos = e.callee.end;
                     ret += `__pcc(${op.thisParameter}, ${callee}, __FILE__, '${op.method}', ct => new ct`;
-                    e.arguments.forEach(_ => {
+                    for (const _ of e.arguments) {
                         ret += op.readUntil(_.start);
-                        ret += parseElement(op, _, depth + 1);
-                    });
+                        ret += await parseElement(op, _, depth + 1);
+                    }
                     if (op.pos !== e.end) {
                         if (op.pos > e.end) throw new Error('Oops?');
                         ret += op.source.slice(op.pos, e.end);
@@ -946,31 +966,35 @@ function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'ObjectExpression':
-                e.properties.forEach(_ => ret += parseElement(op, _, depth + 1));
+                for (const _ of e.properties) {
+                    ret += await parseElement(op, _, depth + 1);
+                }
                 break;
 
             case 'ObjectPattern':
-                e.properties.forEach(_ => ret += parseElement(op, _, depth + 1));
+                for (const _ of e.properties) {
+                    ret += await parseElement(op, _, depth + 1);
+                }
                 break;
 
             case 'Property':
                 ret += op.readUntil(e.key.start);
-                ret += parseElement(op, e.key, depth + 1);
+                ret += await parseElement(op, e.key, depth + 1);
                 if (e.key.start !== e.value.start) {
                     ret += op.readUntil(e.value.start);
-                    ret += parseElement(op, e.value, depth + 1);
+                    ret += await parseElement(op, e.value, depth + 1);
                 }
                 break;
 
             case 'RestElement':
-                ret += parseElement(op, e.argument, depth + 1);
+                ret += await parseElement(op, e.argument, depth + 1);
                 op.pos = e.end;
                 break;
 
             case 'ReturnStatement':
                 if (e.argument) {
                     ret += op.readUntil(e.argument.start);
-                    ret += parseElement(op, e.argument, depth + 1);
+                    ret += await parseElement(op, e.argument, depth + 1);
                 }
                 break;
 
@@ -980,9 +1004,9 @@ function parseElement(op, e, depth, xtra = {}) {
 
             case 'ScopedIdentifier':
                 {
-                    let scopeName = parseElement(op, e.scopeName, depth + 1);
+                    let scopeName = await parseElement(op, e.scopeName, depth + 1);
                     op.pos += 2;
-                    let scopeId = parseElement(op, e.scopeId, depth + 1);
+                    let scopeId = await parseElement(op, e.scopeId, depth + 1);
 
                     switch (op.scope) {
                         case ScopeType.CallExpression:
@@ -998,18 +1022,22 @@ function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'SwitchCase':
-                ret += parseElement(op, e.test, depth + 1);
-                e.consequent.forEach(_ => ret += parseElement(op, _, depth + 1));
+                ret += await parseElement(op, e.test, depth + 1);
+                for (const _ of e.consequent) {
+                    ret += await parseElement(op, _, depth + 1)
+                }
                 break;
 
             case 'SequenceExpression':
-                e.expressions.forEach(_ => ret += parseElement(op, _, depth + 1));
+                for (const _ of e.expressions) {
+                    ret += await parseElement(op, _, depth + 1);
+                }
                 break;
 
             //  '...' 
             case 'SpreadElement':
                 ret += op.readUntil(e.argument.start);
-                ret += parseElement(op, e.argument, depth + 1);
+                ret += await parseElement(op, e.argument, depth + 1);
                 break;
 
             case 'Super':
@@ -1019,11 +1047,11 @@ function parseElement(op, e, depth, xtra = {}) {
 
             case 'SwitchStatement':
                 ret += op.readUntil(e.discriminant.start);
-                ret += parseElement(op, e.discriminant, depth + 1);
-                e.cases.forEach(_ => {
+                ret += await parseElement(op, e.discriminant, depth + 1);
+                for (const _ of e.cases) {
                     ret += op.readUntil(_.start);
-                    ret += parseElement(op, _, depth + 1);
-                });
+                    ret += await parseElement(op, _, depth + 1);
+                }
                 break;
 
             case 'TemplateElement':
@@ -1036,10 +1064,10 @@ function parseElement(op, e, depth, xtra = {}) {
                     let items = []
                         .concat(e.quasis.slice(0), e.expressions.slice(0))
                         .sort((a, b) => a.start < b.start ? -1 : a.start === b.start ? 0 : 1);
-                    items.forEach(_ => {
+                    for (const _ of items) {
                         ret += op.readUntil(_.start);
-                        ret += parseElement(op, _, depth + 1);
-                    });
+                        ret += await parseElement(op, _, depth + 1);
+                    }
                 }
                 break;
 
@@ -1049,18 +1077,18 @@ function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'ThrowStatement':
-                ret += parseElement(op, e.argument, depth + 1);
+                ret += await parseElement(op, e.argument, depth + 1);
                 break;
 
             case 'TryStatement':
-                ret += parseElement(op, e.block, depth + 1);
-                ret += parseElement(op, e.handler, depth + 1);
-                ret += parseElement(op, e.finalizer, depth + 1);
+                ret += await parseElement(op, e.block, depth + 1);
+                ret += await parseElement(op, e.handler, depth + 1);
+                ret += await parseElement(op, e.finalizer, depth + 1);
                 break;
 
             case 'UnaryExpression':
                 ret += op.readUntil(e.argument.start);
-                ret += parseElement(op, e.argument, depth + 1);
+                ret += await parseElement(op, e.argument, depth + 1);
                 break;
 
             case 'UpdateExpression':
@@ -1069,27 +1097,29 @@ function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'VariableDeclarator':
-                ret += parseElement(op, e.id, depth + 1);
+                ret += await parseElement(op, e.id, depth + 1);
                 if (e.init) {
                     e.init.idType = e.id.type;
                     ret += op.readUntil(e.init.start);
-                    ret += parseElement(op, e.init, depth + 1);
+                    ret += await parseElement(op, e.init, depth + 1);
                 }
                 break;
 
             case 'VariableDeclaration':
-                e.declarations.forEach(_ => ret += parseElement(op, _, depth + 1));
+                for (const _ of e.declarations) {
+                    ret += await parseElement(op, _, depth + 1);
+                }
                 break;
 
             case 'WhileStatement':
-                ret += parseElement(op, e.test, depth + 1);
+                ret += await parseElement(op, e.test, depth + 1);
                 addRuntimeAssert(e, '__ala(); ');
-                ret += parseElement(op, e.body, depth + 1);
+                ret += await parseElement(op, e.body, depth + 1);
                 break;
 
             case 'WithStatement':
-                ret += parseElement(op, e.object, depth + 1);
-                ret += parseElement(op, e.body, depth + 1);
+                ret += await parseElement(op, e.object, depth + 1);
+                ret += await parseElement(op, e.body, depth + 1);
                 break;
 
             default:
@@ -1149,7 +1179,10 @@ class MudScriptTranspiler extends PipelineComponent {
 
                 op.ast = this.parser.parse(source, op.acornOptions);
                 op.output += `__rmt("${op.filename}");`
-                op.ast.body.forEach(n => op.output += parseElement(op, n, 0));
+                for (const n of op.ast.body) {
+                    op.output += await parseElement(op, n, 0)
+                }
+                //op.ast.body.forEach(n => op.output += parseElement(op, n, 0));
                 op.output += op.readUntil(op.max);
                 op.output += op.appendText;
                 op.injectedSuperClass = 'MUDObject';
