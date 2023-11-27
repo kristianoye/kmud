@@ -105,7 +105,9 @@ class MudScriptAstAssembler {
         this.awaitDepth = 0;
         this.appendText = '';
         this.callerId = [];
+        this.canImport = true;
         this.context = p.context;
+        this.directory = p.directory;
         this.filename = p.filename;
         this.filepart = p.filename.slice(p.filename.lastIndexOf('/') + 1);
         this.inCreate = false;
@@ -202,17 +204,10 @@ class MudScriptAstAssembler {
         return { line: lines.length + 1, char: lastLine.length + 1 };
     }
 
-    /**
-     * Attempts to import one or more simple includes
-     * @param {string[]} fileSpec One or more files to include
-     */
-    include(fileSpec) {
-        fileSpec.forEach(f => {
-            let symbols = driver.includeFile(f);
-            if (typeof symbols === 'object') {
-                this.symbols = Object.assign(this.symbols, symbols);
-            }
-        });
+    importSymbols(symbolMap) {
+        for (const [key, val] of Object.entries(symbolMap)) {
+            this.symbols[key] = val;
+        }
     }
 
     get method() {
@@ -393,17 +388,17 @@ async function parseElement(op, e, depth, xtra = {}) {
                     ret += op.readUntil(e.body.start);
                     if (e.body.type === 'BlockStatement') {
                         ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try `;
-                        ret += await parseElement(op, e.body);
+                        ret += await parseElement(op, e.body, depth + 1);
                         ret += ` finally { __efc(__mec, '${funcName}'); } }`;
                     }
                     else if (e.body.type === 'MemberExpression') {
                         ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return `;
-                        ret += await parseElement(op, e.body);
+                        ret += await parseElement(op, e.body, depth + 1);
                         ret += `; } finally { __efc(__mec, '${funcName}'); } }`;
                     }
                     else {
                         ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return (`;
-                        ret += await parseElement(op, e.body);
+                        ret += await parseElement(op, e.body, depth + 1);
                         ret += `); } finally { __efc(__mec, '${funcName}'); } }`;
                     }
                 }
@@ -435,10 +430,20 @@ async function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'BinaryExpression':
-                ret += await parseElement(op, e.left, depth + 1);
-                ret += op.readUntil(e.operator);
-                ret += op.readUntil(e.right.start);
-                ret += await parseElement(op, e.right, depth + 1);
+                if (e.operator === 'instanceof') {
+                    ret += 'inherits(';
+                    ret += await parseElement(op, e.left, depth + 1);
+                    ret += ', ';
+                    op.pos = e.right.start;
+                    ret += await parseElement(op, e.right, depth + 1);
+                    ret += ')';
+                }
+                else {
+                    ret += await parseElement(op, e.left, depth + 1);
+                    ret += op.readUntil(e.operator);
+                    ret += op.readUntil(e.right.start);
+                    ret += await parseElement(op, e.right, depth + 1);
+                }
                 break;
 
             case 'BlockStatement':
@@ -446,6 +451,8 @@ async function parseElement(op, e, depth, xtra = {}) {
                     let prevDepth = op.awaitDepth;
                     op.awaitDepth = 0;
                     for (const _ of e.body) {
+                        if (op.canImport && _.type !== 'ImportDeclaration')
+                            op.canImport = false;
                         ret += await parseElement(op, _, depth + 1);
                     }
                     op.awaitDepth = prevDepth;
@@ -784,12 +791,54 @@ async function parseElement(op, e, depth, xtra = {}) {
                 ret += await parseElement(op, e.consequent, depth + 1);
                 if (e.alternate) {
                     ret += op.readUntil(e.alternate.start);
-                    ret += await parseElement(op, e.alternate);
+                    ret += await parseElement(op, e.alternate, depth + 1);
                 }
                 break;
 
             case 'ImportDeclaration':
-                throw new Error('Import functionality is not implemented, yet');
+                if (!op.canImport)
+                    op.raise(`Import statement cannot appear here; Imports must all appear at top of module`);
+                else {
+                    let specifiers = {},
+                        locals = [],
+                        source = op.source.slice(e.source.start, e.source.end);
+
+                    for (const spec of e.specifiers) {
+                        switch (spec.type) {
+                            case 'ImportSpecifier':
+                                {
+                                    let local = spec.local.name,
+                                        imported = spec.imported.name;
+                                    locals.push(local);
+                                    specifiers[local] = imported;
+                                }
+                                break;
+
+                            case 'ImportDefaultSpecifier':
+                                {
+                                    let local = spec.local.name;
+                                    locals.push(local);
+                                    specifiers[local] = 'default';
+                                }
+                                break;
+
+                            case 'ImportNamespaceSpecifier':
+                                {
+                                    let local = spec.local.name;
+                                    locals.push(local);
+                                    specifiers[local] = 'exports';
+                                }
+                                break;
+
+                            default:
+                                op.raise(`Unhandled import specifier: ${spec.type}`);
+                        }
+                    }
+                    ret += `const { ${locals.join(', ')} } = await efuns.importAsync(${source}, ${JSON.stringify(specifiers)});`;
+                    op.importSymbols(await efuns.importAsync(source.replace(/^[\'\"]{1}|[\'\"]{1}$/g, ''), specifiers, op.directory));
+                    op.pos = e.end;
+                }
+                break;
 
             case 'JSXAttribute':
                 if (!op.allowJsx)
@@ -828,7 +877,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                     }
                 }
                 op.pos = e.end;
-                ret += e.closingElement ? await parseElement(op, e.closingElement) : ')';
+                ret += e.closingElement ? await parseElement(op, e.closingElement, depth + 1) : ')';
                 op.jsxDepth--;
                 break;
 
@@ -1166,6 +1215,7 @@ class MudScriptTranspiler extends PipelineComponent {
             acornOptions: Object.assign({ sourceType: 'mudscript' }, this.acornOptions, context.acornOptions),
             allowConstructors: false,
             allowJsx: this.allowJsx,
+            directory: context.directory,
             filename: context.basename,
             context,
             source: context.content,

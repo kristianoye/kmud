@@ -386,14 +386,15 @@ class MUDVTable {
         if (!methodMap)
             throw new Error(`Type ${instance.constructor.name} does not have a method named '${methodName}'`)
         else if (typeName && !methodMap[typeName])
-            throw new Error(`Type ${instance.constructor.name} does not have a method named '${methodName}'`)
+            throw new Error(`Type '${typeName}', inherited by ${instance.constructor.name}, does not have a method named '${methodName}'`)
         else if (typeName) {
             return methodMap[typeName].implementation.apply(instance, args);
         }
         else {
             let result = {};
             for (const [scopeName, method] of Object.entries(methodMap)) {
-                result[scopeName] = method.implementation.apply(instance, args);
+                if (method.depth === 1)
+                    result[scopeName] = method.implementation.apply(instance, args);
             }
             return result;
         }
@@ -406,14 +407,15 @@ class MUDVTable {
         if (!methodMap)
             throw new Error(`Type ${instance.constructor.name} does not have a method named '${methodName}'`)
         else if (typeName && !methodMap[typeName])
-            throw new Error(`Type ${instance.constructor.name} does not have a method named '${methodName}'`)
+            throw new Error(`Type '${typeName}', inherited by ${instance.constructor.name}, does not have a method named '${methodName}'`)
         else if (typeName) {
             return await methodMap[typeName].implementation.apply(instance, args);
         }
         else {
             let result = {};
             for (const [scopeName, method] of Object.entries(methodMap)) {
-                result[scopeName] = await method.implementation.apply(instance, args);
+                if (method.depth === 1)
+                    result[scopeName] = await method.implementation.apply(instance, args);
             }
             return result;
         }

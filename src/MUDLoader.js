@@ -202,6 +202,12 @@ class MUDLoader {
                 },
                 writable: false
             },
+            inherits: {
+                value: function (ob, targetType) {
+                    return global.MUDVTable.doesInherit(ob, targetType);
+                },
+                writable: false
+            },
             logger: {
                 value: global.logger,
                 writable: false

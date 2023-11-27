@@ -21,7 +21,7 @@ const acorn = require('acorn'),
     ModifierSingleton = "singleton",
 
     //  New keywords added by MudScript
-    MudscriptKeywords = "abstract singleton final public private protected package override",
+    MudscriptKeywords = "abstract singleton final public private protected package override nosave",
     MemberModifiers = Object.freeze({
         Public: 1 << 0,
         Protected: 1 << 1,
@@ -30,7 +30,8 @@ const acorn = require('acorn'),
         Abstract: 1 << 4,
         Final: 1 << 5,
         Override: 1 << 6,
-        Singleton: 1 << 7
+        Singleton: 1 << 7,
+        NoSave: 1 << 8
     });
 
 var
@@ -94,6 +95,9 @@ function plugin(options, Parser) {
 
     // Private access modifier
     types$1._override = kw(ModifierOverride, { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Override });
+
+    // Nosave access modifier
+    types$1._nosave = kw(ModifierOverride, { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.NoSave });
 
 
     // Dereferencing operator allows calling 3 types of possible instance references:
@@ -238,6 +242,9 @@ function plugin(options, Parser) {
                 else if (this.eat(types$1._final)) {
                     method.methodModifiers |= MemberModifiers.Final;
                 }
+                else if (this.eat(types$1._nosave)) {
+                    method.methodModifiers |= MemberModifiers.NoSave;
+                }
                 else {
                     this.finishNode(modifierNode, 'MemberModifiers');
                     if (modifierNode.end < modifierNode.start)
@@ -299,6 +306,8 @@ function plugin(options, Parser) {
                 else if (method.kind === "constructor")
                     this.raise(method.value.start, "Constructor must specify access decorator (public, protected, private, or package)");
             }
+            if (method.hasAccess(MemberModifiers.NoSave) && method.kind !== 'set')
+                this.raise(`Member ${key.name} cannot use nosave modifier; Only setters may use nosave`);
             if (method.hasAccess(MemberModifiers.Public) && method.hasAccess(MemberModifiers.Private | MemberModifiers.Protected | MemberModifiers.Package))
                 this.raise(`Member ${key.name} cannot mix public acccess with protected, private, or package`);
             else if (method.hasAccess(MemberModifiers.Abstract) && method.hasAccess(MemberModifiers.Final))

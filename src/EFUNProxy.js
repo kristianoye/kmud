@@ -1590,6 +1590,53 @@ class EFUNProxy {
         }
     }
 
+    async importAsync(moduleName, specifiers, relativePath = false) {
+        if (typeof moduleName === 'string') {
+            switch (moduleName) {
+                case 'lpc':
+                    return require('./LPCCompat');
+
+                case 'path':
+                    return path.posix;
+
+                case 'async':
+                case 'net':
+                    return require(moduleName);
+
+                default:
+                    let isInclude = moduleName.indexOf('/') === -1,
+                        filename = isInclude ?
+                            await this.resolveIncludeAsync(moduleName) :
+                            await this.resolvePath(moduleName, relativePath || this.directoryName(this.filename)),
+                        module = driver.cache.get(filename);
+
+                    if (!module)
+                        module = await driver.compiler.compileObjectAsync({
+                            file: filename,
+                            reload: false,
+                            relativePath: this.directory
+                        });
+                    if (!module)
+                        throw new Error(`Failed to load required module '${filename}'`);
+                    else if (module.isCompiling)
+                        throw new Error(`Circular dependency detected: ${module.filename} <-> ${this.fileName}`);
+
+                    let result = {};
+                    for (const [exportAs, definedAs] of Object.entries(specifiers)) {
+                        if (definedAs === 'default')
+                            result[exportAs] = module.defaultExport;
+                        else if (definedAs === 'exports')
+                            result[exportAs] = Object.assign({}, module.exports);
+                        else if (definedAs in module.exports)
+                            result[exportAs] = module.exports[definedAs];
+                        else
+                            throw new Error(`SyntaxError: The requested module '${filename}' does not provide an export named '${definedAs}'`);
+                    }
+                    return result;
+            }
+        }
+    }
+
     /**
      * Attempt to find an include file.
      * @param {string} file The include file to locate.

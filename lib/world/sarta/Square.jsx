@@ -20,7 +20,7 @@ function formatName() {
  */
 class Square extends Room {
     private create() {
-        super.create();
+        this->::create();
         this.keyId = 'Square';
         this.shortDesc = 'The Central Square of Sarta';
         this.addExit('fighter', 'classHalls/Fighter');
@@ -53,6 +53,10 @@ class Square extends Room {
             let harry = await efuns.cloneObjectAsync('mob/Harry');
             await harry().moveObjectAsync(this);
         }
+    }
+
+    private nonsensicalAddon() {
+
     }
 }
 
