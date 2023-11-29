@@ -8,17 +8,8 @@ const
     MUDCompilerOptions = require('./compiler/MUDCompilerOptions'),
     { PipelineContext } = require('./compiler/PipelineContext'),
     events = require('events'),
-    MemberModifiers = Object.freeze({
-        Public: 1 << 0,
-        Protected: 1 << 1,
-        Private: 1 << 2,
-        Package: 1 << 3,
-        Abstract: 1 << 4,
-        Final: 1 << 5,
-        Override: 1 << 6,
-        Singleton: 1 << 7,
-        NoSave: 1 << 8
-    });
+    MemberModifiers = require("./compiler/MudscriptMemberModifiers");
+
 var
     useAuthorStats = false,
     useDomainStats = false,
@@ -39,6 +30,10 @@ class MUDModuleTypeInfo {
 
     addMember(methodName, flags = 0) {
         this.members[methodName] = flags;
+    }
+
+    get isAbstract() {
+        return (this.modifiers & MemberModifiers.Abstract) > 0;
     }
 }
 

@@ -731,10 +731,13 @@ async function parseElement(op, e, depth, xtra = {}) {
                             if (driver.efuns.inherits(classRef, 'MUDObject')) {
                                 classRef = classRef.constructor;
                             }
+                            else {
+                                op.raise(`Class '${typeDef.typeName}' cannot extend '${classId}' since it is not a MUDObject (type: ${typeof classRef})`);
+                            }
                         }
                         let flags = classRef.prototype.typeModifiers;
                         if ((flags & MemberModifiers.Final) > 0) {
-                            op.raise(`Class '${typeDef.typeName}' cannot extend final class '${classRef.name}'`);
+                            op.raise(`Class '${typeDef.typeName}' cannot extend '${classId}' since it is declared 'final'`);
                         }
                     }
                     ret += `extendType(${typeDef.typeName}, ${parentClassList.join(',')});`;
@@ -1154,9 +1157,16 @@ async function parseElement(op, e, depth, xtra = {}) {
                             .join(' ');
                         op.pos = e.modifier.end;
                     }
-                    let methodName = op.setMethod(await parseElement(op, e.key, depth + 1), e.accessKind, e.static);
-                    if (methodName === 'create')
+                    let methodName = op.setMethod(await parseElement(op, e.key, depth + 1), e.accessKind, e.static),
+                        modifiers = e.methodModifiers || 0;
+
+                    if ((modifiers & MemberModifiers.Abstract) > 0 && !op.typeDef.isAbstract) {
+                        op.raise(`Member ${methodName} cannot be abstract unless defining type ${op.typeDef.typeName} is also declared abstract`);
+                    }
+
+                    if (methodName === 'create') {
                         op.inCreate = true;
+                    }
 
                     if (op.allowConstructors === false && methodName === 'constructor') {
                         op.raise(`Game objects may not define JavaScript constructors`);
@@ -1171,7 +1181,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                     if (methodName.startsWith('set '))
                         info.callType |= CallOrigin.SetProperty;
                     ret += methodName;
-                    op.typeDef.addMember(methodName, e.methodModifiers);
+                    op.typeDef.addMember(methodName, modifiers);
                     ret += await parseElement(op, e.value, depth + 1, info);
                     op.setMethod();
                     op.inCreate = false;
