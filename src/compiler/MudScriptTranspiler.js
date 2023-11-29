@@ -16,7 +16,8 @@ const
     acorn = require('acorn'),
     MudscriptAcornPlugin = require('./MudscriptAcornPlugin'),
     jsx = require('acorn-jsx'),
-    { CallOrigin } = require('../ExecutionContext');
+    { CallOrigin } = require('../ExecutionContext'),
+    MemberModifiers = require("./MudscriptMemberModifiers");
 
 const
     //  These cannot be used as identifiers (reserved words)
@@ -174,6 +175,12 @@ class MudScriptAstAssembler {
             this.pos++;
     }
 
+    /**
+     * Starts a class definition
+     * @param {any} typeName
+     * @param {any} modifiers
+     * @returns
+     */
     eventBeginTypeDefinition(typeName, modifiers) {
         if (this.typeDef !== false) {
             let pos = this.getPosition();
@@ -718,7 +725,16 @@ async function parseElement(op, e, depth, xtra = {}) {
 
                         if (!classRef) {
                             if (classId === 'MUDObject' || classId === 'EFUNProxy') continue;
-                            op.raise(`Could not inherit undefined class ${classId}`);
+                            op.raise(`Could not inherit unresolved class: '${classId}'`);
+                        }
+                        else if (!driver.efuns.isClass(classRef)) {
+                            if (driver.efuns.inherits(classRef, 'MUDObject')) {
+                                classRef = classRef.constructor;
+                            }
+                        }
+                        let flags = classRef.prototype.typeModifiers;
+                        if ((flags & MemberModifiers.Final) > 0) {
+                            op.raise(`Class '${typeDef.typeName}' cannot extend final class '${classRef.name}'`);
                         }
                     }
                     ret += `extendType(${typeDef.typeName}, ${parentClassList.join(',')});`;

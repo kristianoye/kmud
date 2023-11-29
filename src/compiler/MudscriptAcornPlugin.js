@@ -22,17 +22,7 @@ const acorn = require('acorn'),
 
     //  New keywords added by MudScript
     MudscriptKeywords = "abstract singleton final public private protected package override nosave",
-    MemberModifiers = Object.freeze({
-        Public: 1 << 0,
-        Protected: 1 << 1,
-        Private: 1 << 2,
-        Package: 1 << 3,
-        Abstract: 1 << 4,
-        Final: 1 << 5,
-        Override: 1 << 6,
-        Singleton: 1 << 7,
-        NoSave: 1 << 8
-    });
+    MemberModifiers = require("./MudscriptMemberModifiers");
 
 var
     types$1 = acorn.tokTypes,

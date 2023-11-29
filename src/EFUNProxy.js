@@ -705,6 +705,10 @@ class EFUNProxy {
             .join(this.eol);
     }
 
+    inherits(ob, targetType) {
+        return global.MUDVTable.doesInherit(ob, targetType);
+    }
+
     get input() { return InputHelper; }
 
     isAsync(expr) {
