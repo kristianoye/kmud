@@ -1983,6 +1983,12 @@ class EFUNProxy {
         return Math.max(0, total + modifier);
     }
 
+    /** Sets the default export for the module */
+    async setDefaultExport(val) {
+        let module = driver.cache.get(this.fullPath);
+        module.setDefaultExport(val, true);
+    }
+
     /**
      * Removes color codes from a string.
      * @param {string} str The string to remove color from.

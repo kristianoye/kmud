@@ -1,9 +1,5 @@
 
-[2019-3-1 16:49:00]
-Unexpected token ,
-E:\KLF\KMUD\lib\base\Room.js:75
-        let __mec = __bfc(this || Room, 'public', 'get indoors', __FILE__, false); try { return get.call(this, Room, 'indoors', 'room/indoors', , false) === true; } finally { __efc(__mec, 'get indoors'); }
-                                                                                                                                                ^
-
-SyntaxError: Unexpected token ,
-    at require (/world/sarta/Square.jsx:1:201)
+[11/28/2023, 7:00:04 PM]
+Could not load /world/sarta/Square [[Line 61, Char 2]: Could not inherit undefined class Room]
+Error: Could not load /world/sarta/Square [[Line 61, Char 2]: Could not inherit undefined class Room]
+    at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)

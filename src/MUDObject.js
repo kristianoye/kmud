@@ -4,10 +4,7 @@
  * Date: October 1, 2017
  */
 const
-    MUDEventEmitter = require('./MUDEventEmitter');
-
-const
-    symVirtualTable = Symbol('symVirtualTable');
+    events = require('events');
 
 var
     UseLazyResets = false;
@@ -15,7 +12,7 @@ var
 /**
  * Base type for all MUD objects.
  */
-class MUDObject extends MUDEventEmitter {
+class MUDObject extends events.EventEmitter {
     constructor() {
         super();
 

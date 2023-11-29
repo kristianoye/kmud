@@ -131,7 +131,7 @@ function plugin(options, Parser) {
                 newWords = moreWords.split(/\s+/);
 
             for (const word of newWords) {
-                if (existingWords.indexOf(word) ===  -1) {
+                if (existingWords.indexOf(word) === -1) {
                     existingWords.push(word);
                 }
             }
@@ -315,6 +315,14 @@ function plugin(options, Parser) {
             return method;
         }
 
+        parseExportDefaultDeclaration() {
+            let classNode = this.tryParseClass(false, false, false);
+
+            if (classNode)
+                return classNode;
+            else
+                return super.parseExportDefaultDeclaration();
+        }
         /**
          * Needed to override to allow to use '->' deref operator
          */
@@ -323,7 +331,11 @@ function plugin(options, Parser) {
             // tokenizer got confused, and we force it to read a regexp instead.
             if (this.type === types$1.slash) { this.readRegexp(); }
 
-            var node, canBeArrow = this.potentialArrowAt === this.start;
+            var node, classNode = this.tryParseClass(false, false, false);
+
+            if (classNode)
+                return classNode;
+
             switch (this.type) {
                 case types$1._super:
                     if (!this.allowSuper) { this.raise(this.start, "'super' keyword outside a method"); }
@@ -347,7 +359,7 @@ function plugin(options, Parser) {
         /**
          * Override required to parse ScopedIdentifier nodes
          */
-        parseIdent(liberal) {
+        parseIdent(liberal, allowScoping=true) {
             let startPos = this.pos;
 
             if (this.eat(types$1.doubleColon)) {
@@ -398,44 +410,38 @@ function plugin(options, Parser) {
             return node
         }
 
+        parseImport(node) {
+            this.next();
+
+            // import '...'
+            if (this.type === types$1.string) {
+                node.specifiers = empty$1;
+                node.source = this.parseExprAtom();
+            }
+            else {
+                node.specifiers = this.parseImportSpecifiers();
+                this.expectContextual("from");
+
+                if (this.type === types$1.name)
+                    node.source = this.parseIdent(undefined, false);
+                else if (this.type === types$1.string)
+                    node.source = this.parseExprAtom();
+                else
+                    this.unexpected();
+            }
+            this.semicolon();
+            return this.finishNode(node, "ImportDeclaration")
+        }
+
         /**
          * Override to add support for class modifiers (final, abstract, singleton)
          */
         parseStatement(context, topLevel, exports) {
             var starttype = this.type,
-                classModifiers = 0,
-                classNode = void 0,
-                modifierNode = void 0;
+                classNode = this.tryParseClass(false, true, context);
 
-            while (starttype === types$1._final || starttype === types$1._abstract || starttype === types$1._singleton) {
-                if (!classNode) {
-                    modifierNode = this.startNode();
-                    classNode = this.startNode();
-                }
-
-                classModifiers |= starttype.classModifier;
-                let endOfModifier = skipWhiteSpace.lastIndex = this.pos;
-
-                this.pos += skipWhiteSpace.exec(this.input)[0].length;
-                this.next();
-                starttype = this.type;
-
-                if (starttype !== types$1._final && starttype !== types$1._abstract && starttype !== types$1._singleton) {
-                    modifierNode.raw = this.input.slice(modifierNode.start, endOfModifier);
-                    classNode.modifier = this.finishNode(modifierNode, "ClassModifiers");
-                }
-            }
-            if (classModifiers > 0 && starttype !== types$1._class)
-                this.raise("Expected class declaration");
-
-            if (starttype === types$1._class) {
-                var node = classNode || this.startNode();
-                node.classModifiers = classModifiers;
-                if ((node.classModifiers & MemberModifiers.Abstract) && node.classModifiers !== MemberModifiers.Abstract)
-                    this.raise('Abstract classes may not also be singletons nor final');
-                if (context) { this.unexpected(); }
-                return this.parseClass(node, true);
-            }
+            if (classNode)
+                return classNode;
             else if (starttype === types$1._export || starttype === types$1._import) {
                 let node = this.startNode()
                 if (this.options.ecmaVersion > 10 && starttype === types$1._import) {
@@ -546,7 +552,57 @@ function plugin(options, Parser) {
                 null
             );
         }
-    };
+
+        shouldParseExportStatement() {
+            return this.type.keyword === "var" ||
+                this.type.keyword === 'abstract' ||
+                this.type.keyword === 'final' ||
+                this.type.keyword === 'singleton' ||
+                this.type.keyword === "const" ||
+                this.type.keyword === "class" ||
+                this.type.keyword === "function" ||
+                this.isLet() ||
+                this.isAsyncFunction()
+        }
+
+        tryParseClass(node, isStatement, context) {
+            let starttype = this.type,
+                classModifiers = 0,
+                classNode = this.startNode(),
+                modifierNode = this.startNode();
+
+            while (starttype === types$1._final || starttype === types$1._abstract || starttype === types$1._singleton) {
+                classModifiers |= starttype.classModifier;
+                let endOfModifier = skipWhiteSpace.lastIndex = this.pos;
+
+                this.pos += skipWhiteSpace.exec(this.input)[0].length;
+                this.next();
+                starttype = this.type;
+
+                if (starttype !== types$1._final && starttype !== types$1._abstract && starttype !== types$1._singleton) {
+                    modifierNode.raw = this.input.slice(modifierNode.start, endOfModifier);
+                }
+            }
+            if (modifierNode.start > modifierNode.end) {
+                modifierNode.end = modifierNode.start;
+                modifierNode.raw = '';
+            }
+
+            classNode.modifier = this.finishNode(modifierNode, "ClassModifiers");
+
+            if (classModifiers > 0 && starttype !== types$1._class)
+                this.raise("Expected class declaration");
+
+            if (starttype === types$1._class) {
+                classNode.classModifiers = classModifiers;
+                if ((classNode.classModifiers & MemberModifiers.Abstract) && classNode.classModifiers !== MemberModifiers.Abstract)
+                    this.raise('Abstract classes may not also be singletons nor final');
+                if (context) { this.unexpected(); }
+                return this.parseClass(classNode, true);
+            }
+            return false;
+        }
+    }
 }
 
 module.exports = function (optionsIn) {

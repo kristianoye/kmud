@@ -7,8 +7,18 @@ const
     MUDObject = require('./MUDObject'),
     MUDCompilerOptions = require('./compiler/MUDCompilerOptions'),
     { PipelineContext } = require('./compiler/PipelineContext'),
-    events = require('events');
-
+    events = require('events'),
+    MemberModifiers = Object.freeze({
+        Public: 1 << 0,
+        Protected: 1 << 1,
+        Private: 1 << 2,
+        Package: 1 << 3,
+        Abstract: 1 << 4,
+        Final: 1 << 5,
+        Override: 1 << 6,
+        Singleton: 1 << 7,
+        NoSave: 1 << 8
+    });
 var
     useAuthorStats = false,
     useDomainStats = false,
@@ -75,7 +85,7 @@ class MUDModule extends events.EventEmitter {
         /** @type {Object.<string,function>} */
         this.types = { length: 0 };
 
-        this.exports = { length: 0 };
+        this.oldExports = { length: 0 };
 
         /** @type {Object.<string,MUDObject[]> */
         this.instanceMap = {};
@@ -144,7 +154,31 @@ class MUDModule extends events.EventEmitter {
     }
 
     set defaultExport(val) {
-        this.$defaultExport = val;
+        if (driver.efuns.isClass(val)) {
+            let flags = val.prototype.typeModifiers;
+
+            if ((flags & MemberModifiers.Singleton) > 0)
+                this.$defaultExport = new val();
+            else 
+                this.$defaultExport = val;
+        }
+        else
+            this.$defaultExport = val;
+    }
+
+    async setDefaultExport(val) {
+        if (driver.efuns.isClass(val)) {
+            let flags = val.prototype.typeModifiers;
+
+            if ((flags & MemberModifiers.Singleton) > 0) {
+                let inst = await this.createInstanceAsync(val, false, [], false, this.filename);
+                this.$defaultExport = inst.wrapper;
+            }
+            else
+                this.$defaultExport = val;
+        }
+        else
+            this.$defaultExport = val;
     }
 
     insertInstance(item, typeArg) {
@@ -162,11 +196,11 @@ class MUDModule extends events.EventEmitter {
             else if (typeof val === 'function') key = val.name;
         }
 
-        this.exports.length++;
+        this.oldExports.length++;
         this.singletons[key] = val instanceof MUDObject;
 
         if (isDefault === false && this.explicitDefault === false) {
-            if (this.exports.length === 1)
+            if (this.oldExports.length === 1)
                 this.defaultExport = val;
             else if (key === this.name)
                 this.defaultExport = val;
@@ -178,7 +212,7 @@ class MUDModule extends events.EventEmitter {
             this.explicitDefault = true;
         }
 
-        this.exports[key] = val;
+        this.oldExports[key] = val;
     }
 
     /**
@@ -232,7 +266,7 @@ class MUDModule extends events.EventEmitter {
                 prev = ecc.previousObject;
 
             if (typeof type === 'string') {
-                if (type in this.exports === false) {
+                if (type in this.oldExports === false) {
                     if (type in this.types === false) {
                         throw new Error(`Unable to find type ${type}`);
                     }
@@ -278,7 +312,7 @@ class MUDModule extends events.EventEmitter {
     async createAsync(type, instanceData, args = [], factory = false) {
         try {
             if (typeof type === 'string') {
-                if (type in this.exports === false) {
+                if (type in this.oldExports === false) {
                     if (type in this.types === false) {
                         throw new Error(`Unable to find type ${type}`);
                     }
@@ -320,13 +354,13 @@ class MUDModule extends events.EventEmitter {
             let instance = false, store = false;
 
             if (typeof type === 'string' && !this.isVirtual) {
-                if (type in this.exports === false) {
+                if (type in this.oldExports === false) {
                     //  Always allow module to create its own types
                     if (callingFile === this.filename) {
                         type = this.types[type];
                     }
                     else if (type in this.types === false) {
-                        if (this.exports.length === 1 && this.$defaultExport)
+                        if (this.oldExports.length === 1 && this.$defaultExport)
                             type = this.$defaultExport;
                         else
                             throw new Error(`Unable to find type ${type}`);
@@ -339,7 +373,7 @@ class MUDModule extends events.EventEmitter {
                     type = this.types[type];
             }
             //  Total hack for now
-            else if (this.isVirtual && this.exports.length === 0 && this.defaultExport instanceof MUDObject) {
+            else if (this.isVirtual && this.oldExports.length === 0 && this.defaultExport instanceof MUDObject) {
                 instance = this.defaultExport;
                 store = driver.storage.get(instance);
             }
@@ -420,6 +454,22 @@ class MUDModule extends events.EventEmitter {
             return true;
         }
         return false;
+    }
+
+    get exports() {
+        return typeof this.oldExports === 'object' ? Object.assign({}, this.oldExports) : {};
+    }
+
+    set exports(spec) {
+        if (spec === false)
+            this.oldExports = {};
+        else if (typeof spec === 'object') {
+            for (const [key, val] of Object.entries(spec)) {
+                this.oldExports[key] = val;
+            }
+        }
+        else
+            throw new Error(`Unexpected export value of type ${typeof spec}`);
     }
 
     finalizeInstance(instance, instanceData) {
@@ -704,7 +754,7 @@ class MUDModule extends events.EventEmitter {
     }
 
     eventResetModule() {
-        this.exports = { length: 0 };
+        this.oldExports = { length: 0 };
         this.singletons = {};
         this.typeNames = [];
         this.types = { length: 0 };

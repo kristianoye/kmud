@@ -1,6 +1,4 @@
-﻿const { parse } = require('uuid');
-
-/*
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
@@ -64,6 +62,9 @@ const
         '__exportScopedProperty'
 
     ],
+    IllegalVariableNames = [
+        'MUDObject'
+    ],
     ScopeType = Object.freeze({
         CallExpression: 'CallExpression',
         AssignmentExpression: 'AssignmentExpression'
@@ -108,6 +109,8 @@ class MudScriptAstAssembler {
         this.canImport = true;
         this.context = p.context;
         this.directory = p.directory;
+        this.exportCount = 0;
+        this.exports = {};
         this.filename = p.filename;
         this.filepart = p.filename.slice(p.filename.lastIndexOf('/') + 1);
         this.inCreate = false;
@@ -138,6 +141,11 @@ class MudScriptAstAssembler {
         if (id.charAt(0) === '.')
             id = id.slice(1);
         return this.callerId.push(id);
+    }
+
+    addExport(exportName, localName = false) {
+        this.exports[exportName] = localName || exportName;
+        this.exportCount++;
     }
 
     /**
@@ -251,6 +259,35 @@ class MudScriptAstAssembler {
         return result;
     }
 
+    /**
+     * Replace the node source text with a comment in the output
+     * @param {NodeType} e
+     */
+    replaceWithComment(e) {
+        //  Make sure to clean up block comments in the chunk
+        let chunk = this.source.slice(e.start, e.end).replace(/\*\/|\/\*/g, '**');
+        this.pos = e.end;
+        return '/*' + chunk + '*/';
+    }
+
+    /**
+     * Replace the node source text with whitespace in the output
+     * @param {NodeType} e
+     */
+    replaceWithWhitespace(e) {
+        let chunk = this.source.slice(e.start, e.end);
+        let bits = [...chunk];
+
+        for (let i = 0; i < bits.length; i++) {
+            if (bits[i] !== '\n' && bits[i] !== '\r')
+                bits[i] = ' ';
+                
+        }
+        chunk = bits.join('');
+        this.pos = e.end;
+        return chunk;
+    }
+    
     get scope() {
         return this.scopes.length > 0 && this.scopes[0];
     }
@@ -448,12 +485,36 @@ async function parseElement(op, e, depth, xtra = {}) {
 
             case 'BlockStatement':
                 {
-                    let prevDepth = op.awaitDepth;
+                    let prevDepth = op.awaitDepth, isMainBlock = false;
                     op.awaitDepth = 0;
                     for (const _ of e.body) {
-                        if (op.canImport && _.type !== 'ImportDeclaration')
+                        if (op.canImport && _.type !== 'ImportDeclaration') {
                             op.canImport = false;
+                            isMainBlock = true;
+                        }
                         ret += await parseElement(op, _, depth + 1);
+                    }
+                    if (isMainBlock) {
+                        if (op.exportCount > 0) {
+                            let chunks = [], definedDefault = false;
+                            ret += 'module.exports = { ';
+                            for (const [exportName, localName] of Object.entries(op.exports)) {
+                                if (exportName === 'default') {
+                                    if (op.defaultExport && op.defaultExport !== localName) {
+                                        op.raise(`Type '${op.defaultExport}' has already been exported as the default`);
+                                    }
+                                    op.defaultExport = localName;
+                                    definedDefault = true;
+                                }
+                                else
+                                    chunks.push(`${exportName}: ${localName}`);
+                            }
+                            ret += chunks.join(', ');
+                            ret += ' };'
+                            if (definedDefault) {
+                                ret += ` module.defaultExport = ${op.defaultExport};`
+                            }
+                        }
                     }
                     op.awaitDepth = prevDepth;
                 }
@@ -477,6 +538,9 @@ async function parseElement(op, e, depth, xtra = {}) {
 
                     if (e.callee.type === 'MemberExpression') {
                         object = await parseElement(op, e.callee.object, depth + 1);
+                        if (object in op.symbols) {
+                            object = `'${op.symbols[object]}'`;
+                        }
                         if (e.callee.usingDerefArrow) {
                             op.pos += 2;
                             propName = '.';
@@ -624,14 +688,16 @@ async function parseElement(op, e, depth, xtra = {}) {
             case 'ClassDeclaration':
                 if (e.modifier) {
                     //  Do not include raw modifiers in output
-                    ret += `/** ${e.modifier.raw} */`;
+                    if (e.modifier.raw.length > 0) ret += `/*${e.modifier.raw}*/`;
                     op.pos = e.modifier.end;
                 }
                 let typeDef = op.eventBeginTypeDefinition(op.thisClass = e.id.name, e.classModifiers || 0);
                 ret += await parseElement(op, e.id, depth + 1);
 
-                if (e.superClass)
+                if (e.superClass) {
+                    ret += op.readUntil(e.superClass.start);
                     ret += await parseElement(op, e.superClass, depth + 1);
+                }
                 else if (op.injectedSuperClass) {
                     op.forcedInheritance = true;
                     ret += ` extends ${op.injectedSuperClass} `;
@@ -641,11 +707,21 @@ async function parseElement(op, e, depth, xtra = {}) {
                 op.pos = e.body.start;
 
                 ret += await parseElement(op, e.body, depth + 1);
-                ret += ` ${e.id.name}.prototype.baseName = '${op.getBaseName(e.id.name)}'; __dmt("${op.filename}", ${e.id.name}); `;
+                ret += ` ${e.id.name}.prototype.baseName = '${op.getBaseName(e.id.name)}'; `;
+                ret += ` ${e.id.name}.prototype.typeModifiers = ${(e.classModifiers || 0)}; `;
+                ret += `__dmt("${op.filename}", ${e.id.name}); `;
 
                 if (Array.isArray(e.parentClasses)) {
-                    let parentClassList = e.parentClasses.map(pc => pc.name).join(',');
-                    ret += `extendType(${typeDef.typeName}, ${parentClassList});`;
+                    let parentClassList = e.parentClasses.map(pc => pc.name);
+                    for (const classId of parentClassList) {
+                        let classRef = op.symbols[classId] || false;
+
+                        if (!classRef) {
+                            if (classId === 'MUDObject' || classId === 'EFUNProxy') continue;
+                            op.raise(`Could not inherit undefined class ${classId}`);
+                        }
+                    }
+                    ret += `extendType(${typeDef.typeName}, ${parentClassList.join(',')});`;
                 }
                 op.eventEndTypeDefinition();
                 break;
@@ -682,6 +758,85 @@ async function parseElement(op, e, depth, xtra = {}) {
 
             case 'EmptyStatement':
                 ret += op.source.slice(op.pos, e.end);
+                break;
+
+            case 'ExportDefaultDeclaration':
+                op.pos = e.declaration.start;
+                if (e.declaration.type !== 'ClassDeclaration')
+                    op.raise(`MUDScript default export may only be a class and not ${e.declaration.type}`);
+                else if (op.defaultExport)
+                    op.raise(`Type '${op.defaultExport}' has already been exported as the default`);
+                ret += await parseElement(op, e.declaration, depth + 1);
+                op.defaultExport = e.declaration.id.name;
+                ret += `await module.setDefaultExport(${op.defaultExport})`
+                break;
+
+            case 'ExportNamedDeclaration':
+                {
+                    if (e.declaration) {
+                        op.pos = e.declaration.start;
+
+                        switch (e.declaration.type) {
+                            case 'ClassDeclaration':
+                                {
+                                    op.addExport(e.declaration.id.name);
+                                    ret += await parseElement(op, e.declaration, depth + 1);
+                                }
+                                break;
+
+                            case 'FunctionDeclaration':
+                                {
+                                    op.addExport(e.declaration.id.name);
+                                    ret += await parseElement(op, e.declaration, depth + 1);
+                                }
+                                break;
+
+                            case 'VariableDeclaration':
+                                {
+
+                                    for (const decl of e.declaration.declarations) {
+                                        if (decl.type === 'VariableDeclarator') {
+                                            if (decl.id.type === 'Identifier') {
+                                                op.addExport(decl.id.name);
+                                            }
+                                            else if (decl.id.type === 'ObjectPattern') {
+                                                for (const propValue of decl.id.properties.map(p => p.value)) {
+                                                    if (propValue.type === 'Identifier') {
+                                                        op.addExport(propValue.name);
+                                                    }
+                                                    else
+                                                        op.raise(`Unhandled property type '${propValue.type}' in export object pattern`);
+                                                }
+                                            }
+                                            else if (decl.id.type === 'ArrayPattern') {
+                                                for (const propValue of decl.id.elements) {
+                                                    if (propValue.type === 'Identifier')
+                                                        op.addExport(propValue.name);
+                                                    else
+                                                        op.raise(`Unhandled element type '${propValue.type}' in export array pattern`);
+                                                }
+                                            }
+                                            else {
+                                                op.raise(`Unhandled declaration type in export: ${decl.type}`);
+                                            }
+                                            ret += await parseElement(op, decl, depth + 1);
+                                        }
+                                    }
+                                }
+                                break;
+                        }
+                    }
+                    else if (Array.isArray(e.specifiers)) {
+                        for (const spec of e.specifiers) {
+                            if (spec.exported.type !== 'Identifier')
+                                op.raise('Exported name must be an Identifier');
+                            if (spec.local.type !== 'Identifier')
+                                op.raise('Local name must be an Identifier');
+                            op.addExport(spec.exported.name, spec.local.name);
+                        }
+                        ret += op.replaceWithComment(e);
+                    }
+                }
                 break;
 
             case 'ExpressionStatement':
@@ -773,6 +928,9 @@ async function parseElement(op, e, depth, xtra = {}) {
                     if (typeof symbolValue === 'string') {
                         ret += `'${op.symbols[identifier]}'`;
                     }
+                    if (driver.efuns.isClass(symbolValue)) {
+                        ret += identifier;
+                    }
                     else if (typeof symbolValue === 'function') {
                         ret += symbolValue.toString();
                     }
@@ -801,7 +959,15 @@ async function parseElement(op, e, depth, xtra = {}) {
                 else {
                     let specifiers = {},
                         locals = [],
+                        isIdentifier = e.source.type === 'Identifier',
                         source = op.source.slice(e.source.start, e.source.end);
+
+                    if (isIdentifier) {
+                        if (source in op.symbols)
+                            source = `'${op.symbols[source]}'`;
+                        else
+                            e.raise(`Import encountered unknown identifier '${source}'`);;
+                    }
 
                     for (const spec of e.specifiers) {
                         switch (spec.type) {
@@ -1156,6 +1322,8 @@ async function parseElement(op, e, depth, xtra = {}) {
 
             case 'VariableDeclaration':
                 for (const _ of e.declarations) {
+                    if (IllegalVariableNames.indexOf(_.id.name) > -1)
+                        op.raise(`${_.id.name} cannot be used as a variable name`);
                     ret += await parseElement(op, _, depth + 1);
                 }
                 break;
@@ -1169,6 +1337,12 @@ async function parseElement(op, e, depth, xtra = {}) {
             case 'WithStatement':
                 ret += await parseElement(op, e.object, depth + 1);
                 ret += await parseElement(op, e.body, depth + 1);
+                break;
+
+            case 'YieldExpression':
+                ret += op.readUntil(e.argument.start);
+                ret += await parseElement(op, e.argument, depth + 1);
+                op.pos = e.end;
                 break;
 
             default:

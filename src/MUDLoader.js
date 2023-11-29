@@ -243,10 +243,6 @@ class MUDLoader {
                 value: global.MUDObject,
                 writable: false
             },
-            MUDMixin: {
-                value: global.MUDMixin,
-                writable: false
-            },
             pluralize: {
                 value: function (...args) {
                     return _efuns.pluralize(...args);
