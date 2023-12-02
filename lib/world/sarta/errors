@@ -1,5 +1,5 @@
 
-[11/28/2023, 7:00:04 PM]
-Could not load /world/sarta/Square [[Line 61, Char 2]: Could not inherit undefined class Room]
-Error: Could not load /world/sarta/Square [[Line 61, Char 2]: Could not inherit undefined class Room]
+[11/30/2023, 9:09:59 AM]
+Could not load /world/sarta/Square [[Line 61, Char 2]: Could not inherit unresolved class: 'Room']
+Error: Could not load /world/sarta/Square [[Line 61, Char 2]: Could not inherit unresolved class: 'Room']
     at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)

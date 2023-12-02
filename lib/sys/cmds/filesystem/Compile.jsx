@@ -3,17 +3,17 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const
-    Base = await requireAsync('Base'),
-    Command = await requireAsync(Base.Command);
+import { LIB_COMMAND } from 'Base';
+import Command from LIB_COMMAND;
 
-class CompileCommand extends Command {
+
+export default singleton class CompileCommand extends Command {
     /**
      * 
      * @param {string} args
      * @param {ClientCommand} evt
      */
-    async cmd(args, evt) {
+    override async cmd(args, evt) {
         let player = thisPlayer,
             path = efuns.resolvePath(args[0], player.workingDirectory);
         /** @type {MUDCompilerOptions} */
@@ -47,5 +47,3 @@ class CompileCommand extends Command {
         }
     }
 }
-
-module.exports = await createAsync(CompileCommand);

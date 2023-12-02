@@ -121,7 +121,7 @@ class MUDLoader {
                     let ecc = driver.getExecution(thisObject, 'constructor', file, false, lineNumber);
 
                     try {
-                        if (type.prototype && type.prototype.baseName)
+                        if (type.prototype && type.prototype.baseName && type.prototype.baseName !== 'MUDObject')
                             throw new Error(`Mudlib objects must be created with createAsync(...)`);
                         else
                             return con(type);
@@ -304,7 +304,7 @@ class MUDLoader {
             else
                 return await driver.efuns.objects.cloneObjectAsync(type, ...args);
         }
-        else if (type.prototype && typeof type.prototype.baseName === 'string') {
+        else if (type.prototype && typeof type.prototype.baseName === 'string' && type.prototype.baseName !== 'MUDObject') {
             let parts = driver.efuns.parsePath(type.prototype.baseName),
                 ecc = driver.getExecution(callingFile, 'createAsync', parts.file, false),
                 module = driver.cache.get(parts.file);

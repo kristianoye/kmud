@@ -1,3 +1,6 @@
+const { extend } = require("lodash");
+const { construct } = require("../node_modules/js-yaml/lib/js-yaml/type/str");
+
 /**
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
@@ -6,6 +9,33 @@
 class MUDError extends Error {
     constructor(e) {
         super(e);
+    }
+}
+
+class CompositeError extends MUDError {
+    constructor(e, errors = []) {
+        super(e);
+        this.errors = errors;
+    }
+
+    get length() {
+        return this.errors.length;
+    }
+
+    getError(n) {
+        if (typeof n === 'number' && n > -1 && n < this.length)
+            return this.errors[n];
+        else
+            return undefined;
+    }
+
+    /**
+     * Get iterator to traverse errors
+     * @returns {Generator<MUDError>}
+     */
+    *getItems() {
+        for (const error of this.errors)
+            yield error;
     }
 }
 
@@ -18,6 +48,18 @@ class PermissionDeniedError extends MUDError {
 class SecurityError extends MUDError {
     constructor(e) {
         super(e);
+    }
+}
+
+class SyntaxError extends MUDError {
+    /**
+     * 
+     * @param {string} msg string
+     * @param {{ line: number, char: number, file: string }} pos The position at which the error occurred
+     */
+    constructor(msg, pos) {
+        super(msg);
+        this.position = pos;
     }
 }
 
@@ -58,5 +100,7 @@ module.exports = {
     NotImplementedError,
     SecurityError,
     TimeoutError,
-    PermissionDeniedError
+    PermissionDeniedError,
+    SyntaxError,
+    CompositeError
 };

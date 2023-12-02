@@ -9,7 +9,8 @@ const
     ActionBinder = require('./ActionBinder'),
     MUDEventEmitter = require('./MUDEventEmitter'),
     ClientComponent = require('./ClientComponent'),
-    ClientCaps = require('./network/ClientCaps');
+    ClientCaps = require('./network/ClientCaps'),
+    MUDStorageFlags = require('./MUDStorageFlags');
 
 /**
  * Storage for MUD Objects.  In-game objects do not hold their data directly.
@@ -383,19 +384,19 @@ class MUDStorage extends MUDEventEmitter {
      * Is the object connected to an interactive session
      */
     get connected() {
-        return this.hasFlag(MUDStorage.PROP_CONNECTED);
+        return this.hasFlag(MUDStorageFlags.PROP_CONNECTED);
     }
 
     set connected(flag) {
-        return this.flag(MUDStorage.PROP_CONNECTED, flag);
+        return this.flag(MUDStorageFlags.PROP_CONNECTED, flag);
     }
 
     get destroyed() {
-        return this.hasFlag(MUDStorage.PROP_DESTRUCTED);
+        return this.hasFlag(MUDStorageFlags.PROP_DESTRUCTED);
     }
 
     set destroyed(value) {
-        if (value) this.flag(MUDStorage.PROP_DESTRUCTED, true);
+        if (value) this.flag(MUDStorageFlags.PROP_DESTRUCTED, true);
     }
 
     get environment() {
@@ -412,19 +413,19 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     get heartbeat() {
-        return this.hasFlag(MUDStorage.PROP_HEARTBEAT);
+        return this.hasFlag(MUDStorageFlags.PROP_HEARTBEAT);
     }
 
     set heartbeat(flag) {
-        this.flag(MUDStorage.PROP_HEARTBEAT, flag);
+        this.flag(MUDStorageFlags.PROP_HEARTBEAT, flag);
     }
 
     get interactive() {
-        return this.hasFlag(MUDStorage.PROP_INTERACTIVE);
+        return this.hasFlag(MUDStorageFlags.PROP_INTERACTIVE);
     }
 
     set interactive(flag) {
-        return this.flag(MUDStorage.PROP_INTERACTIVE, flag);
+        return this.flag(MUDStorageFlags.PROP_INTERACTIVE, flag);
     }
 
     get inventory() {
@@ -445,25 +446,25 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     get living() {
-        return this.hasFlag(MUDStorage.PROP_LIVING);
+        return this.hasFlag(MUDStorageFlags.PROP_LIVING);
     }
 
     set living(flag) {
         if (typeof flag === 'string') {
             this.livingName = flag;
         }
-        this.flag(MUDStorage.PROP_LIVING, flag !== false);
+        this.flag(MUDStorageFlags.PROP_LIVING, flag !== false);
     }
 
     get player() {
-        return this.hasFlag(MUDStorage.PROP_ISPLAYER);
+        return this.hasFlag(MUDStorageFlags.PROP_ISPLAYER);
     }
 
     set player(flag) {
         if (typeof flag === 'string') {
             this.playerName = flag;
         }
-        this.flag(MUDStorage.PROP_ISPLAYER, flag !== false);
+        this.flag(MUDStorageFlags.PROP_ISPLAYER, flag !== false);
     }
 
     getSafeCredential() {
@@ -479,16 +480,18 @@ class MUDStorage extends MUDEventEmitter {
      */
     set(definingType, propertyName, value) {
         let baseName = definingType.prototype.baseName;
-        let collection = this.properties[baseName];
-        if (!collection) {
-            collection = this.properties[baseName] = {};
+        if (baseName !== 'MUDObject') {
+            let collection = this.properties[baseName];
+            if (!collection) {
+                collection = this.properties[baseName] = {};
+            }
+            //  Do not store direct references to objects.
+            if (value instanceof MUDObject) {
+                value = value.wrapper;
+            }
+            collection[propertyName] = value;
+            return true;
         }
-        //  Do not store direct references to objects.
-        if (value instanceof MUDObject) {
-            value = value.wrapper;
-        }
-        collection[propertyName] = value;
-        return true;
     }
 
     get thisObject() {
@@ -496,11 +499,11 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     get wizard() {
-        return this.hasFlag(MUDStorage.PROP_WIZARD);
+        return this.hasFlag(MUDStorageFlags.PROP_WIZARD);
     }
 
     set wizard(flag) {
-        this.flag(MUDStorage.PROP_WIZARD, flag === true);
+        this.flag(MUDStorageFlags.PROP_WIZARD, flag === true);
     }
 
     /**
@@ -556,32 +559,32 @@ class MUDStorage extends MUDEventEmitter {
 
         if ((this.flag & andFlag) !== this.flag) {
             switch (flag) {
-                case MUDStorage.PROP_CONNECTED:
-                case MUDStorage.PROP_EDITING:
-                case MUDStorage.PROP_IDLE:
-                case MUDStorage.PROP_INPUT:
-                case MUDStorage.PROP_DESTRUCTED:
+                case MUDStorageFlags.PROP_CONNECTED:
+                case MUDStorageFlags.PROP_EDITING:
+                case MUDStorageFlags.PROP_IDLE:
+                case MUDStorageFlags.PROP_INPUT:
+                case MUDStorageFlags.PROP_DESTRUCTED:
                     break;
 
-                case MUDStorage.PROP_HEARTBEAT:
+                case MUDStorageFlags.PROP_HEARTBEAT:
                     if (this.owner && typeof this.owner.heartbeat === 'function') {
                         driver.setHeartbeat(this, setFlag);
                     }
                     break;
 
-                case MUDStorage.PROP_INTERACTIVE:
+                case MUDStorageFlags.PROP_INTERACTIVE:
                     driver.setInteractive(this, setFlag);
                     break;
 
-                case MUDStorage.PROP_LIVING:
+                case MUDStorageFlags.PROP_LIVING:
                     driver.setLiving(this, setFlag);
                     break;
 
-                case MUDStorage.PROP_ISPLAYER:
+                case MUDStorageFlags.PROP_ISPLAYER:
                     driver.setPlayer(this, setFlag);
                     break;
 
-                case MUDStorage.PROP_WIZARD:
+                case MUDStorageFlags.PROP_WIZARD:
                     driver.setWizard(this, setFlag);
                     break;
 
@@ -741,36 +744,6 @@ MUDStorage.configureForRuntime = function (driver) {
 
     driver.storage = manager;
 };
-
-/** Indicates the object is interactive */
-MUDStorage.PROP_INTERACTIVE = 1 << 0;
-
-/** Indicates the object is connected (not linkdead) */
-MUDStorage.PROP_CONNECTED = 1 << 1;
-
-/** Indicates the object is living and can execute commands */
-MUDStorage.PROP_LIVING = 1 << 2;
-
-/** Indicates the object has wizard permissions */
-MUDStorage.PROP_WIZARD = 1 << 3;
-
-/** Indicates the interactive object is idle */
-MUDStorage.PROP_IDLE = 1 << 4;
-
-/** Indicates the object is in edit mode */
-MUDStorage.PROP_EDITING = 1 << 5;
-
-/** Indicates the object is in input mode */
-MUDStorage.PROP_INPUT = 1 << 6;
-
-/** Indicates the object has a heartbeat */
-MUDStorage.PROP_HEARTBEAT = 1 << 7;
-
-/** Indicates the object is (or was) a player */
-MUDStorage.PROP_ISPLAYER = 1 << 8;
-
-/** Indicates the object has been destroyed */
-MUDStorage.PROP_DESTRUCTED = 1 << 9;
 
 module.exports = MUDStorage;
 

@@ -3,12 +3,12 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const
-    Base = await requireAsync('Base'),
-    Command = await requireAsync(Base.Command);
+import { LIB_COMMAND } from 'Base';
+import Command from LIB_COMMAND;
 
-class MoreCommand extends Command {
-    async cmd(args, cmdline) {
+
+export default singleton class MoreCommand extends Command {
+    override async cmd(args, cmdline) {
         try {
             let fileName = args.trim();
             if (!fileName) 'Usage: more <filename>';
@@ -48,5 +48,3 @@ class MoreCommand extends Command {
         }
     }
 }
-
-module.exports = await createAsync(MoreCommand);

@@ -3,9 +3,10 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
+import { LIB_COMMAND } from 'Base';
+import Command from LIB_COMMAND;
+
 const
-    Base = await requireAsync('Base'),
-    Command = await requireAsync(Base.Command),
     RM_OPT_INTERACTIVE = 1 << 0,
     RM_OPT_RMEMPTYDIRS = 1 << 1,
     RM_OPT_SMARTPROMPT = 1 << 2,
@@ -67,13 +68,13 @@ class RmOperation {
 /**
  * Removes files from the filesystem.
  */
-class RmCommand extends Command {
+export default singleton class RmCommand extends Command {
     /**
      * 
      * @param {string} str The raw input from the user
      * @param {MUDInputEvent} evt
      */
-    cmd(str, evt) {
+    override async cmd(str, evt) {
         let args = evt.args,
             cwd = thisPlayer().workingDirectory,
             op = new RmOperation(0, []);
@@ -206,7 +207,7 @@ some of its contents, given sufficient expertise and/or time.`;
     /**
      * Create help for this command.
      */
-    getHelp() {
+    override getHelp() {
         return {
             type: 'command',
             category: 'Commands > Creator Commands > Filesystem',
@@ -262,5 +263,3 @@ some of its contents, given sufficient expertise and/or time.`;
         };
     }
 }
-
-module.exports = await createAsync(RmCommand);

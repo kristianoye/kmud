@@ -1014,8 +1014,14 @@ class EFUNProxy {
      * @returns {'function'|'string'|'number'|'MudObject'|'SimpleObject'|'boolean'|'undefined'|'object'|'array'} Returns the type of object
      */
     objectType(arg) {
-        arg = unwrap(arg) || arg;
+        let tt = typeof arg;
 
+        if (Array.isArray(arg))
+            return 'array';
+        else if (tt === 'string' || tt === 'bigint' || tt === 'boolean' || tt === 'number' || tt === 'undefined' || tt === 'symbol')
+            return tt;
+
+        arg = unwrap(arg) || arg;
         if (typeof arg === 'object') {
             if (arg instanceof MUDObject) 
                 return 'MudObject';
@@ -1078,7 +1084,10 @@ class EFUNProxy {
         }
         if (!type)
             throw new Error(`Bad file expression: ${fileExpr}`);
-        return Object.freeze({ file, type, instance, extension: ext, objectId });
+        let defaultType = file.endsWith(`/${type}`);
+        let result = Object.freeze({ file, type, instance, extension: ext, objectId, defaultType });
+
+        return result;
     }
 
     /**
@@ -1990,7 +1999,7 @@ class EFUNProxy {
     /** Sets the default export for the module */
     async setDefaultExport(val) {
         let module = driver.cache.get(this.fullPath);
-        module.setDefaultExport(val, true);
+        return await module.setDefaultExport(val, true);
     }
 
     /**

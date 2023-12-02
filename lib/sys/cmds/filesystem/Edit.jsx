@@ -3,13 +3,13 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const
-    Base = await requireAsync('Base'),
-    Command = await requireAsync(Base.Command);
+import { LIB_COMMAND } from 'Base';
+import Command from LIB_COMMAND;
 
-class EditFileCommand extends Command {
-    async cmd(args, evt) {
-        var fullPath = efuns.resolvePath(args[0], thisPlayer().workingDirectory),
+
+export default final singleton class EditFileCommand extends Command {
+    override async cmd(args, evt) {
+        let fullPath = efuns.resolvePath(args[0], thisPlayer().workingDirectory),
             fileName = fullPath.slice(fullPath.lastIndexOf('/') + 1),
             options = {},
             newFile = await !efuns.fs.isFileAsync(fullPath);
@@ -55,5 +55,3 @@ class EditFileCommand extends Command {
         return true;
     }
 }
-
-module.exports = await createAsync(EditFileCommand);

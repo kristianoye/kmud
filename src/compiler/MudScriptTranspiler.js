@@ -17,7 +17,8 @@ const
     MudscriptAcornPlugin = require('./MudscriptAcornPlugin'),
     jsx = require('acorn-jsx'),
     { CallOrigin } = require('../ExecutionContext'),
-    MemberModifiers = require("./MudscriptMemberModifiers");
+    MemberModifiers = require("./MudscriptMemberModifiers"),
+    { SyntaxError, CompositeError } = require('../ErrorTypes');
 
 const
     //  These cannot be used as identifiers (reserved words)
@@ -75,6 +76,17 @@ const
 /** @typedef {{ allowJsx: boolean, context: PipeContext, source: string }} OpParams */
 
 /** 
+ * @typedef {Object} TranspilerContext 
+ * @property {string} [className] The name of the class currently being defined, if any.
+ * @property {boolean} inCreate Are we defining the create constructor method?
+ * @property {boolean} isAsync Are we in an async context?
+ * @property {number} jsxDepth How deep in a JSX expression are we?
+ * @property {boolean} lazyBinding Is lazy binding enabled?
+ * @property {string} memberName What method, if any, are we defining?
+ * @property {boolean} mustDefineCreate Does the current class need to define a constructor
+ */
+
+/** 
  *  A superset of all possible node properties.  Should separate into 
  *  individual jsdoc types at some point...
  *  
@@ -108,18 +120,21 @@ class MudScriptAstAssembler {
         this.appendText = '';
         this.callerId = [];
         this.canImport = true;
-        this.context = p.context;
+        /** @type {TranspilerContext[]}*/
+        this.contextStack = [];
         this.directory = p.directory;
+        /** @type {SyntaxError[]} */
+        this.errors = [];
         this.exportCount = 0;
         this.exports = {};
+        this.extension = p.context.extension;
         this.filename = p.filename;
         this.filepart = p.filename.slice(p.filename.lastIndexOf('/') + 1);
-        this.inCreate = false;
-        this.jsxDepth = 0;
         this.jsxIndent = '';
         this.max = p.source.length;
         this.module = p.context.module;
         this.output = '';
+        this.pipeline = p.context;
         this.pos = 0;
         this.scopes = [];
         this.source = p.source;
@@ -131,6 +146,16 @@ class MudScriptAstAssembler {
         this.typeDef = false;
         this.isStatic = false;
         this.injectedSuperClass = p.injectedSuperClass || false;
+
+        this.pushContext({
+            className: undefined,
+            inCreate: false,
+            isAsync: false,
+            jsxDepth: 0,
+            lazyBinding: false,
+            memberName: undefined,
+            mustDefineCreate: false
+        });
     }
 
     /**
@@ -147,6 +172,46 @@ class MudScriptAstAssembler {
     addExport(exportName, localName = false) {
         this.exports[exportName] = localName || exportName;
         this.exportCount++;
+    }
+
+    get context() {
+        return this.contextStack[0];
+    }
+
+    eatWhitespace() {
+        let startPos = this.pos;
+
+        while (this.pos < this.max && this.source.charAt(this.pos).trim() === '')
+            this.pos++;
+
+        return this.pos > startPos ? this.source.slice(startPos, this.pos) : '';
+    }
+
+    /**
+     * Starts a class definition
+     * @param {any} typeName
+     * @param {any} modifiers
+     * @returns
+     */
+    eventBeginTypeDefinition(typeName, modifiers) {
+        let pos = this.getPosition();
+        if (this.typeDef !== false) {
+            throw new Error(`[Line ${pos.line}, Char ${pos.char}] Nested class definitions are not allowed (currently parsing ${this.typeDef.typeName})`);
+        }
+        return this.typeDef = this.module.eventBeginTypeDefinition(typeName, modifiers, pos);
+    }
+
+    eventEndTypeDefinition() {
+        if (this.typeDef !== false) {
+            if (!this.typeDef.isAbstract) {
+                let typeDef = this.typeDef, undefinedCount = 0;
+
+                for (const [memberName, info] of Object.entries(typeDef.unimplementedAbstractMembers)) {
+                    this.raise(`Class '${typeDef.typeName}' must implement abstract member '${memberName}' or be marked abstract; Declared abstract by type '${info.definingType.typeName}' (${info.definingType.filename})`, typeDef.position);
+                }
+            }
+            this.typeDef = false;
+        }
     }
 
     /**
@@ -167,31 +232,6 @@ class MudScriptAstAssembler {
         finally {
             this.output = false;
             this.appendText = false;
-        }
-    }
-
-    eatWhitespace() {
-        while (this.pos < this.max && this.source.charAt(this.pos).trim() === '')
-            this.pos++;
-    }
-
-    /**
-     * Starts a class definition
-     * @param {any} typeName
-     * @param {any} modifiers
-     * @returns
-     */
-    eventBeginTypeDefinition(typeName, modifiers) {
-        if (this.typeDef !== false) {
-            let pos = this.getPosition();
-            throw new Error(`[Line ${pos.line}, Char ${pos.char}] Nested class definitions are not allowed (currently parsing ${this.typeDef.typeName})`);
-        }
-        return this.typeDef = this.module.eventBeginTypeDefinition(typeName, modifiers);
-    }
-
-    eventEndTypeDefinition() {
-        if (this.typeDef !== false) {
-            this.typeDef = false;
         }
     }
 
@@ -216,7 +256,7 @@ class MudScriptAstAssembler {
             lines = before.split(/\r*[\n]{1}/),
             lastLine = lines.pop();
 
-        return { line: lines.length + 1, char: lastLine.length + 1 };
+        return { line: lines.length + 1, char: lastLine.length + 1, file: this.filename };
     }
 
     importSymbols(symbolMap) {
@@ -229,8 +269,22 @@ class MudScriptAstAssembler {
         return this.thisMethod || '(MAIN)';
     }
 
+    popContext() {
+        this.contextStack.shift();
+    }
+
     popScope() {
         this.scopes.shift();
+    }
+
+    /**
+     * Push new context info onto the stack
+     * @param {TranspilerContext} ctx New context info
+     */
+    pushContext(ctx) {
+        let newContext = Object.assign({}, this.context, ctx);
+        this.contextStack.unshift(newContext);
+        return newContext;
     }
 
     pushScope(scope) {
@@ -241,9 +295,9 @@ class MudScriptAstAssembler {
      * Raise an exception
      * @param {string} err The error message
      */
-    raise(err) {
-        let pos = this.getPosition();
-        throw new Error(`[Line ${pos.line}, Char ${pos.char}]: ${err}`);
+    raise(err, pos=false) {
+        pos = pos || this.getPosition();
+        this.errors.push(new SyntaxError(`[Line ${pos.line}, Char ${pos.char}]: ${err}`, pos));
     }
 
     /**
@@ -423,6 +477,7 @@ async function parseElement(op, e, depth, xtra = {}) {
 
             case 'ArrowFunctionExpression':
                 {
+                    op.pushContext({ isAsync: e.async === true });
                     let funcName = e.async ?
                         `async ${op.getCallerId() || '(anonymous)'}(() => {})` :
                         `${op.getCallerId() || '(anonymous)'}(() => {})`;
@@ -445,6 +500,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += `); } finally { __efc(__mec, '${funcName}'); } }`;
                     }
+                    op.popContext();
                 }
                 break; 
 
@@ -553,8 +609,12 @@ async function parseElement(op, e, depth, xtra = {}) {
                             propName = '.';
                             propName += await parseElement(op, e.callee.property, depth + 1);
 
-                            if (e.callee.object.type !== 'Super' && e.callee.object.type !== 'ThisExpression')
-                                object = 'unwrap(' + object + ')';
+                            if (e.callee.object.type !== 'Super' && e.callee.object.type !== 'ThisExpression') {
+                                if (op.context.isAsync)
+                                    object = '(await unwrapAsync(' + object + '))';
+                                else
+                                    object = 'unwrap(' + object + ')';
+                            }
                         }
                         else
                             propName = await parseElement(op, e.callee.property, depth + 1);
@@ -693,56 +753,71 @@ async function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'ClassDeclaration':
-                if (e.modifier) {
-                    //  Do not include raw modifiers in output
-                    if (e.modifier.raw.length > 0) ret += `/*${e.modifier.raw}*/`;
-                    op.pos = e.modifier.end;
-                }
-                let typeDef = op.eventBeginTypeDefinition(op.thisClass = e.id.name, e.classModifiers || 0);
-                ret += await parseElement(op, e.id, depth + 1);
+                {
+                    let parentClassList = [];
 
-                if (e.superClass) {
-                    ret += op.readUntil(e.superClass.start);
-                    ret += await parseElement(op, e.superClass, depth + 1);
-                }
-                else if (op.injectedSuperClass) {
-                    op.forcedInheritance = true;
-                    ret += ` extends ${op.injectedSuperClass} `;
-                    e.parentClasses.push({ name: op.injectedSuperClass });
-                }
-                //  Skip passed any additional extend statements
-                op.pos = e.body.start;
+                    if (e.modifier) {
+                        //  Do not include raw modifiers in output
+                        if (e.modifier.raw.length > 0) ret += `/*${e.modifier.raw}*/`;
+                        op.pos = e.modifier.end;
+                    }
+                    let typeDef = op.eventBeginTypeDefinition(op.thisClass = e.id.name, e.classModifiers || 0);
 
-                ret += await parseElement(op, e.body, depth + 1);
-                ret += ` ${e.id.name}.prototype.baseName = '${op.getBaseName(e.id.name)}'; `;
-                ret += ` ${e.id.name}.prototype.typeModifiers = ${(e.classModifiers || 0)}; `;
-                ret += `__dmt("${op.filename}", ${e.id.name}); `;
+                    ret += await parseElement(op, e.id, depth + 1);
 
-                if (Array.isArray(e.parentClasses)) {
-                    let parentClassList = e.parentClasses.map(pc => pc.name);
-                    for (const classId of parentClassList) {
-                        let classRef = op.symbols[classId] || false;
+                    if (e.superClass) {
+                        ret += op.readUntil(e.superClass.start);
+                        ret += await parseElement(op, e.superClass, depth + 1);
+                        op.pushContext({ className: e.id.name });
+                    }
+                    else if (op.injectedSuperClass) {
+                        op.forcedInheritance = true;
+                        ret += ` extends ${op.injectedSuperClass} `;
+                        e.parentClasses.push({ name: op.injectedSuperClass });
+                        op.pushContext({ className: e.id.name, mustDefineCreate: e.parentClasses.length > 1 });
+                    }
+                    if (Array.isArray(e.parentClasses)) {
+                        parentClassList = e.parentClasses.map(pc => pc.name);
+                        for (const classId of parentClassList) {
+                            let classRef = op.symbols[classId] || false;
 
-                        if (!classRef) {
-                            if (classId === 'MUDObject' || classId === 'EFUNProxy') continue;
-                            op.raise(`Could not inherit unresolved class: '${classId}'`);
-                        }
-                        else if (!driver.efuns.isClass(classRef)) {
-                            if (driver.efuns.inherits(classRef, 'MUDObject')) {
-                                classRef = classRef.constructor;
+                            if (!classRef) {
+                                if (classId === 'MUDObject' || classId === 'EFUNProxy') continue;
+                                op.raise(`Could not inherit unresolved class: '${classId}'`);
                             }
-                            else {
-                                op.raise(`Class '${typeDef.typeName}' cannot extend '${classId}' since it is not a MUDObject (type: ${typeof classRef})`);
+                            else if (!driver.efuns.isClass(classRef)) {
+                                if (driver.efuns.inherits(classRef, 'MUDObject')) {
+                                    classRef = classRef.constructor;
+                                }
+                                else {
+                                    op.raise(`Class '${typeDef.typeName}' cannot extend '${classId}' since it is not a MUDObject (type: ${typeof classRef})`);
+                                }
                             }
-                        }
-                        let flags = classRef.prototype.typeModifiers;
-                        if ((flags & MemberModifiers.Final) > 0) {
-                            op.raise(`Class '${typeDef.typeName}' cannot extend '${classId}' since it is declared 'final'`);
+                            if (classRef) {
+                                let flags = classRef.prototype.typeModifiers;
+                                if ((flags & MemberModifiers.Final) > 0) {
+                                    op.raise(`Class '${typeDef.typeName}' cannot extend '${classId}' since it is declared final`);
+                                }
+                                typeDef.importTypeInfo(classRef);
+                            }
                         }
                     }
+                    //  Skip passed any additional extend statements
+                    op.pos = e.body.start;
+
+                    ret += await parseElement(op, e.body, depth + 1);
+                    ret += ` ${e.id.name}.prototype.baseName = '${op.getBaseName(e.id.name)}'; `;
+                    ret += ` ${e.id.name}.prototype.typeModifiers = ${(e.classModifiers || 0)}; `;
                     ret += `extendType(${typeDef.typeName}, ${parentClassList.join(',')});`;
+                    ret += `__dmt("${op.filename}", ${e.id.name}); `;
+                    if (op.context.mustDefineCreate) {
+                        if (!typeDef.isMember('create')) {
+                            op.raise(`Class '${typeDef.typeName}' inherits ${parentClassList.length} types and requires a 'create' constructor`)
+                        }
+                    }
+                    op.eventEndTypeDefinition();
+                    op.popContext();
                 }
-                op.eventEndTypeDefinition();
                 break;
 
             case 'ConditionalExpression':
@@ -785,9 +860,11 @@ async function parseElement(op, e, depth, xtra = {}) {
                     op.raise(`MUDScript default export may only be a class and not ${e.declaration.type}`);
                 else if (op.defaultExport)
                     op.raise(`Type '${op.defaultExport}' has already been exported as the default`);
-                ret += await parseElement(op, e.declaration, depth + 1);
-                op.defaultExport = e.declaration.id.name;
-                ret += `await module.setDefaultExport(${op.defaultExport})`
+                else {
+                    ret += await parseElement(op, e.declaration, depth + 1);
+                    op.defaultExport = e.declaration.id.name;
+                    ret += `await module.setDefaultExport(${op.defaultExport});`;
+                }
                 break;
 
             case 'ExportNamedDeclaration':
@@ -912,7 +989,7 @@ async function parseElement(op, e, depth, xtra = {}) {
             case 'FunctionExpression':
                 {
                     let callType = xtra.callType || 0;
-
+                    op.pushContext({ isAsync: e.async === true });
                     ret += await parseElement(op, e.id, depth + 1);
                     for (const _ of e.params) {
                         ret += await parseElement(op, _, depth + 1);
@@ -932,6 +1009,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                         }
                     }
                     ret += await parseElement(op, e.body, depth + 1);
+                    op.popContext();
                 }
                 break;
 
@@ -1027,7 +1105,7 @@ async function parseElement(op, e, depth, xtra = {}) {
 
             case 'JSXAttribute':
                 if (!op.allowJsx)
-                    throw new Error(`JSX is not enabled for ${this.extension} files`);
+                    throw new Error(`JSX is not enabled for ${op.extension} files`);
                 op.pos = e.end;
                 ret += await parseElement(op, e.name, depth + 1);
                 ret += ':';
@@ -1037,15 +1115,15 @@ async function parseElement(op, e, depth, xtra = {}) {
 
             case 'JSXClosingElement':
                 if (!op.allowJsx)
-                    throw new Error(`JSX is not enabled for ${this.extension} files`);
+                    throw new Error(`JSX is not enabled for ${op.extension} files`);
                 ret += ')';
                 op.pos = e.end;
                 break;
 
             case 'JSXElement':
                 if (!op.allowJsx)
-                    throw new Error(`JSX is not enabled for ${op.context.extension} files`);
-                if (op.jsxDepth === 0) {
+                    throw new Error(`JSX is not enabled for ${op.extension} files`);
+                if (op.context.jsxDepth === 0) {
                     var jsxInX = op.source.slice(0, e.start).lastIndexOf('\n') + 1;
                     op.jsxIndent = ' '.repeat(e.start - jsxInX);
                 }
@@ -1054,7 +1132,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                 ret += await parseElement(op, e.openingElement, depth + 1);
                 if (e.children.length > 0) {
                     for (const [i, _] of e.children.entries()) {
-                        if (i === 1) op.jsxDepth++;
+                        if (i === 1) op.context.jsxDepth++;
                         let t = await parseElement(op, _, depth + 1);
                         if (t.length) {
                             ret += ', ' + (_.type === 'JSXElement' ? '' : '') + t;
@@ -1063,7 +1141,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                 }
                 op.pos = e.end;
                 ret += e.closingElement ? await parseElement(op, e.closingElement, depth + 1) : ')';
-                op.jsxDepth--;
+                op.context.jsxDepth--;
                 break;
 
             case 'JSXIdentifier':
@@ -1129,7 +1207,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                         ret += '.';
                     }
                     if (e.property.name === 'create') {
-                        if (!op.inCreate)
+                        if (!op.context.inCreate)
                             op.raise('Create (constructor) may only be called within constructor');
                         else if (e.object.type !== 'ThisExpression')
                             op.raise('Create (constructor) may only be called within constructor');
@@ -1157,15 +1235,58 @@ async function parseElement(op, e, depth, xtra = {}) {
                             .join(' ');
                         op.pos = e.modifier.end;
                     }
+                    ret += op.eatWhitespace();
                     let methodName = op.setMethod(await parseElement(op, e.key, depth + 1), e.accessKind, e.static),
-                        modifiers = e.methodModifiers || 0;
+                        modifiers = e.methodModifiers || 0,
+                        parentInfo = op.typeDef.getInheritedMember(methodName);
 
-                    if ((modifiers & MemberModifiers.Abstract) > 0 && !op.typeDef.isAbstract) {
-                        op.raise(`Member ${methodName} cannot be abstract unless defining type ${op.typeDef.typeName} is also declared abstract`);
+                    op.pushContext({ inCreate: methodName === 'create', memberName: methodName });
+
+                    if (parentInfo) {
+                        if ((parentInfo.modifiers & MemberModifiers.Final) > 0) {
+                            let baseMessage = `Class member '${methodName}' in type '${op.typeDef.typeName}' cannot be defined; Marked final by `;
+                            let definers = parentInfo.getFinalDefiners();
+                            let addedParts = [];
+
+                            for (let i = 0, lastIndex = definers.length - 1; i < definers.length; i++) {
+                                let definer = definers[i];
+                                if (i > 0) {
+                                    if (i === lastIndex)
+                                        addedParts.push(' and ');
+                                    else
+                                        addedParts.push(', ');
+                                }
+                                addedParts.push(`type '${definer.typeName}' (${definer.filename})`);
+                            }
+
+                            op.raise(baseMessage + addedParts.join(''));
+                        }
+                        else if ((modifiers & MemberModifiers.Override) === 0) {
+                            let baseMessage = `Class member '${methodName}' in type '${op.typeDef.typeName}' masks previous implementation and must be marked as override; Defined in `;
+                            let definers = parentInfo.implementors;
+                            let addedParts = [];
+
+                            for (let i = 0, lastIndex = definers.length - 1; i < definers.length; i++) {
+                                let definer = definers[i];
+                                if (i > 0) {
+                                    if (i === lastIndex)
+                                        addedParts.push(' and ');
+                                    else
+                                        addedParts.push(', ');
+                                }
+                                addedParts.push(`type '${definer.typeName}' (${definer.filename})`);
+                            }
+
+                            op.raise(baseMessage + addedParts.join(''));
+                        }
                     }
 
-                    if (methodName === 'create') {
-                        op.inCreate = true;
+                    op.typeDef.addMember(methodName, modifiers);
+
+                    if (modifiers > 0) {
+                        if ((modifiers & MemberModifiers.Abstract) > 0 && !op.typeDef.isAbstract) {
+                            op.raise(`Member ${methodName} cannot be abstract unless defining type ${op.typeDef.typeName} is also declared abstract`);
+                        }
                     }
 
                     if (op.allowConstructors === false && methodName === 'constructor') {
@@ -1178,13 +1299,12 @@ async function parseElement(op, e, depth, xtra = {}) {
 
                     if (methodName.startsWith('get '))
                         info.callType |= CallOrigin.GetProperty;
-                    if (methodName.startsWith('set '))
+                    else if (methodName.startsWith('set '))
                         info.callType |= CallOrigin.SetProperty;
                     ret += methodName;
-                    op.typeDef.addMember(methodName, modifiers);
                     ret += await parseElement(op, e.value, depth + 1, info);
                     op.setMethod();
-                    op.inCreate = false;
+                    op.popContext();
                 }
                 break;
 
@@ -1437,6 +1557,30 @@ class MudScriptTranspiler extends PipelineComponent {
                 op.output += op.appendText;
                 op.injectedSuperClass = 'MUDObject';
 
+                if (op.errors.length > 0) {
+                    let sorter = /** @param {SyntaxError} a @param {SyntaxError} b */ (a, b) => {
+                        if (a instanceof SyntaxError && b instanceof SyntaxError) {
+                            if (a.position.line < b.position.line)
+                                return -1;
+                            else if (b.position.line < a.position.line)
+                                return 1;
+                            else if (a.position.char < b.position.char)
+                                return -1;
+                            else if (b.position.char < a.position.char)
+                                return -1;
+                            else if (a.message < b.message)
+                                return -1;
+                            else if (b.message < a.message)
+                                return 1;
+                            else
+                                return 0;
+                        }
+                        return 1;
+                    };
+                    op.errors = op.errors.sort(sorter);
+                    throw new CompositeError(`Module ${op.filename} failed to compile due to ${op.errors.length} error(s)`, op.errors);
+                }
+
                 return context.update(PipeContext.CTX_RUNNING, op.finish());
             }
             else {
@@ -1444,7 +1588,15 @@ class MudScriptTranspiler extends PipelineComponent {
             }
         }
         catch (x) {
-            console.log(`MudScriptTranspiler.run compiling ${context.basename}`, x.message);
+            if (x instanceof CompositeError) {
+                console.log(x.message);
+                for (const error of x.getItems()) {
+                    console.log(`\t${error.message}`);
+                }
+            }
+            else {
+                console.log(`MudScriptTranspiler.run compiling ${context.basename}`, x.message);
+            }
             throw x;
         }
     }

@@ -3,17 +3,14 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const
-    Base = await requireAsync('Base'),
-    Command = await requireAsync(Base.Command);
+import { LIB_COMMAND } from 'Base';
+import Command from LIB_COMMAND;
 
-class ChmodCommand extends Command {
-    cmd(args) {
+export default singleton class ChmodCommand extends Command {
+    override cmd(args) {
         if (args.length === 0)
             return 'Usage: chmod [options] file(s)...';
         let path = efuns.resolvePath(args[0], thisPlayer().workingDirectory);
         throw 'Not implemented';
     }
 }
-
-module.exports = await createAsync(ChmodCommand);

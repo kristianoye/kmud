@@ -3,12 +3,11 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const
-    Base = await requireAsync('Base'),
-    Command = await requireAsync(Base.Command);
+import { LIB_COMMAND } from 'Base';
+import Command from LIB_COMMAND;
 
-class WhoCommand extends Command {
-    cmd(args, cmdline) {
+export default singleton class WhoCommand extends Command {
+    override cmd(args, cmdline) {
         var players = efuns.living.players(),
             count = players.length,
             tp = thisPlayer;
@@ -93,5 +92,3 @@ class WhoCommand extends Command {
         return "Shows you who is on-line";
     }
 }
-
-module.exports = await createAsync(WhoCommand);

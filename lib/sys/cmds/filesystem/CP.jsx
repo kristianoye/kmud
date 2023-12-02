@@ -3,12 +3,10 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const
-    Base = await requireAsync('Base'),
-    Command = await requireAsync(Base.Command);
+import { LIB_COMMAND } from 'Base';
+import Command from LIB_COMMAND;
 
-class CopyCommand extends Command {
+
+export default singleton class CopyCommand extends Command {
 
 }
-
-module.exports = await createAsync(CopyCommand);

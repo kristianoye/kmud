@@ -3,12 +3,12 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const
-    Base = await requireAsync('Base'),
-    Command = await requireAsync(Base.Command);
+import { LIB_COMMAND } from 'Base';
+import Command from LIB_COMMAND;
 
-class UpdateCommand extends Command {
-    async cmd(text, input) {
+
+export default singleton class UpdateCommand extends Command {
+    override async cmd(text, input) {
         if (input.args.length === 0) {
             let env = unwrap(thisPlayer().environment);
 
@@ -189,5 +189,3 @@ Options:
 `);
     }
 }
-
-module.exports = await createAsync(UpdateCommand);

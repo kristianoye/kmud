@@ -630,7 +630,15 @@ class GameServer extends MUDEventEmitter {
                     result = target;
                 }
                 else if (typeof target === 'function') {
+                    result = target();
+                }
+                else if (typeof target === 'string') {
+                    let parts = driver.efuns.parsePath(target),
+                        module = driver.cache.get(parts.file);
 
+                    if (parts.defaultType && module) {
+                        result = module.defaultExport instanceof MUDObject ? module.defaultExport : false;
+                    }
                 }
                 else if (Array.isArray(target)) {
                     let items = target.map(t => global.unwrap(t))
@@ -648,6 +656,19 @@ class GameServer extends MUDEventEmitter {
                     return defaultValue();
 
                 return result && onSuccess(result);
+            };
+
+            global.unwrapAsync = async function (target, success, hasDefault) {
+                if (typeof target === 'string') {
+                    let parts = driver.efuns.parsePath(target),
+                        module = driver.cache.get(parts.file);
+
+                    if (!module) {
+                        result = global.unwrap(await driver.efuns.loadObjectAsync(target));
+                        return global.unwrap(result, success, hasDefault);
+                    }
+                }
+                return global.unwrap(target, success, hasDefault);
             };
 
             global.wrapper = function (o) {

@@ -3,9 +3,8 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const
-    Base = await requireAsync('Base'),
-    Room = await requireAsync(Base.Room);
+import { LIB_ROOM } from 'Base';
+import Room from LIB_ROOM;
 
 function formatName() {
     let tp = this_player();
@@ -18,9 +17,9 @@ function formatName() {
 /**
  * The base room of the example domain.
  */
-class Square extends Room {
-    private create() {
-        this->::create();
+export default final singleton class Square extends Room {
+    private override create() {
+        super->Room::create();
         this.keyId = 'Square';
         this.shortDesc = 'The Central Square of Sarta';
         this.addExit('fighter', 'classHalls/Fighter');
@@ -37,7 +36,7 @@ class Square extends Room {
             });
     }
 
-    get longDesc() {
+    override get longDesc() {
         return <div>
             <p>Hello, {formatName()}</p>
             <p>This is the heart of the city of Sarta.  There are many tall buildings
@@ -54,10 +53,4 @@ class Square extends Room {
             await harry().moveObjectAsync(this);
         }
     }
-
-    private nonsensicalAddon() {
-
-    }
 }
-
-module.exports = await createAsync(Square);

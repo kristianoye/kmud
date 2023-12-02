@@ -4,7 +4,7 @@
  * Date: October 1, 2017
  */
 const
-    events = require('events');
+    MUDEventEmitter = require('./MUDEventEmitter');
 
 var
     UseLazyResets = false;
@@ -12,7 +12,7 @@ var
 /**
  * Base type for all MUD objects.
  */
-class MUDObject extends events.EventEmitter {
+class MUDObject extends MUDEventEmitter {
     constructor() {
         super();
 
@@ -226,6 +226,8 @@ class MUDObject extends events.EventEmitter {
         return this;
     }
 }
+
+//MUDObject.prototype.baseName = 'MUDObject';
 
 const
     VTE_TYPE = Object.freeze({

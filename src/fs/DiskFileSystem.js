@@ -986,7 +986,8 @@ class DiskFileSystem extends BaseFileSystem {
             if (!module)
                 throw new Error(`Failed to load module ${fullPath}`);
         }
-        return module.getInstanceWrapper(parts);
+        let result = module.getInstanceWrapper(parts);
+        return result;
     }
 
     /**

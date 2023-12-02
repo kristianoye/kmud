@@ -3,12 +3,11 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const
-    Base = await requireAsync('Base'),
-    Command = await requireAsync(Base.Command);
+import { LIB_COMMAND } from 'Base';
+import Command from LIB_COMMAND;
 
-class CallCommand extends Command {
-    async cmd(args, cmdline) {
+export default singleton class CallCommand extends Command {
+    async override cmd(args, cmdline) {
         try {
             let input = cmdline.input,
                 endOfTarget = input.indexOf('.'),
@@ -44,5 +43,3 @@ class CallCommand extends Command {
         return fn;
     }
 }
-
-module.exports = await createAsync(CallCommand);

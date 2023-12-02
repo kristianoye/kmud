@@ -1,10 +1,4 @@
-﻿/*
- * Written by Kris Oye <kristianoye@gmail.com>
- * Copyright (C) 2017.  All rights reserved.
- * Date: February 16, 2019
- * 
- * Helper methods for "living" objects.
- */
+﻿const MUDStorageFlags = require('../MUDStorageFlags');
 
 class LivingsHelper {
     /**
@@ -195,9 +189,9 @@ class LivingsHelper {
     static queryIdle(target) {
         return unwrap(target, ob => {
             let $storage = driver.storage.get(ob);
-            if ($storage.flags & MUDStorage.Interactive) {
-                if ($storage.flags & MUDStorage.Connected) {
-                    return $storage.client.idleTime;
+            if ($storage.flags & MUDStorageFlags.PROP_INTERACTIVE) {
+                if ($storage.flags & MUDStorageFlags.PROP_CONNECTED) {
+                    return $storage.idleTime;
                 }
                 return -1;
             }

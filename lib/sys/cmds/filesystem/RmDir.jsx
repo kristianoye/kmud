@@ -3,16 +3,16 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
+import { LIB_COMMAND } from 'Base';
+import Command from LIB_COMMAND;
+
 const
-    Base = await requireAsync('Base'),
-    Daemon = await requireAsync('Daemon'),
-    Command = await requireAsync(Base.Command),
     RmdirRecursive = 1 << 0,
     RmdirVerbose = 1 << 1,
     RmdirParents = 1 << 2;
 
-class RmDir extends Command {
-    async cmd(args, cmdline) {
+export default singleton class RmDir extends Command {
+    override async cmd(args, cmdline) {
         let player = thisPlayer,
             dirList = [],
             flags = 0;
@@ -79,5 +79,3 @@ class RmDir extends Command {
         return true;
     }
 }
-
-module.exports = await createAsync(RmDir);

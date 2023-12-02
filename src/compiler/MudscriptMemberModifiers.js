@@ -16,5 +16,8 @@ module.exports = Object.freeze({
     Final: 1 << 5,
     Override: 1 << 6,
     Singleton: 1 << 7,
-    NoSave: 1 << 8
+    NoSave: 1 << 8,
+    Static: 1 << 9,
+    Async: 1 << 10,
+    Origin: 1 << 11
 });

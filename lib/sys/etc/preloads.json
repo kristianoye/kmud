@@ -14,5 +14,6 @@
   "/daemon/ChatDaemon.js",
   "/sys/lib/TextLogin.js",
   "/base/Armor.js",
-  "/world/sarta/Square.jsx"
+  "/world/sarta/Square.jsx",
+  "/sys/daemon/CommandResolver.js"
 ]

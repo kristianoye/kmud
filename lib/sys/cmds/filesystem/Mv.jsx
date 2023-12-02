@@ -3,14 +3,13 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const
-    Base = await requireAsync('Base'),
-    Command = await requireAsync(Base.Command);
+import { LIB_COMMAND } from 'Base';
+import Command from LIB_COMMAND;
 
 /**
  * Moves/rename files.
  */
-class MoveCommand extends Command {
+export default singleton class MoveCommand extends Command {
     /**
      * @returns {MUDFS.MoveOptions}
      */
@@ -26,7 +25,7 @@ class MoveCommand extends Command {
      * @param {string[]} args
      * @param {MUDInputEvent} evt
      */
-    async cmd(args, evt) {
+    override async cmd(args, evt) {
         let flags = 0,
             fileList = [],
             op = this.createMoveRequest();
@@ -132,7 +131,7 @@ class MoveCommand extends Command {
     /**
      * Create help for this command.
      */
-    getHelp() {
+    override getHelp() {
         return {
             type: 'command',
             category: 'Commands > Creator Commands > Filesystem',
@@ -161,5 +160,3 @@ class MoveCommand extends Command {
         };
     }
 }
-
-module.defaultExport = await createAsync(MoveCommand);

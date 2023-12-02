@@ -15,25 +15,164 @@ var
     useDomainStats = false,
     useStats = false;
 
-
-class MUDModuleTypeInfo {
+class MUDModuleTypeMemberInfo {
     /**
      * 
-     * @param {string} typeName The name of the type being defined
-     * @param {number} modifiers Modifiers declared by the class (final, abstract, etc.)
+     * @param {MUDModuleTypeInfo} definingType
+     * @param {string} memberName
+     * @param {number} modifiers
      */
-    constructor(typeName, modifiers) {
-        this.typeName = typeName;
-        this.members = {};
+    constructor(definingType, memberName, modifiers) {
+        this.definingType = definingType;
+        this.memberName = memberName;
         this.modifiers = modifiers;
     }
 
-    addMember(methodName, flags = 0) {
-        this.members[methodName] = flags;
+    get filename() {
+        return this.definingType.filename;
+    }
+
+    get typeName() {
+        return this.definingType.typeName;
+    }
+
+    typeIs(flags) {
+        return (this.modifiers & flags) === flags;
+    }
+}
+
+class MUDModuleImportedMemberInfo {
+    constructor(memberName, modifiers) {
+        /** @type {MUDModuleTypeInfo[]} */
+        this.implementors = [];
+        this.memberName = memberName;
+        this.modifiers = modifiers;
+    }
+
+    /**
+     * 
+     * @param {MUDModuleTypeMemberInfo | MUDModuleImportedMemberInfo} impl
+     */
+    addImplementation(impl) {
+        if (impl instanceof MUDModuleImportedMemberInfo) {
+            this.modifiers |= impl.modifiers;
+            this.implementors.push(...impl.implementors);
+        }
+        else {
+            this.modifiers |= impl.modifiers;
+            this.implementors.push(impl);
+        }
+    }
+
+    getFinalDefiners() {
+        return this.implementors.filter(info => (info.modifiers & MemberModifiers.Final) > 0);
+    }
+
+    typeIs(flags) {
+        return (this.modifiers & flags) === flags;
+    }
+}
+
+class MUDModuleTypeInfo {
+    /**
+     * @param {MUDModule} definedIn The module in which the type is defined
+     * @param {string} typeName The name of the type being defined
+     * @param {number} modifiers Modifiers declared by the class (final, abstract, etc.)
+     * @param {{ line: number, char: number }} position The position of the class declaration start
+     */
+    constructor(definedIn, typeName, modifiers, position) {
+        this.module = definedIn;
+        /** @type {string} */
+        this.filename = definedIn.filename;
+        this.position = position;
+        /** @type {string} */
+        this.typeName = typeName;
+        /** @type {Object.<string,MUDModuleImportedMemberInfo>} */
+        this.inheritedMembers = {};
+        /** @type {Object.<string,MUDModuleTypeMemberInfo>} */
+        this.members = {};
+        /** @type {number} */
+        this.modifiers = modifiers;
+        this.unimplementedAbstractMembers = {};
+    }
+
+    addMember(memberName, modifiers = 0) {
+        let member = this.members[memberName] = new MUDModuleTypeMemberInfo(this, memberName, modifiers);
+
+        if (member in this.unimplementedAbstractMembers) {
+            delete this.unimplementedAbstractMembers[member];
+        }
+        return member;
+    }
+
+    getMember(memberName) {
+        return this.members[memberName] || false;
+    }
+
+    getInheritedMember(memberName) {
+        return this.inheritedMembers[memberName] || false;
+    }
+
+    importTypeInfo(typeRef) {
+        let info = driver.efuns.parsePath(typeRef.prototype.baseName),
+            file = info.file,
+            /** @type {MUDModule} */ module = driver.cache.get(file),
+            typeDef = module && module.getTypeDefinition(typeRef.name);
+
+        if (typeDef) {
+            for (const [memberName, info] of Object.entries(typeDef.inheritedMembers)) {
+                if (memberName in this.inheritedMembers) {
+                    this.inheritedMembers[memberName].addImplementation(info);
+                }
+                else {
+                    this.inheritedMembers[memberName] = info;
+                }
+
+                if (info.typeIs(MemberModifiers.Abstract)) {
+                    this.unimplementedAbstractMembers[memberName] = info;
+                }
+            }
+            for (const [memberName, info] of Object.entries(typeDef.members)) {
+                let existingMember = this.inheritedMembers[memberName] || false;
+
+                if (info.typeIs(MemberModifiers.Abstract)) {
+                    this.unimplementedAbstractMembers[memberName] = info;
+                }
+                else if (memberName in this.unimplementedAbstractMembers) {
+                    delete this.unimplementedAbstractMembers[memberName];
+                }
+
+                if (existingMember) {
+                    let existingMember = this.inheritedMembers[memberName];
+
+                    //  This member implemented a previously abstract method
+                    if (existingMember.typeIs(MemberModifiers.Abstract) && !info.typeIs(MemberModifiers.Abstract)) {
+                        existingMember.modifiers &= ~MemberModifiers.Abstract;
+                    }
+                    existingMember.addImplementation(info);
+                }
+                else {
+                    existingMember = this.inheritedMembers[memberName] = new MUDModuleImportedMemberInfo(memberName, 0);
+                    existingMember.addImplementation(info);
+                }
+            }
+        }
     }
 
     get isAbstract() {
         return (this.modifiers & MemberModifiers.Abstract) > 0;
+    }
+
+    get isFinal() {
+        return (this.modifiers & MemberModifiers.Final) > 0;
+    }
+
+    isMember(memberName) {
+        return memberName in this.members === true;
+    }
+
+    get isSingleton() {
+        return (this.modifiers & MemberModifiers.Singleton) > 0;
     }
 }
 
@@ -73,6 +212,9 @@ class MUDModule extends events.EventEmitter {
 
         /** Has the default been explicitly set? */
         this.explicitDefault = false;
+
+        /** @type {Object.<string, MUDModuleTypeInfo>} */
+        this.typeDefinitions = {};
 
         /** @type {string[]} */
         this.typeNames = [];
@@ -150,7 +292,7 @@ class MUDModule extends events.EventEmitter {
 
     set defaultExport(val) {
         if (driver.efuns.isClass(val)) {
-            let flags = val.prototype.typeModifiers;
+            let flags = val.prototype.typeModifiers || 0;
 
             if ((flags & MemberModifiers.Singleton) > 0)
                 this.$defaultExport = new val();
@@ -167,7 +309,7 @@ class MUDModule extends events.EventEmitter {
 
             if ((flags & MemberModifiers.Singleton) > 0) {
                 let inst = await this.createInstanceAsync(val, false, [], false, this.filename);
-                this.$defaultExport = inst.wrapper;
+                this.$defaultExport = inst;
             }
             else
                 this.$defaultExport = val;
@@ -360,9 +502,8 @@ class MUDModule extends events.EventEmitter {
                         else
                             throw new Error(`Unable to find type ${type}`);
                     }
-                    else if (prev.filename !== this.filename) {
-                        throw new Error(`Access denied to non-exported type ${type} in module ${this.filename}`);
-                    }
+                    else
+                        type = this.types[type];
                 }
                 else
                     type = this.types[type];
@@ -512,14 +653,23 @@ class MUDModule extends events.EventEmitter {
                 file: this.fullPath
             };
         }
-        else if (!this.types[req.type]) {
+        let typeSpec = req.type.slice(0);
+        if (req.defaultType === true && !this.types[typeSpec]) {
+            if (this.$defaultExport) {
+                if (driver.efuns.isClass(this.$defaultExport))
+                    typeSpec = this.$defaultExport.name;
+                else if (typeof this.$defaultExport === 'object')
+                    typeSpec = this.$defaultExport.constructor.name;
+            }
+        }
+        if (!this.types[typeSpec]) {
             if (req.instance === 0) {
                 if (this.defaultExport instanceof MUDObject)
                     return this.defaultExport;
             }
             return req.instance === 0 && this.instanceMap[req.instance];
         }
-        let instances = this.instanceMap[req.type] || [];
+        let instances = this.instanceMap[typeSpec] || [];
         if (req.instance < 0 || req.instance > instances.length) {
             if (req.objectId) {
                 if (true === req.objectId in this.instancesById) {
@@ -679,8 +829,16 @@ class MUDModule extends events.EventEmitter {
         return this;
     }
 
-    eventBeginTypeDefinition(typeName, modifiers) {
-        return this.currentTypeDef = new MUDModuleTypeInfo(typeName, modifiers);
+    eventBeginTypeDefinition(typeName, modifiers, pos) {
+        let typeDef = this.currentTypeDef = new MUDModuleTypeInfo(this, typeName, modifiers, pos);
+
+        this.typeDefinitions[typeName] = typeDef;
+
+        return typeDef;
+    }
+
+    getTypeDefinition(typeName) {
+        return this.typeDefinitions[typeName] || false;
     }
 
     /**
@@ -706,7 +864,7 @@ class MUDModule extends events.EventEmitter {
             this.instanceMap[type.name] = [];
 
         let parentType = Object.getPrototypeOf(type);
-        if (parentType && typeof parentType.prototype.baseName === 'string') {
+        if (parentType && typeof parentType.prototype.baseName === 'string' && parentType.prototype.baseName !== 'MUDObject') {
             let { file } = driver.efuns.parsePath(parentType.prototype.baseName),
                 parentModule = driver.cache.get(file);
 

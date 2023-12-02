@@ -19,6 +19,8 @@ const acorn = require('acorn'),
     ModifierOverride = "override",
     ModifierStatic = "static",
     ModifierSingleton = "singleton",
+    ModifierNosave = "nosave",
+    ModifierOrigin = "origin",
 
     //  New keywords added by MudScript
     MudscriptKeywords = "abstract singleton final public private protected package override nosave",
@@ -87,7 +89,7 @@ function plugin(options, Parser) {
     types$1._override = kw(ModifierOverride, { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.Override });
 
     // Nosave access modifier
-    types$1._nosave = kw(ModifierOverride, { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.NoSave });
+    types$1._nosave = kw(ModifierNosave, { beforeExpr: true, classModifier: 0, memberModifier: MemberModifiers.NoSave });
 
 
     // Dereferencing operator allows calling 3 types of possible instance references:
@@ -190,7 +192,9 @@ function plugin(options, Parser) {
 
             method.kind = "method";
             method.methodModifiers = 0;
-            method.hasAccess = (flag) => (this.methodModifiers & flag) > 0;
+            method.hasAccess = function (flag) {
+                return (method.methodModifiers & flag) > 0;
+            };
 
             this.eatWhitespace();
 
@@ -198,9 +202,11 @@ function plugin(options, Parser) {
                 this.eatWhitespace();
                 if (tryContextual(ModifierStatic, true)) {
                     method.static = true;
+                    method.methodModifers |= MemberModifiers.Static;
                 }
                 else if (tryContextual(ModifierAsync, true)) {
                     method.isAsync = isAsync = true;
+                    method.methodModifiers |= MemberModifiers.Async;
                 }
                 else if (this.eat(types$1._abstract)) {
                     method.isAbstract = true;
@@ -234,6 +240,9 @@ function plugin(options, Parser) {
                 }
                 else if (this.eat(types$1._nosave)) {
                     method.methodModifiers |= MemberModifiers.NoSave;
+                }
+                else if (tryContextual(ModifierOrigin, true)) {
+                    method.methodModifiers |= MemberModifiers.Origin;
                 }
                 else {
                     this.finishNode(modifierNode, 'MemberModifiers');
@@ -296,6 +305,8 @@ function plugin(options, Parser) {
                 else if (method.kind === "constructor")
                     this.raise(method.value.start, "Constructor must specify access decorator (public, protected, private, or package)");
             }
+            if (method.hasAccess(MemberModifiers.Origin) && method.kind !== 'set' && method.kind !== 'get')
+                this.raise(`Member ${key.name} cannot use origin modifier; Only property getters/setters may use origin`);
             if (method.hasAccess(MemberModifiers.NoSave) && method.kind !== 'set')
                 this.raise(`Member ${key.name} cannot use nosave modifier; Only setters may use nosave`);
             if (method.hasAccess(MemberModifiers.Public) && method.hasAccess(MemberModifiers.Private | MemberModifiers.Protected | MemberModifiers.Package))

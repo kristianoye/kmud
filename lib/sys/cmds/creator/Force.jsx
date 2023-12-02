@@ -3,12 +3,11 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const
-    Base = await requireAsync('Base'),
-    Verb = await requireAsync(Base.Verb);
+import { LIB_VERB } from 'Base';
+import Verb from LIB_VERB;
 
-class ForceCommand extends Verb {
-    create() {
+export default final singleton class ForceCommand extends Verb {
+    override create() {
         this.setVerb('force')
             .addRules("LIV to STR")
             .setSynonyms("cooerce");
@@ -33,5 +32,3 @@ class ForceCommand extends Verb {
         return true;
     }
 }
-
-module.exports = await createAsync(ForceCommand);

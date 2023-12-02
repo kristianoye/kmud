@@ -3,22 +3,23 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
+import { LIB_COMMAND } from 'Base';
+import Command from LIB_COMMAND;
+
 const
-    Base = await requireAsync('Base'),
-    Command = await requireAsync(Base.Command),
     DirFlags = system.flags.fs.DirFlags;
 
 const
     MkdirVerbose = 1 << 0,
     MkdirParents = 1 << 1;
 
-class MkDirCommand extends Command {
+export default singleton class MkDirCommand extends Command {
     /**
      * Create a directory
      * @param {string} cmdText The raw text for the command
      * @param {MUDInputEvent} cmdline The input event from the client
      */
-    async cmd(cmdText, cmdline) {
+    override async cmd(cmdText, cmdline) {
         let player = thisPlayer(),
             args = cmdline.args,
             dirList = [],
@@ -113,5 +114,3 @@ class MkDirCommand extends Command {
         return 'No help yet';
     }
 }
-
-module.exports = await createAsync(MkDirCommand);
