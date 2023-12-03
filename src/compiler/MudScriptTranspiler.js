@@ -18,7 +18,7 @@ const
     jsx = require('acorn-jsx'),
     { CallOrigin } = require('../ExecutionContext'),
     MemberModifiers = require("./MudscriptMemberModifiers"),
-    { SyntaxError, CompositeError } = require('../ErrorTypes');
+    { SyntaxError, SyntaxWarning, CompositeError } = require('../ErrorTypes');
 
 const
     //  These cannot be used as identifiers (reserved words)
@@ -125,9 +125,12 @@ class MudScriptAstAssembler {
         this.directory = p.directory;
         /** @type {SyntaxError[]} */
         this.errors = [];
+        this.errorCount = 0;
+        this.warningCount = 0;
         this.exportCount = 0;
         this.exports = {};
         this.extension = p.context.extension;
+        this.eventCompleteMessages = [];
         this.filename = p.filename;
         this.filepart = p.filename.slice(p.filename.lastIndexOf('/') + 1);
         this.jsxIndent = '';
@@ -298,6 +301,13 @@ class MudScriptAstAssembler {
     raise(err, pos=false) {
         pos = pos || this.getPosition();
         this.errors.push(new SyntaxError(`[Line ${pos.line}, Char ${pos.char}]: ${err}`, pos));
+        this.errorCount++;
+    }
+
+    warn(msg, pos = false) {
+        pos = pos || this.getPosition();
+        this.errors.push(new SyntaxWarning(`[Line ${pos.line}, Char ${pos.char}]: ${msg}`, pos));
+        this.warningCount++;
     }
 
     /**
@@ -443,6 +453,17 @@ function addRuntimeAssert(e, preText, postText, isCon) {
             }
         }
     }
+}
+
+/**
+ * Simple test to see if the value looks like a string literal
+ * @param {any} val
+ * @returns
+ */
+function isLiteralString(val) {
+    return typeof val === 'string' &&
+        ((val.startsWith('"') && val.endsWith('"')) ||
+            (val.startsWith("'") && val.endsWith("'")));
 }
 
 /**
@@ -600,7 +621,10 @@ async function parseElement(op, e, depth, xtra = {}) {
                         argsWritten = false;
 
                     if (e.callee.type === 'MemberExpression') {
+                        let orgObject = op.source.slice(e.callee.object.start, e.callee.object.end);
+
                         object = await parseElement(op, e.callee.object, depth + 1);
+
                         if (object in op.symbols) {
                             object = `'${op.symbols[object]}'`;
                         }
@@ -612,8 +636,13 @@ async function parseElement(op, e, depth, xtra = {}) {
                             if (e.callee.object.type !== 'Super' && e.callee.object.type !== 'ThisExpression') {
                                 if (op.context.isAsync)
                                     object = '(await unwrapAsync(' + object + '))';
-                                else
+                                else {
+                                    if (isLiteralString(object)) {
+                                        if (op.context.memberName)
+                                            op.warn(`Using identifier '${orgObject}' for call in non-async context may result in an object not found error at runtime`);
+                                    }
                                     object = 'unwrap(' + object + ')';
+                                }
                             }
                         }
                         else
@@ -1520,6 +1549,8 @@ class MudScriptTranspiler extends PipelineComponent {
             .extend(jsx())
             .extend(MudscriptAcornPlugin(config));
 
+        //  Dummy listener
+        this.on('compiler', () => { });
     }
 
     /**
@@ -1552,7 +1583,6 @@ class MudScriptTranspiler extends PipelineComponent {
                 for (const n of op.ast.body) {
                     op.output += await parseElement(op, n, 0)
                 }
-                //op.ast.body.forEach(n => op.output += parseElement(op, n, 0));
                 op.output += op.readUntil(op.max);
                 op.output += op.appendText;
                 op.injectedSuperClass = 'MUDObject';
@@ -1578,7 +1608,16 @@ class MudScriptTranspiler extends PipelineComponent {
                         return 1;
                     };
                     op.errors = op.errors.sort(sorter);
-                    throw new CompositeError(`Module ${op.filename} failed to compile due to ${op.errors.length} error(s)`, op.errors);
+                    if ((op.warningCount + op.errorCount) > 0) {
+                        let msgs = op.errorCount > 0 ?
+                            new CompositeError(`Module ${op.filename} failed to compile due to ${op.errorCount} error(s) [${op.warningCount} warning(s)]`, op.errors) :
+                            new CompositeError(`Module ${op.filename} compiled with ${op.warningCount} warning(s)`, op.errors);
+
+                        op.eventCompleteMessages = [msgs];
+
+                        if (op.errorCount > 0)
+                            throw msgs;
+                    }
                 }
 
                 return context.update(PipeContext.CTX_RUNNING, op.finish());
@@ -1596,8 +1635,17 @@ class MudScriptTranspiler extends PipelineComponent {
             }
             else {
                 console.log(`MudScriptTranspiler.run compiling ${context.basename}`, x.message);
+                op.eventCompleteMessages.push(x);
             }
             throw x;
+        }
+        finally {
+            this.emit('compiler', op.eventCompleteMessages);
+            if (Array.isArray(op.eventCompleteMessages) && op.eventCompleteMessages.length > 0) {
+                for (const err of op.eventCompleteMessages) {
+                    await driver.callApplyAsync(driver.applyLogError.name, options.file, err);
+                }
+            }
         }
     }
 }

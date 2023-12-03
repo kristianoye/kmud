@@ -41,7 +41,7 @@ class CompilerPipeline
         options.onDebugOutput(`\tPipeline ${this.name} [${this.pipeline.length} stage(s)] is starting`, 2);
         context.update(PipeContext.CTX_RUNNING);
 
-        for (var i = 0, max = this.pipeline.length; i < max; i++) {
+        for (let i = 0, max = this.pipeline.length; i < max; i++) {
             /** @type {PipelineComponent} */
             let component = this.pipeline[i];
 
@@ -55,7 +55,27 @@ class CompilerPipeline
             try
             {
                 options.onPipelineStage(component.name, i, max);
-                await component.runAsync(context, options, i, max);
+
+                if (component.enabled) {
+                    //  Listen for important events
+                    //component.eventNames().forEach(eventName => {
+                    //    switch (eventName) {
+                    //        case 'compiler':
+                    //            component.once(eventName, /** @param {MUDError[]} errors */ async errors => {
+                    //                if (Array.isArray(errors) && errors.length > 0) {
+                    //                    for (const err of errors) {
+                    //                        await driver.callApplyAsync(driver.applyLogError.name, options.file, err);
+                    //                    }
+                    //                }
+                    //            });
+                    //            break;
+                    //    }
+                    //});
+                    await component.runAsync(context, options, i, max);
+                }
+                else {
+                    options.onDebugOutput(`\tPipeline ${this.name} is skipping disabled pipeline step #${(i + 1)}`, 3);
+                }
             }
             catch (err) {
                 context.addError(err);

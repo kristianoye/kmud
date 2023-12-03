@@ -1,9 +1,12 @@
 ﻿const
     { PipelineContext } = require('./PipelineContext'),
-    MUDCompilerOptions = require('./MUDCompilerOptions');
+    MUDCompilerOptions = require('./MUDCompilerOptions'),
+    events = require('events');
 
-class PipelineComponent {
+class PipelineComponent extends events.EventEmitter {
     constructor(config) {
+        super();
+
         this.enabled = typeof config.enabled === 'boolean' ? config.enabled : true;
         this.reusable = config.reusable;
         this.name = config.name;

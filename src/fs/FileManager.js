@@ -489,21 +489,10 @@ class FileManager extends MUDEventEmitter {
      * @param {number} flags Flags associated with the request
      * @returns {Promise<FileObject>}
      */
-    getFileAsync(expr, flags = 0, isSystemRequest = false) {
-        return new Promise(async (resolve, reject) => {
-            try {
-                let request = this.createFileRequest('getFileAsync', expr, flags);
-                let fso = await request.fileSystem.getFileAsync(request);
-
-                if (isSystemRequest)
-                    return resolve(fso);
-                else
-                    return resolve(new FileWrapperObject(fso));
-            }
-            catch (err) {
-                reject(err);
-            }
-        });
+    async getFileAsync(expr, flags = 0, isSystemRequest = false) {
+        let request = this.createFileRequest('getFileAsync', expr, flags);
+        let fso = await request.fileSystem.getFileAsync(request);
+        return isSystemRequest ? fso : new FileWrapperObject(fso);
     }
 
     /**

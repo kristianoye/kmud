@@ -17,7 +17,7 @@ class PipelineContext {
         let file = options.fileObject || options.file;
 
         this.isEval = isEval === true;
-        this.isVirtual = options.file.isVirtual || false;
+        this.isVirtual = options.isVirtual === true;
         this.options = options;
 
         if (typeof file === 'string') {

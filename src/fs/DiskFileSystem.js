@@ -74,8 +74,8 @@ class DiskFileObject extends FileSystemObject {
 
     //#endregion
 
-    appendFileAsync(content, options = { encoding: 'utf8' }) {
-        return this.writeFileAsync(content, { flags: 'a' });
+    async appendFileAsync(content, options = { encoding: 'utf8' }) {
+        return await this.writeFileAsync(content, { flag: 'a' });
     }
 
     /**
@@ -418,9 +418,9 @@ class DiskFileObject extends FileSystemObject {
      * @param {string | Buffer} content
      * @param {{ encoding?: string, flags?: string }} options
      */
-    writeFileAsync(content, options = { encoding: 'utf8', flags: 'w' }) {
+    async writeFileAsync(content, options = { encoding: 'utf8', flag: 'w' }) {
         if (typeof options === 'string') {
-            options = { flags: options };
+            options = { flag: options };
         }
         return new Promise((resolve, reject) => {
             try {
@@ -902,9 +902,9 @@ class DiskFileSystem extends BaseFileSystem {
                 stats = await this.statAsync(request);
 
             if (stats.exists && stats.isDirectory)
-                return resolve(new DiskFileObject(stats, fullPath, this));
+                resolve(new DiskFileObject(stats, fullPath, this));
             else
-                return reject(`getDirectoryAsync(): ${stats.fullPath} is not a directory`);
+                reject(`getDirectoryAsync(): ${stats.fullPath} is not a directory`);
         });
     }
 
@@ -914,13 +914,8 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {Promise<FileSystemObject>} Returns a file object if the file is found.
      */
     async getFileAsync(request) {
-        return new Promise(async (resolve, reject) => {
-            try {
-                let stats = await this.statAsync(request);
-                return resolve(new DiskFileObject(stats, request.absolutePath, this));
-            }
-            catch (err) { reject(err);  }
-        });
+        let stats = await this.statAsync(request);
+        return new DiskFileObject(stats, request.absolutePath, this);
     }
 
     /**
@@ -1221,7 +1216,7 @@ class DiskFileSystem extends BaseFileSystem {
      */
     async statAsync(request) {
         let fullPath = this.translatePath(request.relativePath);
-        return new Promise(async (resolve, reject) => {
+        let myp = new Promise((resolve, reject) => {
             try {
                 fs.stat(fullPath, (err, data) => {
                     let stat = this.createNormalizedStats(fullPath, data, err);
@@ -1232,6 +1227,8 @@ class DiskFileSystem extends BaseFileSystem {
                 reject(ex);
             }
         });
+        let result = await myp;
+        return result;
     }
 
     /**

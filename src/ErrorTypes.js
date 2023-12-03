@@ -63,6 +63,18 @@ class SyntaxError extends MUDError {
     }
 }
 
+class SyntaxWarning extends MUDError {
+    /**
+     * 
+     * @param {string} msg string
+     * @param {{ line: number, char: number, file: string }} pos The position at which the warning occurred
+     */
+    constructor(msg, pos) {
+        super(msg);
+        this.position = pos;
+    }
+}
+
 /**
  * Something took too long
  */
@@ -102,5 +114,6 @@ module.exports = {
     TimeoutError,
     PermissionDeniedError,
     SyntaxError,
-    CompositeError
+    CompositeError,
+    SyntaxWarning
 };

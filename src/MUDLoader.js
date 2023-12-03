@@ -635,6 +635,10 @@ class MUDLoader {
         return global.unwrap(...args);
     }
 
+    unwrapAsync(...args) {
+        return global.unwrapAsync(...args);
+    }
+
     units(units, unitType) {
         return driver.convertUnits(units, unitType);
     }
