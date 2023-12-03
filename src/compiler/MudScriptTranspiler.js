@@ -80,6 +80,8 @@ const
  * @property {string} [className] The name of the class currently being defined, if any.
  * @property {boolean} inCreate Are we defining the create constructor method?
  * @property {boolean} isAsync Are we in an async context?
+ * @property {boolean} isThisExpression
+ * @property {boolean} isSuperExpression
  * @property {number} jsxDepth How deep in a JSX expression are we?
  * @property {boolean} lazyBinding Is lazy binding enabled?
  * @property {string} memberName What method, if any, are we defining?
@@ -154,6 +156,8 @@ class MudScriptAstAssembler {
             className: undefined,
             inCreate: false,
             isAsync: false,
+            isSuperExpression: false,
+            isThisExpression: false,
             jsxDepth: 0,
             lazyBinding: false,
             memberName: undefined,
@@ -625,15 +629,27 @@ async function parseElement(op, e, depth, xtra = {}) {
 
                         object = await parseElement(op, e.callee.object, depth + 1);
 
+                        let ctx = op.pushContext({
+                            isSuperExpression: object === 'super',
+                            isThisExpression: object === 'this'
+                        });
+
                         if (object in op.symbols) {
                             object = `'${op.symbols[object]}'`;
                         }
+                        else if (ctx.isSuperExpression && e.callee.property.type === 'ScopedIdentifier') {
+                            op.warn(`Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this${(e.callee.usingDerefArrow ? '->' : '.')}${op.source.slice(e.callee.property.start, e.callee.property.end)}`);
+                            //  We like using 'super' but in reality we want 'this' to ensure ALL inherited scopes are visible
+                            object = 'this';
+                            //  both isThisExpression AND isSuperExpression are now true
+                            ctx.isThisExpression = true;
+                        }
                         if (e.callee.usingDerefArrow) {
                             op.pos += 2;
-                            propName = '.';
-                            propName += await parseElement(op, e.callee.property, depth + 1);
+                            let propNameActual = await parseElement(op, e.callee.property, depth + 1);
+                            propName = '.' + propNameActual;
 
-                            if (e.callee.object.type !== 'Super' && e.callee.object.type !== 'ThisExpression') {
+                            if (!ctx.isSuperExpression && !ctx.isThisExpression) {
                                 if (op.context.isAsync)
                                     object = '(await unwrapAsync(' + object + '))';
                                 else {
@@ -648,11 +664,31 @@ async function parseElement(op, e, depth, xtra = {}) {
                         else
                             propName = await parseElement(op, e.callee.property, depth + 1);
 
+                        let propNameActual = propName.charAt(0) === '.' ? propName.slice(1) : propName,
+                            definers = op.typeDef && op.typeDef.getInheritedMember(propNameActual);
+
                         propName += op.readUntil(e.callee.end);
-                        if (propName === '.call' || propName === '.apply') {
+                        if (propNameActual === 'call' || propNameActual === 'apply') {
                             if (e.arguments.length === 0 || e.arguments[0].type !== 'ThisExpression') {
                                 op.raise('For security reasons, the first argument to call or apply MUST be this');
                             }
+                        }
+                        else if (propNameActual === 'create') {
+                            if (!ctx.inCreate)
+                                op.raise(`Constructor method 'create' may not be called here`);
+                            if (!ctx.isThisExpression) {
+                                if (ctx.isSuperExpression)
+                                    op.warn(`Constructor method 'create' should be called using 'this' keyword (not super)`);
+                                else
+                                    op.raise(`Constructor method 'create' may only be called using 'this' keyword`);
+                            }
+                        }
+                        if (definers && definers.length > 1) {
+                            let baseError = `Call to member '${propNameActual}' is ambigious; Could be `,
+                                callOperator = e.callee.usingDerefArrow ? '->' : '.',
+                                parts = definers.implementors.map(pc => `this${callOperator}${pc.typeName}::${propNameActual}`);
+
+                            op.raise(baseError + parts.slice(0,-1).join(', ') + ' or ' + parts.slice(-1));
                         }
                         op.addCallerId(propName.slice(1));
                         if (propName.startsWith('[')) {
@@ -763,6 +799,8 @@ async function parseElement(op, e, depth, xtra = {}) {
                                 ret = `__mec.validSyncCall(__FILE__, __LINE__, () => ${ret})`;
                         }
                     }
+                    if (e.callee.type === 'MemberExpression')
+                        op.popContext();
                 }
                 op.popScope();
                 break;
@@ -1235,12 +1273,6 @@ async function parseElement(op, e, depth, xtra = {}) {
                         op.pos += 2;
                         ret += '.';
                     }
-                    if (e.property.name === 'create') {
-                        if (!op.context.inCreate)
-                            op.raise('Create (constructor) may only be called within constructor');
-                        else if (e.object.type !== 'ThisExpression')
-                            op.raise('Create (constructor) may only be called within constructor');
-                    }
                     ret += op.readUntil(e.property.start);
                     ret += await parseElement(op, e.property, depth + 1);
                 }
@@ -1397,6 +1429,19 @@ async function parseElement(op, e, depth, xtra = {}) {
                     let scopeName = await parseElement(op, e.scopeName, depth + 1);
                     op.pos += 2;
                     let scopeId = await parseElement(op, e.scopeId, depth + 1);
+
+                    if (scopeId === 'create') {
+                        let ctx = op.context;
+
+                        if (!ctx.inCreate)
+                            op.raise(`Constructor method 'create' may not be called here`);
+                        if (!ctx.isThisExpression) {
+                            if (ctx.isSuperExpression)
+                                op.warn(`Constructor method 'create' should be called using 'this' keyword (not super)`);
+                            else
+                                op.raise(`Constructor method 'create' should only be called using 'this' keyword`);
+                        }
+                    }
 
                     switch (op.scope) {
                         case ScopeType.CallExpression:

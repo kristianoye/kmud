@@ -68,6 +68,10 @@ class MUDModuleImportedMemberInfo {
         return this.implementors.filter(info => (info.modifiers & MemberModifiers.Final) > 0);
     }
 
+    get length() {
+        return this.implementors.length;
+    }
+
     typeIs(flags) {
         return (this.modifiers & flags) === flags;
     }
@@ -556,17 +560,6 @@ class MUDModule extends events.EventEmitter {
         catch (err) {
             /* rollback object creation */
             driver.storage.delete(instanceData.filename);
-            throw err;
-        }
-    }
-
-    createObject(id, creationContext) {
-        try {
-            return this.isMixin ?
-                new this.classRef() :
-                new this.classRef(creationContext);
-        }
-        catch (err) {
             throw err;
         }
     }
