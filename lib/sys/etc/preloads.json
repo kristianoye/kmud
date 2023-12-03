@@ -1,6 +1,4 @@
 ﻿[
-  "/daemon/HelpSystem.js",
-  "/sys/daemon/PlayerDaemon.js",
   "/base/GameObject.js",
   "/base/Container.js",
   "/base/Room.js",
@@ -15,5 +13,7 @@
   "/sys/lib/TextLogin.js",
   "/base/Armor.js",
   "/world/sarta/Square.jsx",
+  "/daemon/HelpSystem.js",
+  "/sys/daemon/PlayerDaemon.js",
   "/sys/daemon/CommandResolver.js"
 ]

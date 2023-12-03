@@ -3,3 +3,147 @@
 Could not load /world/sarta/Square [[Line 61, Char 2]: Could not inherit unresolved class: 'Room']
 Error: Could not load /world/sarta/Square [[Line 61, Char 2]: Could not inherit unresolved class: 'Room']
     at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)
+
+[12/3/2023, 11:33:43 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 14]: Scoped identifiers should be accessed using this instead of super
+
+[12/3/2023, 11:37:50 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 14]: Scoped identifiers should be accessed using this instead of super; Example: this-> Room::create
+
+[12/3/2023, 11:38:50 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 14]: Scoped identifiers should be accessed using this instead of super; Example: this->Room::create
+
+[12/3/2023, 11:42:35 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 14]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/3/2023, 11:45:00 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 14]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/3/2023, 11:53:58 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 14]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/3/2023, 11:57:16 AM]
+Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [scopedId is not defined]]]
+Error: Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [scopedId is not defined]]]
+    at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)
+    at async SimulEfuns.importAsync (/driversrc/driversrc/EFUNProxy.js:1627:34)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1159:38)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:583:32)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:515:32)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:760:36)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:997:24)
+    at async MudScriptTranspiler.runAsync (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1626:34)
+    at async CompilerPipeline.executeAsync (/driversrc/driversrc/compiler/CompilerPipeline.js:74:21)
+    at async GameServer.driverCallAsync (/driversrc/driversrc/GameServer.js:762:22)
+    at async MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:225:13)
+
+[12/3/2023, 11:57:16 AM]
+Could not load /world/sarta/Square [Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [scopedId is not defined]]]]
+Error: Could not load /world/sarta/Square [Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [scopedId is not defined]]]]
+    at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)
+
+[12/3/2023, 11:58:29 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 14]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/3/2023, 12:00:05 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 14]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/3/2023, 12:17:45 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 14]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/3/2023, 12:22:44 PM]
+Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [Module /base/GameObject failed to compile due to 1 error(s) [1 warning(s)]]]]
+Error: Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [Module /base/GameObject failed to compile due to 1 error(s) [1 warning(s)]]]]
+    at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)
+    at async SimulEfuns.importAsync (/driversrc/driversrc/EFUNProxy.js:1627:34)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1168:38)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:583:32)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:515:32)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:769:36)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1006:24)
+    at async MudScriptTranspiler.runAsync (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1629:34)
+    at async CompilerPipeline.executeAsync (/driversrc/driversrc/compiler/CompilerPipeline.js:74:21)
+    at async GameServer.driverCallAsync (/driversrc/driversrc/GameServer.js:762:22)
+    at async MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:225:13)
+
+[12/3/2023, 12:22:44 PM]
+Could not load /world/sarta/Square [Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [Module /base/GameObject failed to compile due to 1 error(s) [1 warning(s)]]]]]
+Error: Could not load /world/sarta/Square [Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [Module /base/GameObject failed to compile due to 1 error(s) [1 warning(s)]]]]]
+    at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)
+
+[12/3/2023, 1:19:55 PM]
+Could not load /base/Room [Module /base/Room failed to compile due to 1 error(s) [1 warning(s)]]
+Error: Could not load /base/Room [Module /base/Room failed to compile due to 1 error(s) [1 warning(s)]]
+    at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)
+    at async SimulEfuns.importAsync (/driversrc/driversrc/EFUNProxy.js:1627:34)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1168:38)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:583:32)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:515:32)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:769:36)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1006:24)
+    at async MudScriptTranspiler.runAsync (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1629:34)
+    at async CompilerPipeline.executeAsync (/driversrc/driversrc/compiler/CompilerPipeline.js:74:21)
+    at async GameServer.driverCallAsync (/driversrc/driversrc/GameServer.js:762:22)
+    at async MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:225:13)
+
+[12/3/2023, 1:19:55 PM]
+Could not load /world/sarta/Square [Could not load /base/Room [Module /base/Room failed to compile due to 1 error(s) [1 warning(s)]]]
+Error: Could not load /world/sarta/Square [Could not load /base/Room [Module /base/Room failed to compile due to 1 error(s) [1 warning(s)]]]
+    at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)
+
+[12/3/2023, 1:41:04 PM]
+Could not load /base/Room [Module /base/Room failed to compile due to 1 error(s) [1 warning(s)]]
+Error: Could not load /base/Room [Module /base/Room failed to compile due to 1 error(s) [1 warning(s)]]
+    at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)
+    at async SimulEfuns.importAsync (/driversrc/driversrc/EFUNProxy.js:1627:34)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1168:38)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:583:32)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:515:32)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:769:36)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1006:24)
+    at async MudScriptTranspiler.runAsync (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1629:34)
+    at async CompilerPipeline.executeAsync (/driversrc/driversrc/compiler/CompilerPipeline.js:74:21)
+    at async GameServer.driverCallAsync (/driversrc/driversrc/GameServer.js:762:22)
+    at async MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:225:13)
+
+[12/3/2023, 1:41:04 PM]
+Could not load /world/sarta/Square [Could not load /base/Room [Module /base/Room failed to compile due to 1 error(s) [1 warning(s)]]]
+Error: Could not load /world/sarta/Square [Could not load /base/Room [Module /base/Room failed to compile due to 1 error(s) [1 warning(s)]]]
+    at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)
+
+[12/3/2023, 2:15:51 PM]
+Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [Module /base/GameObject failed to compile due to 1 error(s) [0 warning(s)]]]]
+Error: Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [Module /base/GameObject failed to compile due to 1 error(s) [0 warning(s)]]]]
+    at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)
+    at async SimulEfuns.importAsync (/driversrc/driversrc/EFUNProxy.js:1627:34)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1168:38)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:583:32)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:515:32)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:769:36)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1006:24)
+    at async MudScriptTranspiler.runAsync (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1629:34)
+    at async CompilerPipeline.executeAsync (/driversrc/driversrc/compiler/CompilerPipeline.js:74:21)
+    at async GameServer.driverCallAsync (/driversrc/driversrc/GameServer.js:762:22)
+    at async MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:225:13)
+
+[12/3/2023, 2:15:51 PM]
+Could not load /world/sarta/Square [Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [Module /base/GameObject failed to compile due to 1 error(s) [0 warning(s)]]]]]
+Error: Could not load /world/sarta/Square [Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [Module /base/GameObject failed to compile due to 1 error(s) [0 warning(s)]]]]]
+    at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)
+
+[12/3/2023, 2:18:50 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 14]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/3/2023, 2:20:33 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 14]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create

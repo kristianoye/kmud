@@ -22,10 +22,11 @@ class MUDModuleTypeMemberInfo {
      * @param {string} memberName
      * @param {number} modifiers
      */
-    constructor(definingType, memberName, modifiers) {
+    constructor(definingType, memberName, modifiers, depth = 0) {
         this.definingType = definingType;
         this.memberName = memberName;
         this.modifiers = modifiers;
+        this.depth = depth;
     }
 
     get filename() {
@@ -42,25 +43,42 @@ class MUDModuleTypeMemberInfo {
 }
 
 class MUDModuleImportedMemberInfo {
-    constructor(memberName, modifiers) {
-        /** @type {MUDModuleTypeInfo[]} */
+    /**
+     * 
+     * @param {string | MUDModuleImportedMemberInfo} memberName
+     * @param {number} modifiersOrTargetDepth
+     */
+    constructor(memberName, modifiersOrTargetDepth = -1) {
+        /** @type {MUDModuleTypeMemberInfo[]} */
         this.implementors = [];
-        this.memberName = memberName;
-        this.modifiers = modifiers;
+        if (memberName instanceof MUDModuleImportedMemberInfo) {
+            if (modifiersOrTargetDepth > -1)
+                this.implementors = memberName.implementors.filter(impl => impl.depth === modifiersOrTargetDepth);
+            else
+                this.implementors = memberName.implementors.map(impl => new MUDModuleTypeMemberInfo(impl.definingType, impl.memberName, impl.modifiers, impl.depth + 1));
+            this.memberName = memberName.memberName;
+            this.modifiers = memberName.modifiers;
+        }
+        else {
+            this.memberName = memberName;
+            this.modifiers = modifiersOrTargetDepth;
+        }
     }
 
     /**
      * 
      * @param {MUDModuleTypeMemberInfo | MUDModuleImportedMemberInfo} impl
+     * @param {number} depth How far back in the inheritance chain was this item imported?
      */
-    addImplementation(impl) {
+    addImplementation(impl, depth) {
         if (impl instanceof MUDModuleImportedMemberInfo) {
+            let previousImplementors = impl.implementors.map(impl => new MUDModuleTypeMemberInfo(impl.definingType, impl.memberName, impl.modifiers, impl.depth + 1));
             this.modifiers |= impl.modifiers;
-            this.implementors.push(...impl.implementors);
+            this.implementors.push(...previousImplementors);
         }
         else {
             this.modifiers |= impl.modifiers;
-            this.implementors.push(impl);
+            this.implementors.push(new MUDModuleTypeMemberInfo(impl.definingType, impl.memberName, impl.modifiers, depth));
         }
     }
 
@@ -70,6 +88,10 @@ class MUDModuleImportedMemberInfo {
 
     get length() {
         return this.implementors.length;
+    }
+
+    get minDepth() {
+        return Math.min(...this.implementors.map(impl => impl.depth));
     }
 
     typeIs(flags) {
@@ -114,7 +136,13 @@ class MUDModuleTypeInfo {
     }
 
     getInheritedMember(memberName) {
-        return this.inheritedMembers[memberName] || false;
+        let memberInfo = this.inheritedMembers.hasOwnProperty(memberName) && this.inheritedMembers[memberName],
+            minDepth = memberInfo && memberInfo.minDepth;
+
+        if (!memberInfo)
+            return false;
+
+        return new MUDModuleImportedMemberInfo(memberInfo, minDepth);
     }
 
     importTypeInfo(typeRef) {
@@ -129,7 +157,7 @@ class MUDModuleTypeInfo {
                     this.inheritedMembers[memberName].addImplementation(info);
                 }
                 else {
-                    this.inheritedMembers[memberName] = info;
+                    this.inheritedMembers[memberName] = new MUDModuleImportedMemberInfo(info);
                 }
 
                 if (info.typeIs(MemberModifiers.Abstract)) {
@@ -153,12 +181,11 @@ class MUDModuleTypeInfo {
                     if (existingMember.typeIs(MemberModifiers.Abstract) && !info.typeIs(MemberModifiers.Abstract)) {
                         existingMember.modifiers &= ~MemberModifiers.Abstract;
                     }
-                    existingMember.addImplementation(info);
                 }
                 else {
-                    existingMember = this.inheritedMembers[memberName] = new MUDModuleImportedMemberInfo(memberName, 0);
-                    existingMember.addImplementation(info);
+                    existingMember = this.inheritedMembers[memberName] = new MUDModuleImportedMemberInfo(memberName, info.modifiers);
                 }
+                existingMember.addImplementation(info, info.depth + 1);
             }
         }
     }
