@@ -65,15 +65,6 @@ class MUDCache {
         context.module = module;
         return module;
     }
-    //getOrCreate(filename, fullPath, muddir, isVirtual, isMixin = false, parent = false) {
-    //    filename = this.normalize(filename);
-    //    let module = this[filename];
-    //    if (!module) {
-    //        this[filename] = module = new MUDModule(filename, fullPath, muddir, isVirtual, isMixin, parent);
-    //        this.moduleNames.push(filename);
-    //    }
-    //    return module;
-    //}
 
     /**
      * Attempt to fetch a class definition.

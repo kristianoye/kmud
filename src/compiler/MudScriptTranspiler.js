@@ -78,12 +78,13 @@ const
 /** 
  * @typedef {Object} TranspilerContext 
  * @property {string} [className] The name of the class currently being defined, if any.
- * @property {boolean} inCreate Are we defining the create constructor method?
+ * @property {boolean} inConstructor Are we defining the constructor method?
  * @property {boolean} isAsync Are we in an async context?
  * @property {boolean} isThisExpression
  * @property {boolean} isSuperExpression
  * @property {number} jsxDepth How deep in a JSX expression are we?
  * @property {boolean} lazyBinding Is lazy binding enabled?
+ * @property {number} memberModifiers What modifiers were applied to the member?
  * @property {string} memberName What method, if any, are we defining?
  * @property {boolean} mustDefineCreate Does the current class need to define a constructor
  */
@@ -115,7 +116,6 @@ class MudScriptAstAssembler {
      */
     constructor(p) {
         this.acornOptions = p.acornOptions || false;
-        this.allowConstructors = p.allowConstructors;
         this.allowJsx = p.allowJsx;
 
         this.awaitDepth = 0;
@@ -138,14 +138,14 @@ class MudScriptAstAssembler {
         this.jsxIndent = '';
         this.max = p.source.length;
         this.module = p.context.module;
+        /** @type {MUDCompilerOptions} */
+        this.options = p;
         this.output = '';
         this.pipeline = p.context;
         this.pos = 0;
         this.scopes = [];
         this.source = p.source;
         this.symbols = {};
-        this.thisAccess = "public";
-        this.thisClass = false;
         this.thisMethod = false;
         this.thisParameter = false;
         this.typeDef = false;
@@ -154,12 +154,13 @@ class MudScriptAstAssembler {
 
         this.pushContext({
             className: undefined,
-            inCreate: false,
+            inConstructor: false,
             isAsync: false,
             isSuperExpression: false,
             isThisExpression: false,
             jsxDepth: 0,
             lazyBinding: false,
+            memberModifiers: MemberModifiers.Public,
             memberName: undefined,
             mustDefineCreate: false
         });
@@ -198,10 +199,11 @@ class MudScriptAstAssembler {
      * Starts a class definition
      * @param {any} typeName
      * @param {any} modifiers
+     * @param {Object} pos
      * @returns
      */
-    eventBeginTypeDefinition(typeName, modifiers) {
-        let pos = this.getPosition();
+    eventBeginTypeDefinition(typeName, modifiers, pos) {
+        pos = this.getPositionFromLocation(pos) || this.getPosition();
         if (this.typeDef !== false) {
             throw new Error(`[Line ${pos.line}, Char ${pos.char}] Nested class definitions are not allowed (currently parsing ${this.typeDef.typeName})`);
         }
@@ -213,7 +215,7 @@ class MudScriptAstAssembler {
             if (!this.typeDef.isAbstract) {
                 let typeDef = this.typeDef, undefinedCount = 0;
 
-                for (const [memberName, info] of Object.entries(typeDef.unimplementedAbstractMembers)) {
+                for (const [memberName, info] of Object.entries(typeDef.abstractMembers)) {
                     this.raise(`Class '${typeDef.typeName}' must implement abstract member '${memberName}' or be marked abstract; Declared abstract by type '${info.definingType.typeName}' (${info.definingType.filename})`, typeDef.position);
                 }
             }
@@ -266,6 +268,23 @@ class MudScriptAstAssembler {
         return { line: lines.length + 1, char: lastLine.length + 1, file: this.filename };
     }
 
+    getPositionFromLocation(loc) {
+        if ('loc' in loc) {
+            return this.getPositionFromLocation(loc.loc);
+        }
+        else if ('char' in loc && 'line' in loc) {
+            return loc;
+        }
+        else if (loc && loc.start) {
+            return {
+                file: this.filename,
+                char: loc.start.column + 1,
+                line: loc.start.line + 1
+            };
+        }
+        return false;
+    }
+
     importSymbols(symbolMap) {
         for (const [key, val] of Object.entries(symbolMap)) {
             this.symbols[key] = val;
@@ -303,13 +322,17 @@ class MudScriptAstAssembler {
      * @param {string} err The error message
      */
     raise(err, pos=false) {
-        pos = pos || this.getPosition();
+        pos = pos && this.getPositionFromLocation(pos) || this.getPosition();
         this.errors.push(new SyntaxError(`[Line ${pos.line}, Char ${pos.char}]: ${err}`, pos));
         this.errorCount++;
     }
 
+    /**
+     * Raise a warning
+     * @param {string} err The error message
+     */
     warn(msg, pos = false) {
-        pos = pos || this.getPosition();
+        pos = pos && this.getPositionFromLocation(pos) || this.getPosition();
         this.errors.push(new SyntaxWarning(`[Line ${pos.line}, Char ${pos.char}]: ${msg}`, pos));
         this.warningCount++;
     }
@@ -368,7 +391,6 @@ class MudScriptAstAssembler {
     }
 
     setMethod(s, access = "public", isStatic = false) {
-        this.thisAccess = access || "public";
         this.thisMethod = s || false;
         this.thisParameter = this.thisClass ? `this || ${this.thisClass}` : 'this';
         this.isStatic = isStatic === true;
@@ -511,17 +533,17 @@ async function parseElement(op, e, depth, xtra = {}) {
                     }
                     ret += op.readUntil(e.body.start);
                     if (e.body.type === 'BlockStatement') {
-                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try `;
+                        ret += `{ let __mec = __bfc(${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try `;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += ` finally { __efc(__mec, '${funcName}'); } }`;
                     }
                     else if (e.body.type === 'MemberExpression') {
-                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return `;
+                        ret += `{ let __mec = __bfc(${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return `;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += `; } finally { __efc(__mec, '${funcName}'); } }`;
                     }
                     else {
-                        ret += `{ let __mec = __bfc(${op.thisParameter}, false, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return (`;
+                        ret += `{ let __mec = __bfc(${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return (`;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += `); } finally { __efc(__mec, '${funcName}'); } }`;
                     }
@@ -638,7 +660,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                             object = `'${op.symbols[object]}'`;
                         }
                         else if (ctx.isSuperExpression && e.callee.property.type === 'ScopedIdentifier') {
-                            op.warn(`Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this${(e.callee.usingDerefArrow ? '->' : '.')}${op.source.slice(e.callee.property.start, e.callee.property.end)}`);
+                            op.warn(`Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this${(e.callee.usingDerefArrow ? '->' : '.')}${op.source.slice(e.callee.property.start, e.callee.property.end)}`, e.callee);
                             //  We like using 'super' but in reality we want 'this' to ensure ALL inherited scopes are visible
                             object = 'this';
                             //  both isThisExpression AND isSuperExpression are now true
@@ -655,7 +677,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                                 else {
                                     if (isLiteralString(object)) {
                                         if (op.context.memberName)
-                                            op.warn(`Using identifier '${orgObject}' for call in non-async context may result in an object not found error at runtime`);
+                                            op.warn(`Using identifier '${orgObject}' for call in non-async context may result in an object not found error at runtime`, e.callee);
                                     }
                                     object = 'unwrap(' + object + ')';
                                 }
@@ -670,17 +692,17 @@ async function parseElement(op, e, depth, xtra = {}) {
                         propName += op.readUntil(e.callee.end);
                         if (propNameActual === 'call' || propNameActual === 'apply') {
                             if (e.arguments.length === 0 || e.arguments[0].type !== 'ThisExpression') {
-                                op.raise('For security reasons, the first argument to call or apply MUST be this');
+                                op.raise('For security reasons, the first argument to call or apply MUST be this', e.callee.property);
                             }
                         }
-                        else if (propNameActual === 'create') {
-                            if (!ctx.inCreate)
-                                op.raise(`Constructor method 'create' may not be called here`);
+                        else if (propNameActual === MemberModifiers.ConstructorName) {
+                            if (!ctx.inConstructor)
+                                op.raise(`Constructor method '${MemberModifiers.ConstructorName}' may not be called here`);
                             if (!ctx.isThisExpression) {
                                 if (ctx.isSuperExpression)
-                                    op.warn(`Constructor method 'create' should be called using 'this' keyword (not super)`);
+                                    op.warn(`Constructor method '${MemberModifiers.ConstructorName}' should be called using 'this' keyword (not super)`, e.callee);
                                 else
-                                    op.raise(`Constructor method 'create' may only be called using 'this' keyword`);
+                                    op.raise(`Constructor method '${MemberModifiers.ConstructorName}' may only be called using 'this' keyword`, e.callee);
                             }
                         }
                         if (definers && definers.length > 1) {
@@ -718,15 +740,16 @@ async function parseElement(op, e, depth, xtra = {}) {
                             let parts = (op.thisMethod || '').split(/\s+/),
                                 prop = parts.pop();
 
-                            if (!op.thisClass)
-                                throw new Error(`The ${propName} operator can only be used inside a class.`);
+                            if (!op.typeDef)
+                                op.raise(`The ${propName} operator can only be used inside a class.`);
 
                             else if (parts.indexOf('get') === -1 && parts.indexOf('set') === -1)
-                                throw new Error(`The ${propName} operator cannot be used within non getter/setter '${op.thismethod || op.method || 'unknown'}'`);
+                                op.raise(`The ${propName} operator cannot be used within non getter/setter '${op.thismethod || op.method || 'unknown'}'`, e.callee);
 
                             // set.call(this, ... args)
                             ret += propName;
-                            ret += `.call(this, ${op.thisClass}, '${prop}'`
+                            //  TODO: Change type parameter to filename string
+                            ret += `.call(this, ${op.typeDef.typeName}, '${prop}'`
                             if (e.arguments.length > 0) {
                                 ret += ', ';
                                 op.readUntil(e.arguments[0].start);
@@ -739,7 +762,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                             isCallout = true;
                             writeCallee = false;
                         }
-                        else if (propName === 'create' || propName === 'createAsync') {
+                        else if (propName === 'createAsync') {
                             ret += callee;
                             ret += `('${op.filename}'`;
                             if (e.arguments.length) {
@@ -772,7 +795,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                         ret += '';
                     }
                     else {
-                        throw new Error(`Unexpected callee type ${e.callee.type}`);
+                        op.raise(`Unexpected callee type ${e.callee.type}`, e.callee);
                     }
 
                     if (writeCallee)
@@ -815,7 +838,6 @@ async function parseElement(op, e, depth, xtra = {}) {
                 for (const _ of e.body) {
                     ret += await parseElement(op, _, depth + 1)
                 }
-                op.thisClass = false;
                 op.forcedInheritance = false;
                 break;
 
@@ -828,7 +850,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                         if (e.modifier.raw.length > 0) ret += `/*${e.modifier.raw}*/`;
                         op.pos = e.modifier.end;
                     }
-                    let typeDef = op.eventBeginTypeDefinition(op.thisClass = e.id.name, e.classModifiers || 0);
+                    let typeDef = op.eventBeginTypeDefinition(e.id.name, e.classModifiers || 0, e.loc);
 
                     ret += await parseElement(op, e.id, depth + 1);
 
@@ -857,15 +879,15 @@ async function parseElement(op, e, depth, xtra = {}) {
                                     classRef = classRef.constructor;
                                 }
                                 else {
-                                    op.raise(`Class '${typeDef.typeName}' cannot extend '${classId}' since it is not a MUDObject (type: ${typeof classRef})`);
+                                    op.raise(`Class '${typeDef.typeName}' cannot extend '${classId}' since it is not a MUDObject (type: ${typeof classRef})`, e.loc);
                                 }
                             }
                             if (classRef) {
                                 let flags = classRef.prototype.typeModifiers;
                                 if ((flags & MemberModifiers.Final) > 0) {
-                                    op.raise(`Class '${typeDef.typeName}' cannot extend '${classId}' since it is declared final`);
+                                    op.raise(`Class '${typeDef.typeName}' cannot extend '${classId}' since it is declared final`, e.loc);
                                 }
-                                typeDef.importTypeInfo(classRef);
+                                typeDef.importTypeInfo(classRef, classId);
                             }
                         }
                     }
@@ -879,7 +901,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                     ret += `__dmt("${op.filename}", ${e.id.name}); `;
                     if (op.context.mustDefineCreate) {
                         if (!typeDef.isMember('create')) {
-                            op.raise(`Class '${typeDef.typeName}' inherits ${parentClassList.length} types and requires a 'create' constructor`)
+                            op.raise(`Class '${typeDef.typeName}' inherits ${parentClassList.length} types and requires a 'create' constructor`, e.loc)
                         }
                     }
                     op.eventEndTypeDefinition();
@@ -924,9 +946,9 @@ async function parseElement(op, e, depth, xtra = {}) {
             case 'ExportDefaultDeclaration':
                 op.pos = e.declaration.start;
                 if (e.declaration.type !== 'ClassDeclaration')
-                    op.raise(`MUDScript default export may only be a class and not ${e.declaration.type}`);
+                    op.raise(`MUDScript default export may only be a class and not ${e.declaration.type}`, e.declaration);
                 else if (op.defaultExport)
-                    op.raise(`Type '${op.defaultExport}' has already been exported as the default`);
+                    op.raise(`Type '${op.defaultExport}' has already been exported as the default`, e.declaration);
                 else {
                     ret += await parseElement(op, e.declaration, depth + 1);
                     op.defaultExport = e.declaration.id.name;
@@ -968,7 +990,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                                                         op.addExport(propValue.name);
                                                     }
                                                     else
-                                                        op.raise(`Unhandled property type '${propValue.type}' in export object pattern`);
+                                                        op.raise(`Unhandled property type '${propValue.type}' in export object pattern`, decl);
                                                 }
                                             }
                                             else if (decl.id.type === 'ArrayPattern') {
@@ -976,11 +998,11 @@ async function parseElement(op, e, depth, xtra = {}) {
                                                     if (propValue.type === 'Identifier')
                                                         op.addExport(propValue.name);
                                                     else
-                                                        op.raise(`Unhandled element type '${propValue.type}' in export array pattern`);
+                                                        op.raise(`Unhandled element type '${propValue.type}' in export array pattern`, propValue);
                                                 }
                                             }
                                             else {
-                                                op.raise(`Unhandled declaration type in export: ${decl.type}`);
+                                                op.raise(`Unhandled declaration type in export: ${decl.type}`, decl);
                                             }
                                             ret += await parseElement(op, decl, depth + 1);
                                         }
@@ -992,9 +1014,9 @@ async function parseElement(op, e, depth, xtra = {}) {
                     else if (Array.isArray(e.specifiers)) {
                         for (const spec of e.specifiers) {
                             if (spec.exported.type !== 'Identifier')
-                                op.raise('Exported name must be an Identifier');
+                                op.raise('Exported name must be an Identifier', spec.exported);
                             if (spec.local.type !== 'Identifier')
-                                op.raise('Local name must be an Identifier');
+                                op.raise('Local name must be an Identifier', spec.local);
                             op.addExport(spec.exported.name, spec.local.name);
                         }
                         ret += op.replaceWithComment(e);
@@ -1032,22 +1054,22 @@ async function parseElement(op, e, depth, xtra = {}) {
                 {
                     let functionName = e.id.name; 
                     if (IllegalIdentifiers.indexOf(functionName) > -1)
-                        throw new Error(`Illegal function name: ${functionName}`);
+                        op.raise(`Illegal function name: ${functionName}`, e.id);
                     else if (SettersGetters.indexOf(functionName) > -1)
-                        throw new Error(`Illegal function name: ${functionName}`);
+                        op.raise(`Illegal function name: ${functionName}`, e.id);
                     ret += await parseElement(op, e.id, depth + 1);
                     let isAsync = ret.startsWith('async');
                     for (const _ of e.params) {
                         ret += await parseElement(op, _, depth + 1);
                     }
-                    if (op.thisClass) {
+                    if (op.typeDef) {
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(${op.thisParameter}, 'public', '${e.id.name}', __FILE__, ${isAsync}, __LINE__); try { `,
+                            `let __mec = __bfc(${op.thisParameter}, ${MemberModifiers.Public}, '${e.id.name}', __FILE__, ${isAsync}, __LINE__); try { `,
                             ` } finally { __efc(__mec, '${e.id.name}'); }`);
                     }
                     else
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, 'public', '${e.id.name}', __FILE__,  ${isAsync}, __LINE__); try { `,
+                            `let __mec = __bfc(this, ${MemberModifiers.Public}, '${e.id.name}', __FILE__,  ${isAsync}, __LINE__); try { `,
                             ` } finally { __efc(__mec, '${e.id.name}'); }`);
                     ret += await parseElement(op, e.body, depth + 1, { name: functionName });
                 }
@@ -1061,17 +1083,17 @@ async function parseElement(op, e, depth, xtra = {}) {
                     for (const _ of e.params) {
                         ret += await parseElement(op, _, depth + 1);
                     }
-                    if (op.thisClass && op.thisMethod) {
-                        if (op.method === 'constructor' && op.thisClass) {
+                    if (op.typeDef && op.thisMethod) {
+                        if (op.method === 'constructor' && op.typeDef) {
                             addRuntimeAssert(e,
                                 (op.forcedInheritance && op.wroteConstructorName === false ? 'super();' : '') +
-                                `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false, __LINE__, ${op.thisClass}, ${CallOrigin.Constructor}); try { `,
+                                `let __mec = __bfc(${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${CallOrigin.Constructor}); try { `,
                                 ` } finally { __efc(__mec, '${op.method}'); }`, true);
                             op.wroteConstructorName = true;
                         }
                         else {
                             addRuntimeAssert(e,
-                                `let __mec = __bfc(${op.thisParameter}, '${op.thisAccess}', '${op.thisMethod}', __FILE__, false, __LINE__, ${op.thisClass}, ${callType}); try { `,
+                                `let __mec = __bfc(${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${callType}); try { `,
                                 ` } finally { __efc(__mec, '${op.method}'); }`, false);
                         }
                     }
@@ -1084,8 +1106,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                 let identifier = op.source.slice(e.start, e.end);
 
                 if (IllegalIdentifiers.indexOf(identifier) > -1) {
-                    let pos = op.getPosition();
-                    throw new Error(`[Line ${pos.line}; Char: ${pos.char}] Illegal identifier: ${identifier}`);
+                    op.raise(`Illegal identifier: ${identifier}`, e);
                 }
                 else if (identifier in op.symbols && identifier in op.symbols.__proto__ === false) {
                     let symbolValue = op.symbols[identifier];
@@ -1119,7 +1140,7 @@ async function parseElement(op, e, depth, xtra = {}) {
 
             case 'ImportDeclaration':
                 if (!op.canImport)
-                    op.raise(`Import statement cannot appear here; Imports must all appear at top of module`);
+                    op.raise(`Import statement cannot appear here; Imports must all appear at top of module`, e);
                 else {
                     let specifiers = {},
                         locals = [],
@@ -1130,7 +1151,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                         if (source in op.symbols)
                             source = `'${op.symbols[source]}'`;
                         else
-                            e.raise(`Import encountered unknown identifier '${source}'`);;
+                            e.raise(`Import encountered unknown identifier '${source}'`, source);;
                     }
 
                     for (const spec of e.specifiers) {
@@ -1171,8 +1192,8 @@ async function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'JSXAttribute':
-                if (!op.allowJsx)
-                    throw new Error(`JSX is not enabled for ${op.extension} files`);
+                if (!op.options.allowJsx)
+                    op.raise(`JSX is not enabled for ${op.extension} files`, e);
                 op.pos = e.end;
                 ret += await parseElement(op, e.name, depth + 1);
                 ret += ':';
@@ -1181,15 +1202,15 @@ async function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             case 'JSXClosingElement':
-                if (!op.allowJsx)
-                    throw new Error(`JSX is not enabled for ${op.extension} files`);
+                if (!op.options.allowJsx)
+                    op.raise(`JSX is not enabled for ${op.extension} files`, e);
                 ret += ')';
                 op.pos = e.end;
                 break;
 
             case 'JSXElement':
-                if (!op.allowJsx)
-                    throw new Error(`JSX is not enabled for ${op.extension} files`);
+                if (!op.options.allowJsx)
+                    op.raise(`JSX is not enabled for ${op.extension} files`, e);
                 if (op.context.jsxDepth === 0) {
                     var jsxInX = op.source.slice(0, e.start).lastIndexOf('\n') + 1;
                     op.jsxIndent = ' '.repeat(e.start - jsxInX);
@@ -1213,7 +1234,7 @@ async function parseElement(op, e, depth, xtra = {}) {
 
             case 'JSXIdentifier':
                 if (!op.allowJsx)
-                    throw new Error(`JSX is not enabled for ${this.extension} files`);
+                    op.raise(`JSX is not enabled for ${this.extension} files`, e);
                 if (e.name.match(/^[a-z]+/)) {
                     ret += `"${e.name}"`;
                 }
@@ -1225,7 +1246,7 @@ async function parseElement(op, e, depth, xtra = {}) {
 
             case 'JSXExpressionContainer':
                 if (!op.allowJsx)
-                    throw new Error(`JSX is not enabled for ${this.extension} files`);
+                    op.raise(`JSX is not enabled for ${this.extension} files`, e);
                 op.pos = e.expression.start;
                 ret += await parseElement(op, e.expression, depth + 1);
                 op.pos = e.end;
@@ -1233,7 +1254,7 @@ async function parseElement(op, e, depth, xtra = {}) {
 
             case 'JSXOpeningElement':
                 if (!op.allowJsx)
-                    throw new Error(`JSX is not enabled for ${this.extension} files`);
+                    op.raise(`JSX is not enabled for ${this.extension} files`, e);
                 op.pos = e.end;
                 ret += await parseElement(op, e.name, depth + 1);
                 ret += ', {';
@@ -1247,7 +1268,7 @@ async function parseElement(op, e, depth, xtra = {}) {
 
             case 'JSXText':
                 if (!op.allowJsx)
-                    throw new Error(`JSX is not enabled for ${this.extension} files`);
+                    op.raise(`JSX is not enabled for ${this.extension} files`, e);
                 ret += e.value.trim().length === 0 ? ret : `"${e.raw.replace(/([\r\n]+)/g, "\\$1")}"`;
                 op.pos = e.end;
                 break;
@@ -1301,7 +1322,14 @@ async function parseElement(op, e, depth, xtra = {}) {
                         modifiers = e.methodModifiers || 0,
                         parentInfo = op.typeDef.getInheritedMember(methodName);
 
-                    op.pushContext({ inCreate: methodName === 'create', memberName: methodName });
+                    if ((modifiers & MemberModifiers.ValidAccess) === 0) {
+                        if (op.options.requireExplicitAccessModifiers)
+                            op.raise(`Member '${methodName}' in class ${op.context.className} requires valid access modifier (public, protected, private, or package)`);
+                        else if (op.options.defaultMemberAccess)
+                            modifiers |= op.options.defaultMemberAccess;
+                    }
+
+                    op.pushContext({ inConstructor: methodName === MemberModifiers.ConstructorName, memberName: methodName, memberModifiers: modifiers });
 
                     if (parentInfo) {
                         if ((parentInfo.modifiers & MemberModifiers.Final) > 0) {
@@ -1317,7 +1345,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                                     else
                                         addedParts.push(', ');
                                 }
-                                addedParts.push(`type '${definer.typeName}' (${definer.filename})`);
+                                addedParts.push(`type '${definer.typeName}' (${definer.filename})`, e);
                             }
 
                             op.raise(baseMessage + addedParts.join(''));
@@ -1338,20 +1366,17 @@ async function parseElement(op, e, depth, xtra = {}) {
                                 addedParts.push(`type '${definer.typeName}' (${definer.filename})`);
                             }
 
-                            op.raise(baseMessage + addedParts.join(''));
+                            op.raise(baseMessage + addedParts.join(''), e);
                         }
                     }
 
-                    op.typeDef.addMember(methodName, modifiers);
+                    let memberOrError = op.typeDef.addMember(methodName, modifiers);
 
-                    if (modifiers > 0) {
-                        if ((modifiers & MemberModifiers.Abstract) > 0 && !op.typeDef.isAbstract) {
-                            op.raise(`Member ${methodName} cannot be abstract unless defining type ${op.typeDef.typeName} is also declared abstract`);
-                        }
-                    }
+                    if (typeof memberOrError === 'string')
+                        op.raise(memberOrError, e);
 
-                    if (op.allowConstructors === false && methodName === 'constructor') {
-                        op.raise(`Game objects may not define JavaScript constructors`);
+                    if (methodName === 'constructor' && op.options.allowConstructorKeyword === false) {
+                        op.raise(`Game objects may not define JavaScript constructors`, e);
                     }
                     let info = {
                         callType: 0,
@@ -1433,13 +1458,13 @@ async function parseElement(op, e, depth, xtra = {}) {
                     if (scopeId === 'create') {
                         let ctx = op.context;
 
-                        if (!ctx.inCreate)
-                            op.raise(`Constructor method 'create' may not be called here`);
+                        if (!ctx.inConstructor)
+                            op.raise(`Constructor method '${MemberModifiers.ConstructorName}' may not be called here`, e);
                         if (!ctx.isThisExpression) {
                             if (ctx.isSuperExpression)
-                                op.warn(`Constructor method 'create' should be called using 'this' keyword (not super)`);
+                                op.warn(`Constructor method '${MemberModifiers.ConstructorName}' should be called using 'this' keyword (not super)`, e);
                             else
-                                op.raise(`Constructor method 'create' should only be called using 'this' keyword`);
+                                op.raise(`Constructor method '${MemberModifiers.ConstructorName}' should only be called using 'this' keyword`, e);
                         }
                     }
 
@@ -1543,7 +1568,7 @@ async function parseElement(op, e, depth, xtra = {}) {
             case 'VariableDeclaration':
                 for (const _ of e.declarations) {
                     if (IllegalVariableNames.indexOf(_.id.name) > -1)
-                        op.raise(`${_.id.name} cannot be used as a variable name`);
+                        op.raise(`${_.id.name} cannot be used as a variable name`, _.id);
                     ret += await parseElement(op, _, depth + 1);
                 }
                 break;
@@ -1566,10 +1591,12 @@ async function parseElement(op, e, depth, xtra = {}) {
                 break;
 
             default:
-                throw new Error(`Unknown type: ${e.type}`);
+                op.raise(`Unhandled transpiler node type: ${e.type}`, e);
+                break;
         }
         if (op.pos !== e.end) {
-            if (op.pos > e.end) throw new Error('Oops?');
+            if (op.pos > e.end)
+                op.raise('Transpiler position advanced beyond the end of current node', e);
 
             // this should be done by each type so we are sure we aren't missing something
             ret += op.readUntil(e.end);
@@ -1607,16 +1634,16 @@ class MudScriptTranspiler extends PipelineComponent {
      * @returns
      */
     async runAsync(context, options, step, maxStep) {
-        let op = new MudScriptAstAssembler({
-            acornOptions: Object.assign({ sourceType: 'mudscript' }, this.acornOptions, context.acornOptions),
-            allowConstructors: false,
-            allowJsx: this.allowJsx,
+        let op = new MudScriptAstAssembler(Object.assign({
+            acornOptions: Object.assign({ locations: true, sourceType: 'mudscript' }, this.acornOptions, context.acornOptions),
+            allowConstructorKeyword: false,
+            allowJsx: true,
             directory: context.directory,
             filename: context.basename,
             context,
             source: context.content,
             injectedSuperClass: 'MUDObject'
-        });
+        }, options.transpilerOptions));
         try {
             if (this.enabled) {
                 options.onDebugOutput(`\t\tRunning pipeline stage ${(step + 1)} of ${maxStep}: ${this.name}`, 3);

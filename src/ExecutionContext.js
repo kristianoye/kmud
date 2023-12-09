@@ -9,6 +9,7 @@
  */
 const
     CreationContext = require('./CreationContext'),
+    MemberModifiers = require("./compiler/MudscriptMemberModifiers"),
     uuidv1 = require('uuid/v1'),
     MUDObject = require('./MUDObject'),
     CallOrigin = Object.freeze({
@@ -341,12 +342,23 @@ class ExecutionContext extends events.EventEmitter {
     /**
      * Check to see if the current protected or private call should be allowed.
      * @param {MUDObject} thisObject The current 'this' object in scope (or type if in a static call)
-     * @param {string} access Access type (private, protected, etc)
+     * @param {number} access Access type (private, protected, etc)
      * @param {string} method The name of the method being accssed
      * @param {string} fileName The file this 
      */
     assertAccess(thisObject, access, method, fileName) {
         let to = this.thisObject || thisObject;
+        let friendTypes = thisObject instanceof MUDObject && thisObject.constructor.friendTypes;
+        let areFriends = false;
+
+        if (Array.isArray(friendTypes)) {
+            for (let i = 0, m = friendTypes.length; i < m; i++) {
+                if (this.thisObject instanceof friendTypes[i]) {
+                    areFriends = true;
+                    break;
+                }
+            }
+        }
 
         if (!to) // static method?
             throw new Error(`Cannot access ${access} method '${method}'`);
@@ -357,29 +369,25 @@ class ExecutionContext extends events.EventEmitter {
         if (to === driver || this.thisObject === driver.masterObject)
             return true;
 
-        if (access === "private")
+        if (areFriends)
+            return true;
+
+        if ((access & MemberModifiers.Private) > 0)
             throw new Error(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
 
         else {
-            let friendTypes = thisObject.constructor.friendTypes;
-            if (Array.isArray(friendTypes)) {
-                for (let i = 0, m = friendTypes.length; i < m; i++) {
-                    if (this.thisObject instanceof friendTypes[i])
-                        return true;
-                }
-            }
-            if (access === "package") {
+            let samePackage = false, sameTypeChain = false;
+
+            if ((access & MemberModifiers.Package) > 0) {
                 let parts = driver.efuns.parsePath(this.thisObject.baseName);
+                samePackage = parts.file === fileName;
                 if (parts.file !== fileName)
                     throw new Error(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
             }
-            else if (access === "protected") {
-                if (thisObject instanceof MUDObject && to instanceof MUDObject) {
-                    let thisType = thisObject.constructor;
-                    if (to instanceof thisType === false)
-                        throw new Error(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
-                }
+            if ((access & MemberModifiers.Protected) > 0) {
+                sameTypeChain = global.MUDVTable.doesInherit(this.thisObject, thisObject.constructor);
             }
+            return ((access & MemberModifiers.Protected) > 0 && samePackage) || ((access & MemberModifiers.Protected) && sameTypeChain);
         }
         return true;
     }

@@ -15,6 +15,8 @@ var
     useDomainStats = false,
     useStats = false;
 
+/** @typedef {{ char: number, file:string, line: number }} MUDFilePosition */
+
 class MUDModuleTypeMemberInfo {
     /**
      * 
@@ -23,14 +25,45 @@ class MUDModuleTypeMemberInfo {
      * @param {number} modifiers
      */
     constructor(definingType, memberName, modifiers, depth = 0) {
+        /** @type {MUDModuleTypeInfo} */
         this.definingType = definingType;
+        /** @type {string} */
         this.memberName = memberName;
+        /** @type {number} */
         this.modifiers = modifiers;
         this.depth = depth;
     }
 
     get filename() {
         return this.definingType.filename;
+    }
+
+    get isAbstract() {
+        return (this.modifiers & MemberModifiers.Abstract) > 0;
+    }
+
+    get isAsync() {
+        return (this.modifiers & MemberModifiers.Async) > 0;
+    }
+
+    get isFinal() {
+        return (this.modifiers & MemberModifiers.Final) > 0;
+    }
+
+    get isOrigin() {
+        return (this.modifiers & MemberModifiers.Origin) > 0;
+    }
+
+    get isPackage() {
+        return (this.modifiers & MemberModifiers.Package) > 0;
+    }
+
+    get isProtected() {
+        return (this.modifiers & MemberModifiers.Protected) > 0;
+    }
+
+    get isPublic() {
+        return (this.modifiers & MemberModifiers.Public) > 0;
     }
 
     get typeName() {
@@ -104,29 +137,106 @@ class MUDModuleTypeInfo {
      * @param {MUDModule} definedIn The module in which the type is defined
      * @param {string} typeName The name of the type being defined
      * @param {number} modifiers Modifiers declared by the class (final, abstract, etc.)
-     * @param {{ line: number, char: number }} position The position of the class declaration start
+     * @param {MUDFilePosition} position The position of the class declaration start
      */
     constructor(definedIn, typeName, modifiers, position) {
         this.module = definedIn;
+
+        /**
+         * Does this type have an async constructor in its chain?
+         * @type {boolean}
+         */
+        this.hasAsyncConstructor = false;
+
         /** @type {string} */
         this.filename = definedIn.filename;
+
+        /** @type {MUDFilePosition} */
         this.position = position;
+
         /** @type {string} */
         this.typeName = typeName;
+
         /** @type {Object.<string,MUDModuleImportedMemberInfo>} */
         this.inheritedMembers = {};
+
+        /** 
+         * Contains the direct descendants of this type
+         * @type {Object.<string,MUDModuleTypeInfo>} 
+         */
+        this.inheritedTypes = {};
+
+        /** 
+         * Contains the direct descendants of this type using alias
+         * @type {Object.<string,MUDModuleTypeInfo>} 
+         */
+        this.inheritedTypeAliases = {};
+
         /** @type {Object.<string,MUDModuleTypeMemberInfo>} */
         this.members = {};
-        /** @type {number} */
+
+        /** 
+         * @type {number} 
+         */
         this.modifiers = modifiers;
-        this.unimplementedAbstractMembers = {};
+
+        /**
+         * Members that must be implemented in a non-abstract class
+         * @type {Object.<string,MUDModuleTypeMemberInfo[]>}
+         */
+        this.abstractMembers = {};
+
+        /**
+         * Members that must be scoped
+         * @type {Object.<string,MUDModuleTypeMemberInfo[]>}
+         */
+        this.ambiguousMembers = {};
+
+        /**
+         * Members that cannot be redifined
+         * @type {Object.<string,MUDModuleTypeMemberInfo[]>}
+         */
+        this.finalMembers = {};
+
+        this.importedMembers = {};
+
+        /**
+         * Members that define a specific property storage location
+         * @type {Object.<string,MUDModuleTypeMemberInfo[]>}
+         */
+        this.propertyOrigins = {};
     }
 
+    /**
+     * Add a member defined within this type
+     * @param {string} memberName
+     * @param {number} modifiers
+     * @returns {MUDModuleTypeMemberInfo | string} Returns the newly defined member object or an error message
+     */
     addMember(memberName, modifiers = 0) {
         let member = this.members[memberName] = new MUDModuleTypeMemberInfo(this, memberName, modifiers);
 
-        if (member in this.unimplementedAbstractMembers) {
-            delete this.unimplementedAbstractMembers[member];
+        if (memberName in this.finalMembers) {
+
+        }
+
+        //  Does this type implement an abstract member?
+        if (memberName in this.abstractMembers && !member.isAbstract) {
+            delete this.abstractMembers[memberName];
+        }
+        else if (member.isAbstract) {
+            if (!this.isAbstract)
+                return `Member '${memberName}' cannot be abstract unless defining type ${this.typeName} is also declared abstract`;
+            this.getOrCreateMemberEntry(this.abstractMembers, member);
+        }
+        if (member.isFinal) {
+            this.getOrCreateMemberEntry(this.finalMembers, member);
+        }
+        if (member.isOrigin) {
+            this.getOrCreateMemberEntry(this.propertyOrigins, member);
+        }
+        if (memberName === MemberModifiers.ConstructorName && member.isAsync) {
+            this.hasAsyncConstructor |= true;
         }
         return member;
     }
@@ -145,7 +255,22 @@ class MUDModuleTypeInfo {
         return new MUDModuleImportedMemberInfo(memberInfo, minDepth);
     }
 
-    importTypeInfo(typeRef) {
+    /**
+     * 
+     * @param {Object.<string,MUDModuleTypeMemberInfo[]>} collection The collection to add to
+     * @param {MUDModuleTypeMemberInfo} member The member to add
+     * @returns {MUDModuleTypeMemberInfo[]}
+     */
+    getOrCreateMemberEntry(collection, member) {
+        if (member.memberName in collection === false) {
+            collection[member.memberName] = [];
+        }
+        if (collection[member.memberName].indexOf(member) === -1)
+            collection[member.memberName].push(member);
+        return collection[member.memberName];
+    }
+
+    importTypeInfo(typeRef, typeAlias) {
         let info = driver.efuns.parsePath(typeRef.prototype.baseName),
             file = info.file,
             /** @type {MUDModule} */ module = driver.cache.get(file),
@@ -161,24 +286,24 @@ class MUDModuleTypeInfo {
                 }
 
                 if (info.typeIs(MemberModifiers.Abstract)) {
-                    this.unimplementedAbstractMembers[memberName] = info;
+                    this.abstractMembers[memberName] = info;
                 }
             }
             for (const [memberName, info] of Object.entries(typeDef.members)) {
                 let existingMember = this.inheritedMembers[memberName] || false;
 
-                if (info.typeIs(MemberModifiers.Abstract)) {
-                    this.unimplementedAbstractMembers[memberName] = info;
+                if (info.isAbstract) {
+                    this.abstractMembers[memberName] = info;
                 }
-                else if (memberName in this.unimplementedAbstractMembers) {
-                    delete this.unimplementedAbstractMembers[memberName];
+                else if (memberName in this.abstractMembers) {
+                    delete this.abstractMembers[memberName];
                 }
 
                 if (existingMember) {
                     let existingMember = this.inheritedMembers[memberName];
 
                     //  This member implemented a previously abstract method
-                    if (existingMember.typeIs(MemberModifiers.Abstract) && !info.typeIs(MemberModifiers.Abstract)) {
+                    if (existingMember.typeIs(MemberModifiers.Abstract) && !info.isAbstract) {
                         existingMember.modifiers &= ~MemberModifiers.Abstract;
                     }
                 }
@@ -187,6 +312,11 @@ class MUDModuleTypeInfo {
                 }
                 existingMember.addImplementation(info, info.depth + 1);
             }
+
+            this.inheritedTypes[typeDef.typeName] = typeDef;
+            if (typeAlias !== typeDef.typeName)
+                this.inheritedTypeAliases[typeAlias] = typeDef;
+            this.hasAsyncConstructor |= typeDef.hasAsyncConstructor;
         }
     }
 
@@ -220,8 +350,6 @@ class MUDModule extends events.EventEmitter {
     constructor(context, isVirtual, options, parent = false) {
         super();
 
-        let isMixin = options.isMixin === true;
-
         /**
          * Options passed in from the compiler
          * @type {MUDCompilerOptions} */
@@ -251,7 +379,7 @@ class MUDModule extends events.EventEmitter {
         this.typeNames = [];
 
         /** @type {Object.<string,function>} */
-        this.types = { length: 0 };
+        this.types = {};
 
         this.oldExports = { length: 0 };
 
@@ -267,10 +395,16 @@ class MUDModule extends events.EventEmitter {
          */
         this.instancesById = {};
 
-        this.isMixin = isMixin === true;
-
+        /**
+         * The directory the module source file is located in
+         * @type {string}
+         */
         this.directory = context.directory;
 
+        /**
+         * The file the module source is located in
+         * @type {string}
+         */
         this.filename = context.filename;
 
         /**
@@ -285,6 +419,10 @@ class MUDModule extends events.EventEmitter {
          */
         this.fullPath = context.fullPath;
 
+        /**
+         * Is this module a virtual module (no source code)?
+         * @type {boolean}
+         */
         this.isVirtual = isVirtual;
 
         /** @type {boolean} */
@@ -421,7 +559,6 @@ class MUDModule extends events.EventEmitter {
         this.isVirtual = true;
         this.parent = parent;
         this.types[type.name] = type;
-        this.types.length++;
         this.instanceMap[type.name] = {};
         return true;
     }
@@ -849,16 +986,19 @@ class MUDModule extends events.EventEmitter {
         return this;
     }
 
+    /**
+     * Begin a new type definition within the module
+     * @param {string} typeName The name of the type being created
+     * @param {number} modifiers Access modifiers specified by the type
+     * @param {{ char:number, line:number }} pos The position of the declaration in the source file
+     * @returns
+     */
     eventBeginTypeDefinition(typeName, modifiers, pos) {
         let typeDef = this.currentTypeDef = new MUDModuleTypeInfo(this, typeName, modifiers, pos);
 
         this.typeDefinitions[typeName] = typeDef;
 
         return typeDef;
-    }
-
-    getTypeDefinition(typeName) {
-        return this.typeDefinitions[typeName] || false;
     }
 
     /**
@@ -947,10 +1087,19 @@ class MUDModule extends events.EventEmitter {
     /**
      * Seal all defined types to prevent tampering
      */
-    sealTypes() {
+    eventSealTypes() {
         this.types && Object.keys(this.types)
             .forEach(tn => Object.freeze(this.types[tn]));
         return this;
+    }
+
+    /**
+     * Fetch information about a type defined within the module
+     * @param {string} typeName
+     * @returns {MUDModuleTypeInfo} Returns type information
+     */
+    getTypeDefinition(typeName) {
+        return this.typeDefinitions[typeName];
     }
 }
 

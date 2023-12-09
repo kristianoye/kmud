@@ -9,7 +9,8 @@ const
     { TimeoutError } = require('./ErrorTypes'),
     { ExecutionContext, CallOrigin } = require('./ExecutionContext'),
     { SecurityError } = require('./ErrorTypes'),
-    loopsPerAssert = 10000;
+    loopsPerAssert = 10000,
+    MemberModifiers = require("./compiler/MudscriptMemberModifiers");
 
 var /** @type {Object.<number,ExecutionContext>} */
     Intervals = {};
@@ -75,6 +76,11 @@ class MUDLoader {
                         method = '(MAIN)';
                     }
 
+                    if (typeof access !== 'number') {
+                        //  Crasher?
+                        throw new Error(`Invalid access specifier; Expected number but got ${typeof access}`);
+                    }
+
                     if (isAsync === false && method.startsWith('async '))
                         isAsync = true;
 
@@ -95,7 +101,10 @@ class MUDLoader {
                             .alarm()
                             .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, callType);
                     }
-                    access && access !== "public" && ecc.assertAccess(ob, access, method, fileName);
+
+                    if ((access & MemberModifiers.Public) !== MemberModifiers.Public)
+                        ecc.assertAccess(ob, access, method, fileName);
+
                     //  Check access prior to pushing the new frame to the stack
                     if (access && !newContext)
                         return ecc
@@ -104,7 +113,8 @@ class MUDLoader {
                             .push(/* ob instanceof MUDObject && */ ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, callType);
 
                     return ecc;
-                },                enumerable: false,
+                },
+                enumerable: false,
                 writable: false
             },
             __efc: {

@@ -437,7 +437,6 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="lib\sys\include\VerbMixins.js" />
-    <Content Include="lib\sys\lib\TextLogin - Copy.js" />
     <Content Include="lib\sys\shell\FileSystem.js" />
     <Content Include="lib\sys\skeleton\creator\cmds\HelloWorld.js">
       <SubType>Code</SubType>

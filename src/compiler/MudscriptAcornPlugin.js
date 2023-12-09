@@ -24,14 +24,20 @@ const acorn = require('acorn'),
 
     //  New keywords added by MudScript
     MudscriptKeywords = "abstract singleton final public private protected package override nosave",
-    MemberModifiers = require("./MudscriptMemberModifiers");
+    MemberModifiers = require("./MudscriptMemberModifiers"),
+    MUDCompilerOptions = require('./MUDCompilerOptions');
 
 var
     types$1 = acorn.tokTypes,
     keywordTypes = acorn.keywordTypes,
     skipWhiteSpace = /(?:\s|\/\/.*|\/\*[^]*?\*\/)*/g,
     regexpCache = {};
-
+/**
+ * 
+ * @param {MUDCompilerOptions} options
+ * @param {acorn.Parser} Parser
+ * @returns
+ */
 function plugin(options, Parser) {
     if ('acornOptions' in options && options.acornOptions.ecmaVersion < MinEcmaVersion)
         throw new Error(`Incompatible ecmaVersion (requires ${MinEcmaVersion}+ > ${options.acornOptions.ecmaVersion})`);
@@ -269,14 +275,19 @@ function plugin(options, Parser) {
                     method.kind = "set";
                 }
             }
-            if (!method.key) this.parsePropertyName(method);
+            if (!method.key)
+                this.parsePropertyName(method);
             let { key } = method;
             let allowsDirectSuper = false;
             if (!method.computed && !method.static && (key.type === "Identifier" && key.name === "constructor" ||
-                key.type === "Literal" && key.value === "constructor")) {
+                key.type === "Literal" && key.value === "constructor" || key.type === "Identifier" && key.name === options.constructorName)) {
+                if (key.type === "Identifier" && key.name === "constructor" && options.allowConstructorKeyword === false)
+                    this.raise(key.start, `Keyword 'constructor' is not allowed; Use '${options.constructorName}' instead`);
                 if (method.kind !== "method") this.raise(key.start, "Constructor can't have get/set modifier");
                 if (isGenerator) this.raise(key.start, "Constructor can't be a generator");
-                if (isAsync) this.raise(key.start, "Constructor can't be an async method");
+                if (isAsync && options.allowAsyncConstructors === false) {
+                    this.raise(key.start, "Constructor can't be an async method");
+                }
                 method.kind = "constructor";
                 allowsDirectSuper = constructorAllowsSuper;
             } else if (method.static && key.type === "Identifier") {
@@ -314,6 +325,27 @@ function plugin(options, Parser) {
             else if (method.hasAccess(MemberModifiers.Abstract) && method.hasAccess(MemberModifiers.Final))
                 this.raise(`Member ${key.name} cannot mix public acccess with protected, private, or package`);
             return method;
+        }
+
+        parseClassMethod(method, isGenerator, isAsync, allowsDirectSuper) {
+            // Check key and flags
+            var key = method.key;
+            if (method.kind === "constructor") {
+                if (isGenerator) { this.raise(key.start, "Constructor can't be a generator"); }
+                if (isAsync && options.allowAsyncConstructors === false) { this.raise(key.start, "Constructor can't be an async method"); }
+            } else if (method.static && checkKeyName(method, "prototype")) {
+                this.raise(key.start, "Classes may not have a static property named prototype");
+            }
+
+            // Parse value
+            var value = method.value = this.parseMethod(isGenerator, isAsync, allowsDirectSuper);
+
+            // Check value
+            if (method.kind === "get" && value.params.length !== 0) { this.raiseRecoverable(value.start, "getter should have no params"); }
+            if (method.kind === "set" && value.params.length !== 1) { this.raiseRecoverable(value.start, "setter should have exactly one param"); }
+            if (method.kind === "set" && value.params[0].type === "RestElement") { this.raiseRecoverable(value.params[0].start, "Setter cannot use rest params"); }
+
+            return this.finishNode(method, "MethodDefinition")
         }
 
         parseExportDefaultDeclaration() {
@@ -380,6 +412,10 @@ function plugin(options, Parser) {
                 this.finishNode(scopedNode, "ScopedIdentifier");
 
                 scopedNode.start = scopeName.start = scopeName.end = startPos - 2;
+                if (options.allowScopedIdentifiers === false)
+                    this.raise(scopedNode.start, 'Scoped identifiers are disabled in the compiler options');
+                else if (allowScoping === false)
+                    this.raise(scopedNode.start, 'Scoped identifiers are not allowed in this context');
                 return scopedNode;
             }
 
@@ -403,6 +439,10 @@ function plugin(options, Parser) {
 
                 scopedNode.start = node.start;
                 node = scopedNode;
+                if (options.allowScopedIdentifiers === false)
+                    this.raise(scopedNode.start, 'Scoped identifiers are disabled in the compiler options');
+                else if (allowScoping === false)
+                    this.raise(scopedNode.start, 'Scoped identifiers are not allowed in this context');
             }
             if (!liberal) {
                 this.checkUnreserved(node);

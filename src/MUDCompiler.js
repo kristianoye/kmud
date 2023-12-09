@@ -264,7 +264,7 @@ class MUDCompiler {
                     throw result;
 
                 if (this.sealTypesAfterCompile && !options.noSeal) {
-                    module.sealTypes();
+                    module.eventSealTypes();
                 }
                 let isReload = module.loaded;
 

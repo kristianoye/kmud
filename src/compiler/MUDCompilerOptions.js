@@ -1,10 +1,80 @@
+/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
+const MemberModifiers = require("./MudscriptMemberModifiers");
+
+/**
+ * The cached constructor name
+ * @type {string}
+ */
+var ConstructorName = false;
+
+/**
+ * The cached default member access
+ * @type {number}
+ */
+var DefaultMemberAccess = false;
+
 class MUDCompilerOptions {
     /**
-     * 
+     * Construct the compiler options
      * @param {Partial<MUDCompilerOptions>} options
      */
     constructor(options) {
         /**
+         * Should we allow async constructors?
+         * Types with async constructors can only be instanciated in async contexts
+         * @type {boolean}
+         */
+        this.allowAsyncConstructors = typeof options.allowAsyncConstructors === 'boolean' ? options.allowAsyncConstructors === true : true;
+
+        /**
+         * Should we allow the use of the 'constructor' keyword?
+         * If enabled, 'constructor' will be replaced with our own constructor name
+         * @type {boolean}
+         */
+        this.allowConstructorKeyword = typeof options.allowConstructorKeyword === 'boolean' ? options.allowConstructorKeyword === true : true;
+
+        /**
+         * Should we allow the use of the eval() functionality?
+         * @type {boolean}
+         */
+        this.allowEval = typeof options.allowEval === 'boolean' ? options.allowEval === true : false;
+
+        /**
+         * Should we allow React-like JSX?
+         * @type {boolean}
+         */
+        this.allowJsx = typeof options.allowJsx === 'boolean' ? options.allowJsx === true : true;
+
+        /**
+         * Should we allow lazy bindings?
+         * @type {boolean}
+         */
+        this.allowLazyBindings = options.allowLazyBindings === true;
+
+        /**
+         * Should we auto inject missing constructors?
+         * @type {boolean}
+         */
+        this.allowLazyConstructors = typeof options.allowLazyConstructors === 'boolean' ? options.allowLazyConstructors === true : true;
+
+        /**
+         * Should we allow multiple inheritance?
+         * @type {boolean}
+         */
+        this.allowMultipleInheritance = typeof options.allowMultipleInheritance === 'boolean' ? options.allowMultipleInheritance : true;
+
+        /**
+         * Should we allow scoped identifiers?  This only applies if multiple inheritance is enabled
+         * @type {boolean}
+         */
+        this.allowScopedIdentifiers = this.allowMultipleInheritance && typeof options.allowMultipleInheritance === 'boolean' ? options.allowMultipleInheritance : true;
+
+        /**
+         * This allows the compiler to override the injectedSuperClass option for special cases like SimulEfuns
          * @type {MUDObject}
          */
         this.altParent = options.altParent;
@@ -16,19 +86,49 @@ class MUDCompilerOptions {
         this.args = Array.isArray(options.args) ? options.args : [];
 
         /**
+         * The member name we shall be using as our constructor name in the final code
+         * WARNING: Change this at your own risk
+         * @type {string}
+         */
+        this.constructorName = ConstructorName || (typeof options.constructorName === 'string' ? MUDCompilerOptions.validateConstructorName(options.constructorName) : 'create');
+
+        //  Cache this since it should not change again during runtime
+        if (!ConstructorName) {
+            ConstructorName = this.constructorName;
+        }
+
+        /**
+         * The default access modifier for class members
+         * @type {number}
+         */
+        this.defaultMemberAccess = DefaultMemberAccess || MUDCompilerOptions.parseMemberAccess(options.defaultMemberAccess || MemberModifiers.Public);
+
+        //  Cache this since it should not change again during runtime
+        if (!DefaultMemberAccess) {
+            DefaultMemberAccess = this.defaultMemberAccess;
+        }
+
+        /**
          * The file to compile
          * @type {string}
          */
         this.file = options.file;
 
         /**
-         * Does the target module define a mixin?
+         * Should we generate a source map file?
          * @type {boolean}
          */
-        this.isMixin = typeof options.isMixin === 'boolean' ? options.isMixin === true : false;
+        this.generateSourceMap = typeof options.generateSourceMap === 'boolean' ? options.generateSourceMap === true : false;
+
+        /**
+         * The default, injected super class
+         * @type {string}
+         */
+        this.injectedSuperClass = typeof this.injectedSuperClass === 'string' ? this.injectedSuperClass : 'MUDObject';
 
         /**
          * Is this a request to compile a virtual object?
+         * @type {boolean}
          */
         this.isVirtual = typeof options.isVirtual === 'boolean' ? options.isVirtual === true : false;
 
@@ -68,7 +168,10 @@ class MUDCompilerOptions {
          */
         this.onPipelineStage = typeof options.onPipelineStage === 'function' && options.onPipelineStage || function () { };
 
-
+        /**
+         * This is the relative path (if supplied) used when resolving imports expressed as relative paths
+         * @type {string}
+         */
         this.relativePath = typeof options.relativePath === 'string' && options.relativePath;
 
         /**
@@ -79,8 +182,15 @@ class MUDCompilerOptions {
 
         /**
          * Should we re-compile all dependent modules?
+         * @type {boolean}
          */
         this.reloadDependents = typeof options.reloadDependents === 'boolean' ? options.reloadDependents === true : false;
+
+        /**
+         * Should we require all class members to explicitly state their access modifier?
+         * @type {boolean}
+         */
+        this.requireExplicitAccessModifiers = typeof options.requireExplicitAccessModifiers === 'boolean' ? options.requireExplicitAccessModifiers === true : false;
 
         /**
          * We are compiling/evaluating a block of code
@@ -104,6 +214,87 @@ class MUDCompilerOptions {
         let clone = new MUDCompilerOptions(Object.assign({}, this, { filename, file: filename }));
 
         return clone;
+    }
+
+    /**
+     * Parse the default member access 
+     * @param {string | number} spec The specifier from the config
+     * @returns {number} A bitmask representing the default member access
+     */
+    static parseMemberAccess(spec) {
+        let result = 0;
+
+        if (typeof spec === 'number') {
+            if ((spec & ~MemberModifiers.ValidDefaultAccess) !== 0)
+                throw new Error(`Specified default member access mask (${spec}) is invalid`);
+            result = spec;
+        }
+        else if (typeof spec === 'string') {
+            let parts = spec.split('|')
+                    .map(s => s.trim().toLowerCase())
+                    .filter(s => s.length > 0);
+
+            if (parts.length === 0)
+                throw new Error(`Invalid default member access specifier (${spec}); String is invalid`);
+
+            parts.forEach(s => {
+                switch (s) {
+                    case 'final': return result |= MemberModifiers.Final;
+                    case 'package': return result |= MemberModifiers.Package;
+                    case 'private': return result |= MemberModifiers.Private;
+                    case 'protected': return result |= MemberModifiers.Protected;
+                    case 'public': return result |= MemberModifiers.Public;
+                    default: throw new Error(`Part of the default member access specifier (${s}) is invalid`);
+                }
+            });
+        }
+        else
+            throw new Error(`Default member access specifier must be a string or a number, not ${(typeof spec)}`);
+
+        if ((result & MemberModifiers.Public) > 0) {
+            if (MemberModifiers.HasAnyFlags(result, MemberModifiers.Private | MemberModifiers.Package | MemberModifiers.Protected))
+                throw new Error('Default member access cannot combine both public with private, package, or protected modifiers');
+        }
+        else if ((result & MemberModifiers.Private) > 0) {
+            if (MemberModifiers.HasAnyFlags(result, MemberModifiers.Package | MemberModifiers.Protected))
+                throw new Error('Default member access cannot combine both private with package or protected modifiers');
+        }
+        return result;
+    }
+
+    /**
+     * Exports the portion of the options used by the transpiler
+     */
+    get transpilerOptions() {
+        return {
+            allowAsyncConstructors: this.allowAsyncConstructors,
+            allowConstructorKeyword: this.allowConstructorKeyword,
+            allowJsx: this.allowJsx,
+            allowLazyBindings: this.allowLazyBindings,
+            allowLazyConstructors: this.allowLazyConstructors,
+            allowMultipleInheritance: this.allowMultipleInheritance,
+            allowScopedIdentifiers: this.allowScopedIdentifiers,
+            constructorName: this.constructorName,
+            defaultMemberAccess: this.defaultMemberAccess,
+            injectedSuperClass: this.injectedSuperClass,
+            requireExplicitAccessModifiers: this.requireExplicitAccessModifiers,
+            usingAltParent: !!this.altParent
+        };
+    }
+
+    /**
+     * Validate a potential constructor name
+     * @param {string} name The proposed name to validate
+     */
+    static validateConstructorName(name) {
+        if (name.length < 3)
+            throw new Error(`Constructor name '${name}' is too short; Must be 3+ characters`);
+        else if (/^\d+/.test(name))
+            throw new Error(`Constructor name '${name}' is invalid; It may not start with a number`);
+        else if (/^[a-zA-Z0-9\$\_]+$/.test(name))
+            throw new Error(`Constructor name '${name}' is invalid; It contains prohibited characters`);
+        else
+            return name;
     }
 }
 
