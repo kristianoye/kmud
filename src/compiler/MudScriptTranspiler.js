@@ -77,16 +77,20 @@ const
 
 /** 
  * @typedef {Object} TranspilerContext 
+ * @property {number} callType The call type used in/defined by origin()
  * @property {string} [className] The name of the class currently being defined, if any.
  * @property {boolean} inConstructor Are we defining the constructor method?
  * @property {boolean} isAsync Are we in an async context?
- * @property {boolean} isThisExpression
+ * @property {boolean} isSimulEfun Are we parsing the SimulEfun object?  e.g. inherits EFUNProxy
+ * @property {boolean} isStatic Are we in a static context?
  * @property {boolean} isSuperExpression
+ * @property {boolean} isThisExpression
  * @property {number} jsxDepth How deep in a JSX expression are we?
  * @property {boolean} lazyBinding Is lazy binding enabled?
  * @property {number} memberModifiers What modifiers were applied to the member?
  * @property {string} memberName What method, if any, are we defining?
  * @property {boolean} mustDefineCreate Does the current class need to define a constructor
+ * @property {function} pop Pops this context off the stack
  */
 
 /** 
@@ -135,7 +139,6 @@ class MudScriptAstAssembler {
         this.eventCompleteMessages = [];
         this.filename = p.filename;
         this.filepart = p.filename.slice(p.filename.lastIndexOf('/') + 1);
-        this.jsxIndent = '';
         this.max = p.source.length;
         this.module = p.context.module;
         /** @type {MUDCompilerOptions} */
@@ -147,22 +150,27 @@ class MudScriptAstAssembler {
         this.source = p.source;
         this.symbols = {};
         this.thisMethod = false;
-        this.thisParameter = false;
         this.typeDef = false;
         this.isStatic = false;
         this.injectedSuperClass = p.injectedSuperClass || false;
 
         this.pushContext({
+            callType: 0,
             className: undefined,
             inConstructor: false,
             isAsync: false,
+            isSimulEfun: false,
+            isStatic: false,
             isSuperExpression: false,
             isThisExpression: false,
             jsxDepth: 0,
             lazyBinding: false,
             memberModifiers: MemberModifiers.Public,
             memberName: undefined,
-            mustDefineCreate: false
+            mustDefineCreate: false,
+            pop: () => {
+                this.popContext();
+            }
         });
     }
 
@@ -392,10 +400,13 @@ class MudScriptAstAssembler {
 
     setMethod(s, access = "public", isStatic = false) {
         this.thisMethod = s || false;
-        this.thisParameter = this.thisClass ? `this || ${this.thisClass}` : 'this';
-        this.isStatic = isStatic === true;
+        //this.thisParameter = this.thisClass ? `this || ${this.thisClass}` : 'this';
         this.wroteConstructorName = false;
         return this.thisMethod;
+    }
+
+    get thisParameter() {
+        return this.typeDef ? `this || ${this.typeDef.typeName}` : 'this';
     }
 }
 
@@ -497,10 +508,9 @@ function isLiteralString(val) {
  * @param {MudScriptAstAssembler} op The current operation
  * @param {NodeType} e The current node
  * @param {number} depth The stack depth
- * @param {Object.<string,any>} xtra Additional info from parent node
  * @returns {string} The element as source code.
  */
-async function parseElement(op, e, depth, xtra = {}) {
+async function parseElement(op, e, depth) {
     let ret = '';
     if (e) {
         if (e.start > op.pos) {
@@ -643,7 +653,6 @@ async function parseElement(op, e, depth, xtra = {}) {
                         object = false,
                         propName = false,
                         callee = false,
-                        useCallOther = false,
                         argsWritten = false;
 
                     if (e.callee.type === 'MemberExpression') {
@@ -857,7 +866,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                     if (e.superClass) {
                         ret += op.readUntil(e.superClass.start);
                         ret += await parseElement(op, e.superClass, depth + 1);
-                        op.pushContext({ className: e.id.name });
+                        op.pushContext({ className: e.id.name, isSimulEfun: e.superClass.name === 'EFUNProxy' });
                     }
                     else if (op.injectedSuperClass) {
                         op.forcedInheritance = true;
@@ -1052,7 +1061,8 @@ async function parseElement(op, e, depth, xtra = {}) {
 
             case 'FunctionDeclaration':
                 {
-                    let functionName = e.id.name; 
+                    let functionName = e.id.name,
+                        ctx = op.pushContext({ memberName: false, memberModifiers: MemberModifiers.Public });
                     if (IllegalIdentifiers.indexOf(functionName) > -1)
                         op.raise(`Illegal function name: ${functionName}`, e.id);
                     else if (SettersGetters.indexOf(functionName) > -1)
@@ -1072,12 +1082,12 @@ async function parseElement(op, e, depth, xtra = {}) {
                             `let __mec = __bfc(this, ${MemberModifiers.Public}, '${e.id.name}', __FILE__,  ${isAsync}, __LINE__); try { `,
                             ` } finally { __efc(__mec, '${e.id.name}'); }`);
                     ret += await parseElement(op, e.body, depth + 1, { name: functionName });
+                    ctx.pop();
                 }
                 break;
 
             case 'FunctionExpression':
                 {
-                    let callType = xtra.callType || 0;
                     op.pushContext({ isAsync: e.async === true });
                     ret += await parseElement(op, e.id, depth + 1);
                     for (const _ of e.params) {
@@ -1093,7 +1103,7 @@ async function parseElement(op, e, depth, xtra = {}) {
                         }
                         else {
                             addRuntimeAssert(e,
-                                `let __mec = __bfc(${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${callType}); try { `,
+                                `let __mec = __bfc(${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${op.context.callType}); try { `,
                                 ` } finally { __efc(__mec, '${op.method}'); }`, false);
                         }
                     }
@@ -1211,10 +1221,6 @@ async function parseElement(op, e, depth, xtra = {}) {
             case 'JSXElement':
                 if (!op.options.allowJsx)
                     op.raise(`JSX is not enabled for ${op.extension} files`, e);
-                if (op.context.jsxDepth === 0) {
-                    var jsxInX = op.source.slice(0, e.start).lastIndexOf('\n') + 1;
-                    op.jsxIndent = ' '.repeat(e.start - jsxInX);
-                }
                 ret += 'createElement(';
                 op.pos = e.start;
                 ret += await parseElement(op, e.openingElement, depth + 1);
@@ -1329,7 +1335,22 @@ async function parseElement(op, e, depth, xtra = {}) {
                             modifiers |= op.options.defaultMemberAccess;
                     }
 
-                    op.pushContext({ inConstructor: methodName === MemberModifiers.ConstructorName, memberName: methodName, memberModifiers: modifiers });
+                    let ctx = op.pushContext({
+                        callType: (function (kind) {
+                            switch (kind) {
+                                case 'constructor': return CallOrigin.Constructor;
+                                case 'get': return CallOrigin.GetProperty;
+                                case 'set': return CallOrigin.SetProperty;
+                                case 'method': return op.context.isSimulEfun ? CallOrigin.SimulEfun : CallOrigin.LocalCall;
+                                default: return 0;
+                            }
+                        })(e.kind),
+                        inConstructor: methodName === MemberModifiers.ConstructorName,
+                        isAsync: (modifiers & MemberModifiers.Async) > 0,
+                        isStatic: e.static || (modifiers & MemberModifiers.Static) > 0,
+                        memberName: methodName,
+                        memberModifiers: modifiers
+                    });
 
                     if (parentInfo) {
                         if ((parentInfo.modifiers & MemberModifiers.Final) > 0) {
@@ -1382,15 +1403,10 @@ async function parseElement(op, e, depth, xtra = {}) {
                         callType: 0,
                         methodName
                     };
-
-                    if (methodName.startsWith('get '))
-                        info.callType |= CallOrigin.GetProperty;
-                    else if (methodName.startsWith('set '))
-                        info.callType |= CallOrigin.SetProperty;
                     ret += methodName;
                     ret += await parseElement(op, e.value, depth + 1, info);
                     op.setMethod();
-                    op.popContext();
+                    ctx.pop();
                 }
                 break;
 
