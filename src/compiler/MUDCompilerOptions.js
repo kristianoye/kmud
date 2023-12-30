@@ -74,6 +74,12 @@ class MUDCompilerOptions {
         this.allowScopedIdentifiers = this.allowMultipleInheritance && typeof options.allowMultipleInheritance === 'boolean' ? options.allowMultipleInheritance : true;
 
         /**
+         * Should we allow type identifiers?
+         * @type {boolean}
+         */
+        this.allowTypeHinting = typeof options.allowTypeHinting === 'boolean' ? options.allowTypeHinting : true;
+
+        /**
          * This allows the compiler to override the injectedSuperClass option for special cases like SimulEfuns
          * @type {MUDObject}
          */
@@ -101,7 +107,7 @@ class MUDCompilerOptions {
          * The default access modifier for class members
          * @type {number}
          */
-        this.defaultMemberAccess = DefaultMemberAccess || MUDCompilerOptions.parseMemberAccess(options.defaultMemberAccess || MemberModifiers.Public);
+        this.defaultMemberAccess = DefaultMemberAccess || MemberModifiers.ParseMemberAccess(options.defaultMemberAccess || MemberModifiers.Public);
 
         //  Cache this since it should not change again during runtime
         if (!DefaultMemberAccess) {
@@ -217,52 +223,6 @@ class MUDCompilerOptions {
     }
 
     /**
-     * Parse the default member access 
-     * @param {string | number} spec The specifier from the config
-     * @returns {number} A bitmask representing the default member access
-     */
-    static parseMemberAccess(spec) {
-        let result = 0;
-
-        if (typeof spec === 'number') {
-            if ((spec & ~MemberModifiers.ValidDefaultAccess) !== 0)
-                throw new Error(`Specified default member access mask (${spec}) is invalid`);
-            result = spec;
-        }
-        else if (typeof spec === 'string') {
-            let parts = spec.split('|')
-                    .map(s => s.trim().toLowerCase())
-                    .filter(s => s.length > 0);
-
-            if (parts.length === 0)
-                throw new Error(`Invalid default member access specifier (${spec}); String is invalid`);
-
-            parts.forEach(s => {
-                switch (s) {
-                    case 'final': return result |= MemberModifiers.Final;
-                    case 'package': return result |= MemberModifiers.Package;
-                    case 'private': return result |= MemberModifiers.Private;
-                    case 'protected': return result |= MemberModifiers.Protected;
-                    case 'public': return result |= MemberModifiers.Public;
-                    default: throw new Error(`Part of the default member access specifier (${s}) is invalid`);
-                }
-            });
-        }
-        else
-            throw new Error(`Default member access specifier must be a string or a number, not ${(typeof spec)}`);
-
-        if ((result & MemberModifiers.Public) > 0) {
-            if (MemberModifiers.HasAnyFlags(result, MemberModifiers.Private | MemberModifiers.Package | MemberModifiers.Protected))
-                throw new Error('Default member access cannot combine both public with private, package, or protected modifiers');
-        }
-        else if ((result & MemberModifiers.Private) > 0) {
-            if (MemberModifiers.HasAnyFlags(result, MemberModifiers.Package | MemberModifiers.Protected))
-                throw new Error('Default member access cannot combine both private with package or protected modifiers');
-        }
-        return result;
-    }
-
-    /**
      * Exports the portion of the options used by the transpiler
      */
     get transpilerOptions() {
@@ -293,6 +253,8 @@ class MUDCompilerOptions {
             throw new Error(`Constructor name '${name}' is invalid; It may not start with a number`);
         else if (/^[a-zA-Z0-9\$\_]+$/.test(name))
             throw new Error(`Constructor name '${name}' is invalid; It contains prohibited characters`);
+        else if (name === 'constructor')
+            throw new Error(`Constructor name '${name}' is invalid; Constructor cannot actually be 'constructor'`);
         else
             return name;
     }

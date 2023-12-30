@@ -579,13 +579,15 @@ class CommandShell extends events.EventEmitter {
      */
     handleError(err) {
         try {
-            if (this.player && typeof this.player.shellError === 'function') {
-                if (driver.driverCall('handleError', ecc => {
-                    let cleanError = driver.cleanError(err);
+            return driver.driverCall('handleError', ecc => {
+                let cleanError = driver.cleanError(err);
+
+                if (this.player && typeof this.player.shellError === 'function') {
                     return this.player.shellError(cleanError);
-                })) return; // The mudlib handled the error
-            }
-            this.stderr.writeLine(`-kmsh: Error: ${err.message || err}`);
+                }
+                this.stderr.writeLine(`-kmsh: Error: ${err.message || err}`);
+                return cleanError;
+            });
         }
         catch(err) {
             logger.log('CRITICAL: Error in handleError!', err);
@@ -1284,7 +1286,11 @@ class CommandShell extends events.EventEmitter {
                         return true;
                     }
                     catch (err) {
-                        this.component.writeLine(efuns.eol + 'A serious error occurred: ' + err);
+                        this.component.writeLine(efuns.eol + 'A serious error occurred');
+                        let cleanError = this.handleError(err);
+                        if (cleanError.file) {
+                            await driver.logError(cleanError.file, cleanError);
+                        }
                     }
                     return false;
 

@@ -876,7 +876,8 @@ class FileManager extends MUDEventEmitter {
         for (let i = 0; i < fsn.length; i++) {
             let fso = this.fileSystems[fsn[i]],
                 result = fso.getVirtualPath(expr);
-            if (result) return fsn[i] + result;
+            if (result)
+                return result;
         }
         return false;
     }

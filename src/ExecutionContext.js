@@ -437,6 +437,10 @@ class ExecutionContext extends events.EventEmitter {
                 resolve(result);
             }
             catch (err) {
+                let cleanError = driver.cleanError(err);
+                if (cleanError.file) {
+                    await driver.logError(cleanError.file, cleanError);
+                }
                 reject(err);
             }
             finally {

@@ -172,6 +172,141 @@ function plugin(options, Parser) {
             return super.getTokenFromCode(code);
         }
 
+        parseTypeHint() {
+            const start = this.start,
+                startLoc = this.startLoc,
+                maxTypeLength = 512;
+
+            if (options.allowTypeHinting && this.type === types$1.name) {
+                //  Do not treat property identifiers as type hints
+                if (this.value === 'get' || this.value === 'set')
+                    return false;
+
+                let typeBuffer = Buffer.alloc(maxTypeLength, 0, 'utf8'),
+                    templateDepth = 0,
+                    typeLength = 0,
+                    wordLength = 0,
+                    done = false;
+
+                const assertValidBuffer = (i) => {
+                    if (typeLength >= maxTypeLength) {
+                        if (templateDepth > 0)
+                            this.raise(`Read ${maxTypeLength} characters without finding end of type template`, i);
+                        else
+                            this.raise(`Type identifier is too long (max: ${maxTypeLength})`, i);
+                    }
+                };
+
+                for (let i = start; i < this.input.length && !done; i++) {
+                    let c = this.input.charAt(i);
+
+                    //  Eat leading whitespace
+                    if (' \t\n\r\v'.indexOf(c) > -1 && typeLength === 0)
+                        continue;
+
+                    switch (true) {
+                        case (c === '<' || c === '>'):
+                            if (options.allowGenericTypes) {
+                                if (wordLength === 0)
+                                    this.unexpected();
+                                templateDepth += (c === '<' ? 1 : -1);
+                                if (templateDepth < 0)
+                                    this.unexpected();
+                                assertValidBuffer(i);
+                                typeBuffer.write(c, typeLength++);
+                                wordLength = 0;
+                            }
+                            else
+                                this.raise('Generic types are disabled by the compiler', i);
+                            break;
+
+                        case ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')):
+                            assertValidBuffer(i);
+                            typeBuffer.write(c, typeLength++);
+                            wordLength++;
+                            break;
+
+                        case (c === '_' || c === '$'):
+                            assertValidBuffer(i);
+                            typeBuffer.write(c, typeLength++);
+                            wordLength++;
+                            break;
+
+                        case (c === '[' || c === ']'):
+                            if (c === '[' && wordLength === 0)
+                                this.unexpected();
+                            assertValidBuffer(i);
+                            if (c === ']' && typeBuffer[typeLength - 1] !== '['.charCodeAt(0))
+                                this.unexpected();
+                            typeBuffer.write(c, typeLength++);
+                            wordLength = 0;
+                            break;
+
+                        case (c >= '0' && c <= '9'):
+                            if (wordLength === 0)
+                                this.raise('Identifier cannot start with a digit', i);
+                            assertValidBuffer(i);
+                            typeBuffer.write(c, typeLength++);
+                            wordLength++;
+                            break;
+
+                        case (c === ' ' || c === '\n' || c === '\r' || c === '\t'):
+                            if (templateDepth > 0) {
+                                assertValidBuffer(i);
+                                typeBuffer.write(c, typeLength++);
+                                wordLength = 0;
+                            }
+                            else
+                                done = true;
+                            break;
+
+                        case (c === ','):
+                            if (templateDepth === 0)
+                                this.unexpected();
+                            else if (wordLength === 0)
+                                this.unexpected();
+                            else {
+                                assertValidBuffer(i);
+                                typeBuffer.write(c, typeLength++);
+                                wordLength = 0;
+                            }
+                            break;
+
+                        case (c === '('):
+                            //  This is not a type hint, this is a method identifier...
+                            return false;
+                    }
+                }
+
+                if (done) {
+                    //  Look ahead to make sure this is not a method identifier...
+                    let nextParan = this.input.slice(start + typeLength).indexOf('('),
+                        interveningText = this.input.slice(start + typeLength, start + typeLength + nextParan),
+                        hasIdentifier = /[a-zA-Z\$\_]/.test(interveningText);
+
+                    if (hasIdentifier) {
+                        let typeNode = this.startNodeAt(start, startLoc),
+                            typeText = Uint8Array.prototype.slice.call(typeBuffer, 0, typeLength).toString('utf8'),
+                            lineCount = typeText.split('\n').length - 1,
+                            endPos = (this.pos = start + typeText.length),
+                            endLoc = new acorn.Position(startLoc.line + lineCount, endPos - this.input.slice(0, endPos).lastIndexOf('\n'));
+
+                        typeNode.typeHint = typeText;
+
+                        this.end = endPos;
+
+                        this.lastTokEnd = endPos;
+                        this.lastTokEndLoc = endLoc;
+
+                        this.finishNode(typeNode, "TypeHint");
+                        this.next();
+                        return typeNode;
+                    }
+                }
+            }
+            return false;
+        }
+
         /**
          * This override adds support for additional member modifiers (public, private, package, protected, override)
          */
@@ -185,6 +320,7 @@ function plugin(options, Parser) {
             const tryContextual = (k, noLineBreak = false) => {
                 const start = this.start, startLoc = this.startLoc;
                 if (!this.eatContextual(k)) return false;
+                //  If we hit the '(' then we know the word is the method key 
                 if (this.type !== types$1.parenL && (!noLineBreak || !this.canInsertSemicolon())) {
                     return true;
                 }
@@ -251,6 +387,11 @@ function plugin(options, Parser) {
                     method.methodModifiers |= MemberModifiers.Origin;
                 }
                 else {
+                    let typeHint = this.parseTypeHint();
+                    if (typeHint) {
+                        method.returnType = typeHint;
+                        continue;
+                    }
                     this.finishNode(modifierNode, 'MemberModifiers');
                     if (modifierNode.end < modifierNode.start)
                         modifierNode.end = modifierNode.start;
@@ -651,12 +792,14 @@ module.exports = function (optionsIn) {
         return plugin(Object.assign({
             allowAccessModifiers: true,
             allowDereferenceOperator: true,
+            allowGenericTypes: true,
             allowLazyBinding: true,
             allowMultipleInheritance: true,
             allowScopeOperator: true,
             allowStaticProperties: true,
             allowPackageModifier: true,
-            defaultAccessModifier: "public",
+            allowTypeHinting: true,
+            defaultAccessModifier: MemberModifiers.ParseMemberAccess(optionsIn.defaultAccessModifier || MemberModifiers.Public),
             requireAccessModifiers: false,
             allowIncludes: true
         }, optionsIn), Parser);

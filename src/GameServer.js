@@ -326,7 +326,7 @@ class GameServer extends MUDEventEmitter {
      * @param {boolean} sdf Show external frames
      * @returns {Error} The cleaned up error.
      */
-    cleanError(e, sdf) {
+    cleanError(e, sdf = false) {
         if (e.clean || !e.stack)
             return e;
         let s = e.stack,
@@ -334,8 +334,7 @@ class GameServer extends MUDEventEmitter {
             mp = this.fileManager.mudlibAbsolute,
             dp = this.config.driver.driverPath,
             showDriverFrames = sdf || this.config.driver.showDriverFrames,
-            mpl = mp.length,
-            v = /[a-zA-Z0-9\\\/\._]/,
+            mudFile = false,
             newStack = [];
 
         while (l[0] && !l[0].match(/^\s+at /)) {
@@ -346,12 +345,15 @@ class GameServer extends MUDEventEmitter {
             let s1 = t.indexOf('(') + 1, s2 = t.lastIndexOf(')'),
                 info = t.slice(s1, s2),
                 parts = info.split(':'),
-                file = parts.length > 3 ? parts.splice(0, parts.length - 2).join(':') : parts.shift(),
+                file = (parts.length > 3 ? parts.splice(0, parts.length - 2).join(':') : parts.shift()).trim(),
                 line = parts.shift(),
                 col = parts.shift(),
-                mudPath = file && driver.fileManager.toMudPath(file);
+                mudPath = file && driver.fileManager.toMudPath(file.startsWith('at ') ? file.slice(3) : file);
+
             if (mudPath) {
                 newStack.push(t.slice(0, s1) + `${mudPath}:${line}:${col}` + t.slice(s2));
+                if (!mudFile)
+                    mudFile = mudPath;
             }
             else if (showDriverFrames === true) {
                 if (file.startsWith(dp)) {
@@ -360,6 +362,7 @@ class GameServer extends MUDEventEmitter {
                 }
             }
         });
+        e.file = mudFile;
         e.stack = newStack.join('\n');
         e.clean = true;
         return e;
