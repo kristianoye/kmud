@@ -653,7 +653,7 @@ class InputHelper {
             default: false,
             text: 'Prompt: ',
             type: 'text'
-        }, opts);
+        }, opts, { isAsync: true });
 
         return new Promise((resolve, reject) => {
             let ecc = driver.getExecution();

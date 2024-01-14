@@ -79,6 +79,7 @@ const
  * @typedef {Object} TranspilerContext 
  * @property {number} callType The call type used in/defined by origin()
  * @property {string} [className] The name of the class currently being defined, if any.
+ * @property {string} [functionName] Name of the non-member function being declared/defined
  * @property {boolean} inConstructor Are we defining the constructor method?
  * @property {boolean} isAsync Are we in an async context?
  * @property {boolean} isSimulEfun Are we parsing the SimulEfun object?  e.g. inherits EFUNProxy
@@ -157,6 +158,7 @@ class MudScriptAstAssembler {
         this.pushContext({
             callType: 0,
             className: undefined,
+            functionName: false,
             inConstructor: false,
             isAsync: false,
             isSimulEfun: false,
@@ -1062,24 +1064,28 @@ async function parseElement(op, e, depth) {
             case 'FunctionDeclaration':
                 {
                     let functionName = e.id.name,
-                        ctx = op.pushContext({ memberName: false, memberModifiers: MemberModifiers.Public });
+                        ctx = op.pushContext({
+                            isAsync: e.async === true,
+                            memberName: false,
+                            memberModifiers: MemberModifiers.Public
+                        });
                     if (IllegalIdentifiers.indexOf(functionName) > -1)
                         op.raise(`Illegal function name: ${functionName}`, e.id);
                     else if (SettersGetters.indexOf(functionName) > -1)
                         op.raise(`Illegal function name: ${functionName}`, e.id);
                     ret += await parseElement(op, e.id, depth + 1);
-                    let isAsync = ret.startsWith('async');
+
                     for (const _ of e.params) {
                         ret += await parseElement(op, _, depth + 1);
                     }
                     if (op.typeDef) {
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(${op.thisParameter}, ${MemberModifiers.Public}, '${e.id.name}', __FILE__, ${isAsync}, __LINE__); try { `,
+                            `let __mec = __bfc(${op.thisParameter}, ${MemberModifiers.Public}, '${e.id.name}', __FILE__, ${ctx.isAsync}, __LINE__); try { `,
                             ` } finally { __efc(__mec, '${e.id.name}'); }`);
                     }
                     else
                         addRuntimeAssert(e,
-                            `let __mec = __bfc(this, ${MemberModifiers.Public}, '${e.id.name}', __FILE__,  ${isAsync}, __LINE__); try { `,
+                            `let __mec = __bfc(this, ${MemberModifiers.Public}, '${e.id.name}', __FILE__,  ${ctx.isAsync}, __LINE__); try { `,
                             ` } finally { __efc(__mec, '${e.id.name}'); }`);
                     ret += await parseElement(op, e.body, depth + 1, { name: functionName });
                     ctx.pop();
@@ -1106,6 +1112,11 @@ async function parseElement(op, e, depth) {
                                 `let __mec = __bfc(${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${op.context.callType}); try { `,
                                 ` } finally { __efc(__mec, '${op.method}'); }`, false);
                         }
+                    }
+                    else if (op.context.functionName) {
+                        addRuntimeAssert(e,
+                            `let __mec = __bfc(${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.functionName}', __FILE__, false, __LINE__, false, ${op.context.callType}); try { `,
+                            ` } finally { __efc(__mec, '${op.method}'); }`, false);
                     }
                     ret += await parseElement(op, e.body, depth + 1);
                     op.popContext();
@@ -1445,7 +1456,25 @@ async function parseElement(op, e, depth) {
                 ret += await parseElement(op, e.key, depth + 1);
                 if (e.key.start !== e.value.start) {
                     ret += op.readUntil(e.value.start);
-                    ret += await parseElement(op, e.value, depth + 1);
+
+                    if (e.value.type === 'FunctionExpression') {
+                        let ctx = op.pushContext({
+                            isAsync: e.value.async === true,
+                            className: false,
+                            callType: CallOrigin.Functional,
+                            functionName: e.key.name,
+                            memberName: false,
+                            memberModifiers: MemberModifiers.Public,
+                        }), oldMethod = op.thisMethod;
+
+                        op.thisMethod = false;
+                        ret += await parseElement(op, e.value, depth + 1);
+                        op.thisMethod = oldMethod;
+                        ctx.pop();
+                    }
+                    else {
+                        ret += await parseElement(op, e.value, depth + 1);
+                    }
                 }
                 break;
 

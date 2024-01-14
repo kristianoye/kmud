@@ -151,7 +151,13 @@ class MUDCompilerOptions {
         this.noSeal = typeof options.noSeal === 'boolean' ? options.noSeal === true : false;
 
         /**
-         * A callback that executes when the compiler completes.
+         * A callback that executes when a pipeline stage completes
+         * @type {function(string,number): void}
+         */
+        this.onCompilerStageExecuted = typeof options.onCompilerStageExecuted === 'function' && options.onCompilerStageExecuted || function (msg, lvl) { };
+
+        /**
+         * A callback that executes when the compiler outputs some text.
          * @type {function(string,number): void}
          */
         this.onDebugOutput = typeof options.onDebugOutput === 'function' && options.onDebugOutput || function (msg, lvl) { };

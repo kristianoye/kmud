@@ -85,7 +85,7 @@ class MUDLoader {
                         isAsync = true;
 
                     if (driver.efuns.isClass(type) && typeof ob === 'object' && MUDVTable.doesInherit(ob, type) === false) {
-                        throw new SecurityError(`Illegal invocation of '${method}' in ${filename} [Line ${lineNumber}]; Callee type mismatch`)
+                        throw new SecurityError(`Illegal invocation of '${method}' in ${fileName} [Line ${lineNumber}]; Callee type mismatch`)
                     }
 
                     if (!ecc) {

@@ -290,7 +290,9 @@ class MUDVTable {
     //#region Static Methods
 
     static doesInherit(typeOrInstance, targetType) {
-        if (typeOrInstance instanceof targetType)
+        if (!typeOrInstance || typeOrInstance === null)
+            return false;
+        else if (typeOrInstance instanceof targetType)
             return true;
         else if (!typeOrInstance.baseName) {
             return MUDVTable.doesInherit(Object.getPrototypeOf(typeOrInstance), targetType);

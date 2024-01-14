@@ -113,8 +113,14 @@ class CommandShell extends events.EventEmitter {
             }
         });
 
-        this.on('addPrompt', async () => {
-            if (!this.inputController)
+        this.on('addPrompt', async prompt => {
+            if (prompt.isAsync) {
+                this.inputTo = prompt;
+                await this.drawPrompt();
+                let userInput = await this.getUserInput();
+                await this.processInput(userInput);
+        }
+            else if (!this.inputController)
                 this.startInputLoop();
         });
     }
@@ -1267,11 +1273,11 @@ class CommandShell extends events.EventEmitter {
 
                     try {
                         let result;
-                        
+
                         if (driver.efuns.isAsync(inputTo.callback))
-                            await inputTo.callback(input);
+                            result = await inputTo.callback(input);
                         else
-                            inputTo.callback(input);
+                            result = inputTo.callback(input);
 
                         if (result !== true) {
                             //  The modal frame did not recapture the user input
@@ -1291,6 +1297,9 @@ class CommandShell extends events.EventEmitter {
                         if (cleanError.file) {
                             await driver.logError(cleanError.file, cleanError);
                         }
+                    }
+                    finally {
+                        this.inputTo = this.inputStack[0] || false;
                     }
                     return false;
 

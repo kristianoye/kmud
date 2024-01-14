@@ -831,7 +831,7 @@ class FileWrapperObject extends FileSystemObject {
 
     async compileAsync(options = {}) {
         if (await this.can(SecurityFlags.P_LOADOBJECT)) {
-            return this.#instance.compileAsync(options);
+            return this.#instance.compileAsync(this.createSafeCompilerOptions(options));
         }
         throw new Error(`Permission denied: Could not compile ${this.fullPath}`);
     }
@@ -843,6 +843,14 @@ class FileWrapperObject extends FileSystemObject {
     async createDirectoryAsync(...args) {
         if (await this.can(SecurityFlags.P_CREATEDIR)) {
             return this.#instance.createDirectoryAsync(...args);
+        }
+    }
+
+    createSafeCompilerOptions(options) {
+        return {
+            file: this.fullPath,
+            onCompilerStageExecuted: typeof options.onCompilerStageExecuted === 'function' && options.onCompilerStageExecuted,
+            onDebugOutput: typeof options.onDebugOutput === 'function' && options.onDebugOutput,
         }
     }
 

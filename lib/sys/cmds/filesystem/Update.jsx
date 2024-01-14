@@ -43,9 +43,10 @@ export default singleton class UpdateCommand extends Command {
              */
             verbose: 0,
 
-            createCompilerOptions: function (file) {
-                return Object.assign({}, this, {
+            createCompilerOptions: function (file, opts) {
+                return Object.assign({}, opts, {
                     file,
+                    onCompilerStage: function () { },
                     onDebugOutput: (msg, level) => {
                         if (level <= this.verbose)
                             writeLine(msg);
@@ -148,7 +149,7 @@ export default singleton class UpdateCommand extends Command {
                 fso = await efuns.fs.getFileAsync(path);
 
             try {
-                let result = await fso.compileAsync(options.createCompilerOptions(path));
+                let result = await fso.compileAsync(options.createCompilerOptions(path, options));
                 if (result === true)
                     writeLine(`Update ${path}: [Ok]`);
                 else

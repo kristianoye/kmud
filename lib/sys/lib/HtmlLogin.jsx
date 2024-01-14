@@ -4,6 +4,9 @@
  * Date: October 1, 2017
  */
 
+
+import { PLAYER_D } from 'Daemon';
+
 const
     Daemon = await requireAsync('Daemon'),
     Inputs = await requireAsync('InputTypes'),
@@ -39,7 +42,7 @@ class HtmlLogin extends MUDObject {
                 position: 'center'
             }
         });
-        await this.enterUsername();
+        this.enterUsername();
     }
 
     private disconnect(reason) {
@@ -48,7 +51,7 @@ class HtmlLogin extends MUDObject {
     }
 
     private async confirmTakeover(player) {
-        return await prompt(Inputs.InputTypeYesNo, `${(player.displayName)} is already connected; Do you wish to take over? `, async resp => {
+        return prompt(Inputs.InputTypeYesNo, `${(player.displayName)} is already connected; Do you wish to take over? `, async resp => {
             if (resp === 'yes') {
                 await efuns.unguarded(async () => {
                     eventSend({
@@ -70,73 +73,73 @@ class HtmlLogin extends MUDObject {
         });
     }
 
-    private async enterPassword(name, playerData, opts = {}, attemptsLeft = 3) {
+    private enterPassword(name, playerData, opts = {}, attemptsLeft = 3) {
         opts = Object.assign({ text: 'Enter password: ' }, opts);
 
-        let pwd = await promptAsync(Inputs.InputTypePassword, opts);
-
-        if (!efuns.checkPassword(pwd, playerData.properties['/base/Player'].password)) {
-            if (--attemptsLeft === 0) {
-                destruct();
-            }
-            else
-                await this.enterPassword(name, playerData, { error: 'Password incorrect' }, attemptsLeft);
-        }
-        else {
-            let player = efuns.living.findPlayer(name);
-
-            eventSend({
-                type: 'windowAuth',
-                data: {
-                    username: efuns.normalizeName(name),
-                    password: playerData.properties['/base/Player'].password
+        prompt(Inputs.InputTypePassword, opts, async (pwd) => {
+            if (!efuns.checkPassword(pwd, playerData.properties['/base/Player'].password)) {
+                if (--attemptsLeft === 0) {
+                    destruct();
                 }
-            });
-            if (player) {
-                if (efuns.living.isConnected(player)) {
-                    this.confirmTakeover(player);
-                }
-                else {
-                    await efuns.unguarded(async () => {
-                        await efuns.exec(this, player, async () => {
-                            eventSend({
-                                type: 'windowHint',
-                                data: {
-                                    mode: 'normal',
-                                    position: 'center'
-                                }
-                            });
-                            player.writeLine('Reconnected');
-                            efuns.destruct(this);
-                        });
-                    });
-                }
+                else
+                    return this.enterPassword(name, playerData, { error: 'Password incorrect' }, attemptsLeft);
             }
             else {
-                player = await efuns.restoreObjectAsync(playerData);
-                if (player)
-                    await efuns.unguarded(async () => {
-                        logger.log('Switching from Login to Player Instance');
-                        await efuns.exec(this, player, async () => {
-                            eventSend({
-                                type: 'windowHint',
-                                data: {
-                                    mode: 'normal',
-                                    position: 'center'
-                                }
-                            });
-                            await player.movePlayerAsync(playerData.environment || '/world/sarta/Square', () => {
-                                logger.log('Executing connect() on new player');
+                let player = efuns.living.findPlayer(name);
+
+                eventSend({
+                    type: 'windowAuth',
+                    data: {
+                        username: efuns.normalizeName(name),
+                        password: playerData.properties['/base/Player'].password
+                    }
+                });
+                if (player) {
+                    if (efuns.living.isConnected(player)) {
+                        return this.confirmTakeover(player);
+                    }
+                    else {
+                        await efuns.unguarded(async () => {
+                            await efuns.exec(this, player, async () => {
+                                eventSend({
+                                    type: 'windowHint',
+                                    data: {
+                                        mode: 'normal',
+                                        position: 'center'
+                                    }
+                                });
+                                player.writeLine('Reconnected');
+                                efuns.destruct(this);
                             });
                         });
-                    });
-                else
-                    throw 'Unable to restore player data';
+                    }
+                }
+                else {
+                    player = await PLAYER_D->loadPlayer(name);
+                    if (player)
+                        await efuns.unguarded(async () => {
+                            logger.log('Switching from Login to Player Instance');
+                            await efuns.exec(this, player, async () => {
+                                eventSend({
+                                    type: 'windowHint',
+                                    data: {
+                                        mode: 'normal',
+                                        position: 'center'
+                                    }
+                                });
+                                await player->movePlayerAsync(playerData.environment || '/world/sarta/Square', () => {
+                                    logger.log('Executing connect() on new player');
+                                });
+                            });
+                        });
+                    else
+                        throw 'Unable to restore player data';
+                }
             }
-        }
+        });
     }
 
-    private async enterUsername(playerData) {
+    private enterUsername(playerData) {
         let opts = Object.assign({
             text: 'Enter your character name: ',
             maxLength: 20,
@@ -145,34 +148,50 @@ class HtmlLogin extends MUDObject {
             minLengthError: 'Your username must be at least 3 characters'
         }, playerData);
 
-        let name = await promptAsync(Inputs.InputTypeText, opts);
-        if (name.length === 0) {
-            return efuns.destruct(this);
-        }
-        try {
-            let player = await PlayerDaemon().playerExistsAsync(name, true);
-            await this.enterPassword(name, player);
-        }
-        catch(err) {
-            await this.enterUsername({ error: 'Something went wrong; Try another name or come back again later.' });
-        }
+        prompt(Inputs.InputTypeText, opts, async name => {
+            if (name.length === 0) {
+                return this.client.close();
+            }
+            try {
+                let player = await PLAYER_D->playerExistsAsync(name, true);
+
+                if (!player) {
+                    //return this.confirmUsername(name);
+                    let confirm = await promptAsync(Inputs.InputTypeYesNo, { text: `Is ${name} the name you really want? `, default: 'yes' });
+                    if (confirm === 'yes') {
+                        return this.selectPassword({ name });
+                    }
+                    else {
+                        writeLine('\Enter the name you really want, then.\n\n');
+                        return true; // Recapture
+                    }
+                }
+                else /* player exists */
+                    return this.enterPassword(name, player);
+            }
+            catch (err) {
+                writeLine('\nOops!  Something went wrong!  Try another name or come back again later!\n\n');
+            }
+            return true; // Recapture
+        });
     }
 
     get maxIdleTime() { return LoginTimeout; }
 
-    private async selectPassword(playerData, opts = {}) {
+    private selectPassword(playerData, opts = {}) {
         opts = Object.assign({ text: 'Select a password' }, opts);
+
         prompt(Inputs.InputTypePassword, opts, async (plain) => {
             try {
                 let errors, password = await efuns.createPasswordAsync(plain)
                     .catch(e => { errors = e });
                 if (!errors)
-                    this.confirmPassword(Object.assign(playerData, { password, plain }));
+                    return this.confirmPassword(Object.assign(playerData, { password, plain }));
                 else if (!Array.isArray(errors.list)) {
-                    this.selectPassword(playerData, { error: errors.message });
+                    return this.selectPassword(playerData, { error: errors.message });
                 }
                 else {
-                    this.selectPassword(playerData, { error: errors.list });
+                    return this.selectPassword(playerData, { error: errors.list });
                 }
             }
             catch (wtf) {
@@ -184,7 +203,7 @@ class HtmlLogin extends MUDObject {
     private confirmPassword(playerData) {
         prompt(Inputs.InputTypePassword, 'Confirm password: ', pwd => {
             if (playerData.plain !== pwd) {
-                this.selectPassword(playerData, { error: 'Passwords do not match; Please try again.' });
+                return this.selectPassword(playerData, { error: 'Passwords do not match; Please try again.' });
             }
             else {
                 delete playerData.plain;
@@ -204,12 +223,13 @@ class HtmlLogin extends MUDObject {
             summary: ',',
             prompt: 'Gender'
         }, opts);
+
         prompt(Inputs.InputTypePickOne, opts, gender => {
             if (gender) {
-                this.enterEmailAddress(Object.assign(playerData, { gender }));
+                return this.enterEmailAddress(Object.assign(playerData, { gender }));
             }
             else {
-                this.selectGender(playerData, { error: 'Invalid gender choice; Please try again (you can change later)' });
+                return this.selectGender(playerData, { error: 'Invalid gender choice; Please try again (you can change later)' });
             }
         });
     }
@@ -218,23 +238,23 @@ class HtmlLogin extends MUDObject {
         opts = Object.assign({ text: 'Enter e-mail address' }, opts);
         prompt('text', opts, email => {
             if (!validEmail.test(email)) {
-                this.enterEmailAddress(playerData, { error: 'Invalid email address' });
+                return this.enterEmailAddress(playerData, { error: 'Invalid email address' });
             }
             else {
-                this.enterRealName(Object.assign(playerData, { emailAddress: email }));
+                return this.enterRealName(Object.assign(playerData, { emailAddress: email }));
             }
         });
     }
 
     private async enterRealName(playerData) {
-        await prompt('text', 'Enter real name (optional): ', async name => {
-            await this.createNewCharacterAsync(Object.assign(playerData, { realName: name }));
+        prompt('text', 'Enter real name (optional): ', async name => {
+            await this.createNewCharacter(Object.assign(playerData, { realName: name }));
         });
     }
 
     private async createNewCharacter(playerData) {
-        let player = await PlayerDaemon().createNewCharacter(Object.assign({}, {
-            name: playerData.keyId,
+        let player = await PLAYER_D->createNewCharacter(Object.assign({}, {
+            name: playerData.name,
         }, playerData));
 
         if (player) {
@@ -251,7 +271,7 @@ class HtmlLogin extends MUDObject {
                     writeLine('Oops, sorry.  Your body was not ready for you!  Tell someone to fix this.');
                     return efuns.destruct(this);
                 }
-                await newPlayer.movePlayerAsync('/world/sarta/Square');
+                await newPlayer->movePlayerAsync('/world/sarta/Square');
             });
         }
     }
