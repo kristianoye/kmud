@@ -480,11 +480,7 @@ class MUDOSLoader extends MUDLoader {
         return result;
     }
 
-    load_object() { return this.efuns.loadObject.apply(this.efuns, arguments); }
-
-    message(messageType, msg, ...recipients) {
-        return this.efuns.message(messageType, msg, ...recipients);
-    }
+    load_object() { return efuns.loadObject.apply(efuns, arguments); }
 
     pointerp(arg) { return Array.isArray(arg); }
 

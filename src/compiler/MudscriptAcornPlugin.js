@@ -387,11 +387,6 @@ function plugin(options, Parser) {
                     method.methodModifiers |= MemberModifiers.Origin;
                 }
                 else {
-                    let typeHint = this.parseTypeHint();
-                    if (typeHint) {
-                        method.returnType = typeHint;
-                        continue;
-                    }
                     this.finishNode(modifierNode, 'MemberModifiers');
                     if (modifierNode.end < modifierNode.start)
                         modifierNode.end = modifierNode.start;

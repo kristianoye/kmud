@@ -1752,8 +1752,9 @@ class EFUNProxy {
                 if (thisOb) {
                     if (!restoreFile.endsWith(SaveExtension))
                         restoreFile += SaveExtension;
-                    let data = await this.fs.readJsonAsync(restoreFile);
-                    if (data) {
+                    let dataFile = await this.fs.getFileAsync(restoreFile);
+                    if (dataFile.exists) {
+                        let data = await dataFile.readJsonAsync();
                         let store = driver.storage.get(thisOb);
                         return store ? await store.eventRestore(data) : false;
                     }

@@ -213,12 +213,21 @@ class VerbRule {
      */
     async can(matchData) {
         let handler = unwrap(this.handler),
-            method = handler[this.canMethod] || handler[this.fallbackCan];
+            method = handler[this.canMethod] || false,
+            isFallback = false;
+
+        if (!method) {
+            method = handler[this.fallbackCan];
+            isFallback = !!method;
+        }
 
         if (!method)
             return false;
 
-        return await method.apply(handler, matchData);
+        if (isFallback)
+            return await method.call(handler, this.verb, this, matchData, this.parse);
+        else
+            return await method.apply(handler, matchData);
     }
 
     /**
@@ -228,12 +237,21 @@ class VerbRule {
      */
     async do(matchData) {
         let handler = unwrap(this.handler),
-            method = handler[this.doMethod] || handler[this.fallbackDo];
+            method = handler[this.doMethod] || false,
+            isFallback = false;
+
+        if (!method) {
+            method = handler[this.fallbackDo];
+            isFallback = !!method;
+        }
 
         if (!method)
             return false;
 
-        return await method.apply(handler, matchData);
+        if (isFallback)
+            return await method.call(handler, this.verb, this, matchData, this.parse);
+        else
+            return await method.apply(handler, matchData);
     }
 
     /**
