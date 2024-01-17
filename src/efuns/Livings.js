@@ -94,6 +94,20 @@ class LivingsHelper {
     }
 
     /**
+     * Attempt to find a player object by name
+     * @param {any} name
+     * @param {any} allowPartial
+     */
+    static findWizard(name, allowPartial = false) {
+        let result = driver.wizardObjects
+            .find(efuns.normalizeName(name), allowPartial);
+
+        return Array.isArray(result) && allowPartial === true ?
+            result.map(s => unwrap(s.owner)) :
+            !Array.isArray(result) && unwrap(result.owner);
+    }
+
+    /**
      * Determines if an object has a heartbeat
      * @param {MUDObject|MUDWrapper} target The item to check
      * @returns {boolean} Returns true if the object has a periodic heartbeat.

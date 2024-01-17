@@ -818,9 +818,10 @@ class FileWrapperObject extends FileSystemObject {
     /**
      * Check to see if the action can be performed
      * @param {number} perm
+     * @param {string} methodName
      */
-    async can(perm) {
-        return driver.securityManager.can(this, perm);
+    async can(perm, methodName = 'unknown') {
+        return driver.securityManager.can(this, perm, methodName);
     }
 
     async cloneObjectAsync(...args) {
@@ -911,13 +912,13 @@ class FileWrapperObject extends FileSystemObject {
      * @returns {Promise<FileSystemObject[]>}
      */
     async readDirectoryAsync(...args) {
-        if (await this.can(SecurityFlags.P_LISTDIR)) {
+        if (await this.can(SecurityFlags.P_LISTDIR, 'readDirectoryAsync')) {
             return this.#instance.readDirectoryAsync(...args);
         }
     }
 
     async readFileAsync(...args) {
-        if (await this.can(SecurityFlags.P_READ)) {
+        if (await this.can(SecurityFlags.P_READ, 'readFileAsync')) {
             return this.#instance.readFileAsync(...args);
         }
     }
@@ -963,13 +964,13 @@ class FileWrapperObject extends FileSystemObject {
      * Write to a single file
      */
     async writeFileAsync(...args) {
-        if (await this.can(SecurityFlags.P_WRITE)) {
+        if (await this.can(SecurityFlags.P_WRITE, 'writeFileAsync')) {
             return this.#instance.writeFileAsync(...args);
         }
     }
 
     async writeJsonAsync(...args) {
-        if (await this.can(SecurityFlags.P_WRITE)) {
+        if (await this.can(SecurityFlags.P_WRITE, 'writeJsonAsync')) {
             return this.#instance.writeJsonAsync(...args);
         }
     }

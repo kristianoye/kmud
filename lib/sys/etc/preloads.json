@@ -15,5 +15,6 @@
   "/world/sarta/Square.jsx",
   "/daemon/HelpSystem.js",
   "/sys/daemon/PlayerDaemon.js",
-  "/sys/daemon/CommandResolver.js"
+  "/sys/daemon/CommandResolver.js",
+  "/sys/lib/HtmlLogin.jsx"
 ]

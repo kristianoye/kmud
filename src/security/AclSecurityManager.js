@@ -156,8 +156,10 @@ class SecurityAcl {
     /**
      * Is the requested operation permitted under current context?
      * @param {boolean} flags
+     * @param {string} fullPath
+     * @param {string} methodName The name of the requesting method
      */
-    async can(flags) {
+    async can(flags, fullPath, methodName = 'unknown') {
         try {
             let ecc = driver.getExecution(),
                 perms = await this.getEffectivePermissions();
@@ -165,7 +167,7 @@ class SecurityAcl {
             //  Silently inject wildcard perms
             securityManager.applyWildcardAcls(perms);
 
-            let result = await ecc.guarded(frame => {
+            let result = await ecc.guarded(async frame => {
                 if (frame.object) {
                     /** @type {{ userId: string, groups: string[] }} */
                     let $creds = frame.object.$credential;
@@ -186,6 +188,19 @@ class SecurityAcl {
                     }
                     if ((flags & ep) === flags)
                         return true;
+
+                    switch (flags) {
+                        case SecurityFlags.P_READ:
+                            if (await driver.callApplyAsync(driver.applyValidRead, fullPath, frame.object, methodName)) {
+                                return true;
+                            }
+                            break;
+                        case SecurityFlags.P_WRITE:
+                            if (await driver.callApplyAsync(driver.applyValidWrite, fullPath, frame.object, methodName)) {
+                                return true;
+                            }
+                            break;
+                    }
                 }
                 else {
                     console.log('need something here');
@@ -422,8 +437,9 @@ class AclSecurityManager extends BaseSecurityManager {
      * Check to see if the type of action is allowed in the current context.
      * @param {FileSystemObject} fo
      * @param {number} flags The flags describing the desired I/O operation
+     * @param {string} methodName The name of the method making the request
      */
-    async can(fo, flags) {
+    async can(fo, flags, methodName = 'unknonwn') {
         return new Promise(async (resolve, reject) => {
             try {
                 //  Everything is read-write until the master object is loaded
@@ -433,7 +449,7 @@ class AclSecurityManager extends BaseSecurityManager {
                 let ecc = driver.getExecution();
                 let acl = await this.getAcl(fo);
                 
-                let result = await acl.can(flags);
+                let result = await acl.can(flags, fo.fullPath, methodName);
                 resolve(result);
             }
             catch (err) {

@@ -305,6 +305,11 @@ class GameServer extends MUDEventEmitter {
      */
     callApplySync(applyName, ...args) {
         return this.driverCall(applyName, ecc => {
+            if (typeof applyName === 'function') {
+                applyName = applyName.name;
+            }
+            if (applyName.startsWith('bound '))
+                applyName = applyName.slice(6);
             if (typeof this.masterObject[applyName] !== 'function')
                 throw new Error(`Master object ${this.masterFilename} does not contain apply '${applyName}'`);
             if (this.efuns.isAsync(this.masterObject[applyName]))
