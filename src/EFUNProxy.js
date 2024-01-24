@@ -473,10 +473,8 @@ class EFUNProxy {
     async exec(ptrOld, ptrNew, callback) {
         let ecc = driver.getExecution();
 
-        ptrOld = global.wrapper(ptrOld);
-        ptrNew = global.wrapper(ptrNew);
-
-        let [oldBody, newBody] = unwrap([ptrOld, ptrNew]);
+        let oldBody = ptrOld.isWrapper ? ptrOld() : ptrOld;
+        let newBody = ptrNew.isWrapper ? ptrNew() : ptrNew;
 
         if (!ecc.guarded(frame => driver.validExec(frame, oldBody, newBody)))
             throw new Error('Permission denied to efuns.exec()');
@@ -1054,7 +1052,7 @@ class EFUNProxy {
     /**
      * Splits a file/object name into it's components (path, type name, instance ID)
      * @param {string} fileExpr The file expression.
-     * @returns {{ file: string, type: string, instance: number, extension?: string, objectId?: string }} Information about the path.
+     * @returns {{ file: string, type: string, extension?: string, objectId: string }} Information about the path.
      */
     parsePath(fileExpr) {
         if (typeof fileExpr !== 'string' || fileExpr.length < 2)
@@ -1062,30 +1060,27 @@ class EFUNProxy {
 
         let ls = fileExpr.lastIndexOf('/'),
             ld = fileExpr.lastIndexOf('.'),
-            ext = ld > -1 ? fileExpr.slice(ld) : false,
-            objectId = false;
+            ext = ld > -1 && ld > ls ? fileExpr.slice(ld) : false,
+            n = ext && ext.indexOf('$');
+
+        if (n !== false && n > -1)
+            ext = ext.slice(0, n);
 
         if (ld > ls) {
             fileExpr = fileExpr.slice(0, ld);
         }
 
-        let [path, instance] = (fileExpr.startsWith('/') ? fileExpr : this.resolvePath(fileExpr)).split('#', 2),
+        let [path, objectId] = (fileExpr.startsWith('/') ? fileExpr : this.resolvePath(fileExpr)).split('#', 2),
             [file, type] = path.split('$', 2);
 
-        if ((instance = parseInt(instance)) < 0 || isNaN(instance)) {
-            //  Does the instance look like a UUID?
-            if (instance.length === 36)
-                objectId = instance;
-            else
-                instance = 0;
-        }
         if (!type || type.length === 0) {
             type = file.slice(file.lastIndexOf('/') + 1);
         }
         if (!type)
             throw new Error(`Bad file expression: ${fileExpr}`);
+
         let defaultType = file.endsWith(`/${type}`);
-        let result = Object.freeze({ file, type, instance, extension: ext, objectId, defaultType });
+        let result = Object.freeze({ file, type, extension: ext, objectId, defaultType });
 
         return result;
     }

@@ -699,8 +699,8 @@ class FileManager extends MUDEventEmitter {
                 let exts = driver.compiler.supportedExtensions,
                     pattern = new RegExp(driver.compiler.extensionPattern),
                     result = false;
-                let { file, type, instance, extension } = driver.efuns.parsePath(request.fullPath),
-                    targetFile = extension && await this.getFileAsync(request.fullPath);
+                let { file, extension } = driver.efuns.parsePath(request.fullPath),
+                    targetFile = extension && await this.getFileAsync(file + extension);
 
                 if (extension && pattern.test(targetFile.fullPath)) {
                     result = await targetFile.loadObjectAsync(request, args);
@@ -728,7 +728,7 @@ class FileManager extends MUDEventEmitter {
                 }
 
                 if (!result)
-                    return reject(`loadObjectAsync(): Could not find suitable file to load`);
+                    return reject(new Error(`loadObjectAsync(): Could not find suitable file to load: ${request.fullPath}`));
                 resolve(result);
             }
             catch (ex) {

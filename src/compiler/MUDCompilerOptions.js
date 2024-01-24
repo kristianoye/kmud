@@ -166,7 +166,7 @@ class MUDCompilerOptions {
          * A callback that executes when the compiler constructs an object instance.
          * @type {function(string,number): void}
          */
-        this.onInstanceCreated = typeof options.onInstanceCreated === 'function' && options.onInstanceCreated || function (inst) { };
+        this.onInstanceCreated = typeof options.onInstanceCreated === 'function' && options.onInstanceCreated || false;
 
         /**
          * A callback that executes when the compiler completes.

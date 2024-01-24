@@ -11,28 +11,47 @@ class CreationContext {
         this.args = data.args || [];
 
         /** 
-         * Constructor implementation 
-         * @type {function(): MUDObject} */
-        this.constructor = data.constructor || false;
-
-        /** 
          * The path to the object being created
-         * @type {string} */
+         * @type {string} 
+         */
         this.filename = data.filename;
 
         /** 
-         * The unique instance ID of the object being created
-         * @type {string|number} */
-        this.instanceId = data.instanceId;
-
-        /** Is this a virtual object request? */
+         * Is this a virtual object request? 
+         * @type {boolean}
+         */
         this.isVirtual = data.isVirtual === true;
 
-        /** @type {MUDModule} */
+        /** 
+         * The module that defines the type
+         * @type {MUDModule} 
+         */
         this.module = data.module;
 
-        /** @type {string} */
-        this.uuid = data.uuid;
+        /** 
+         * The object's highly unique UUID.  Safe for multi-process MUDs.
+         * @type {string} 
+         */
+        this.objectId = data.objectId;
+
+        /**
+         * If this is a virtual object, this is a filename specifying details about
+         * which module hosts it.
+         * @type {string}
+         */
+        this.trueName = data.trueName;
+
+        /**
+         * The type name of this object instance
+         * @type {string}
+         */
+        this.typeName = data.typeName;
+
+        /**
+         * The weak reference pointer for this object
+         * @type {function(): object}
+         */
+        this.wrapper = data.wrapper;
     }
 }
 

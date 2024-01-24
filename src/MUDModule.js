@@ -355,6 +355,12 @@ class MUDModule extends events.EventEmitter {
          * @type {MUDCompilerOptions} */
         this.compilerOptions = options;
 
+        /**
+         * Information needed to re-create object instances on recompile
+         * @type {Object.<string,CreationContext>}
+         */
+        this.creationContexts = {};
+
         this.$defaultExport = false;
 
         /**
@@ -396,6 +402,11 @@ class MUDModule extends events.EventEmitter {
         this.instancesById = {};
 
         /**
+         * @type {Object.<string,MUDObject[]}
+         */
+        this.instancesByType = {};
+
+        /**
          * The directory the module source file is located in
          * @type {string}
          */
@@ -435,6 +446,11 @@ class MUDModule extends events.EventEmitter {
 
         /** @type {Object.<string,boolean> */
         this.singletons = {};
+
+        /**
+         * @type {Object.<string,MUDObject>}
+         */
+        this.virtualInstances = {};
 
         if (parent) {
             parent.on && parent.on('recompile', () => {
@@ -485,14 +501,6 @@ class MUDModule extends events.EventEmitter {
         }
         else
             this.$defaultExport = val;
-    }
-
-    insertInstance(item, typeArg) {
-        let instanceId = item.instanceId,
-            typeName = typeArg ? typeArg.name : item.constructor.name,
-            instances = this.instanceMap[typeName] || [];
-        instances[instanceId] = item;
-        this.instanceMap[typeName] = instances;
     }
 
     addExportElement(val, key = false, isDefault = false) {
@@ -550,108 +558,23 @@ class MUDModule extends events.EventEmitter {
         }
     }
 
-    /**
-     * Add a virtual type
-     * @param {MUDModule} parent The parent module
-     * @param {function} type The type to add
-     */
-    addVirtualType(parent, type) {
-        this.isVirtual = true;
-        this.parent = parent;
-        this.types[type.name] = type;
-        this.instanceMap[type.name] = {};
-        return true;
-    }
+    addInstance(instance, type, creationContext) {
+        let objectId = instance.objectId;
 
-    create(type, instanceData, args = [], create = false) {
-        try {
-            // Storage needs to be set before starting...
-            let store = driver.storage.createForId(instanceData.filename || instanceData.$type),
-                ecc = driver.getExecution(),
-                prev = ecc.previousObject;
+        this.instancesById[objectId] = instance;
 
-            if (typeof type === 'string') {
-                if (type in this.oldExports === false) {
-                    if (type in this.types === false) {
-                        throw new Error(`Unable to find type ${type}`);
-                    }
-                    else if (prev.filename !== this.filename) {
-                        throw new Error(`Access denied to non-exported type ${type} in module ${this.filename}`);
-                    }
-                }
-                if (typeof instanceData.instanceId !== 'number') {
-                    let instances = this.instanceMap[type];
-                    instanceData.instanceId = instances.length;
-                    instanceData.uuid = driver.efuns.getNewId();
-                }
-                type = this.types[type];
-            }
+        if (false === type.name in this.instancesByType)
+            this.instancesByType[type.name] = [];
 
-            ecc.addCreationContext(instanceData);
-            ecc.storage = store;
+        this.instancesByType[type.name].push(objectId);
+        this.creationContexts[objectId] = creationContext;
 
-            let instance = create ? create(type, ...args) : new type(...args);
-            this.finalizeInstance(instance, !instance.filename && instanceData);
-            if (typeof instance.create === 'function') {
-                driver.driverCall('create', () => {
-                    instance.create();
-                }, instance.filename, true);
-            }
-            store.owner = instance;
-            return instance;
+        if (instance.isVirtual) {
+            let parts = driver.efuns.parsePath(instance.filename);
+            this.virtualInstances[parts.file] = objectId;
         }
-        catch (err) {
-            /* rollback object creation */
-            driver.storage.delete(instanceData.filename);
-            throw err;
-        }
-    }
 
-    /**
-     * Create an object asynchronously
-     * @param {string} type The specific type to create
-     * @param {CreationContext} instanceData Information for the newly defined object
-     * @param {any[]} args Arguments to pass to the object constructor and/or create method
-     * @param {function(type,...any):MUDObject}factory A custom factory method
-     */
-    async createAsync(type, instanceData, args = [], factory = false) {
-        try {
-            if (typeof type === 'string') {
-                if (type in this.oldExports === false) {
-                    if (type in this.types === false) {
-                        throw new Error(`Unable to find type ${type}`);
-                    }
-                    else if (prev.filename !== this.filename) {
-                        throw new Error(`Access denied to non-exported type ${type} in module ${this.filename}`);
-                    }
-                }
-                type = this.types[type];
-            }
-            if (typeof instanceData.instanceId !== "number") {
-                let instances = this.instanceMap[type.constructor.name];
-                instanceData.instanceId = instances.length;
-            }
-            // Storage needs to be set before starting...
-            let store = driver.storage.createForId(instanceData.filename, instanceData.instanceId),
-                ecc = driver.getExecution();
-
-            ecc.addCreationContext(instanceData);
-            ecc.storage = store;
-
-            let instance = factory ? factory(type, ...args) : new type(...args);
-            this.finalizeInstance(instance, !instance.filename && instanceData);
-            if (typeof instance.create === 'function') {
-                await driver.driverCallAsync('create', async () => await instance.create());
-            }
-            await driver.driverCallAsync('initStorage', async () => await store.eventInitialize(instance));
-
-            return instance;
-        }
-        catch (err) {
-            /* rollback object creation */
-            driver.storage.delete(instanceData.filename);
-            throw err;
-        }
+        return instance;
     }
 
     async createInstanceAsync(type, instanceData, args, factory = false, callingFile = false) {
@@ -676,35 +599,30 @@ class MUDModule extends events.EventEmitter {
                 else
                     type = this.types[type];
             }
-            //  Total hack for now
-            else if (this.isVirtual && this.oldExports.length === 0 && this.defaultExport instanceof MUDObject) {
-                instance = this.defaultExport;
-                store = driver.storage.get(instance);
-            }
             if (instance === false) {
                 let ecc = driver.getExecution();
                 let virtualContext = ecc && ecc.popVirtualCreationContext();
 
                 if (virtualContext) {
-                    virtualContext.module.addVirtualType(this, type);
-                    return await virtualContext.module.createInstanceAsync(type, virtualContext, args);
+                    virtualContext.module = this;
+                    virtualContext.trueName = this.filename + '$' + type.name + '#' + virtualContext.objectId;
+                    virtualContext.typeName = type.name;
+                    return await this.createInstanceAsync(type, virtualContext, args);
                 }
+
                 if (!instanceData)
                     instanceData = this.getNewContext(type, false, args);
 
-                if (typeof instanceData.instanceId !== "number") {
-                    let instances = this.instanceMap[type.constructor.name];
-                    instanceData.instanceId = instances.length;
-                    instanceData.uuid = driver.efuns.getNewId();
-                }
+                if (!instanceData.wrapper)
+                    instanceData.wrapper = this.getWrapperForContext(instanceData);
+
                 // Storage needs to be set before starting...
-                store = driver.storage.createForId(instanceData.filename, instanceData.instanceId);
+                store = driver.storage.createForId(instanceData.objectId, instanceData.filename);
 
                 ecc.addCreationContext(instanceData);
                 ecc.storage = store;
 
                 instance = factory ? factory(type, ...args) : new type(...args);
-                this.finalizeInstance(instance, !instance.filename && instanceData);
 
                 if (typeof this.compilerOptions.onInstanceCreated === 'function') {
                     this.compilerOptions.onInstanceCreated(instance);
@@ -719,7 +637,7 @@ class MUDModule extends events.EventEmitter {
             if (store !== false && instance !== false)
                 await driver.driverCallAsync('initStorage', async () => await store.eventInitialize(instance));
 
-            return instance;
+            return this.addInstance(instance, type, instanceData);
         }
         catch (err) {
             /* rollback object creation */
@@ -730,22 +648,30 @@ class MUDModule extends events.EventEmitter {
 
     /**
      * Destroy an instance of an object and invalidate all wrappers.
-     * @param {PathExpr} parts The instance information
+     * @param {MUDObject} ob The instance information
      */
-    destroyInstance(parts) {
-        let instances = this.instanceMap[parts.type],
-            instance = instances[parts.instance];
+    destroyInstance(ob) {
+        let objectId = ob.objectId,
+            typeName = ob.constructor.name,
+            instanceList = this.instancesByType[typeName] || false,
+            index = instanceList && instanceList.indexOf(objectId);
 
-        if (instance) {
-            let store = driver.storage.get(instance);
-            instances[parts.instance] = false;
+        if (index > -1) {
+            instanceList.splice(index, 1);
+        }
 
-            if (instance.objectId)
-                delete this.instancesById[instance.objectId];
-            if (store && !store.destroyed)
-                return store.destroy();
+        if (objectId in this.creationContexts)
+            delete this.creationContexts[objectId];
+
+        if (objectId in this.virtualInstances)
+            delete this.virtualInstances[objectId];
+
+        if (objectId in this.instancesById) {
+            delete this.instancesById[objectId];
             return true;
         }
+        else
+            console.log(`Warning: destroyInstance() called for non-existant object [${objectId}]`);
         return false;
     }
 
@@ -763,79 +689,6 @@ class MUDModule extends events.EventEmitter {
         }
         else
             throw new Error(`Unexpected export value of type ${typeof spec}`);
-    }
-
-    finalizeInstance(instance, instanceData) {
-        let type = instance.constructor.name;
-
-        if (typeof this.types[type] === 'undefined')
-            throw new Error(`Module ${this.this.filename} does define type ${type}!`);
-
-        if (instanceData) {
-            Object.defineProperties(instance, {
-                createTime: {
-                    value: efuns.ticks,
-                    writable: false
-                },
-                filename: {
-                    value: instanceData.filename || instanceData.$type,
-                    writable: false
-                },
-                instanceId: {
-                    value: instanceData.instanceId,
-                    writable: false,
-                    enumerable: true
-                },
-                isVirtual: {
-                    value: instanceData.isVirtual === true,
-                    writable: false,
-                    enumerable: false
-                }
-            });
-        }
-        this.instanceMap[type][instance.instanceId] = instance;
-        this.instancesById[instance.objectId] = instance;
-    }
-
-    /**
-     * Request a specific instance of a type.
-     * @param {PathExpr} req The instance request.
-     * @returns {MUDObject} The specified instance.
-     */
-    getInstance(req) {
-        if (typeof req === 'number') {
-            req = {
-                type: this.name,
-                instance: req,
-                file: this.fullPath
-            };
-        }
-        let typeSpec = req.type.slice(0);
-        if (req.defaultType === true && !this.types[typeSpec]) {
-            if (this.$defaultExport) {
-                if (driver.efuns.isClass(this.$defaultExport))
-                    typeSpec = this.$defaultExport.name;
-                else if (typeof this.$defaultExport === 'object')
-                    typeSpec = this.$defaultExport.constructor.name;
-            }
-        }
-        if (!this.types[typeSpec]) {
-            if (req.instance === 0) {
-                if (this.defaultExport instanceof MUDObject)
-                    return this.defaultExport;
-            }
-            return req.instance === 0 && this.instanceMap[req.instance];
-        }
-        let instances = this.instanceMap[typeSpec] || [];
-        if (req.instance < 0 || req.instance > instances.length) {
-            if (req.objectId) {
-                if (true === req.objectId in this.instancesById) {
-                    return this.instancesById[req.objectId];
-                }
-            }
-            return false;
-        }
-        return instances[req.instance];
     }
 
     /**
@@ -861,55 +714,29 @@ class MUDModule extends events.EventEmitter {
      * @returns {MUDWrapper} The specified instance.
      */
     getInstanceWrapper(req) {
-        let instance = this.getInstance(req);
+        let { file, type, objectId, defaultType } = req;
 
-        if (instance) {
-            let wrapper = (() => {
-                let initialized = false;
-
-                return () => {
-                    let instance = this.getInstance(req);
-                    if (instance) {
-                        if (instance === -1 || instance.destructed) {
-                            instance = -1;
-                            throw new Error(`Object ${req.file} has been destructed [Invalid Wrapper]`);
-                        }
-                        return instance;
-                    }
-
-                    if (!initialized) {
-                        this.once('recompiled', () => {
-                            let typeName = instance.constructor.name;
-                            instance = this.instanceMap[typeName][req.instance] =
-                                this.create(this.getType(typeName), {
-                                    filename: req.file,
-                                    instanceId: req.instance,
-                                    isVirtual: instance && instance.isVirtual
-                                });
-                        });
-                        initialized = true;
-                    }
-                    return instance;
-                };
-            })();
-
-            Object.defineProperties(wrapper, {
-                filename: {
-                    value: instance.filename,
-                    writable: false
-                },
-                objectId: {
-                    value: instance.objectId,
-                    writable: false
-                },
-                isWrapper: {
-                    value: true,
-                    writable: false,
-                    enumerable: false
+        if (!objectId) {
+            if (file in this.virtualInstances) {
+                objectId = this.virtualInstances[file];
+            }
+            else if (defaultType === true) {
+                if (true === this.defaultExport instanceof MUDObject) {
+                    objectId = this.defaultExport.objectId;
                 }
+            }
+            else if (type in this.instancesByType) {
+                objectId = this.instancesByType[0];
+            }
+            else
+                throw new Error(`getInstanceWrapper(): Unable to find suitable object instance`);
+        }
+
+        if (objectId in this.instancesById) {
+            return this.getWrapperForContext({
+                filename: this.instancesById[objectId].filename,
+                objectId: objectId
             });
-            Object.freeze(wrapper);
-            return wrapper;
         }
         return false;
     }
@@ -918,35 +745,24 @@ class MUDModule extends events.EventEmitter {
      * Create information required to create a new MUDObject instance.
      * @param {string|function} type The type to fetch a constructor context for.
      * @param {number} idArg Specify the instance ID.
-     * @returns {{ filename: string, instanceId: number }} Information needed by MUDObject constructor.
+     * @returns {{ filename: string, uuid: string, args: any[] }} Information needed by MUDObject constructor.
      */
     getNewContext(type, idArg, args) {
-        let typeName = typeof type === 'function' ? type.name
-            : typeof type === 'string' ? type : false;
+        let typeName = typeof type === 'function' ? type.name : typeof type === 'string' ? type : false,
+            objectId = driver.efuns.getNewId();
 
 
-        let instanceId = typeof idArg === 'number' ? idArg : (this.instanceMap[typeName] || []).length,
-            filename = this.filename + (this.name !== typeName ? '$' + typeName : '');
-
-        if (instanceId > 0) {
-            if (this.singletons[typeName]) {
-                if (!this.isCompiling)
-                    throw new Error(`Type ${this.filename}$${typeName} is a singleton and cannot be cloned`);
-                else
-                    instanceId = 0;
-            }
-            else
-                filename += '#' + instanceId;
-        }
+        let filename = this.fullPath + '$' + typeName;
         
         let result = {
             args: args || [],
-            uuid: driver.efuns.getNewId(),
-            constructor: this.types[type] || type,
+            objectId,
             filename,
-            instanceId,
-            module: this
+            module: this,
+            typeName: type.name
         };
+
+        result.wrapper = this.getWrapperForContext(result);
 
         return result;
     }
@@ -965,6 +781,54 @@ class MUDModule extends events.EventEmitter {
      */
     getTypes() {
         return Object.keys(this.types);
+    }
+
+    getWrapperForContext(ctx) {
+        let { objectId, filename } = ctx;
+
+        let wrapper = (() => {
+            return () => {
+                let instance = this.instancesById[objectId];
+                if (instance) {
+                    if (instance === -1 || instance.destructed) {
+                        instance = -1;
+                        throw new Error(`Object ${objectId} has been destructed [Invalid Wrapper]`);
+                    }
+                    return instance;
+                }
+                else
+                    throw new Error(`Object ${objectId} has been destructed [Invalid Wrapper]`);
+            };
+        })();
+
+        Object.defineProperties(wrapper, {
+            filename: {
+                value: filename,
+                writable: false
+            },
+            instance: {
+                get: () => {
+                    return wrapper();
+                },
+                enumerable: false
+            },
+            isWrapper: {
+                value: true,
+                writable: false,
+                enumerable: false
+            },
+            objectId: {
+                value: objectId,
+                writable: false
+            },
+            wrapper: {
+                value: wrapper,
+                writable: false,
+                enumerable: false
+            }
+        });
+        Object.freeze(wrapper);
+        return wrapper;
     }
 
     /**

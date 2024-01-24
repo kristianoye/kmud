@@ -111,7 +111,9 @@ class MUDStorage extends MUDEventEmitter {
      */
     eventDestroy(...args) {
         if (!this.destroyed) {
-            let parts = efuns.parsePath(this.owner.filename),
+            let filename = this.owner.filename;
+
+            let parts = efuns.parsePath(filename),
                 module = driver.cache.get(parts.file);
 
             this.heartbeat = false;
@@ -123,11 +125,11 @@ class MUDStorage extends MUDEventEmitter {
                 this.owner.emit('kmud.item.removed', this.environment);
 
             if (this.player) this.player = false;
+            if (this.living) this.living = false;
+            if (this.wizard) this.wizard = false;
 
             this.owner.removeAllListeners && this.owner.removeAllListeners();
-            driver.storage.delete(this.owner);
 
-            this.owner = false;
             this.destroyed = true;
 
             if (this.shell) {
@@ -135,7 +137,11 @@ class MUDStorage extends MUDEventEmitter {
                 this.shell = undefined;
             }
 
-            return this.destroyed = module.destroyInstance(parts);
+            this.destroyed = module.destroyInstance(this.owner);
+            driver.storage.delete(this.owner);
+            this.owner = false;
+
+            return true;
         }
         return false;
     }
@@ -181,7 +187,7 @@ class MUDStorage extends MUDEventEmitter {
                 this.shell = component.shell;
                 this.component = component;
 
-                component.shell.playerRef = component.body = wrapper(this.owner);
+                component.shell.playerRef = component.body = this.owner.wrapper;
                 component.shell.storage = component.storage = this;
 
 
@@ -278,7 +284,7 @@ class MUDStorage extends MUDEventEmitter {
                 this.$credential = await driver.securityManager.getCredential(ownerObject.filename);
             }
             else
-                console.log('not yet');
+                throw new Error('CRASH: Master object has not been created!');
             return true;
         }
         return false;
@@ -608,7 +614,7 @@ class MUDStorage extends MUDEventEmitter {
     /**
      * Re-associate a new object instance with an existing storage object.
      * @param {MUDObject} owner The new owner of this storage
-     * @param {MUDCreationContext} ctx The context from the reload
+     * @param {object} ctx The context from the reload
      * @returns {MUDStorage} Returns existing storage object. 
      */
     reload(owner, ctx) {
@@ -677,12 +683,8 @@ class MUDStorageContainer {
         return this.storage[ob.filename] = new MUDStorage(ob);
     }
 
-    createForId(filename, instanceId = 0) {
-        if (instanceId > 0) {
-            if (filename.indexOf('#') === -1)
-                filename += `#${instanceId}`;
-        }
-        return this.storage[filename] = new MUDStorage(filename);
+    createForId(objectId, filename) {
+        return this.storage[objectId] = new MUDStorage(filename);
     }
 
     /**
@@ -695,43 +697,30 @@ class MUDStorageContainer {
             if (store) delete this.storage[ob];
             return !!store;
         }
-        return unwrap(ob, item => {
-            let instanceId = item._propKeyId;
-            if (instanceId in this.storage) {
-                delete this.storage[instanceId];
-                return true;
-            }
-            return false;
-        });
+        let objectId = ob.objectId;
+        if (objectId in this.storage) {
+            delete this.storage[objectId];
+            return true;
+        }
+        return false;
     }
 
     /**
      * Fetch storage for the specified argument.
      * @param {MUDObject} ob The file to fetch storage for.
-     * @param {string} altkey An alternate key to use if the object is still being constructed.
      * @returns {MUDStorage} The storage object for the item or false.
      */
-    get(ob, altKey = false) {
-        let filename = ob && ob.filename || altKey;
-        if (!filename) return unwrap(ob, target => target.filename);
-        if (!filename) {
+    get(ob) {
+        let objectId = ob && ob.objectId;
+        if (!objectId) {
             let ecc = driver.getExecution(),
                 ctx = ecc.newContext;
             if (ctx) {
                 filename = ctx.filename + (ctx.instanceId > 0 ? `#${ctx.instanceId}` : '');
             }
         }
-        let result = filename && this.storage[filename];
+        let result = this.storage[objectId];
         return result;
-    }
-
-    /**
-     * Re-assocate the storage with the new instance reference.
-     * @param {MUDObject} item
-     * @param {MUDCreationContext} ctx
-     */
-    reload(item, ctx) {
-        return unwrap(item, ob => this.storage[ob.filename].reload(item, ctx));
     }
 }
 

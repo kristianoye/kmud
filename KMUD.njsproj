@@ -578,7 +578,6 @@
     <Content Include="src\MUDCache.js" />
     <Content Include="src\MUDCompiler.js" />
     <Content Include="src\MUDConfig.js" />
-    <Content Include="src\MUDCreationContext.js" />
     <Content Include="src\MUDEventEmitter.js" />
     <Content Include="src\MUDHtml.js" />
     <Content Include="src\MUDLoader.js" />

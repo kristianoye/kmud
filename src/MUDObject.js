@@ -26,28 +26,49 @@ class MUDObject extends MUDEventEmitter {
                 Object.defineProperties(this, {
                     createTime: {
                         value: efuns.ticks,
-                        writable: false
+                        writable: false,
+                        enumerable: true
                     },
                     filename: {
                         value: ctx.filename,
-                        writable: false
-                    },
-                    instanceId: {
-                        value: ctx.instanceId,
                         writable: false,
                         enumerable: true
+                    },
+                    instance: {
+                        get: () => this,
+                        enumerable: false
                     },
                     isVirtual: {
                         value: ctx.isVirtual === true,
                         writable: false,
                         enumerable: false
                     },
+                    isWrapper: {
+                        value: false,
+                        writable: false,
+                        enumerable: false
+                    },
                     objectId: {
-                        value: ctx.uuid,
+                        value: ctx.objectId,
                         writable: false,
                         enumerable: true
+                    },
+                    wrapper: {
+                        value: ctx.wrapper,
+                        writable: false,
+                        enumerable: false
                     }
                 });
+
+                if (ctx.trueName) {
+                    Object.defineProperties(this, {
+                        trueName: {
+                            value: ctx.trueName.slice(0),
+                            writable: false,
+                            enumerable: false
+                        }
+                    });
+                }
             }
             //  Set this before going back up the constructor chain
             if (ecc.storage) {

@@ -336,21 +336,14 @@ class MUDCompiler {
         //  Attempt to compile a virtual object.
         let virtualResult = await driver.driverCallAsync('compileVirtual', async ecc => {
             try {
-                //module = this.driver.cache.getOrCreate(
-                //    context.filename,
-                //    context.filename,
-                //    context.filename.slice(0, context.filename.lastIndexOf('/')),
-                //    true,
-                //    options);
-                module = this.driver.cache.getOrCreate(context, true, options);
+                //module = this.driver.cache.getOrCreate(context, true, options);
 
-                let args = options.args || [];
+                let args = options.args || [], objectId = driver.efuns.getNewId();
 
                 virtualContext = ecc.addVirtualCreationContext({
-                    instanceId: 0,
+                    objectId,
                     isVirtual: true,
-                    filename: context.filename,
-                    module
+                    filename: context.filename
                 });
 
                 let virtualResult = await driver.compileVirtualObject(virtualContext.filename, args);
@@ -365,7 +358,8 @@ class MUDCompiler {
                     }
                 });
 
-                return module.defaultExport = virtualResult;
+                module = virtualContext.module;
+                return virtualResult;
             }
             catch (err) {
                 console.log(`compileVirtual() error: ${err.message}`);
@@ -380,7 +374,6 @@ class MUDCompiler {
         if (!virtualResult)
             throw new Error(`Could not load ${context.filename} [File not found]`);
 
-        module.loaded = true;
         return module;
     }
 

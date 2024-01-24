@@ -430,34 +430,29 @@ class GameServer extends MUDEventEmitter {
                     masterFile = await this.fileManager.getObjectAsync(config.master.path, 0, true),
                     gameMaster = await this.compiler.compileObjectAsync({
                         file: config.master.path,
-                        onPipelineComplete: src => {
-                            // console.log('driver source', src);
-                        },
                         onInstanceCreated: o => {
-                            if (config.master.path.startsWith(o.filename)) {
-                                this.masterObject = o;
-                                /* validate in-game master */
-                                this.applyCompileVirtual = locateApply('compileVirtualObject', false);
-                                this.applyConnect = locateApply('connect', false);
-                                this.applyConvertUnits = locateApply('convertUnits', false);
-                                this.applyCreateFileACL = locateApply('createFileACL', false);
-                                this.applyErrorHandler = locateApply('errorHandler', false);
-                                this.applyGetPreloads = locateApply('getPreloads', false);
-                                this.applyGetHomePath = locateApply('getHomePath', false);
-                                this.applyLogError = locateApply('logError', false);
-                                this.applyGetGroups = locateApply('getPermissionGroups', false);
-                                this.applyRegisterServer = locateApply('registerServer', false);
-                                this.applyStartup = locateApply('startup', false);
-                                this.applyValidDestruct = locateApply('validDestruct', false);
-                                this.applyValidExec = locateApply('validExec', false);
-                                this.applyValidObject = locateApply('validObject', false);
-                                this.applyValidRead = locateApply('validRead', true);
-                                this.applyValidReadConfig = locateApply('validReadConfig', false);
-                                this.applyValidRequire = locateApply('validRequire', true);
-                                this.applyValidSocket = locateApply('validSocket', false);
-                                this.applyValidShutdown = locateApply('validShutdown', true);
-                                this.applyValidWrite = locateApply('validWrite', true);
-                            }
+                            this.masterObject = o;
+                            /* validate in-game master */
+                            this.applyCompileVirtual = locateApply('compileVirtualObject', false);
+                            this.applyConnect = locateApply('connect', false);
+                            this.applyConvertUnits = locateApply('convertUnits', false);
+                            this.applyCreateFileACL = locateApply('createFileACL', false);
+                            this.applyErrorHandler = locateApply('errorHandler', false);
+                            this.applyGetPreloads = locateApply('getPreloads', false);
+                            this.applyGetHomePath = locateApply('getHomePath', false);
+                            this.applyLogError = locateApply('logError', false);
+                            this.applyGetGroups = locateApply('getPermissionGroups', false);
+                            this.applyRegisterServer = locateApply('registerServer', false);
+                            this.applyStartup = locateApply('startup', false);
+                            this.applyValidDestruct = locateApply('validDestruct', false);
+                            this.applyValidExec = locateApply('validExec', false);
+                            this.applyValidObject = locateApply('validObject', false);
+                            this.applyValidRead = locateApply('validRead', true);
+                            this.applyValidReadConfig = locateApply('validReadConfig', false);
+                            this.applyValidRequire = locateApply('validRequire', true);
+                            this.applyValidSocket = locateApply('validSocket', false);
+                            this.applyValidShutdown = locateApply('validShutdown', true);
+                            this.applyValidWrite = locateApply('validWrite', true);
                         }
                     });
 
@@ -466,7 +461,7 @@ class GameServer extends MUDEventEmitter {
                 }
 
                 /** @type {MasterObject} */
-                this.masterObject = gameMaster.getInstance(0);
+                this.masterObject = gameMaster.defaultExport;
 
                 if (!this.masterObject) {
                     throw new Error(`Failed to load master object (${config.master.path})`);
@@ -684,7 +679,7 @@ class GameServer extends MUDEventEmitter {
             global.wrapper = function (o) {
                 if (typeof o === 'function' && o.isWrapper === true) return o;
                 else if (o instanceof MUDObject) {
-                    let parts = driver.efuns.parsePath(o.filename),
+                    let parts = driver.efuns.parsePath(o.trueName || o.filename),
                         module = driver.cache.get(parts.file);
                     return module.getInstanceWrapper(parts);
                 }

@@ -26,41 +26,6 @@ declare interface MUDStorage {
 
 }
 
-/**
- * Contains information required to construct a MUD object.
- */
-declare interface MUDCreationContext {
-    readonly $storage: MUDStorage;
-
-    /** Contains the filename of the module being created */
-    readonly filename: string;
-
-    /** Contains the unique instance ID for this object. */
-    readonly instanceId: number;
-
-    /** Indicates whether the constructor was called as part of a reload or not */
-    readonly isReload: boolean;
-
-    hasArg(key: string): boolean;
-
-    hasSymbol(key: symbol): boolean;
-
-    /**
-     * Creates one or more properties in the context.
-     */
-    prop(key: string | object, value?: any): MUDCreationContext;
-
-    shared(key: string | object, value?: any): MUDCreationContext;
-
-    symbols(key: symbol, value: any): MUDCreationContext;
-
-    /**
-     * Removes an argument from the collection and returns it.
-     */
-    takeArg(key: string): any;
-    takeArg(key: string, defaultValue: any): any;
-    takeArg(key: string, defaultValue: any, preserveValue: boolean): any;
-}
 
 declare class MUDArgs {
     readonly length: number;
