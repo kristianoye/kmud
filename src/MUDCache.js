@@ -37,6 +37,14 @@ class MUDCache {
         return false;
     }
 
+    forEach(callback) {
+        for (const [filename, module] of Object.entries(this)) {
+            if (module instanceof MUDModule) {
+                callback(module, filename);
+            }
+        }
+    }
+
     /**
      * Fetch a previously compiled module.
      * @param {String} filename The name of the file to fetch from the cache.

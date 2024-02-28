@@ -565,8 +565,8 @@ class MUDModule extends events.EventEmitter {
 
         if (false === type.name in this.instancesByType)
             this.instancesByType[type.name] = [];
-
-        this.instancesByType[type.name].push(objectId);
+        if (this.instancesByType[type.name].indexOf(objectId) === -1)
+            this.instancesByType[type.name].push(objectId);
         this.creationContexts[objectId] = creationContext;
 
         if (instance.isVirtual) {
@@ -577,7 +577,7 @@ class MUDModule extends events.EventEmitter {
         return instance;
     }
 
-    async createInstanceAsync(type, instanceData, args, factory = false, callingFile = false) {
+    async createInstanceAsync(type, instanceData, args, factory = false, callingFile = false, isReload = false) {
         try {
             let instance = false, store = false;
 
@@ -599,6 +599,7 @@ class MUDModule extends events.EventEmitter {
                 else
                     type = this.types[type];
             }
+            instance = this.getSingleton(type);
             if (instance === false) {
                 let ecc = driver.getExecution();
                 let virtualContext = ecc && ecc.popVirtualCreationContext();
@@ -610,8 +611,12 @@ class MUDModule extends events.EventEmitter {
                     return await this.createInstanceAsync(type, virtualContext, args);
                 }
 
-                if (!instanceData)
+                if (!instanceData) {
                     instanceData = this.getNewContext(type, false, args);
+                    if (instanceData.isSingleton && this.getInstanceCount(type) > 0) {
+                        throw new Error(`Type ${type.name} is marked as singleton and cannot be cloned`);
+                    }
+                }
 
                 if (!instanceData.wrapper)
                     instanceData.wrapper = this.getWrapperForContext(instanceData);
@@ -623,6 +628,7 @@ class MUDModule extends events.EventEmitter {
                 ecc.storage = store;
 
                 instance = factory ? factory(type, ...args) : new type(...args);
+                this.addInstance(instance, type, instanceData);
 
                 if (typeof this.compilerOptions.onInstanceCreated === 'function') {
                     this.compilerOptions.onInstanceCreated(instance);
@@ -633,11 +639,11 @@ class MUDModule extends events.EventEmitter {
                         return await instance.create(...args);
                     }, true, true);
                 }
+                if (store !== false && instance !== false)
+                    await driver.driverCallAsync('initStorage', async () => await store.eventInitialize(instance));
             }
-            if (store !== false && instance !== false)
-                await driver.driverCallAsync('initStorage', async () => await store.eventInitialize(instance));
 
-            return this.addInstance(instance, type, instanceData);
+            return instance;
         }
         catch (err) {
             /* rollback object creation */
@@ -691,6 +697,13 @@ class MUDModule extends events.EventEmitter {
             throw new Error(`Unexpected export value of type ${typeof spec}`);
     }
 
+    getInstanceCount(type) {
+        type = typeof type === 'string' ? type : type.name;
+        if (type in this.instancesByType) {
+            return this.instancesByType[type].length;
+        }
+    }
+
     /**
      * Get all instances for the specified types
      * @param {...string} typeList
@@ -701,11 +714,13 @@ class MUDModule extends events.EventEmitter {
         if (!Array.isArray(typeList) || typeList.length === 0)
             typeList = Object.keys(this.instanceMap);
 
-        (typeList || Object.keys(this.instanceMap)).forEach(type => {
-            let instances = this.instanceMap[type].filter(o => typeof o === 'object');
-            result.push(...instances);
+        typeList.forEach(type => {
+            let instances = this.instancesByType[type];
+            if (Array.isArray(instances) && instances.length > 0) {
+                result.push(...instances);
+            }
         });
-        return result;
+        return result.map(m => this.instancesById[m]);
     }
 
     /**
@@ -745,12 +760,12 @@ class MUDModule extends events.EventEmitter {
      * Create information required to create a new MUDObject instance.
      * @param {string|function} type The type to fetch a constructor context for.
      * @param {number} idArg Specify the instance ID.
-     * @returns {{ filename: string, uuid: string, args: any[] }} Information needed by MUDObject constructor.
+     * @returns {{ filename: string, objectId: string, args: any[], isSingleton: boolean, typeName: string }} Information needed by MUDObject constructor.
      */
     getNewContext(type, idArg, args) {
         let typeName = typeof type === 'function' ? type.name : typeof type === 'string' ? type : false,
-            objectId = driver.efuns.getNewId();
-
+            objectId = driver.efuns.getNewId(),
+            typeInfo = this.typeDefinitions[typeName];
 
         let filename = this.fullPath + '$' + typeName;
         
@@ -758,6 +773,7 @@ class MUDModule extends events.EventEmitter {
             args: args || [],
             objectId,
             filename,
+            isSingleton: typeInfo.isSingleton === true,
             module: this,
             typeName: type.name
         };
@@ -765,6 +781,19 @@ class MUDModule extends events.EventEmitter {
         result.wrapper = this.getWrapperForContext(result);
 
         return result;
+    }
+
+    getSingleton(type) {
+        let typeInfo = this.typeDefinitions[type.name];
+
+        if (typeInfo && typeInfo.isSingleton) {
+            let instances = this.instancesByType[type.name];
+
+            if (Array.isArray(instances)) {
+                return this.instancesById[instances[0]];
+            }
+        }
+        return false;
     }
 
     /**
@@ -866,17 +895,6 @@ class MUDModule extends events.EventEmitter {
     }
 
     /**
-     * Event is called after the module is re-compiled
-     * @param {boolean} isReload
-     * @param {MUDCompilerOptions} options
-     */
-    eventCreateInstances(isReload, options) {
-        if (isReload === true) {
-
-        }
-    }
-
-    /**
      * Define a new type within the module
      * @param {any} type
      */
@@ -903,8 +921,27 @@ class MUDModule extends events.EventEmitter {
      * child instances are updated as well.
      * 
      * @param {MUDCompilerOptions} options
-     */
+     */ 
     async eventRecompiled(options) {
+        if (options.noCreate === false) {
+            for (const [oid, instance] of Object.entries(this.instancesById)) {
+                let ctx = this.creationContexts[oid];
+                if (ctx && ctx.typeName in this.typeDefinitions) {
+                    let cloneOutput = `\t\t\tRe-creating instance of ${instance.filename}...`;
+
+                    try {
+                        await this.createInstanceAsync(this.types[ctx.typeName], ctx, ctx.args, false, false, true);
+                        cloneOutput += '[OK]';
+                    }
+                    catch (err) {
+                        cloneOutput += `[Error: ${err}]`;
+                    }
+                    finally {
+                        options.onDebugOutput(cloneOutput, 4);
+                    }
+                }
+            }
+        }
         if (options.reloadDependents) {
             for (const mod of this.dependents) {
                 try {
@@ -913,10 +950,10 @@ class MUDModule extends events.EventEmitter {
 
                     await fso.compileAsync(childOptions);
 
-                    options.onDebugOutput(`Updating dependent module: ${mod.filename}: [Ok]`, 3);
+                    options.onDebugOutput(`\tUpdating dependent module: ${mod.filename}: [Ok]`, 3);
                 }
                 catch (err) {
-                    options.onDebugOutput(`Updating dependent module: ${mod.filename}: Error: ${err}`, 3);
+                    options.onDebugOutput(`\tUpdating dependent module: ${mod.filename}: Error: ${err}`, 3);
                 }
             }
         }

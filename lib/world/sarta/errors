@@ -235,3 +235,991 @@ Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
 [12/10/2023, 10:55:59 AM]
 Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
 	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/12/2023, 8:26:10 AM]
+Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [Could not load /base/mixins/Listen [Module /base/mixins/Listen failed to compile due to 4 error(s) [0 warning(s)]]]]]
+Error: Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [Could not load /base/mixins/Listen [Module /base/mixins/Listen failed to compile due to 4 error(s) [0 warning(s)]]]]]
+    at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)
+    at async SimulEfuns.importAsync (/driversrc/driversrc/EFUNProxy.js:1627:34)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1199:38)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:615:32)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:547:32)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:801:36)
+    at async parseElement (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1037:24)
+    at async MudScriptTranspiler.runAsync (/driversrc/driversrc/compiler/MudScriptTranspiler.js:1672:34)
+    at async CompilerPipeline.executeAsync (/driversrc/driversrc/compiler/CompilerPipeline.js:74:21)
+    at async GameServer.driverCallAsync (/driversrc/driversrc/GameServer.js:762:22)
+    at async MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:225:13)
+
+[12/12/2023, 8:26:10 AM]
+Could not load /world/sarta/Square [Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [Could not load /base/mixins/Listen [Module /base/mixins/Listen failed to compile due to 4 error(s) [0 warning(s)]]]]]]
+Error: Could not load /world/sarta/Square [Could not load /base/Room [Could not load /base/Container [Could not load /base/GameObject [Could not load /base/mixins/Listen [Module /base/mixins/Listen failed to compile due to 4 error(s) [0 warning(s)]]]]]]
+    at MUDCompiler.compileObjectAsync (/driversrc/driversrc/MUDCompiler.js:287:31)
+
+[12/12/2023, 8:49:02 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/23/2023, 8:47:15 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:03:44 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:06:54 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:10:48 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:13:21 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:17:23 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:20:58 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:23:14 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:31:14 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:31:48 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:36:05 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:45:20 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:45:56 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:46:16 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:47:06 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:50:22 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:54:12 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:55:13 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 7:57:08 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 8:22:00 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 8:24:14 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 8:25:59 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 8:31:37 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 8:35:03 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 8:39:36 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 8:50:55 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 8:55:04 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 9:03:10 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 9:04:05 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 9:04:38 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 9:07:58 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 9:11:00 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 9:14:27 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 9:43:30 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 9:47:01 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 9:47:37 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 9:51:34 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 9:56:34 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 9:58:39 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 9:59:12 AM]
+Composite Error: Module /world/sarta/streets/northMain01 failed to compile due to 1 error(s) [0 warning(s)]
+	Syntax Error: [Line 13, Char 31]: Could not inherit unresolved class: 'Room'
+
+[12/30/2023, 9:59:12 AM]
+Could not load /world/sarta/streets/northMain01 [Module /world/sarta/streets/northMain01 failed to compile due to 1 error(s) [0 warning(s)]]
+Error: Could not load /world/sarta/streets/northMain01 [Module /world/sarta/streets/northMain01 failed to compile due to 1 error(s) [0 warning(s)]]
+
+[12/30/2023, 10:01:21 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 10:01:35 AM]
+Composite Error: Module /world/sarta/streets/northMain01 failed to compile due to 1 error(s) [0 warning(s)]
+	Syntax Error: [Line 13, Char 31]: Could not inherit unresolved class: 'Room'
+
+[12/30/2023, 10:01:35 AM]
+Could not load /world/sarta/streets/northMain01 [Module /world/sarta/streets/northMain01 failed to compile due to 1 error(s) [0 warning(s)]]
+Error: Could not load /world/sarta/streets/northMain01 [Module /world/sarta/streets/northMain01 failed to compile due to 1 error(s) [0 warning(s)]]
+
+[12/30/2023, 10:03:49 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 10:04:02 AM]
+Composite Error: Module /world/sarta/streets/northMain01 failed to compile due to 1 error(s) [0 warning(s)]
+	Syntax Error: [Line 13, Char 64]: Class member 'create' in type 'NorthMain01' masks previous implementation and must be marked as override; Defined in type 'Room' (/base/Room)
+
+[12/30/2023, 10:04:02 AM]
+Could not load /world/sarta/streets/northMain01 [Module /world/sarta/streets/northMain01 failed to compile due to 1 error(s) [0 warning(s)]]
+Error: Could not load /world/sarta/streets/northMain01 [Module /world/sarta/streets/northMain01 failed to compile due to 1 error(s) [0 warning(s)]]
+
+[12/30/2023, 10:05:51 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/30/2023, 10:33:07 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 7:52:46 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 8:01:57 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 8:09:33 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 8:15:33 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 8:16:44 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 8:23:45 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 8:24:42 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 8:32:25 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 8:35:45 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 8:40:48 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 8:50:18 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 8:56:43 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 8:57:22 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 9:02:20 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 9:03:07 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[12/31/2023, 9:03:07 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/13/2024, 9:10:54 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/13/2024, 9:24:31 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/13/2024, 9:28:40 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/13/2024, 9:35:32 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/13/2024, 9:42:17 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/13/2024, 9:43:31 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/13/2024, 9:50:51 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/14/2024, 8:25:19 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/14/2024, 8:30:36 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/14/2024, 8:31:30 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/14/2024, 8:32:26 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/14/2024, 8:37:14 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/14/2024, 8:42:25 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/14/2024, 8:43:09 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/14/2024, 8:47:22 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/14/2024, 8:51:42 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/14/2024, 8:54:27 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/14/2024, 8:57:53 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/14/2024, 9:07:44 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 8:09:34 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 8:11:30 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 8:18:52 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 8:25:51 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 8:33:39 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 8:34:43 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 8:46:28 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 8:48:23 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 8:53:26 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 8:57:00 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 10:06:37 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 10:16:54 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 10:20:28 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 10:26:03 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 7:35:56 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/15/2024, 7:40:11 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/16/2024, 8:47:35 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/16/2024, 8:48:29 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/16/2024, 8:54:01 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/16/2024, 9:00:06 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/16/2024, 9:11:22 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/16/2024, 9:13:57 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/16/2024, 11:17:31 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 7:41:08 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 7:43:13 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 9:29:57 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 9:30:55 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 9:36:40 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 9:37:07 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 10:18:25 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 10:28:30 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 10:29:34 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 10:31:37 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 10:59:14 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 10:59:43 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 11:06:41 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 11:08:18 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 11:08:42 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 11:10:07 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 11:15:59 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 11:17:20 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 11:26:06 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 11:27:55 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 11:28:35 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 11:59:24 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 12:11:58 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 12:13:25 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/17/2024, 12:18:18 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/18/2024, 7:38:27 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/18/2024, 7:42:12 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/18/2024, 7:45:02 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/18/2024, 7:48:49 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/18/2024, 7:49:04 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/18/2024, 7:49:37 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/18/2024, 7:50:53 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/18/2024, 7:51:26 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/18/2024, 9:21:17 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/18/2024, 9:23:27 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/18/2024, 9:26:39 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/18/2024, 12:50:59 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/19/2024, 10:04:02 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/19/2024, 10:04:38 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/19/2024, 10:15:18 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/19/2024, 10:31:21 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/19/2024, 10:33:01 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/19/2024, 11:36:30 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/19/2024, 11:37:33 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/20/2024, 8:24:25 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/20/2024, 8:35:20 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/20/2024, 8:52:51 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/20/2024, 8:56:01 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/20/2024, 8:57:06 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/20/2024, 9:01:13 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/20/2024, 9:03:26 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/20/2024, 9:05:21 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/20/2024, 9:08:43 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/20/2024, 9:09:31 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/20/2024, 9:15:21 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/20/2024, 2:19:18 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/21/2024, 8:10:41 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/21/2024, 8:11:59 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/21/2024, 8:13:12 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/21/2024, 8:16:04 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/21/2024, 8:31:12 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/21/2024, 8:48:48 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/21/2024, 8:54:33 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/21/2024, 7:58:09 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/21/2024, 8:00:56 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/21/2024, 8:03:07 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/21/2024, 8:13:59 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/21/2024, 8:16:44 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/22/2024, 7:38:54 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/22/2024, 7:44:14 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/22/2024, 7:46:41 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/22/2024, 7:47:41 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/22/2024, 7:49:58 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/22/2024, 7:54:21 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/22/2024, 7:56:14 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/22/2024, 8:00:54 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/22/2024, 8:04:10 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/23/2024, 8:07:12 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 8:03:18 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 8:13:03 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 8:18:05 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 8:19:10 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 8:20:34 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 8:24:52 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 8:27:38 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 8:31:02 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 8:31:44 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 9:18:26 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 9:19:56 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 9:24:03 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 9:25:11 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 9:27:53 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/24/2024, 9:28:41 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[1/29/2024, 5:18:28 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/24/2024, 9:25:11 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/24/2024, 9:30:56 AM]
+Composite Error: Module /world/sarta/classHalls/Fighter failed to compile due to 1 error(s) [0 warning(s)]
+	Syntax Error: [Line 10, Char 31]: Could not inherit unresolved class: 'Room'
+
+[2/24/2024, 9:30:56 AM]
+Could not load /world/sarta/classHalls/Fighter [Module /world/sarta/classHalls/Fighter failed to compile due to 1 error(s) [0 warning(s)]]
+Error: Could not load /world/sarta/classHalls/Fighter [Module /world/sarta/classHalls/Fighter failed to compile due to 1 error(s) [0 warning(s)]]
+
+[2/24/2024, 9:39:34 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/24/2024, 9:53:04 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 9:16:43 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 9:20:21 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 9:25:08 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 9:26:17 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 9:31:49 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 9:35:06 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 9:40:01 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 6:52:20 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 6:58:10 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 7:02:36 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 7:05:42 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 7:08:34 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 7:28:37 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 7:29:53 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 8:02:22 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 8:05:17 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 8:08:48 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 8:10:19 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 8:18:11 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 8:18:24 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 8:19:27 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 8:20:04 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 8:23:44 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 8:30:18 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 8:33:22 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 8:34:50 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/25/2024, 8:35:01 PM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/28/2024, 10:17:58 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/28/2024, 10:18:09 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/28/2024, 10:18:27 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/28/2024, 10:24:01 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/28/2024, 10:24:18 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/28/2024, 10:24:57 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/28/2024, 10:26:32 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create
+
+[2/28/2024, 10:28:56 AM]
+Composite Error: Module /world/sarta/Square compiled with 1 warning(s)
+	Warning: [Line 22, Char 9]: Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this->Room::create

@@ -3,7 +3,8 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const MemberModifiers = require("./MudscriptMemberModifiers");
+const MemberModifiers = require("./MudscriptMemberModifiers"),
+    CompilerFlags = require("./CompilerFlags");
 
 /**
  * The cached constructor name
@@ -121,6 +122,12 @@ class MUDCompilerOptions {
         this.file = options.file;
 
         /**
+         * Additional compiler flags
+         * @type {number}
+         */
+        this.flags = options.flags || CompilerFlags.None;
+
+        /**
          * Should we generate a source map file?
          * @type {boolean}
          */
@@ -137,18 +144,6 @@ class MUDCompilerOptions {
          * @type {boolean}
          */
         this.isVirtual = typeof options.isVirtual === 'boolean' ? options.isVirtual === true : false;
-
-        /**
-         * No instances are created automatically by the driver if this option is true
-         * @type {boolean}
-         */
-        this.noCreate = typeof options.noCreate === 'boolean' ? options.noCreate === true : false;
-
-        /**
-         * If true then types in the module can be modified in the runtime
-         * @type {boolean}
-         */
-        this.noSeal = typeof options.noSeal === 'boolean' ? options.noSeal === true : false;
 
         /**
          * A callback that executes when a pipeline stage completes
@@ -193,12 +188,6 @@ class MUDCompilerOptions {
         this.reload = options.reload === true;
 
         /**
-         * Should we re-compile all dependent modules?
-         * @type {boolean}
-         */
-        this.reloadDependents = typeof options.reloadDependents === 'boolean' ? options.reloadDependents === true : false;
-
-        /**
          * Should we require all class members to explicitly state their access modifier?
          * @type {boolean}
          */
@@ -225,7 +214,22 @@ class MUDCompilerOptions {
     createChildOptions(filename) {
         let clone = new MUDCompilerOptions(Object.assign({}, this, { filename, file: filename }));
 
+        if ((this.flags & CompilerFlags.OnlyCompileDependents) > 0)
+            clone.flags |= CompilerFlags.CompileOnly;
+
         return clone;
+    }
+
+    get noCreate() {
+        return (this.flags & CompilerFlags.CompileOnly) > 0;
+    }
+
+    get noSeal() {
+        return (this.flags & CompilerFlags.NoSeal) > 0;
+    }
+
+    get reloadDependents() {
+        return (this.flags & CompilerFlags.Recursive) > 0;
     }
 
     /**

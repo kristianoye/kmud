@@ -266,11 +266,8 @@ class MUDCompiler {
                 if (this.sealTypesAfterCompile && !options.noSeal) {
                     module.eventSealTypes();
                 }
-                let isReload = module.loaded;
+                let isReload = module.loaded === true;
 
-                if (!options.noCreate) {
-                    module.eventCreateInstances(isReload === true, options);
-                }
                 if (isReload)
                     await module.eventRecompiled(options);
                 else

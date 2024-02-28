@@ -13,7 +13,8 @@ const
     events = require('events'),
     SecurityFlags = require('../security/SecurityFlags');
 
-const { NotImplementedError } = require('../ErrorTypes');
+const { NotImplementedError } = require('../ErrorTypes'),
+    CompilerFlags = require('../compiler/CompilerFlags');
 
 /**
  * The interface definition for ALL filesystem types
@@ -232,11 +233,11 @@ class FileSystemObject extends events.EventEmitter {
             if (this.isDirectory)
                 return reject(`Operation not supported: ${this.fullPath} is a directory.`);
             try {
-                await driver.compiler.compileObjectAsync(Object.assign({
+                let compilerOptions = Object.assign({
                     args: [],
-                    file: this.fullPath,
                     reload: true
-                }, options));
+                }, options, { file: this.fullPath });
+                await driver.compiler.compileObjectAsync(compilerOptions);
                 resolve(true);
             }
             catch (err) {
@@ -369,18 +370,18 @@ class FileSystemObject extends events.EventEmitter {
 
     /**
      * Load an object from this file.
-     * @param {FileSystemRequest} request
+     * @param {number} flags
      * @param {any[]} args
      */
-    async loadObjectAsync(request, args) {
+    async loadObjectAsync(flags = 0, args = []) {
         return new Promise(async (resolve, reject) => {
             try {
                 if (this.isDirectory)
                     throw new Error(`Operation not supported: ${this.fullPath} is a directory.`);
-                let parts = driver.efuns.parsePath(request.fullPath),
+                let parts = driver.efuns.parsePath(this.fullPath),
                     module = driver.cache.get(parts.file),
-                    forceReload = !module || request.hasFlag(1),
-                    cloneOnly = request.hasFlag(2);
+                    forceReload = !module || (flags & 1) > 0,
+                    cloneOnly = (flags & 2) > 0;
 
                 if (forceReload) {
                     module = await driver.compiler.compileObjectAsync({
@@ -395,7 +396,7 @@ class FileSystemObject extends events.EventEmitter {
                     let clone = await module.createInstanceAsync(parts.type, false, args);
 
                     if (!clone)
-                        return reject(`loadObjectAsync(): Failed to clone object '${request.fullPath}'`);
+                        return reject(`loadObjectAsync(): Failed to clone object '${this.fullPath}'`);
 
                     return resolve(clone);
                 }
@@ -584,30 +585,35 @@ class VirtualObjectFile extends FileSystemObject {
      */
     loadObjectAsync(request, args=[]) {
         return new Promise(async (resolve, reject) => {
-            let parts = driver.efuns.parsePath(request.fullPath),
-                module = driver.cache.get(parts.file),
-                forceReload = !module || request.hasFlag(1),
-                cloneOnly = request.hasFlag(2);
+            try {
+                let parts = driver.efuns.parsePath(request.fullPath),
+                    module = driver.cache.get(parts.file),
+                    forceReload = !module || request.hasFlag(1),
+                    cloneOnly = request.hasFlag(2);
 
-            if (forceReload) {
-                module = await driver.compiler.compileObjectAsync({
-                    args,
-                    file: parts.file,
-                    isVirtual: true,
-                    reload: forceReload
-                });
-                if (!module)
-                    return reject(new Error(`Failed to load module ${fullPath}`));
+                if (forceReload) {
+                    module = await driver.compiler.compileObjectAsync({
+                        args,
+                        file: parts.file,
+                        isVirtual: true,
+                        reload: forceReload
+                    });
+                    if (!module)
+                        return reject(new Error(`Failed to load module ${fullPath}`));
+                }
+                if (cloneOnly) {
+                    let clone = await module.createInstanceAsync(parts.type, false, args);
+
+                    if (!clone)
+                        return reject(`loadObjectAsync(): Failed to clone object '${request.fullPath}'`);
+
+                    return resolve(clone);
+                }
+                return resolve(module.getInstanceWrapper(parts));
             }
-            if (cloneOnly) {
-                let clone = await module.createInstanceAsync(parts.type, false, args);
-
-                if (!clone)
-                    return reject(`loadObjectAsync(): Failed to clone object '${request.fullPath}'`);
-
-                return resolve(clone);
+            catch (err) {
+                reject(err);
             }
-            return resolve(module.getInstanceWrapper(parts));
         });
     }
 }
@@ -832,7 +838,7 @@ class FileWrapperObject extends FileSystemObject {
 
     async compileAsync(options = {}) {
         if (await this.can(SecurityFlags.P_LOADOBJECT)) {
-            return this.#instance.compileAsync(this.createSafeCompilerOptions(options));
+            return this.#instance.compileAsync(FileWrapperObject.createSafeCompilerOptions(options));
         }
         throw new Error(`Permission denied: Could not compile ${this.fullPath}`);
     }
@@ -847,9 +853,10 @@ class FileWrapperObject extends FileSystemObject {
         }
     }
 
-    createSafeCompilerOptions(options) {
+    static createSafeCompilerOptions(options) {
         return {
             file: this.fullPath,
+            flags: (options.flags || 0) & CompilerFlags.SafeFlags,
             onCompilerStageExecuted: typeof options.onCompilerStageExecuted === 'function' && options.onCompilerStageExecuted,
             onDebugOutput: typeof options.onDebugOutput === 'function' && options.onDebugOutput,
         }

@@ -703,7 +703,7 @@ class FileManager extends MUDEventEmitter {
                     targetFile = extension && await this.getFileAsync(file + extension);
 
                 if (extension && pattern.test(targetFile.fullPath)) {
-                    result = await targetFile.loadObjectAsync(request, args);
+                    result = await targetFile.loadObjectAsync(request.flags, args);
                 }
                 else if (extension) {
                     return reject(`loadObjectAsync(): Invalid file extension: ${extension}`);
@@ -714,7 +714,7 @@ class FileManager extends MUDEventEmitter {
                         let fileWithExtension = await this.getFileAsync(file + exts[i], flags);
 
                         if (fileWithExtension.exists) {
-                            result = await fileWithExtension.loadObjectAsync(request, args)
+                            result = await fileWithExtension.loadObjectAsync(request.flags, args)
                                 .catch(err => reject(err));
                             break;
                         }

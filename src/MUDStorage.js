@@ -59,9 +59,6 @@ class MUDStorage extends MUDEventEmitter {
         /** @type {number} */
         this.nextReset = 0;
 
-        /** @type {MUDObject} The owner of the storage objects */
-        this.owner = owner;
-
         /** @type {Object.<string,any>} */
         this.properties = {};
     }
@@ -296,7 +293,7 @@ class MUDStorage extends MUDEventEmitter {
      */
     async eventRestore(data) {
         if (data) {
-            let owner = unwrap(this.owner);
+            let owner = this.owner.instance;
 
             if (typeof owner.migrateData === 'function') {
                 owner.migrateData(data);
@@ -462,6 +459,16 @@ class MUDStorage extends MUDEventEmitter {
         this.flag(MUDStorageFlags.PROP_LIVING, flag !== false);
     }
 
+    #owner;
+
+    get owner() {
+        return this.#owner;
+    }
+
+    set owner(ownerObject) {
+        this.#owner = ownerObject;
+    }
+
     get player() {
         return this.hasFlag(MUDStorageFlags.PROP_ISPLAYER);
     }
@@ -501,7 +508,7 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     get thisObject() {
-        return unwrap(this.owner);
+        return this.owner.instance;
     }
 
     get wizard() {
@@ -684,6 +691,10 @@ class MUDStorageContainer {
     }
 
     createForId(objectId, filename) {
+        //  If this is a reload, then the storage should already exist
+        if (objectId in this.storage) {
+            return this.storage[objectId];
+        }
         return this.storage[objectId] = new MUDStorage(filename);
     }
 

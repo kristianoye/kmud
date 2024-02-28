@@ -8,6 +8,7 @@ const
     { NetUtil } = require('./network/NetUtil'),
     { LinkedList, LinkedListWithID, LinkedListWithLookup } = require('./LinkedList'),
     MUDObject = require('./MUDObject'),
+    CompilerFlags = require('./compiler/CompilerFlags'),
     async = require('async');
 
 
@@ -523,8 +524,7 @@ class GameServer extends MUDEventEmitter {
                         err = false;
                     try {
                         let file = await this.fileManager.getObjectAsync(filename);
-                        await file.compileAsync()
-                            .catch(_ => err = _);
+                        await file.loadObjectAsync();
                     }
                     catch (e) {
                         err = e;
@@ -573,7 +573,7 @@ class GameServer extends MUDEventEmitter {
                 if (this.simulEfunPath) {
                     let module = await this.compiler.compileObjectAsync({
                         file: this.simulEfunPath,
-                        noCreate: true,
+                        flags: CompilerFlags.CompileOnly,
                         altParent: require('./EFUNProxy'),
                         noSeal: true
                     });

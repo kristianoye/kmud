@@ -1,7 +1,13 @@
-﻿const
+﻿/*
+ * Written by Kris Oye <kristianoye@gmail.com>
+ * Copyright (C) 2017.  All rights reserved.
+ * Date: October 1, 2017
+ */
+const
     PipeContext = require('./PipelineContext'),
     PipelineComponent = require('./PipelineComponent'),
-    MUDCompilerOptions = require('./MUDCompilerOptions');
+    MUDCompilerOptions = require('./MUDCompilerOptions'),
+    PipelineContext = PipeContext.PipelineContext;
 
 class CompilerPipeline
 {
@@ -57,21 +63,15 @@ class CompilerPipeline
                 options.onPipelineStage(component.name, i, max);
 
                 if (component.enabled) {
-                    //  Listen for important events
-                    //component.eventNames().forEach(eventName => {
-                    //    switch (eventName) {
-                    //        case 'compiler':
-                    //            component.once(eventName, /** @param {MUDError[]} errors */ async errors => {
-                    //                if (Array.isArray(errors) && errors.length > 0) {
-                    //                    for (const err of errors) {
-                    //                        await driver.callApplyAsync(driver.applyLogError.name, options.file, err);
-                    //                    }
-                    //                }
-                    //            });
-                    //            break;
-                    //    }
-                    //});
                     await component.runAsync(context, options, i, max);
+                    if (typeof options.onCompilerStageExecuted === 'function') {
+                        if (efuns.isAsync(options.onCompilerStageExecuted)) {
+                            await options.onCompilerStageExecuted(context.fullPath, i, max, context.content, false);
+                        }
+                        else {
+                            options.onCompilerStageExecuted(context.fullPath, i, max, context.content, false);
+                        }
+                    }
                 }
                 else {
                     options.onDebugOutput(`\tPipeline ${this.name} is skipping disabled pipeline step #${(i + 1)}`, 3);
@@ -80,6 +80,14 @@ class CompilerPipeline
             catch (err) {
                 context.addError(err);
                 options.onDebugOutput(`\tPipeline ${this.name} [${this.pipeline.length} stage(s)] finished with error: ${err}`, 2);
+                if (typeof options.onCompilerStageExecuted === 'function') {
+                    if (efuns.isAsync(options.onCompilerStageExecuted)) {
+                        await options.onCompilerStageExecuted(context.fullPath, i, max, context.content, err);
+                    }
+                    else {
+                        options.onCompilerStageExecuted(context.fullPath, i, max, context.content, err);
+                    }
+                }
                 return context.update(PipeContext.CTX_ERRORED);
             }
         }

@@ -6,7 +6,8 @@
  * Various object-related efuns
  */
 
-const MUDObject = require("../MUDObject");
+const MUDObject = require("../MUDObject"),
+    CompilerFlags = require("../compiler/CompilerFlags");
 
 class ObjectHelper {
     /**
@@ -42,6 +43,10 @@ class ObjectHelper {
         return driver.fileManager.loadObjectAsync();
     }
 
+    static get compilerFlags() {
+        return CompilerFlags;
+    }
+
     static getLoadededModules(filter = undefined) {
         let result = driver.cache.moduleNames.slice(0);
         if (typeof filter === 'function')
@@ -73,14 +78,12 @@ class ObjectHelper {
     static getObjects(filter = undefined) {
         let result = [];
 
-        driver.cache.moduleNames.forEach(filename => {
-            let module = driver.cache.get(filename),
-                instances = module.getInstances();
+        driver.cache.forEach(module => {
+            let instances = module.getInstances();
 
             if (instances.length)
                 result.push(...instances);
         });
-
         if (typeof filter === 'function')
             return result.filter(s => filter(s) !== false);
 
@@ -114,7 +117,7 @@ class ObjectHelper {
             if (typeof expr === 'function' && expr.isWrapper)
                 return expr;
             else if (expr instanceof MUDObject)
-                return global.wrap(expr);
+                return expr.wrapper;
         }
         let result = await driver.fileManager.loadObjectAsync(driver.efuns.resolvePath(expr), args);
         return result;

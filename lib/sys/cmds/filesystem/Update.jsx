@@ -6,14 +6,15 @@
 import { LIB_COMMAND } from 'Base';
 import Command from LIB_COMMAND;
 
+const CompilerFlags = efuns.objects.compilerFlags;
 
 export default singleton class UpdateCommand extends Command {
     override async cmd(text, input) {
         if (input.args.length === 0) {
-            let env = unwrap(thisPlayer().environment);
+            let env = thisPlayer().environment.instance;
 
             if (!env)
-                return error('You do not have an environment!');
+                return error('You appear to be in the void!');
 
             input.args.unshift(env.filename);
         }
@@ -29,7 +30,7 @@ export default singleton class UpdateCommand extends Command {
              * Options to pass to the compiler
              * @type {number}
              */
-            flags: 0,
+            flags: CompilerFlags.None,
 
             /**
              * Optional path to save intermediate output to
@@ -46,7 +47,7 @@ export default singleton class UpdateCommand extends Command {
             createCompilerOptions: function (file, opts) {
                 return Object.assign({}, opts, {
                     file,
-                    onCompilerStage: function () { },
+                    onCompilerStageExecuted: function () { },
                     onDebugOutput: (msg, level) => {
                         if (level <= this.verbose)
                             writeLine(msg);
@@ -65,7 +66,7 @@ export default singleton class UpdateCommand extends Command {
                         .split('')
                         .filter(s => s.length === 1);
 
-                    for (let j = 0; j < switches.length; j++) {
+                    for (let j = 0, max = switches.length; j < max; j++) {
                         switch (switches[j]) {
                             case 'h':
                                 return this.showHelp();
@@ -83,15 +84,27 @@ export default singleton class UpdateCommand extends Command {
                                 break;
 
                             case 'c':
-                                options.noCreate = true;
+                                options.flags |= CompilerFlags.CompileOnly;
                                 break;
 
                             case 'r':
-                                options.reloadDependents = true;
+                                options.flags |= CompilerFlags.Recursive;
                                 break;
 
                             case 'v':
+                                if (j + 1 < max) {
+                                    let tmp = parseInt(switches[j + 1]);
+                                    if (!isNaN(tmp)) {
+                                        options.verbose = tmp;
+                                        j++;
+                                        break;
+                                    }
+                                }
                                 options.verbose++;
+                                break;
+
+                            case 'x':
+                                options.flags |= CompilerFlags.OnlyCompileDependents;
                                 break;
 
                             default:
@@ -108,20 +121,38 @@ export default singleton class UpdateCommand extends Command {
                             if (++i === max)
                                 return `Update: Option ${arg} requires parameter [path]`;
                             else {
-                                let
-                                    savePath = efuns.resolvePath(fn, thisPlayer().workingDirectory),
-                                    saveDir = await efuns.fs.getDirectoryAsync(savePath);
+                                let savePath = efuns.resolvePath(input.args[i], thisPlayer().workingDirectory);
 
-                                options.intermediate = saveDir;
+                                /**
+                                 * 
+                                 * @param {string} fullPath
+                                 * @param {number} stage
+                                 * @param {number} maxStages
+                                 * @param {string} source
+                                 * @param {Error} err
+                                 */
+                                options.onCompilerStageExecuted = async (fullPath, stage, maxStages, source, err) => {
+                                    if (err === false) {
+                                        let filename = fullPath.split('/').pop(),
+                                            outputFilename = `${savePath}/${filename}.${stage}`,
+                                            outputFile = efuns.fs.getFileAsync(outputFilename);
+
+                                        await outputFile.writeFileAsync(source);
+                                    }
+                                };
                             }
                             break;
 
                         case '--no-create':
-                            options.noCreate = true;
+                            options.flags |= CompilerFlags.CompileOnly;
+                            break;
+
+                        case '--no-create-deps':
+                            options.flags |= CompilerFlags.OnlyCompileDependents;
                             break;
 
                         case '--update-deps':
-                            options.reloadDependents = true;
+                            options.flags |= CompilerFlags.Recursive;
                             break;
 
                         case '--verbose':
@@ -181,10 +212,13 @@ Options:
     -c, --no-create
         Do not (re-)create instances after recompile.
 
+    -x, --no-create-deps
+        Do not (re-)create dependent instances after recompile.
+
     -r, --update-deps
         Automatically update dependencies as well (recursively).
 
-    -v, --verbose
+    -v[0-5], --verbose
         Displays verbose output from the compiler.  Specify multiple times
         to increase verbosity.  e.g. update -vvv (debug level 3)
 `);
