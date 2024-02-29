@@ -402,7 +402,7 @@ class MUDModule extends events.EventEmitter {
         this.instancesById = {};
 
         /**
-         * @type {Object.<string,MUDObject[]}
+         * @type {Object.<string,string[]}
          */
         this.instancesByType = {};
 
@@ -599,7 +599,6 @@ class MUDModule extends events.EventEmitter {
                 else
                     type = this.types[type];
             }
-            instance = this.getSingleton(type);
             if (instance === false) {
                 let ecc = driver.getExecution();
                 let virtualContext = ecc && ecc.popVirtualCreationContext();
@@ -613,9 +612,6 @@ class MUDModule extends events.EventEmitter {
 
                 if (!instanceData) {
                     instanceData = this.getNewContext(type, false, args);
-                    if (instanceData.isSingleton && this.getInstanceCount(type) > 0) {
-                        throw new Error(`Type ${type.name} is marked as singleton and cannot be cloned`);
-                    }
                 }
 
                 if (!instanceData.wrapper)
@@ -765,7 +761,17 @@ class MUDModule extends events.EventEmitter {
     getNewContext(type, idArg, args) {
         let typeName = typeof type === 'function' ? type.name : typeof type === 'string' ? type : false,
             objectId = driver.efuns.getNewId(),
-            typeInfo = this.typeDefinitions[typeName];
+            typeInfo = this.typeDefinitions[typeName],
+            isSingleton = typeInfo.isSingleton === true;
+
+        if (isSingleton && typeName in this.instancesByType) {
+            let currentId = this.instancesByType[typeName][0] || false,
+                context = currentId && this.creationContexts[currentId];
+            if (context) {
+                context.args = args || context.args;
+                return context;
+            }
+        }
 
         let filename = this.fullPath + '$' + typeName;
         
@@ -773,7 +779,7 @@ class MUDModule extends events.EventEmitter {
             args: args || [],
             objectId,
             filename,
-            isSingleton: typeInfo.isSingleton === true,
+            isSingleton,
             module: this,
             typeName: type.name
         };

@@ -45,14 +45,14 @@ export default singleton class UpdateCommand extends Command {
             verbose: 0,
 
             createCompilerOptions: function (file, opts) {
-                return Object.assign({}, opts, {
+                return Object.assign({
                     file,
                     onCompilerStageExecuted: function () { },
                     onDebugOutput: (msg, level) => {
                         if (level <= this.verbose)
                             writeLine(msg);
                     }
-                });
+                }, opts);
             }
         };
 
@@ -75,11 +75,25 @@ export default singleton class UpdateCommand extends Command {
                                 if (++i === max)
                                     return `Update: Option ${arg} requires parameter [path]`;
                                 else {
-                                    let
-                                        savePath = efuns.resolvePath(fn, thisPlayer().workingDirectory),
-                                        saveDir = await efuns.fs.getDirectoryAsync(savePath);
+                                    let savePath = efuns.resolvePath(input.args[i], thisPlayer().workingDirectory);
 
-                                    options.intermediate = saveDir;
+                                    /**
+                                     * 
+                                     * @param {string} fullPath
+                                     * @param {number} stage
+                                     * @param {number} maxStages
+                                     * @param {string} source
+                                     * @param {Error} err
+                                     */
+                                    options.onCompilerStageExecuted = async (fullPath, stage, maxStages, source, err) => {
+                                        if (err === false) {
+                                            let filename = fullPath.split('/').pop(),
+                                                outputFilename = `${savePath}/${filename}.${stage}`,
+                                                outputFile = await efuns.fs.getFileAsync(outputFilename);
+
+                                            await outputFile.writeFileAsync(source);
+                                        }
+                                    };
                                 }
                                 break;
 
@@ -135,7 +149,7 @@ export default singleton class UpdateCommand extends Command {
                                     if (err === false) {
                                         let filename = fullPath.split('/').pop(),
                                             outputFilename = `${savePath}/${filename}.${stage}`,
-                                            outputFile = efuns.fs.getFileAsync(outputFilename);
+                                            outputFile = await efuns.fs.getFileAsync(outputFilename);
 
                                         await outputFile.writeFileAsync(source);
                                     }
