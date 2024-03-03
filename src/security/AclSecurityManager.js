@@ -254,6 +254,40 @@ class SecurityAcl {
         return result;
     }
 
+    async getPermString(tp, fullPath) {
+        let perms = await this.getEffectivePermissions(),
+            result = 0;
+
+        //  Silently inject wildcard perms
+        securityManager.applyWildcardAcls(perms);
+
+        /** @type {{ userId: string, groups: string[] }} */
+        let $creds = tp.$credential;
+
+        //  Owner always succeeds
+        if (this.owner === $creds.userId)
+            result = SecurityFlags.P_ALL;
+
+        //  System group always succeeds
+        else if (securityManager.systemGroupName && $creds.groups.indexOf(securityManager.systemGroupName) > -1)
+            result = SecurityFlags.P_ALL;
+        else {
+            //  Calculate effective permissions
+            for (const [id, data] of Object.entries(perms)) {
+                if ($creds.groups.indexOf(id) > -1)
+                    result |= data.perms;
+            }
+            if (await driver.callApplyAsync(driver.applyValidRead, fullPath, tp, 'getPermString')) {
+                result |= SecurityFlags.P_READ;
+            }
+            if (await driver.callApplyAsync(driver.applyValidWrite, fullPath, tp, 'getPermString')) {
+                result |= SecurityFlags.P_WRITE;
+            }
+        }
+        let stringResult = SecurityFlags.permsString(result);
+        return stringResult;
+    }
+
     /**
      * Save the ACL data to file
      */
@@ -785,6 +819,27 @@ class AclSecurityManager extends BaseSecurityManager {
             }
             return (this.credentials[result.UserId] = new AclSecurityCredential(this, result));
         }, __filename, true, true);
+    }
+
+    /**
+     * Retrieve the owner name of a particular file
+     * @param {FileSystemObject} fo The file object to retreve ownership info for
+     * @returns {string} Returns the name of the file owner
+     */
+    async getOwnerName(fo) {
+        let acl = await this.getAcl(fo);
+        return acl ? acl.owner : 'unknown';
+    }
+
+    /**
+     * Get a string representing the specified player's access
+     * @param {object} fo
+     * @param {any} tp
+     * @returns {string} Returns a string indicating individual permissions
+     */
+    async getPermString(fo, tp) {
+        let acl = await this.getAcl(fo);
+        return acl ? acl.getPermString(tp, fo.fullPath) : 'unknown';
     }
 
     /**

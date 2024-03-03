@@ -559,7 +559,7 @@ class ExecutionContext extends events.EventEmitter {
 
                 if (player) {
                     /** @type {CommandShellOptions} */
-                    let result = await player.applyGetShellSettingsAsync(verb);
+                    let result = await player.getShellSettings(verb);
 
                     result.allowAliases = result.allowAliases || !!result.aliases;
                     result.allowHistory = result.allowHistory || !!result.history;

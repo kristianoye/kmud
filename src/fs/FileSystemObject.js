@@ -148,6 +148,11 @@ class FileSystemObject extends events.EventEmitter {
         return this.#fileInfo.isFIFO || false;
     }
 
+    get isLoaded() {
+        let result = driver.cache.get(this.fullPath);
+        return !!result;
+    }
+
     get isReadOnly() {
         return this.#fileInfo.isReadOnly === true;
     }
@@ -192,6 +197,10 @@ class FileSystemObject extends events.EventEmitter {
         return this.#fileInfo.name;
     }
 
+    async getOwnerName() {
+        return await driver.securityManager.getOwnerName(this);
+    }
+
     get parent() {
         //  Special case for root
         if (this.#fileInfo.path === '/')
@@ -203,6 +212,10 @@ class FileSystemObject extends events.EventEmitter {
     /** @type {string} */
     get path() {
         return this.#fileInfo.path;
+    }
+
+    async getPermString(tp = false) {
+        return await driver.securityManager.getPermString(this, tp || driver.efuns.thisPlayer());
     }
 
     get rdev() {
@@ -816,7 +829,7 @@ class FileWrapperObject extends FileSystemObject {
     // #region Methods
 
     async appendFileAsync(content, options = { encoding: 'utf8' }) {
-        if (await this.can(SecurityFlags.P_APPEND)) {
+        if (await this.can(SecurityFlags.P_WRITE)) {
             return this.#instance.appendFileAsync(content, options);
         }
     }

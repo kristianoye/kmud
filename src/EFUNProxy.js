@@ -507,7 +507,7 @@ class EFUNProxy {
                 catch (ee) {
                     /* rollback failed, too... destroy them all */
                     this.writeLine('Sorry things did not work out.');
-                    component.disconnect();
+                    await component.disconnect();
                 }
                 throw e;
             }

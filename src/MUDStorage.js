@@ -108,7 +108,7 @@ class MUDStorage extends MUDEventEmitter {
      */
     eventDestroy(...args) {
         if (!this.destroyed) {
-            let filename = this.owner.filename;
+            let filename = this.owner.trueName || this.owner.filename;
 
             let parts = efuns.parsePath(filename),
                 module = driver.cache.get(parts.file);
@@ -135,6 +135,14 @@ class MUDStorage extends MUDEventEmitter {
             }
 
             this.destroyed = module.destroyInstance(this.owner);
+            if (typeof this.owner.eventDestroy === 'function') {
+                try {
+                    this.owner.eventDestroy();
+                }
+                catch (x) {
+
+                }
+            }
             driver.storage.delete(this.owner);
             this.owner = false;
 
@@ -203,7 +211,7 @@ class MUDStorage extends MUDEventEmitter {
                 await driver.driverCallAsync('connect', async context => {
                     return await context.withPlayerAsync(this, async player => {
                         return await driver.driverCallAsync('connect', async () => {
-                            let shellSettings = typeof player['getShellSettings'] === 'function' ? player.getShellSettings() : false;
+                            let shellSettings = typeof player['getShellSettings'] === 'function' ? await player.getShellSettings() : false;
                             this.shell.update(shellSettings || {});
                             await player.connect(...args);
                         });

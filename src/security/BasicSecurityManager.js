@@ -12,8 +12,7 @@ const
     SecurityFlags = require('./SecurityFlags'),
     BasicFlags = Object.freeze({
         P_WRITELIKE:
-            SecurityFlags.P_APPEND
-            | SecurityFlags.P_CHANGEPERMS
+            SecurityFlags.P_CHANGEPERMS
             | SecurityFlags.P_CREATEDIR
             | SecurityFlags.P_CREATEFILE
             | SecurityFlags.P_DELETE

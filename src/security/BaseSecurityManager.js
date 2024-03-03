@@ -89,6 +89,25 @@ class BaseSecurityManager extends EventEmitter {
         return false;
     }
 
+    /**
+     * Retrieve the owner name of a particular file
+     * @param {object} fo The file object to retreve ownership info for
+     * @returns {string} Returns the name of the file owner
+     */
+    async getOwnerName(fo) {
+        throw new NotImplementedError('getOwnerName');
+    }
+
+    /**
+     * Get a string representing the specified player's access
+     * @param {object} fo
+     * @param {any} tp
+     * @returns {string} Returns a string indicating individual permissions
+     */
+    async getPermString(fo, tp) {
+        throw new NotImplementedError('getPermString');
+    }
+
     // #region Security valid* Applies
 
     /**

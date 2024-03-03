@@ -45,7 +45,7 @@ class HtmlLogin extends MUDObject {
         this.enterUsername();
     }
 
-    private disconnect(reason) {
+    private async disconnect(reason) {
         reason && writeLine(reason);
         efuns.destruct(this);
     }
@@ -62,7 +62,7 @@ class HtmlLogin extends MUDObject {
                         }
                     });
                     await efuns.exec(this, player);
-                    efuns.destruct(this);
+                    await efuns.destruct(this);
                 });
             }
             else {
@@ -79,7 +79,7 @@ class HtmlLogin extends MUDObject {
         prompt(Inputs.InputTypePassword, opts, async (pwd) => {
             if (!efuns.checkPassword(pwd, playerData.properties['/base/Player'].password)) {
                 if (--attemptsLeft === 0) {
-                    destruct();
+                    await destruct();
                 }
                 else
                     return this.enterPassword(name, playerData, { error: 'Password incorrect' }, attemptsLeft);
@@ -109,7 +109,7 @@ class HtmlLogin extends MUDObject {
                                     }
                                 });
                                 player.writeLine('Reconnected');
-                                efuns.destruct(this);
+                                await efuns.destruct(this);
                             });
                         });
                     }
@@ -269,7 +269,7 @@ class HtmlLogin extends MUDObject {
                 });
                 if (oldBody === newPlayer) {
                     writeLine('Oops, sorry.  Your body was not ready for you!  Tell someone to fix this.');
-                    return efuns.destruct(this);
+                    return await efuns.destruct(this);
                 }
                 await newPlayer->movePlayerAsync('/world/sarta/Square');
             });

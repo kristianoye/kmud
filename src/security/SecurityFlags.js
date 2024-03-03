@@ -2,8 +2,8 @@ const
     SecurityFlags = Object.freeze({
         /** May read the contents of an object */
         P_READ: 1 << 0,
-        /** May write/overwrite the object; Also see P_APPEND */
-        P_WRITE: 1 << 1 | 1 << 16,
+        /** May write/overwrite the object */
+        P_WRITE: 1 << 1,
         /** May delete the object */
         P_DELETE: 1 << 2,
         /** May delete this directory */
@@ -32,8 +32,49 @@ const
         P_EXECUTE: 1 << 14,
         /** Can the user destruct the objects created from the module? */
         P_DESTRUCTOBJECT: 1 << 15,
-        /** May append but may not be able to truncate */
-        P_APPEND: 1 << 16
+        /** All possible permissions */
+        P_ALL: 0xffff,
+
+        permsString: (x) => {
+            let result = '';
+
+            if ((x & SecurityFlags.P_LISTDIR) && (x & SecurityFlags.P_READ))
+                result += 'R';
+            else if ((x & SecurityFlags.P_READ))
+                result += 'r';
+            else
+                result += '-';
+
+            if ((x & SecurityFlags.P_CREATEFILE) && (x & SecurityFlags.P_CREATEDIR))
+                result += 'C';
+            else if ((x & SecurityFlags.P_CREATEFILE))
+                result += 'c';
+            else
+                result += '-';
+
+            if ((x & SecurityFlags.P_DELETEDIR) && (x & SecurityFlags.P_DELETE))
+                result += 'D';
+            else if ((x & SecurityFlags.P_DELETE))
+                result += 'd';
+            else
+                result += '-';
+
+            if ((x & SecurityFlags.P_READMETADATA) && (x & SecurityFlags.P_WRITEMETADATA))
+                result += 'M';
+            else if ((x & SecurityFlags.P_READMETADATA))
+                result += 'm';
+            else
+                result += '-';
+
+            result += (x & SecurityFlags.P_WRITE) > 0 ? 'w' : '-';
+            result += (x & SecurityFlags.P_EXECUTE) > 0 ? 'x' : '-';
+            result += (x & SecurityFlags.P_TAKEOWNERSHIP) > 0 ? 'O' : '-';
+            result += (x & SecurityFlags.P_CHANGEPERMS) > 0 ? 'P' : '-';
+            result += (x & SecurityFlags.P_LOADOBJECT) > 0 ? 'L' : '-';
+            result += (x & SecurityFlags.P_DESTRUCTOBJECT) > 0 ? 'U' : '-';
+
+            return result;
+        }
     });
 
 module.exports = SecurityFlags;
