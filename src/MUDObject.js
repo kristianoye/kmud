@@ -201,7 +201,7 @@ class MUDObject extends MUDEventEmitter {
     setContainer(target, cb) {
         let $storage = driver.storage.get(this),
             env = $storage.environment,
-            newEnv = wrapper(target),
+            newEnv = target.wrapper,
             result = false;
 
         if (newEnv) {
@@ -214,12 +214,6 @@ class MUDObject extends MUDEventEmitter {
             cb.call(self, newEnv, env);
         }
         return this;
-    }
-
-    get wrapper() {
-        let parts = driver.efuns.parsePath(this.filename),
-            module = driver.cache.get(parts.file);
-        return module && module.getInstanceWrapper(parts);
     }
 
     write(msg) {

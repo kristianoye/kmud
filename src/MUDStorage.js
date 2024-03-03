@@ -118,8 +118,10 @@ class MUDStorage extends MUDEventEmitter {
             if (this.component)
                 this.eventExec(false, ...args);
 
-            if (this.environment)
-                this.owner.emit('kmud.item.removed', this.environment);
+            if (this.environment) {
+                let store = driver.storage.get(this.environment);
+                store && store.removeInventory(this.owner);
+            }
 
             if (this.player) this.player = false;
             if (this.living) this.living = false;
@@ -670,7 +672,7 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     removeInventory(item) {
-        let index = this.$inventory.findIndex(o => unwrap(item) === unwrap(o));
+        let index = this.$inventory.findIndex(o => item.objectId === o.objectId);
         let result = index > -1 ? this.$inventory.splice(index, 1) : false;
         return !!result;
     }
