@@ -600,6 +600,16 @@ class CommandShell extends events.EventEmitter {
         }
     }
 
+    #options;
+
+    get options() {
+        return this.#options;
+    }
+
+    set options(o) {
+        this.#options = o;
+    }
+
     /**
      * Returns the unwrapped reference to the player
      */

@@ -78,11 +78,12 @@ class EFUNProxy {
      * @param {function} callback The callback that executes when the action is triggered.
      */
     addAction(verb, callback) {
+        let prevObject = this.previousObject(),
+            thisObject = this.thisObject();
         let frame = driver.pushFrame({ method: 'addAction', callType: CallOrigin.DriverEfun });
+
         try {
-            let prevObject = this.previousObject(),
-                thisObject = this.thisObject(),
-                storage = driver.storage.get(prevObject);
+            let storage = driver.storage.get(prevObject);
 
             if (prevObject) {
                 storage.actionBinder.bindAction(verb, thisObject, callback);

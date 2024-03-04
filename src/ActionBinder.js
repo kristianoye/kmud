@@ -46,7 +46,7 @@ class ActionEntry {
             else
                 result = entry.callback.apply(entry.target(), [evt.text, evt]);
 
-            if (result === true) return true;
+            return result;
         }
         return false;
     }
@@ -119,8 +119,8 @@ class ActionBinder {
     async tryAction(evt) {
         let action = this.getAction(evt.verb);
 
-        if (action && await action.execute(evt))
-            return true;
+        if (action)
+            return await action.execute(evt);
         else
             return false;
     }
