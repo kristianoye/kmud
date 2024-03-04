@@ -502,6 +502,17 @@ class TelnetSocket extends EventEmitter {
                                 }
                             }
                             break;
+
+                        case Opts.OPT_NAWS:
+                            {
+                                let naws = {
+                                    width: inputbuf.readInt16BE(i),
+                                    height: inputbuf.readInt16BE(i + 2)
+                                };
+                                this.emit('window size', naws);
+                                i += 4;
+                            }
+                            break;
                     }
                     break;
 
@@ -517,12 +528,6 @@ class TelnetSocket extends EventEmitter {
                          * @param {*} gmcpData
                          */
                         this.emit('GMCP', gmcpPackage, gmcpData);
-                    }
-                    else if (subnegOpt === Opts.OPT_NAWS) {
-                        this.emit('window size', {
-                            width: subnegBuffer.readInt16BE(0),
-                            height: subnegBuffer.readInt16BE(2)
-                        });
                     }
                     else if (subnegOpt === Opts.OPT_LINEMODE) {
                         console.log('LineMode');
