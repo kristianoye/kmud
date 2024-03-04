@@ -419,16 +419,16 @@ class LinkedListWithLookup extends LinkedList {
             if (keys.length === 0)
                 return undefined;
             else if (keys.length === 1) {
-                let result = this.this.hashLookup[keys[0]];
-                return result.length === 1 ? result[0] : result;
+                let result = this.hashLookup[keys[0]];
+                return result.length === 1 ? this.at(result[0]) : result.map(i => this.at(i));
             }
             else {
                 let result = [];
                 keys.forEach(key => {
-                    let result = this.this.hashLookup[key];
+                    let result = this.hashLookup[key];
                     result.push(...result);
                 });
-                return result;
+                return result.map(i => this.at(i));
             }
         }
         else {

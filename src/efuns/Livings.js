@@ -67,44 +67,44 @@ class LivingsHelper {
 
     /**
      * Attempt to find a living object by name
-     * @param {any} name
-     * @param {any} allowPartial
+     * @param {string} name
+     * @param {boolean} allowPartial
      */
     static findLiving(name, allowPartial = false) {
         let result = driver.livingObjects
             .find(efuns.normalizeName(name), allowPartial);
 
         return Array.isArray(result) ?
-            result.map(s => unwrap(s.owner)) :
-            unwrap(result);
+            result.map(s => s.owner.instance) :
+            result && result.owner && result.owner.instance;
     }
 
     /**
      * Attempt to find a player object by name
-     * @param {any} name
-     * @param {any} allowPartial
+     * @param {string} name
+     * @param {boolean} allowPartial
      */
     static findPlayer(name, allowPartial = false) {
         let result = driver.playerObjects
             .find(efuns.normalizeName(name), allowPartial);
 
-        return Array.isArray(result) && allowPartial === true ?
-            result.map(s => unwrap(s.owner)) :
-            !Array.isArray(result) && unwrap(result.owner);
+        return Array.isArray(result) ?
+            result.map(s => s.owner.instance) :
+            result && result.owner && result.owner.instance;
     }
 
     /**
      * Attempt to find a player object by name
-     * @param {any} name
-     * @param {any} allowPartial
+     * @param {string} name
+     * @param {boolean} allowPartial
      */
     static findWizard(name, allowPartial = false) {
         let result = driver.wizardObjects
             .find(efuns.normalizeName(name), allowPartial);
 
-        return Array.isArray(result) && allowPartial === true ?
-            result.map(s => unwrap(s.owner)) :
-            !Array.isArray(result) && unwrap(result.owner);
+        return Array.isArray(result) ?
+            result.map(s => s.owner.instance) :
+            result && result.owner && result.owner.instance;
     }
 
     /**
@@ -113,7 +113,7 @@ class LivingsHelper {
      * @returns {boolean} Returns true if the object has a periodic heartbeat.
      */
     static hasHeartbeat(target) {
-        let ob = unwrap(target);
+        let ob = target.instance;
         if (ob) {
             let store = driver.storage.get(ob);
             return !!store && store.heartbeat;
@@ -126,7 +126,7 @@ class LivingsHelper {
      * @param {any} target
      */
     static isAlive(target) {
-        let ob = unwrap(target);
+        let ob = target.instance;
         if (ob) {
             let store = driver.storage.get(ob);
             return !!store && store.living;
@@ -140,7 +140,7 @@ class LivingsHelper {
      * @returns {boolean} Returns true if the object has an active client
      */
     static isConnected(target) {
-        let ob = typeof target === 'object' ? target : unwrap(target);
+        let ob = target.instance;
         if (ob) {
             let store = driver.storage.get(ob);
             return !!store && store.connected;
@@ -154,7 +154,7 @@ class LivingsHelper {
      * @returns {boolean} Returns true if the object is interactive
      */
     static isInteractive(target) {
-        let store = driver.storage.get(target);
+        let store = driver.storage.get(target.instance);
         return !!store && store.interactive;
     }
 

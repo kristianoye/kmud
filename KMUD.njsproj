@@ -414,6 +414,7 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="lib\cmds\arch\placeholder.txt" />
+    <Content Include="lib\cmds\creator\Goto.js" />
     <Content Include="lib\docs\.mudlib.json">
       <SubType>Code</SubType>
     </Content>
