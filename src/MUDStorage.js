@@ -68,10 +68,13 @@ class MUDStorage extends MUDEventEmitter {
      * @type {ActionBinder}
      */
     get actionBinder() {
-        if (!this.actions) {
-            this.actions = new ActionBinder();
+        if (this.living) {
+            if (!this.actions) {
+                this.actions = new ActionBinder();
+            }
+            return this.actions;
         }
-        return this.actions;
+        return false;
     }
 
     /**
@@ -91,7 +94,9 @@ class MUDStorage extends MUDEventEmitter {
                 try {
                     result = await player.executeCommand(cmd);
                     if (result !== true && this.actions) {
-                        result = this.actions.tryAction(cmd);
+                        let actionResult = await this.actions.tryAction(cmd);
+                        if (typeof actionResult === 'boolean' || typeof actionResult === 'string')
+                            result = actionResult;
                     }
                     return result;
                 }
@@ -316,7 +321,7 @@ class MUDStorage extends MUDEventEmitter {
                 for (let i = 0; i < data.inventory.length; i++) {
                     try {
                         let item = await driver.efuns.restoreObjectAsync(data.inventory[i]);
-                        await item.moveObject(owner);
+                        await item.moveObjectAsync(owner);
                     }
                     catch (e) {
                         this.shell.stderr.writeLine(`* Failed to load object ${data.inventory[i].$type}`);
@@ -657,23 +662,30 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     leaveEnvironment() {
-        unwrap(this.environment, env => {
+        let env = this.environment.instance;
+
+        if (env) {
             let store = driver.storage.get(env);
 
             if (store && store.removeInventory(this.owner)) {
-                if (this.actions) {
-                    store.inventory.forEach(inv => {
-                        this.actionBinder.unbindActions(inv);
-                    });
-                    this.actionBinder.unbindActions(this.environment);
+                let actionBinder = this.actionBinder;
+                if (actionBinder) {
+                    actionBinder.clear();
                 }
             }
-        })
+        }
+        return true;
     }
 
     removeInventory(item) {
         let index = this.$inventory.findIndex(o => item.objectId === o.objectId);
         let result = index > -1 ? this.$inventory.splice(index, 1) : false;
+
+        for (const item of this.$inventory) {
+            let store = driver.storage.get(item.instance);
+            if (store && store.living)
+                store.actionBinder.unbindActions(item);
+        }
         return !!result;
     }
 

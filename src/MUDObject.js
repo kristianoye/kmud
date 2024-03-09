@@ -6,9 +6,6 @@
 const
     MUDEventEmitter = require('./MUDEventEmitter');
 
-var
-    UseLazyResets = false;
-
 /**
  * Base type for all MUD objects.
  */
@@ -95,11 +92,9 @@ class MUDObject extends MUDEventEmitter {
         return MUDVTable.exportScopedProperty(this, propName, scopeId);
     }
 
-    create(...args) {
-    }
+    create(...args) { }
 
-    async createAsync(...args) {
-    }
+    async createAsync(...args) { }
 
     get environment() {
         let store = driver.storage.get(this);
@@ -130,53 +125,59 @@ class MUDObject extends MUDEventEmitter {
         return !!store && store.inventory;
     }
 
-    init() { }
-
     async initAsync() { }
 
-    moveObject(destination) {
-        let myStore = driver.storage.get(this),
-            oldEnvironment = myStore.environment;
+    async moveObjectAsync(destination) {
+        return driver.driverCallAsync('moveObjectAsync', async ecc => {
+            let myStore = driver.storage.get(this),
+                oldEnvironment = myStore.environment;
 
-        let target = unwrap(destination) || efuns.loadObject(destination),
-            newEnvironment = unwrap(target);
+            return await ecc.withPlayerAsync(myStore, async player => {
+                let target = destination.instance || await efuns.objects.loadObjectAsync(destination),
+                    newEnvironment = target && target.instance;
 
-        if (!oldEnvironment || oldEnvironment.canReleaseItem(this) && newEnvironment) {
-            let targetStore = driver.storage.get(newEnvironment);
+                if (!oldEnvironment || oldEnvironment.canReleaseItem(player) && newEnvironment) {
+                    let targetStore = driver.storage.get(newEnvironment);
 
-            //  Can the destination accept this object?
-            if (targetStore && newEnvironment.canAcceptItem(this)) {
+                    //  Can the destination accept this object?
+                    if (targetStore && newEnvironment.canAcceptItem(player)) {
 
-                //  Do lazy reset if it's time
-                if (UseLazyResets) {
-                    if (typeof newEnvironment.reset === 'function') {
-                        if (targetStore.nextReset < efuns.ticks) {
-                            driver.driverCall('reset',
-                                () => newEnvironment.reset(),
-                                newEnvironment.filename);
+                        //  Do lazy reset if it's time
+                        if (driver && driver.useLazyResets) {
+                            if (typeof newEnvironment.reset === 'function') {
+                                if (targetStore.nextReset < efuns.ticks) {
+                                    driver.driverCall('reset',
+                                        () => newEnvironment.reset(),
+                                        newEnvironment.filename);
+                                }
+                            }
+                        }
+
+                        /* 
+                         * MudOS-like init support:
+                         */
+                        if (targetStore.addInventory(player)) {
+                            if (myStore.living) {
+                                let stats = targetStore.stats;
+                                if (stats) stats.moves++;
+                                await newEnvironment.initAsync();
+                            }
+                            for (const item of newEnvironment.inventory) {
+                                let itemStore = driver.storage.get(item.instance);
+                                if (itemStore && itemStore !== myStore && itemStore.living) {
+                                    await ecc.withPlayerAsync(itemStore, async () => await newEnvironment.initAsync(), true, 'initAsync');
+                                }
+                                if (myStore.living) {
+                                    await ecc.withPlayerAsync(myStore, async () => await newEnvironment.initAsync(), true, 'initAsync');
+                                }
+                            }
+                            return true;
                         }
                     }
                 }
-
-                if (targetStore.addInventory(this)) {
-                    if (myStore.living) {
-                        let stats = targetStore.stats;
-                        if (stats) stats.moves++;
-                        target().init.call(this);
-                    }
-                    newEnvironment.inventory.forEach(item => {
-                        if (item !== this && efuns.living.isAlive(item)) {
-                            this.init.call(item);
-                        }
-                        if (myStore.living && item !== this) {
-                            item.init.call(this);
-                        }
-                    });
-                    return true;
-                }
-            }
-        }
-        return false;
+                return false;
+            }, true, 'moveObjectAsync');
+        });
     }
 
     preprocessInput(input, callback) {

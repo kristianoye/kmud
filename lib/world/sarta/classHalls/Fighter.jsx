@@ -3,12 +3,11 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const
-    Base = await requireAsync('Base'),
-    Room = await requireAsync(Base.Room);
+import { LIB_ROOM } from 'Base';
+import Room from LIB_ROOM;
 
-class FighterHall extends Room {
-    private create() {
+export default singleton class FighterHall extends Room {
+    private override create() {
         this.shortDesc = 'Fighter Initiation Hall';
         this.longDesc = <div>
             This room is reserved for those who wish to join the ranks of the FIGHTERS. 
@@ -27,11 +26,10 @@ class FighterHall extends Room {
     async becomeFighter(str, evt) {
         let result = false;
         if (!str)
-            result = efuns.errorLine('Become a what?');
+            return 'Become a what?';
+        else if (str != 'fighter')
+            return 'You can only become a fighter here';
         else
-            result = efuns.writeLine("You become a fighter");
-        return result;
+            return writeLine('You become a fighter!');
     }
 }
-
-module.exports = await createAsync(FighterHall);

@@ -96,6 +96,13 @@ class ActionBinder {
     }
 
     /**
+     * Clear all actions out of the binder
+     */
+    clear() {
+        this.actions = {};
+    }
+
+    /**
      * Get an environmental action entry
      * @param {string} verb The verb being invoked
      */
@@ -122,7 +129,7 @@ class ActionBinder {
         if (action)
             return await action.execute(evt);
         else
-            return false;
+            return undefined;
     }
 
     /** 

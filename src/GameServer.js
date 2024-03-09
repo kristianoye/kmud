@@ -61,8 +61,8 @@ class GameServer extends MUDEventEmitter {
         /** @type {ExecutionContext} */
         this.executionContext = false;
 
-        ResetInterval = config.mudlib.objectResetInterval;
-        UseLazyResets = config.driver.useLazyResets;
+        this.resetInterval = config.mudlib.objectResetInterval || (3600 * 30); // Default to 30 minutes
+        this.useLazyResets = config.driver.useLazyResets || false;
 
         if (!this.config) {
             throw new Error('FATAL: GameServer created without configuration!');
@@ -1447,8 +1447,5 @@ class GameServer extends MUDEventEmitter {
             return this.applyValidWrite(writePath, frame.object || frame.file, frame.method);
     }
 }
-
-var ResetInterval = 1000 * 60 * 60 * 2,
-    UseLazyResets = false;
 
 module.exports = GameServer;

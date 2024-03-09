@@ -85,7 +85,7 @@ class EFUNProxy {
         try {
             let storage = driver.storage.get(prevObject);
 
-            if (prevObject) {
+            if (storage && storage.living) {
                 storage.actionBinder.bindAction(verb, thisObject, callback);
             }
         }
