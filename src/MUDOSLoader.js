@@ -219,6 +219,24 @@ class MUDOSLoader extends MUDLoader {
     }
 
     /**
+     * Reference: https://www.fluffos.info/efun/general/sizeof.html
+     * @param {any} arg
+     * @returns
+     */
+    sizeof(arg) {
+        if (Array.isArray(arg))
+            return arg.length;
+        else if (typeof arg === 'string')
+            return arg.length;
+        else if (typeof arg === 'object')
+            return Object.getOwnPropertyNames(arg).length;
+        else if (arg instanceof Buffer)
+            return arg.byteLength;
+        else
+            return 0;
+    }
+
+    /**
      * Reference: https://www.fluffos.info/efun/arrays/sort_array.html#gsc.tab=0
      * @returns
      */

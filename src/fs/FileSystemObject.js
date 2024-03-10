@@ -250,8 +250,8 @@ class FileSystemObject extends events.EventEmitter {
                     args: [],
                     reload: true
                 }, options, { file: this.fullPath });
-                await driver.compiler.compileObjectAsync(compilerOptions);
-                resolve(true);
+                let result = await driver.compiler.compileObjectAsync(compilerOptions);
+                resolve(result.defaultExport || true);
             }
             catch (err) {
                 reject(err);

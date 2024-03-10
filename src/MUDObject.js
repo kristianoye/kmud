@@ -31,6 +31,11 @@ class MUDObject extends MUDEventEmitter {
                         writable: false,
                         enumerable: true
                     },
+                    fullPath: {
+                        value: ctx.fullPath,
+                        writable: false,
+                        enumerable: true
+                    },
                     instance: {
                         get: () => this,
                         enumerable: false
@@ -118,6 +123,10 @@ class MUDObject extends MUDEventEmitter {
         let parts = efuns.parsePath(this.filename),
             dir = parts.file.slice(0, parts.file.lastIndexOf('/'));
         return dir;
+    }
+
+    id(word) {
+        return false;
     }
 
     get inventory() {

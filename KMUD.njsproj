@@ -415,6 +415,7 @@
     </Content>
     <Content Include="lib\cmds\arch\placeholder.txt" />
     <Content Include="lib\cmds\creator\Goto.js" />
+    <Content Include="lib\cmds\creator\Scan.js" />
     <Content Include="lib\docs\.mudlib.json">
       <SubType>Code</SubType>
     </Content>
@@ -422,6 +423,7 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="lib\sys\cmds\creator\Clone.js" />
+    <Content Include="lib\sys\cmds\filesystem\Rehash.js" />
     <Content Include="lib\sys\etc\accessEx.json">
       <SubType>Code</SubType>
     </Content>

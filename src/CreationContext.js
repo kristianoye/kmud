@@ -16,6 +16,12 @@ class CreationContext {
          */
         this.filename = data.filename;
 
+        /**
+         * The path to the object being created including extension
+         * @type {string} 
+         */
+        this.fullPath = data.fullPath;
+
         /** 
          * Is this a virtual object request? 
          * @type {boolean}

@@ -779,6 +779,7 @@ class MUDModule extends events.EventEmitter {
             args: args || [],
             objectId,
             filename,
+            fullPath: this.fullPath,
             isSingleton,
             module: this,
             typeName: type.name
@@ -839,6 +840,10 @@ class MUDModule extends events.EventEmitter {
         Object.defineProperties(wrapper, {
             filename: {
                 value: filename,
+                writable: false
+            },
+            fullPath: {
+                value: this.fullPath,
                 writable: false
             },
             instance: {

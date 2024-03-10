@@ -47,6 +47,18 @@ class ObjectHelper {
         return CompilerFlags;
     }
 
+    static async findObject(filename, flag = 0) {
+        let module = driver.cache.get(filename);
+
+        if (!module && flag === 1) {
+            return await ObjectHelper.loadObjectAsync(filename);
+        }
+        if (!module)
+            return false;
+        let parts = driver.efuns.parsePath(filename);
+        return module.getInstanceWrapper(parts);
+    }
+
     static getLoadededModules(filter = undefined) {
         let result = driver.cache.moduleNames.slice(0);
         if (typeof filter === 'function')
@@ -201,6 +213,151 @@ class ObjectHelper {
      */
     static async reloadObjectAsync(expr, ...args) {
         return await driver.fileManager.loadObjectAsync(driver.efuns.resolvePath(expr), args, 1);
+    }
+
+    /**
+     * Shameless clone of 'to_object' sefun from Blitz at Dead Souls.
+     * Parse passed string argument and return a matching object.
+     * ```
+     *   Usage Examples:
+     *     sword           (1st sword in inv or env)
+     *     sword@here      (find sword in local env)
+     *     sword#4         (find 4th sword)
+     *     sword#2@foo     (find 2nd sword on player foo)
+     *     sword@bag#2@foo (find 1st sword in foo's 2nd bag)
+     *     ---------------
+     *     /path/filename  (find or load filename)
+     *     /path/file#999  (find unique cloned object)
+     *     %foo            (explicitly find player foo)
+     *     $foo            (explicitly find npc foo)
+     *     @foo            (return foo's environment)
+     *     
+     *     tokens: me, here, sefun
+     * ```
+     *
+     * @param {string} spec The object to find
+     * @returns The matching object or false if nothing matches
+     */
+    static async resolveObject(spec) {
+        let n = -1,
+            tp = driver.efuns.thisPlayer(),
+            ob = undefined,
+            env = false;
+
+        if (typeof spec === 'object' && spec instanceof MUDObject)
+            return spec;
+        else if (typeof spec === 'function' && spec.isWrapper)
+            return spec.instance;
+        else if (typeof spec !== 'string' || spec.length === 0)
+            return false;
+        else if ((n = spec.indexOf('@')) > 0) {
+            let where = spec.slice(n + 1);
+
+            spec = spec.slice(0, n);
+
+            if (!(env = ObjectHelper.resolveObject(where)))
+                return false;
+            if (id.length === 0)
+                return env.environment.instance;
+        }
+        switch (spec) {
+            case 'here':
+                return driver.efuns.thisPlayer().environment;
+            case 'me':
+                return driver.efuns.thisPlayer();
+        }
+        let m = /(?<id>[^#]+)#(?<index>\d+)/.exec(spec);
+        if (m && m.length === 3) {
+            if ((ob = await ObjectHelper.findObject(spec)))
+                return ob.instance;
+            n = m.groups.index;
+            spec = m.groups.id;
+        }
+        else n = 1;
+        if (n < 1)
+            return false;
+        let c = spec.slice(0, 1);
+        if (['/', '$', '%'].indexOf(c) > -1) {
+            spec = spec.slice(1);
+        }
+        switch (c) {
+            case '/':
+                if ((ob = await ObjectHelper.loadObjectAsync(spec)))
+                    return ob.instance;
+                else
+                    return false;
+
+            case '%':
+                if ((ob = driver.efuns.living.findPlayer(spec)))
+                    return ob.instance;
+                else
+                    return false;
+
+            case '$':
+                if (ob) {
+                    let obs = ob.inventory.filter(o => {
+                        if (!driver.efuns.living.isAlive(o))
+                            return false;
+                        else if (driver.efuns.living.isInteractive(o))
+                            return false;
+                        else return o.id(spec);
+                    });
+                    return obs.length < n ? obs[n - 1] : false;
+                }
+                else {
+                    if ((ob = driver.efuns.living.findLiving(spec))) {
+                        if (Array.isArray(ob)) {
+                            let obs = ob.filter(o => !driver.efuns.living.isInteractive(o));
+                            return obs.length < n ? obs[n - 1] : false;
+                        }
+                        else
+                            return driver.efuns.living.isInteractive(ob) ? false : ob;
+                    }
+                    return false;
+                }
+
+            default:
+                if (!env)
+                    env = driver.efuns.thisPlayer();
+                if (n > 1) {
+                    let obs = env.inventory.filter(o => o.id(spec));
+                    if (obs.length < n) {
+                        if (!(env = env.environment))
+                            ob = false;
+                        else {
+                            obs = env.inventory.filter(o => o.id(spec));
+                            if (obs.length < n)
+                                ob = false;
+                            else
+                                ob = obs[n - 1];
+                        }
+                    }
+                    else
+                        ob = obs[n - 1];
+                    return ob;
+                }
+                else {
+                    if ((ob = driver.efuns.present(spec, env)))
+                        return ob;
+                    else if ((env = env.environment)) {
+                        if ((ob = driver.efuns.present(spec, env)))
+                            return ob;
+                    }
+                    if ((ob = driver.efuns.living.findPlayer(spec)))
+                        return ob;
+                    if ((ob = driver.efuns.living.findLiving(spec)))
+                        return ob;
+                    if (!tp)
+                        return false;
+                    spec = driver.efuns.resolvePath(tp.workingDirectory, spec);
+                    if ((ob = await ObjectHelper.loadObjectAsync(spec)))
+                        return ob;
+                    else
+                        return false;
+                }
+                break;
+        }
+        return false;
     }
 }
 
