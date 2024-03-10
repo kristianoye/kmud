@@ -650,7 +650,7 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     addInventory(item) {
-        let wrapped = wrapper(item),
+        let wrapped = item.wrapper,
             itemStore = driver.storage.get(item);
 
         //  Just in case...
