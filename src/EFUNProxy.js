@@ -1832,7 +1832,7 @@ class EFUNProxy {
 
                     hive = hive || {};
 
-                    if (['number', 'string'].indexOf(vt) > -1)
+                    if (['number', 'string', 'boolean', 'bigint'].indexOf(vt) > -1)
                         return hive[key] = val;
                     else if (vt === 'object') {
                         hive = hive[key] = {};
