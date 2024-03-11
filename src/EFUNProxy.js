@@ -1836,19 +1836,20 @@ class EFUNProxy {
                         return hive[key] = val;
                     else if (vt === 'object') {
                         hive = hive[key] = {};
-                        Object.keys(val).forEach(sk => {
+                        for (const [sk, v] of Object.entries(val)) {
                             if (!sk.startsWith('$'))
-                                serializeValue(hive, sk, val[sk]);
-                        });
+                                serializeValue(hive, sk, v);
+                        }
                         return hive;
                     }
                     else if (vt === 'MudObject')
                         return hive[key] = serializeMudObject(val);
                     else if (vt === 'SimpleObject')
                         return hive[key] = serializeSimpleObject(val);
-                    else if (Array.isArray(val)) {
+                    else if (Array.isArray(val))
                         return hive[key] = val.map(v => serializeValue(false, false, v));
-                    }
+                    else
+                        return hive[key] = val;
                 };
 
             serializeSimpleObject = (val) => {
