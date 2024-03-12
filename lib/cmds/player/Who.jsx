@@ -9,6 +9,7 @@ import Command from LIB_COMMAND;
 export default singleton class WhoCommand extends Command {
     override cmd(args, cmdline) {
         var players = efuns.living.players(),
+            width = efuns.clientCaps(thisPlayer()).clientWidth,
             count = players.length,
             tp = thisPlayer;
 
@@ -16,11 +17,19 @@ export default singleton class WhoCommand extends Command {
             return this.webcmd(args, cmdline);
         }
 
-        writeLine(`There are ${count} player(s) on-line:`);
+        writeLine('');
+        writeLine(`{0:CENTER(${width})}`.fs(efuns.mudName()));
+        writeLine('-='.repeat(Math.floor(width / 2) - 1) + '-');
+        writeLine('');
 
         players.forEach(player => {
             writeLine(player.getTitle());
         });
+
+        writeLine('');
+        writeLine('-='.repeat(Math.floor(width / 2) - 1) + '-');
+        writeLine(`{0:CENTER(${width})}`.fs(`There are ${count} player(s) on-line:`));
+        writeLine('-='.repeat(Math.floor(width / 2) - 1) + '-');
 
         return true;
     }

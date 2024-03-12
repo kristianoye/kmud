@@ -17,12 +17,52 @@ String.prototype.countInstances = function (word, ignoreCase = false) {
 };
 
 String.prototype.fs = function (...args) {
-    let a = [].slice.call(arguments),
-        s = this;
+    let s = this.slice(0);
 
-    for (var i = 0; i < a.length; i++) {
-        var re = new RegExp('\\{' + i + '\\}', 'g');
-        s = s.replace(re, typeof a[i] === 'undefined' ? '[undefined]' : a[i].toString());
+    for (let i = 0; i < args.length; i++) {
+        let re =  /\{(?<index>[\d]+)(?<format>[\:\,][^\}]+){0,1}\}/g,
+            m = re.exec(s);
+
+        while (m !== null) {
+            let index = parseInt(m.groups.index);
+            if (index === i && index < args.length) {
+                let valueString = args[i],
+                    matchLen = m[0].length;
+
+                if (valueString === undefined)
+                    valueString = '[undefined]';
+                else if (valueString === null)
+                    valueString = 'NULL';
+                else
+                    valueString = args[i].toString();
+
+                if (m.groups.format) {
+                    let format = m.groups.format.slice(1);
+                    let n = parseInt(format);
+
+                    if (!isNaN(n)) {
+                        let width = Math.abs(n),
+                            paddingNeeded = width - valueString.length;
+                        if (paddingNeeded > 0) {
+                            valueString = n < 0 ? valueString + ' '.repeat(paddingNeeded) : ' '.repeat(paddingNeeded) + valueString;
+                        }
+                    }
+                    if (format.startsWith('CENTER(')) {
+                        let m = /CENTER\((?<width>\d+)\)/.exec(format),
+                            width = parseInt(m.groups.width),
+                            left = Math.floor((width - valueString.length) / 2),
+                            right = Math.max(0, width - valueString.length - left);
+
+                        if (left > 0) {
+                            valueString = ' '.repeat(left) + valueString + ' '.repeat(right);
+                        }
+                    }
+                }
+
+                s = s.slice(0, m.index) + valueString + s.slice(m.index + matchLen);
+            }
+            m = re.exec(s);
+        }
     }
     return s;
 };
