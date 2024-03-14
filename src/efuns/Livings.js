@@ -178,6 +178,10 @@ class LivingsHelper {
         return !!store && store.wizard;
     }
 
+    static async playerExists(user, wantFile = false) {
+        return await driver.callApplyAsync('applyUserExists', user, false, wantFile);
+    }
+
     /**
      * Returns a list of players on the MUD.  
      * @param {boolean} showAll If true then linkdead players are shown as well
@@ -220,6 +224,19 @@ class LivingsHelper {
             if ($storage)
                 $storage.livingName = name;
         });
+    }
+
+    /**
+     * Determines if a user by the specified name exists on the MUD
+     * @param {string} user
+     * @returns True if the user exists either as a player or a wizard
+     */
+    static async userExists(user, wantFile = false) {
+        return await driver.callApplyAsync('applyUserExists', user, undefined, wantFile);
+    }
+
+    static async wizardExists(user, wantFile = false) {
+        return await driver.callApplyAsync('applyUserExists', user, true, wantFile);
     }
 }
 

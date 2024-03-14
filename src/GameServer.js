@@ -288,6 +288,8 @@ class GameServer extends MUDEventEmitter {
             if (typeof applyName === 'function') {
                 applyName = applyName.name;
             }
+            if (typeof this[applyName] === 'function')
+                applyName = this[applyName].name;
             if (applyName.startsWith('bound '))
                 applyName = applyName.slice(6);
             if (typeof this.masterObject[applyName] !== 'function')
@@ -443,6 +445,7 @@ class GameServer extends MUDEventEmitter {
                             this.applyGetHomePath = locateApply('getHomePath', false);
                             this.applyLogError = locateApply('logError', false);
                             this.applyGetGroups = locateApply('getPermissionGroups', false);
+                            this.applyUserExists = locateApply('userExists', true);
                             this.applyRegisterServer = locateApply('registerServer', false);
                             this.applyStartup = locateApply('startup', false);
                             this.applyValidDestruct = locateApply('validDestruct', false);

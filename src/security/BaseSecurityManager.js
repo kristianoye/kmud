@@ -362,7 +362,7 @@ class BaseSecurityGroup extends EventEmitter {
             id: this.gid,
             name: this.name,
             description: this.description,
-            members: this.members.length
+            members: this.members.slice(0)
         });
     }
 

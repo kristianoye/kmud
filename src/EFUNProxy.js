@@ -995,12 +995,20 @@ class EFUNProxy {
     /**
      * Returns a normalized version of a character name.
      * @param {string} name The name to normalize e.g. Bob the Builder
+     * @param {boolean} flag If true, then the return value is in an array [name, wantsPlayer]
      * @returns {string} The normalized version of the name e.g. 'bobthebuilder'
      */
-    normalizeName(name) {
+    normalizeName(name, flag = false) {
+        let wantsPlayer = false;
+
         if (typeof name !== 'string')
             throw new Error(`Bad argument 1 to normalizeName; Expected string got ${(typeof name)}`);
-        return name.toLowerCase().replace(/[^a-zA-Z]+/g, '');
+        if (name.charAt(0) === '@') {
+            name = name.slice(1);
+            wantsPlayer = true;
+        }
+        let result = name.toLowerCase().replace(/[^a-zA-Z]+/g, '');
+        return flag ? [result, wantsPlayer] : result;
     }
 
     get objects() {

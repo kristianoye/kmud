@@ -11,6 +11,31 @@ class SecurityHelper {
         return driver.securityManager.getSafeCredentialAsync(target);
     }
 
+    static getSecurityGroup(groupName) {
+        let group = driver.securityManager.getGroup(groupName);
+        return group && group.createSafeExport();
+    }
+
+    static async getSafeCredentialAsync(user) {
+        if (typeof user === 'function' && user.isWrapper)
+            user = user.filename;
+        else if (typeof user === 'object' && user.keyId)
+            user = user.filename;
+
+        if (typeof user !== 'string' || user.length === 0)
+            return false;
+
+        if (user.indexOf('/') === -1) {
+            let [username, isPlayerName] = efuns.normalizeName(user, true),
+                playerFiles = await driver.efuns.living[isPlayerName ? 'playerExists' : 'userExists'](username, true);
+
+            if (playerFiles.length > 0) {
+                user = playerFiles[0].fullPath;
+            }
+        }
+        return await driver.securityManager.getSafeCredentialAsync(user);
+    }
+
     /**
      * Loop through a gatekeeper method for each frame on the stack to
      * ensure all objects are permitted to perform the specified action.
@@ -86,6 +111,10 @@ class SecurityHelper {
      */
     static permsToString(flags) {
         throw new NotImplementedError('permsToString');
+    }
+
+    static get securityManagerType() {
+        return driver.securityManager.constructor.name;
     }
 
     static async unguardedAsync(callback) {

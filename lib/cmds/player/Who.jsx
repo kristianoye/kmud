@@ -28,7 +28,19 @@ export default singleton class WhoCommand extends Command {
 
         writeLine('');
         writeLine('-='.repeat(Math.floor(width / 2) - 1) + '-');
-        writeLine(`{0:CENTER(${width})}`.fs(`There are ${count} player(s) on-line:`));
+        switch (count) {
+            case 0:
+                writeLine(`{0:CENTER(${width})}`.fs(`There are no players on-line`));
+                break;
+
+            case 1:
+                writeLine(`{0:CENTER(${width})}`.fs(`There is one player on-line`));
+                break;
+
+            default:
+                writeLine(`{0:CENTER(${width})}`.fs(`There are ${efuns.cardinal(count)} players on-line`));
+                break;
+        }
         writeLine('-='.repeat(Math.floor(width / 2) - 1) + '-');
 
         return true;
