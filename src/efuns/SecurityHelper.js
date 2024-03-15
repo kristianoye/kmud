@@ -1,16 +1,32 @@
 
 class SecurityHelper {
+    static async createSecurityGroup(id, name, description) {
+        let ecc = driver.getExecution(),
+            group = typeof id === 'object' ? id : { id, name, description };
+
+        if (await ecc.guarded(f => driver.callApplyAsync('validSecurityGroupChange', f.caller, 'createSecurityGroup', group)))
+        {
+            return await driver.securityManager.createGroup(group);
+        }
+        throw new Error(`createSecurityGroup(): Permission denied`);
+    }
+
     /**
      * Get the security credential for the specified target.
      * @param {string | MUDObject | MUDWrapper} target
      */
     static getCredentialAsync(target) {
         if (typeof target === 'function' || typeof target === 'object') {
-            target = driver.efuns.unwrap(target);
+            target = target.instance;
         }
         return driver.securityManager.getSafeCredentialAsync(target);
     }
 
+    /**
+     * Fetch an export-friendly group object
+     * @param {string} groupName The group to fetch
+     * @returns {{ id: string, description:string, name: string, members: string[] }}
+     */
     static getSecurityGroup(groupName) {
         let group = driver.securityManager.getGroup(groupName);
         return group && group.createSafeExport();

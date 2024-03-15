@@ -124,6 +124,10 @@ class ExecutionFrame {
         this.unguarded = isUnguarded === true;
     }
 
+    get caller() {
+        return this.object || this.file;
+    }
+
     getContext() {
         return this.context;
     }

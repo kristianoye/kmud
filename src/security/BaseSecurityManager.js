@@ -49,6 +49,10 @@ class BaseSecurityManager extends EventEmitter {
         throw new NotImplementedError('Method can() is not defined');
     }
 
+    async createGroup(group) {
+        throw new NotImplementedError('Method createGroup() is not defined');
+    }
+
     /**
      * Generate a security error or just indicate failure quietly.
      * @param {string} verb The verb being denied (e.g. read, write, append, etc).

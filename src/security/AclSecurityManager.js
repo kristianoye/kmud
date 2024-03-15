@@ -492,6 +492,13 @@ class AclSecurityManager extends BaseSecurityManager {
         });
     }
 
+    async createGroup(group) {
+        if (group.id in this.groups)
+            throw new Error(`createGroup(): Security group ${group.id} already exists`);
+        this.groups[group.id] = new AclSecurityGroup(this, group.id, group.name, group.description, group.members || []);
+        return true;
+    }
+
     /**
      * Get the Access Control List for the specified object.
      * @param {FileSystemObject|string} fo The stat to get an Acl for

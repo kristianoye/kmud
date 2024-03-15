@@ -451,6 +451,7 @@ class GameServer extends MUDEventEmitter {
                             this.applyValidDestruct = locateApply('validDestruct', false);
                             this.applyValidExec = locateApply('validExec', false);
                             this.applyValidObject = locateApply('validObject', false);
+                            this.applyValidGroupChange = locateApply('validSecurityGroupChange', true);
                             this.applyValidRead = locateApply('validRead', true);
                             this.applyValidReadConfig = locateApply('validReadConfig', false);
                             this.applyValidRequire = locateApply('validRequire', true);

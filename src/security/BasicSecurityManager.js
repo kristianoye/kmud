@@ -139,7 +139,7 @@ class BasicSecurityManager extends BaseSecurityManager {
      */
     async validReadFile(filename) {
         return await driver.getExecution()
-            .guarded(async f => await driver.callApplyAsyc(driver.applyValidRead, filename, f.owner, f.method));
+            .guarded(async f => await driver.callApplyAsync(driver.applyValidRead, filename, f.owner, f.method));
     }
 
     /**
@@ -158,7 +158,7 @@ class BasicSecurityManager extends BaseSecurityManager {
      */
     validWriteFile(expr) {
         return driver.getExecution()
-            .guarded(async f => await driver.callApplyAsyc(driver.applyValidWrite, filename, f.owner, f.method));
+            .guarded(async f => await driver.callApplyAsync(driver.applyValidWrite, filename, f.owner, f.method));
     }
 }
 
