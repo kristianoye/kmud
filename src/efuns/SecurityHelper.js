@@ -1,5 +1,32 @@
 
 class SecurityHelper {
+    /**
+     * Add members to a security group
+     * @param {string} id
+     * @param {string[]} members
+     * @returns {boolean} True on success
+     */
+    static async addGroupMembers(id, members) {
+        let ecc = driver.getExecution(),
+            group = driver.securityManager.getGroup(id),
+            principles = [];
+
+        for (const memberId of members) {
+            let cred = driver.securityManager.getCredential(memberId);
+            if (cred) principles.push(cred);
+        }
+
+        if (!group)
+            throw new Error(`addGroupMembers(): ${id} is an invalid group identifier`);
+        if (!principles.length)
+            throw new Error(`addGroupMembers(): No valid members provided`);
+
+        if (await ecc.guarded(f => driver.callApplyAsync('validSecurityGroupChange', f.caller, 'addGroupMembers', group.createSafeExport()))) {
+            return await driver.securityManager.addGroupMembers(group, principles);
+        }
+        throw new Error(`addGroupMembers(): Permission denied`);
+    }
+
     static async createSecurityGroup(id, name, description) {
         let ecc = driver.getExecution(),
             group = typeof id === 'object' ? id : { id, name, description };
@@ -11,11 +38,25 @@ class SecurityHelper {
         throw new Error(`createSecurityGroup(): Permission denied`);
     }
 
+    static async deleteSecurityGroup(id) {
+        let ecc = driver.getExecution(),
+            group = await SecurityHelper.getSecurityGroup(id);
+
+        if (!group)
+            throw new Error(`deleteSecurityGroup(): Group ${id} does not exist`);
+
+        if (await ecc.guarded(f => driver.callApplyAsync('validSecurityGroupChange', f.caller, 'deleteSecurityGroup', group))) {
+            return await driver.securityManager.deleteGroup(group);
+        }
+
+        throw new Error(`deleteSecurityGroup(${id}): Permission denied`);
+    }
+
     /**
      * Get the security credential for the specified target.
      * @param {string | MUDObject | MUDWrapper} target
      */
-    static getCredentialAsync(target) {
+    static getCredentialAsync(target, reload) {
         if (typeof target === 'function' || typeof target === 'object') {
             target = target.instance;
         }
@@ -24,15 +65,15 @@ class SecurityHelper {
 
     /**
      * Fetch an export-friendly group object
-     * @param {string} groupName The group to fetch
+     * @param {string} id The group to fetch
      * @returns {{ id: string, description:string, name: string, members: string[] }}
      */
-    static getSecurityGroup(groupName) {
-        let group = driver.securityManager.getGroup(groupName);
+    static getSecurityGroup(id) {
+        let group = driver.securityManager.getGroup(id);
         return group && group.createSafeExport();
     }
 
-    static async getSafeCredentialAsync(user) {
+    static async getSafeCredentialAsync(user, reload = false) {
         if (typeof user === 'function' && user.isWrapper)
             user = user.filename;
         else if (typeof user === 'object' && user.keyId)
@@ -49,7 +90,7 @@ class SecurityHelper {
                 user = playerFiles[0].fullPath;
             }
         }
-        return await driver.securityManager.getSafeCredentialAsync(user);
+        return await driver.securityManager.getSafeCredentialAsync(user, reload === true);
     }
 
     /**
@@ -108,6 +149,10 @@ class SecurityHelper {
         return driver.securityManager.isGroupMember(username, groupName);
     }
 
+    static listSecurityGroups(expr) {
+        return driver.securityManager.listGroups(expr);
+    }
+
     static parseAclTree(data) {
         throw new NotImplementedError('parseAclTree');
     }
@@ -127,6 +172,33 @@ class SecurityHelper {
      */
     static permsToString(flags) {
         throw new NotImplementedError('permsToString');
+    }
+
+    /**
+     * Remove members from a security group
+     * @param {string} id
+     * @param {string[]} members
+     * @returns {boolean} True on success
+     */
+    static async removeGroupMembers(id, members) {
+        let ecc = driver.getExecution(),
+            group = driver.securityManager.getGroup(id),
+            principles = [];
+
+        for (const memberId of members) {
+            let cred = driver.securityManager.getCredential(memberId);
+            if (cred) principles.push(cred);
+        }
+
+        if (!group)
+            throw new Error(`removeGroupMembers(): ${id} is an invalid group identifier`);
+        if (!principles.length)
+            throw new Error(`removeGroupMembers(): No valid members provided`);
+
+        if (await ecc.guarded(f => driver.callApplyAsync('validSecurityGroupChange', f.caller, 'removeGroupMembers', group.createSafeExport()))) {
+            return await driver.securityManager.removeGroupMembers(group, principles);
+        }
+        throw new Error(`removeGroupMembers(): Permission denied`);
     }
 
     static get securityManagerType() {

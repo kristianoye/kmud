@@ -432,6 +432,59 @@ class AclSecurityManager extends BaseSecurityManager {
         /** @type {WildcardAcl[]} */
         this.wildcardPermissions = [];
         securityManager = this;
+        this.initialized = false;
+    }
+
+    /**
+     * Add a member to a group
+     * @param {AclSecurityGroup} group
+     * @param {string[] | AclSecurityCredential[]} members
+     */
+    async addGroupMembers(group, members) {
+        if (group.gid in this.groups) {
+            if (this.initialized && typeof memberId === 'string')
+                memberId = this.getCredential(memberId);
+
+            for (const member of members) {
+                if (this.initialized && typeof member === 'string')
+                    member = this.getCredential(member);
+                group.addMember(member);
+                if (member instanceof AclSecurityCredential)
+                    member.addGroup(group);
+                else if (member instanceof AclSecurityGroup) {
+                    for (const m of member.members) {
+                        if (m instanceof AclSecurityCredential)
+                            m.addGroup(group);
+                    }
+                }
+            }
+            return await this.saveGroups();
+        }
+        else
+            throw new Error(`addGroupMember(): ${group.gid} is not a registered group`);
+    }
+
+    /**
+     * Remove members from a group
+     * @param {AclSecurityGroup} group
+     * @param {(AclSecurityCredential | AclSecurityGroup)[]} members
+     * @returns
+     */
+    async removeGroupMembers(group, members) {
+        if (group.gid in this.groups) {
+            if (this.initialized && typeof memberId === 'string')
+                memberId = this.getCredential(memberId);
+
+            for (const member of members) {
+                if (this.initialized && typeof member === 'string')
+                    member = this.getCredential(member);
+
+                group.removeMember(member);
+            }
+            return await this.saveGroups();
+        }
+        else
+            throw new Error(`removeGroupMembers(): ${group.gid} is not a registered group`);
     }
 
     /**
@@ -495,8 +548,18 @@ class AclSecurityManager extends BaseSecurityManager {
     async createGroup(group) {
         if (group.id in this.groups)
             throw new Error(`createGroup(): Security group ${group.id} already exists`);
-        this.groups[group.id] = new AclSecurityGroup(this, group.id, group.name, group.description, group.members || []);
-        return true;
+        let newGroup = this.groups[group.id] = new AclSecurityGroup(this, group.id, group.name, group.description, group.members || []);
+        for (const id of newGroup.members) {
+
+        }
+        return this.saveGroups();
+    }
+
+    async deleteGroup(group) {
+        if (group.id in this.groups === false)
+            throw new Error(`deleteGroup(): Security group ${group.id} does not exist`);
+        delete this.groups[group.id];
+        return this.saveGroups();
     }
 
     /**
@@ -611,6 +674,10 @@ class AclSecurityManager extends BaseSecurityManager {
                 await shadowFS.createDirectoryAsync(true);
             }
         }
+        this.initialized = true;
+        for (const group of Object.values(this.groups)) {
+            group.resolveMembers();
+        }
     }
 
     /**
@@ -620,7 +687,7 @@ class AclSecurityManager extends BaseSecurityManager {
      */
     isGroupMember(userId, groupName) {
         let group = this.getGroup(groupName);
-        return group.isMember(userId);
+        return group && group.isMember(userId);
     }
 
     /**
@@ -634,34 +701,23 @@ class AclSecurityManager extends BaseSecurityManager {
         else return super.isSystemFile(file);
     }
 
-    /**
-     * Load an external group file
-     * @param {string} prefix The value to prepend to each group ID
-     * @param {FileSystemObject} file The file to load from
-     */
-    async loadExternalGroupsFile(prefix, file) {
-        let groups = await file.readYamlAsync();
+    listGroups(expr) {
+        if (!expr) expr = '*';
+        expr = expr.replace('*', '.*');
+        expr = expr.replace('?', '.');
+        expr = expr.replace('$', '\\$');
+        try {
+            let re = new RegExp(expr, 'i');
+            let results = [];
 
-        if (!prefix.endsWith('\\'))
-            prefix += '\\';
-
-        for (let i = 0, names = Object.keys(groups); i < names.length; i++) {
-            let name = names[i],
-                groupId = prefix + (names[i].startsWith('$') ? names[i].slice(1) : names[i]),
-                groupData = groups[name];
-
-            if (groupId in this.groups)
-                throw new Error(`Group ${groupId} is specified multiple times in ${file.path}`);
-
-            if (!groupData.name || typeof groupData.name !== 'string')
-                throw new Error(`Group #${i} in ${file.path} does not have a property 'name'`);
-
-            if (groupData.members && !Array.isArray(groupData.members))
-                throw new Error(`Group ${groupId} does not have a valid member collection`);
-
-            groupData.gID = groupId;
-
-            this.groups[groupId] = await AclSecurityGroup.createAsync(this, groupData);
+            for (const [id, group] of Object.entries(this.groups)) {
+                if (re.test(id))
+                    results.push(group.createSafeExport());
+            }
+            return results;
+        }
+        catch (e) {
+            return [];
         }
     }
 
@@ -669,40 +725,26 @@ class AclSecurityManager extends BaseSecurityManager {
      * Load groups defined in the system groups file
      */
     async loadGroupsFile() {
-        let groups = await efuns.fs.readYamlAsync(this.groupsFile);
+        let groupsFile = await driver.fileManager.getFileAsync(this.groupsFile, 0, true),
+            groupData = await groupsFile.readJsonAsync();
 
-        for (let i = 0, names = Object.keys(groups); i < names.length; i++) {
-            let name = names[i],
-                groupData = groups[name];
+        this.defaultGroupName = groupData.defaultGroupName || '$ALL';
+        this.systemGroupName = groupData.systemGroupName || '$SYSTEM';
 
-            if (name === 'DEFAULT GROUP NAME') {
-                this.defaultGroupName = groupData;
-                continue;
-            }
-            if (name === 'SYSTEM GROUP NAME') {
-                this.systemGroupName = groupData;
-                continue;
-            }
-            if (name in this.groups)
-                throw new Error(`Group ${name} is specified multiple times in ${this.groupsFile}`);
+        for (const [id, data] of Object.entries(groupData.groups)) {
+            if (id in this.groups)
+                throw new Error(`Group ${id} is specified multiple times in ${this.groupsFile}`);
 
-            if (!groupData.name || typeof groupData.name !== 'string')
-                throw new Error(`Group #${i} in ${this.groupsFile} does not have a property 'name'`);
+            if (!data.name || typeof data.name !== 'string')
+                throw new Error(`Group #${id} in ${this.groupsFile} does not have a property 'name'`);
 
-            if (groupData.members && !Array.isArray(groupData.members))
-                throw new Error(`Group ${name} does not have a valid member collection`);
+            if (data.members && !Array.isArray(data.members))
+                throw new Error(`Group ${id} does not have a valid member collection`);
 
-            groupData.gID = name;
-
-            this.groups[name] = await AclSecurityGroup.createAsync(this, groupData);
+            this.groups[id] = new AclSecurityGroup(this, id, data.name, data.description || '[No description]', data.members);
         }
         if (this.defaultGroupName in this.groups === false) {
-            this.groups[this.defaultGroupName] = await AclSecurityGroup.createAsync(this, {
-                gID: this.defaultGroupName,
-                name: this.defaultGroupName,
-                description: 'Default group in which all objects are members',
-                members: []
-            });
+            this.groups[this.defaultGroupName] = new AclSecurityGroup(this, this.defaultGroupName, 'Default Group', 'Default group that all objects are members of', []);
         }
     }
 
@@ -797,17 +839,22 @@ class AclSecurityManager extends BaseSecurityManager {
     /**
      * Get a credential
      * @param {string} filename
-     * @returns {AclSecurityCredential}
+     * @returns {AclSecurityCredential | AclSecurityGroup}
      */
-    getCredential(filename) {
+    getCredential(filename, reload = false) {
         return driver.driverCall('getCredentialApply', () => {
+            if ('~@$'.indexOf(filename.charAt(0)) > -1) {
+                return this.groups[filename];
+            }
             /** @type {{ IsUser: boolean, UserId: string, IsWizard: boolean, Groups: string[]}} */
-            let result = driver.masterObject[this.getCredentialApply](filename);
+            let result = filename.indexOf('\\') > -1 ? {
+                UserId: filename
+            } : driver.masterObject[this.getCredentialApply](filename);
 
             if (!result || typeof result !== 'object')
                 throw new Error(`Master object ${driver.filename}.${this.getCredentialApply} did not return valid credentials for ${filename}`);
 
-            if (result.UserId in this.credentials)
+            if (result.UserId in this.credentials && reload === false)
                 return this.credentials[result.UserId];
 
             if (!Array.isArray(result.Groups))
@@ -826,6 +873,15 @@ class AclSecurityManager extends BaseSecurityManager {
             }
             return (this.credentials[result.UserId] = new AclSecurityCredential(this, result));
         }, __filename, true, true);
+    }
+
+    /**
+     * Get multiple credentials at once
+     * @param {string[]} names
+     * @returns {AclSecurityCredential[] | string[]}
+     */
+    getCredentials(names) {
+        return this.initialized ? names.map(n => this.getCredential(n)) : names;
     }
 
     /**
@@ -911,6 +967,23 @@ class AclSecurityManager extends BaseSecurityManager {
     }
 
     /**
+     * Save the groups file
+     * @returns {Promise<boolean>}
+     */
+    async saveGroups() {
+        let groupData = {
+            defaultGroupName: this.defaultGroupName,
+            systemGroupName: this.systemGroupName,
+            groups: {}
+        };
+        for (const [id, group] of Object.entries(this.groups)) {
+            groupData.groups[id] = group.createSafeExport();
+        }
+        let groupsFile = await driver.fileManager.getFileAsync(this.groupsFile, 0, true);
+        return await groupsFile.writeJsonAsync(groupData);
+    }
+
+    /**
      * Ensure the master object is compatible with this security manager.
      * @param {GameServer} gameDriver
      */
@@ -919,27 +992,6 @@ class AclSecurityManager extends BaseSecurityManager {
             throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.getCredentialApply}'`);
         if (typeof gameDriver.masterObject[this.createAclApply] !== 'function')
             throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.createAclApply}'`);
-
-        for (const pattern of this.externalGroupFiles) {
-            try {
-                let externalFiles = await driver.fileManager.queryFileSystemAsync(pattern, true)
-                    .catch(err => console.log(`Unable to locate external files using pattern ${pattern}: ${err}`));
-
-                for (let i = 0; i < externalFiles.length; i++) {
-                    try {
-                        const prefix = await driver.callApplyAsync('aclGetExternalGroupPrefix', externalFiles[i].path);
-                        await this.loadExternalGroupsFile(prefix, externalFiles[i])
-                            .catch(err => console.log(`\tUnable to load external group file: ${externalFiles[i].path}: ${err}`));
-                    }
-                    catch (err) {
-                        console.log(`\tUnable to load external group file: ${externalFiles[i].path}: ${err}`);
-                    }
-                }
-            }
-            catch (ex) {
-                console.log(`Unable to locate external files using pattern ${pattern}: ${ex}`)
-            }
-        }
         await this.loadPermissionsFile();
     }
 

@@ -435,10 +435,8 @@
     <Content Include="lib\sys\etc\acl-access.yaml">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\sys\etc\acl-groups.json" />
     <Content Include="lib\sys\etc\acls.json">
-      <SubType>Code</SubType>
-    </Content>
-    <Content Include="lib\sys\etc\acl-groups.yaml">
       <SubType>Code</SubType>
     </Content>
     <Content Include="lib\sys\include\VerbMixins.js" />

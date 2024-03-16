@@ -1,0 +1,68 @@
+{
+   "defaultGroupName": "$ALL",
+   "systemGroupName": "$SYSTEM",
+   "groups": {
+      "$ADMIN": {
+         "id": "$ADMIN",
+         "name": "Administrators",
+         "description": "Contains a list of superusers that have global control over MUD operations.",
+         "members": [
+            "creators\\kriton"
+         ]
+      },
+      "$ASSIST": {
+         "id": "$ASSIST",
+         "name": "Arch Group",
+         "description": "Members of this group are backup administrators but do not have full admin access.",
+         "members": []
+      },
+      "$SYSTEM": {
+         "id": "$SYSTEM",
+         "name": "System Objects",
+         "description": "Priveledged system objects have few restrictions on mudlib access",
+         "members": [
+            "mudlib\\system",
+            "$ADMIN"
+         ]
+      },
+      "$APPROVAL": {
+         "id": "$APPROVAL",
+         "name": "Approval Group",
+         "description": "The approval group is responsible for reviewing new code and balancing gameplay.",
+         "members": [
+            "$ADMIN"
+         ]
+      },
+      "$LAW": {
+         "id": "$LAW",
+         "name": "MUD Law Enforcement",
+         "description": "The approval group is responsible for reviewing new code and balancing gameplay.",
+         "members": [
+            "$ADMIN"
+         ]
+      },
+      "$MUDLIB": {
+         "id": "$MUDLIB",
+         "name": "MUDLib Development",
+         "description": "Mudlib developers are responsible for maintaining the base code that other creators use.",
+         "members": [
+            "$ADMIN",
+            "creators\\testwiz"
+         ]
+      },
+      "~KRITON\\WORKROOM": {
+         "id": "~KRITON\\WORKROOM",
+         "name": "Workroom Guests",
+         "description": "People allowed in the workroom when it is locked.",
+         "members": [
+            "creators\\testwiz"
+         ]
+      },
+      "$ALL": {
+         "id": "$ALL",
+         "name": "Default Group",
+         "description": "Default group that all objects are members of",
+         "members": []
+      }
+   }
+}

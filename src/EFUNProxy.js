@@ -778,6 +778,11 @@ class EFUNProxy {
         return this.isFileSync(expr, flags);
     }
 
+    isForced() {
+        let ecc = driver.getExecution();
+        return ecc.thisPlayer !== ecc.truePlayer;
+    }
+
     isFunction(expr) {
         return expr && typeof expr === 'function';
     }

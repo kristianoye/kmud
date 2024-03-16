@@ -386,7 +386,7 @@ class DiskFileObject extends FileSystemObject {
         else
             exportText = JSON.stringify(data);
 
-        await this.writeFileAsync(exportText, options);
+        return await this.writeFileAsync(exportText, options);
     }
 
     /**

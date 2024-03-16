@@ -93,6 +93,13 @@ class BaseSecurityManager extends EventEmitter {
         return false;
     }
 
+    isValidGroupId(id) {
+        if (typeof id === 'string') {
+            return ['~', '@', '$'].indexOf(id.charAt(0)) > -1;
+        }
+        return false;
+    }
+
     /**
      * Retrieve the owner name of a particular file
      * @param {object} fo The file object to retreve ownership info for
@@ -251,15 +258,6 @@ class BaseSecurityCredential extends EventEmitter {
     constructor(data) {
         super();
 
-        const removeUserCallback = /** @param {BaseSecurityGroup} group */ (group, member) => {
-            if (this.isEqual(member)) {
-                if (this.#removeFromGroup(group)) {
-                    group.removeListener('kmud.driver.acl.group.removeMember', removeUserCallback);
-                    this.emit('kmud.driver.acl.user.removedFromGroup', group);
-                }
-            }
-        };
-
         this.#groups = data.Groups || [];
         this.#userId = data.UserId;
 
@@ -267,10 +265,20 @@ class BaseSecurityCredential extends EventEmitter {
             this.IsUser = true;
         if (data.IsWizard)
             this.IsWizard = true;
+    }
 
-        for (let i = 0, m = this.#groups.length; i < m; i++) {
-            this.#groups[i].on('kmud.driver.acl.group.removeMember', removeUserCallback);
+    /**
+     * Add a group
+     * @param {BaseSecurityGroup} group
+     */
+    addGroup(group) {
+        if (group instanceof BaseSecurityGroup) {
+            if (this.#groups.indexOf(group) === -1) {
+                this.#groups.push(group);
+                return true;
+            }
         }
+        return false;
     }
 
     createSafeExport() {
@@ -329,10 +337,10 @@ class BaseSecurityCredential extends EventEmitter {
      * Remove the group
      * @param {BaseSecurityGroup} group
      */
-    #removeFromGroup(group) {
-        let index = this.#groups.findIndex(g => g.name === group.name);
+    removeFromGroup(group) {
+        let index = this.#groups.findIndex(g => g.gid === group.gid);
         if (index > -1) {
-            this.#groups = this.#groups.splice(index, 1);
+            this.#groups.splice(index, 1);
             return true;
         }
         return false;
@@ -346,7 +354,7 @@ class BaseSecurityCredential extends EventEmitter {
 class BaseSecurityGroup extends EventEmitter {
     /**
      * Construct a security group object
-     * @param {BaseFileSecurity} manager The manager object that owns this object
+     * @param {BaseSecurityManager} manager The manager object that owns this object
      * @param {string} id The group ID
      * @param {string} name The name of the group
      * @param {string} desc A description of the group role
@@ -366,7 +374,16 @@ class BaseSecurityGroup extends EventEmitter {
             id: this.gid,
             name: this.name,
             description: this.description,
-            members: this.members.slice(0)
+            members: this.members.map(m => {
+                if (m instanceof BaseSecurityGroup)
+                    return m.gid !== this.owner.defaultGroupName && m.gid;
+                else if (m instanceof BaseSecurityCredential)
+                    return m.userId;
+                else if (typeof m === 'string')
+                    return m;
+                else
+                    return false;
+            }).filter(m => m !== false)
         });
     }
 
@@ -381,6 +398,10 @@ class BaseSecurityGroup extends EventEmitter {
     #gid;
 
     get gid() {
+        return this.#gid.slice(0);
+    }
+
+    get id() {
         return this.#gid.slice(0);
     }
 
@@ -407,7 +428,7 @@ class BaseSecurityGroup extends EventEmitter {
         return this.#name.slice(0);
     }
 
-    /** @type {BaseFileSecurity} */
+    /** @type {BaseSecurityManager} */
     #owner;
 
     get owner() {
@@ -426,7 +447,14 @@ class BaseSecurityGroup extends EventEmitter {
                 }
             }
             this.#members.push(member);
-            this.emit('kmud.driver.acl.group.addMember', this.name, member);
+            if (member instanceof BaseSecurityCredential)
+                member.addGroup(this);
+            else if (member instanceof BaseSecurityGroup) {
+                for (const m of member.members) {
+                    if (m instanceof BaseSecurityCredential)
+                        m.addGroup(this);
+                }
+            }
             return true;
         }
         return false;
@@ -445,7 +473,10 @@ class BaseSecurityGroup extends EventEmitter {
                 return m === member || m.userId === member;
             }
             else if (typeof m === 'string') {
-                if (member instanceof BaseSecurityGroup)
+                let group = this.owner.getGroup(m);
+                if (group)
+                    return group.isMember(member);
+                else if (member instanceof BaseSecurityGroup)
                     return member.name === m;
                 else if (member instanceof BaseSecurityCredential)
                     return member.userId === m;
@@ -469,13 +500,29 @@ class BaseSecurityGroup extends EventEmitter {
      * @param {string | BaseSecurityCredential | BaseSecurityGroup} member
      */
     removeMember(member) {
+        //  Objects cannot be removed from default group
+        if (this.gid === this.owner.defaultGroupName)
+            return false;
+
         let index = this.findIndex(member);
         if (index > -1) {
-            this.#members = this.#members.splice(index, 1);
-            this.emit('kmud.driver.acl.group.removeMember', this, member);
+            this.#members.splice(index, 1);
+            if (member instanceof BaseSecurityCredential)
+                member.removeFromGroup(this);
+            else if (member instanceof BaseSecurityGroup) {
+                for (const m of member.members) {
+                    m.removeFromGroup(this);
+                }
+            }
             return true;
         }
         return false;
+    }
+
+    resolveMembers() {
+        if (this.owner.initialized === true) {
+            this.#members = this.owner.getCredentials(this.members);
+        }
     }
 }
 
