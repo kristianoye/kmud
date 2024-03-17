@@ -86,12 +86,16 @@ class MUDStorage extends MUDEventEmitter {
             let cmd = {
                 verb: clientCommand.verb.value,
                 args: clientCommand.args.map(a => a.hasOwnProperty('value') ? a.value : a),
-                text: clientCommand.text
+                text: clientCommand.text,
+                stdout: clientCommand.stdout || this.shell.console,
+                stderr: clientCommand.stderr || this.shell.console,
+                stdin: clientCommand.stdin || false
             };
 
             return await context.withPlayerAsync(this, async (player) => {
                 let result = false;
                 try {
+                    context.pushCommand(cmd);
                     result = await player.executeCommand(cmd);
                     if (result !== true && this.actions) {
                         let actionResult = await this.actions.tryAction(cmd);
@@ -102,6 +106,9 @@ class MUDStorage extends MUDEventEmitter {
                 }
                 catch (err) {
                     result = err;
+                }
+                finally {
+                    context.popCommand();
                 }
                 return result;
             }, false);

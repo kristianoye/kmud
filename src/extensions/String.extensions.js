@@ -38,11 +38,12 @@ String.prototype.fs = function (...args) {
 
                 if (m.groups.format) {
                     let format = m.groups.format.slice(1);
+                    let len = valueString.stripColors().length;
                     let n = parseInt(format);
 
                     if (!isNaN(n)) {
                         let width = Math.abs(n),
-                            paddingNeeded = width - valueString.length;
+                            paddingNeeded = width - len;
                         if (paddingNeeded > 0) {
                             valueString = n < 0 ? valueString + ' '.repeat(paddingNeeded) : ' '.repeat(paddingNeeded) + valueString;
                         }
@@ -50,8 +51,8 @@ String.prototype.fs = function (...args) {
                     if (format.startsWith('CENTER(')) {
                         let m = /CENTER\((?<width>\d+)\)/.exec(format),
                             width = parseInt(m.groups.width),
-                            left = Math.floor((width - valueString.length) / 2),
-                            right = Math.max(0, width - valueString.length - left);
+                            left = Math.floor((width - len) / 2),
+                            right = Math.max(0, width - len - left);
 
                         if (left > 0) {
                             valueString = ' '.repeat(left) + valueString + ' '.repeat(right);
@@ -67,6 +68,11 @@ String.prototype.fs = function (...args) {
     return s;
 };
 
+String.prototype.stripColors = function () {
+    let str = this.slice(0);
+    str = str.replace(/(\%\^[A-Z]+\%\^)/g, '');
+    return str;
+};
 String.prototype.ucfirst = function () {
     return this.charAt(0).toUpperCase() + this.slice(1);
 }

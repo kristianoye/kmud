@@ -273,6 +273,9 @@ class ExecutionContext extends events.EventEmitter {
         /** @type {ExecutionFrame[]} */
         this.stack = [];
 
+        /** @type {{ verb: string, args: string[] }[]} */
+        this.cmdStack = [];
+
         if (parent) {
             /** @type {ExecutionFrame[]} */
             this.stack = parent.stack.slice(0);
@@ -282,6 +285,7 @@ class ExecutionContext extends events.EventEmitter {
             this.client = parent.client;
             this.player = parent.player;
             this.truePlayer = parent.truePlayer;
+            this.cmdStack = parent.cmdStack;
         }
         else {
             this.alarmTime = Number.MAX_SAFE_INTEGER;// driver.efuns.ticks + 5000;
@@ -465,6 +469,10 @@ class ExecutionContext extends events.EventEmitter {
             this.controller.onlyOnce('resume', (ticks) => resolve(ticks));
             this.controller.onlyOnce('abort', () => reject(this.controller.error));
         });
+    }
+
+    get command() {
+        return this.cmdStack.length && this.cmdStack[0];
     }
 
     /**
@@ -688,6 +696,10 @@ class ExecutionContext extends events.EventEmitter {
         return lastFrame;
     }
 
+    popCommand() {
+        return this.cmdStack.length && this.cmdStack.shift();
+    }
+
     popCurrentFrame() {
         let frame = this.stack[0];
         return this.pop(frame.callString);
@@ -747,6 +759,14 @@ class ExecutionContext extends events.EventEmitter {
         let newFrame = new ExecutionFrame(this, object, file, method, lineNumber, callString, isAsync, isUnguarded, callType);
         this.stack.unshift(newFrame);
         return this;
+    }
+
+    /**
+     * Push a command
+     * @param {{ verb: string, args: string[] }} cmd
+     */
+    pushCommand(cmd) {
+        this.cmdStack.unshift(cmd);
     }
 
     /**

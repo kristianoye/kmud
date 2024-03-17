@@ -18,7 +18,7 @@ export default singleton class WhoCommand extends Command {
         }
 
         writeLine('');
-        writeLine(`{0:CENTER(${width})}`.fs(efuns.mudName()));
+        writeLine(`{0:CENTER(${width})}`.fs('%^GREEN%^%^BOLD%^' + efuns.mudName() + '%^RESET%^'));
         writeLine('-='.repeat(Math.floor(width / 2) - 1) + '-');
         writeLine('');
 

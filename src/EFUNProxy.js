@@ -1940,18 +1940,27 @@ class EFUNProxy {
     }
 
     get err() {
-        let ecc = driver.getExecution();
-        return ecc.shell && ecc.shell.stderr;
+        let ecc = driver.getExecution(),
+            cmd = ecc.command;
+        if (cmd && cmd.stderr)
+            return cmd.stderr;
+        return ecc.shell && ecc.shell.console;
     }
 
     get in() {
-        let ecc = driver.getExecution();
+        let ecc = driver.getExecution(),
+            cmd = ecc.command;
+        if (cmd && cmd.stdin)
+            return cmd.stdin;
         return ecc.shell && ecc.shell.stdin;
     }
 
     get out() {
-        let ecc = driver.getExecution();
-        return ecc.shell && ecc.shell.stdout;
+        let ecc = driver.getExecution(),
+            cmd = ecc.command;
+        if (cmd && cmd.stdout)
+            return cmd.stdout;
+        return ecc.shell && ecc.shell.console;
     }
 
     /**
