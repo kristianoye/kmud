@@ -410,6 +410,7 @@
     <Content Include="lib\base\mixins\Listen.js" />
     <Content Include="lib\base\mixins\Look.js" />
     <Content Include="lib\base\mixins\Put.js" />
+    <Content Include="lib\base\ShellCommand.js" />
     <Content Include="lib\cmds\admin\placeholder.txt">
       <SubType>Code</SubType>
     </Content>
@@ -423,9 +424,11 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="lib\sys\cmds\creator\Clone.js" />
+    <Content Include="lib\sys\cmds\creator\Echo.js" />
     <Content Include="lib\sys\cmds\creator\Groups.js" />
     <Content Include="lib\sys\cmds\creator\Which.js" />
     <Content Include="lib\sys\cmds\filesystem\Rehash.js" />
+    <Content Include="lib\sys\cmds\player\History.js" />
     <Content Include="lib\sys\etc\accessEx.json">
       <SubType>Code</SubType>
     </Content>
@@ -461,6 +464,7 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="src\CommandShell.js" />
+    <Content Include="src\CommandShellOptions.js" />
     <Content Include="src\compiler\CompilerFlags.js" />
     <Content Include="src\compiler\CompilerPipeline.js" />
     <Content Include="src\compiler\LPCPreprocessor.js" />
