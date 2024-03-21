@@ -89,6 +89,10 @@ class MUDEventEmitter {
         return this.addListener(eventName, listener, true, true);
     }
 
+    rawListeners(eventName) {
+        return this.listeners(eventName);
+    }
+
     removeAllListeners(eventName) {
         delete this.events[eventName];
         return this;

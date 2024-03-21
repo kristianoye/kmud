@@ -10,6 +10,7 @@
 const
     CreationContext = require('./CreationContext'),
     MemberModifiers = require("./compiler/MudscriptMemberModifiers"),
+    MUDEventEmitter = require('./MUDEventEmitter'),
     uuidv1 = require('uuid/v1'),
     MUDObject = require('./MUDObject'),
     CallOrigin = Object.freeze({
@@ -170,7 +171,7 @@ class ExecutionFrame {
 /**
  * Process controller to allow for aborting or suspending processes
  */
-class ExecutionSignaller extends events.EventEmitter {
+class ExecutionSignaller extends MUDEventEmitter {
     constructor() {
         super();
 
@@ -246,7 +247,7 @@ class ExecutionSignaller extends events.EventEmitter {
 /**
  * Maitains execution and object stacks for the MUD.
  */
-class ExecutionContext extends events.EventEmitter {
+class ExecutionContext extends MUDEventEmitter {
     /**
      * 
      * @param {ExecutionContext} parent The parent context (if one exists)
@@ -480,18 +481,14 @@ class ExecutionContext extends events.EventEmitter {
      * @returns {ExecutionContext} Reference to this context.
      * @param {boolean} forceCompletion If true then the context is forced to be finish regardless of state
      */
-    async complete(forceCompletion=false) {
+    complete(forceCompletion=false) {
         try {
             if (this.stack.length === this.forkedAt || true === forceCompletion) {
                 this.emit('complete', 'complete');
                 for (let i = 0; i < this.onComplete; i++) {
                     try {
                         let callback = this.onComplete[i];
-
-                        if (efuns.isAsync(callback))
-                            await callback();
-                        else
-                            callback();
+                        typeof callback === 'function' && callback();
                     }
                     catch (err) {
                         console.log(`Error in context onCompletion: ${err}`);
@@ -557,32 +554,6 @@ class ExecutionContext extends events.EventEmitter {
      */
     getFrame(index) {
         return index > -1 && index < this.length && this.stack[index];
-    }
-
-    /**
-     * Get shell options for the current player
-     * @param {string} verb The command verb that is about to be executed.
-     * @returns {CommandShellOptions}
-     */
-    async getShellOptionsAsync(verb) {
-        if (this.player) {
-            return await driver.driverCallAsync('getShellOptions', async () => {
-                let player = unwrap(this.player);
-
-                if (player) {
-                    /** @type {CommandShellOptions} */
-                    let result = await player.getShellSettings(verb);
-
-                    result.allowAliases = result.allowAliases || !!result.aliases;
-                    result.allowHistory = result.allowHistory || !!result.history;
-                    result.allowEnvironment = result.allowEnvironment || !!result.environment;
-
-                    return result;
-                }
-                return {};
-            });
-        }
-        return {};
     }
 
     /**
@@ -685,9 +656,7 @@ class ExecutionContext extends events.EventEmitter {
 
         if (this.stack.length === this.forkedAt) {
             this.completed = true;
-            process.nextTick(async () => {
-                await this.complete();
-            });
+            this.complete();
             return this;
         }
         else

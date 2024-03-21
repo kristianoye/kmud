@@ -11,6 +11,7 @@ const
     { LinkedList } = require('./LinkedList'),
     BaseInput = require('./inputs/BaseInput'),
     CommandParser = require('./CommandParser'),
+    CommandShellOptions = require('./CommandShellOptions'),
     events = require('events'),
     CommandInterval = 5,
     path = require('path');
@@ -57,7 +58,8 @@ class CommandShell extends events.EventEmitter {
 
         /** @type {CommandShellOptions} */
         this.options = {
-            allowAliases: false,
+            expandAliases: false,
+            allowBackticks: false,
             allowPipelining: false,
             allowEnvironment: false,
             allowFileExpressions: false,
@@ -78,7 +80,7 @@ class CommandShell extends events.EventEmitter {
         this.stderr = new IO.StandardOutputStream({ encoding: 'utf8' }, component, this);
         this.console = new IO.StandardPassthruStream({ encoding: 'utf8' }, component, this);
 
-        if (this.options.allowAliases) {
+        if (this.options.expandAliases) {
             this.aliases = this.options.aliases || [];
             delete this.options.aliases;
         }
@@ -407,7 +409,7 @@ class CommandShell extends events.EventEmitter {
                         return this.executeResult(result, cmds);
                     }
 
-                    if (this.options.allowAliases) {
+                    if (this.options.expandAliases) {
                         this.expandAliases(cmd);
                     }
 
@@ -577,6 +579,19 @@ class CommandShell extends events.EventEmitter {
     flushAll() {
         this.stdout && this.stdout.flush();
         this.stderr && this.stderr.flush();
+    }
+
+    /**
+     * 
+     * @param {string} verb
+     * @param {CommandShellOptions} opts
+     * @returns {CommandShellOptions}
+     */
+    async getShellSettings(verb, opts) {
+        if (this.storage) {
+            return await this.storage.getShellSettings(verb, opts);
+        }
+        return {};
     }
 
     /**
@@ -1127,7 +1142,7 @@ class CommandShell extends events.EventEmitter {
                 return token;
             }
             if (!command && token.type === TT.Word) {
-                if (this.options.allowAliases && typeof this.options.aliases === 'object') {
+                if (this.options.expandAliases && typeof this.options.aliases === 'object') {
                     let alias = this.options.aliases[token.value] || false;
                     if (alias !== false && inAlias === false) {
                         let hasBackefs = alias && alias.indexOf('$') > -1;
@@ -1315,7 +1330,7 @@ class CommandShell extends events.EventEmitter {
 
                 }
                 else if (input instanceof Error) {
-                    this.stderr.write(efuns.eol + `${input.message}` + efuns.eol + efuns.eol);
+                    driver.efuns.errorLine(efuns.eol + `${input.message}` + efuns.eol + efuns.eol);
                     inputTo.error = input.message;
                 }
                 return true;
@@ -1323,6 +1338,14 @@ class CommandShell extends events.EventEmitter {
             return;
         }
         try {
+            this.options = await this.storage.getShellSettings(false, new CommandShellOptions());
+            let cp = new CommandParser(input, this),
+                test = await cp.parse(),
+                hist = test.toHistoryString();
+
+            if (Array.isArray(test.options.history))
+                test.options.history.push(hist);
+
             if (this.options.allowHistory) {
                 let newInput = this.expandHistory(input);
                 if (newInput !== input)

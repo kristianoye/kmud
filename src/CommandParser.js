@@ -6,6 +6,8 @@
  * Description: Parser that splits a commandline into a command tree.
  */
 
+const CommandShellOptions = require("./CommandShellOptions");
+
 const
     /*
      * A mud command eats all tokens to the end of the input without considering
@@ -24,27 +26,37 @@ const
     CMD_EXPR = "ExpressionCommand";
 
 const
+    retoken = /^((?<number>\d+[.]{0,1}\d*|\d*[.]{0,1}\d+)|(?<word>[a-zA-Z0-9_]+)|(?<whitespace>[\s]+))/,
+    rehistory = /^!(?<lookup>(?<last>[!])|(?<number>[-]\d+)|(?<search>[^\s\d:][\w]+)){0,1}(?<param>:(?:\d+|\^|\$|\*)){0,1}/,
+    rehistoryModifiers = /^(?<modifier>(?<arg>:(?:\d+|[\^\$\*]{1})|(?<replace>:s\/(?<term>[^\/]+)\/(?<replacement>[^\/]+)\/))|(?<mods>[htrp]))/g;
+
+const
     OP_AND = '&&',
     OP_ASSIGNMENT = '=',
     OP_BACKGROUND = '&',
     OP_COMPOUND = ';',
     OP_OR = '||',
     OP_PIPEBOTH = '|&',
-    OP_PIPELINE = '|';
+    OP_PIPELINE = '|',
+    OP_READSTDIN = '<',
+    OP_APPENDOUT = '>>',
+    OP_WRITEOUT = '>';
 
 const
     TOKEN_ALIAS = 'Alias',
     TOKEN_HISTORY = 'History',
+    TOKEN_HISTORYSUB = 'HistorySubstitution',
     TOKEN_MEMBERACCESS = 'MemberAccess',
     TOKEN_NUMERIC = 'Numeric',
     TOKEN_OPERATOR = 'Operator',
     TOKEN_STRING = 'String',
     TOKEN_VARIABLE = 'Variable',
     TOKEN_WHITESPACE = 'Whitespace',
-    TOKEN_WORD = 'Word';
+    TOKEN_WORD = 'Word',
+    TOKEN_BACKTICK = 'Backtick';
 
 class ParsedCommand {
-    constructor() {
+    constructor(options = {}) {
         /** 
          * The type of command to execute 
          */
@@ -66,7 +78,7 @@ class ParsedCommand {
         this.original = '';
 
         /** @type {CommandShellOptions} */
-        this.options = {};
+        this.options = options;
 
         /**
          * Conditional command to execute if this command FAILS
@@ -86,6 +98,8 @@ class ParsedCommand {
          */
         this.nextCommand;
 
+        this.operator = '';
+
         /**
          * The command to pipe output to.
          * @type {ParsedCommand}
@@ -100,6 +114,15 @@ class ParsedCommand {
 
         /** @type {ParsedToken[]} */
         this.tokens = [];
+    }
+
+    /**
+     * Append a token to the command
+     * @param {ParsedToken} token
+     */
+    addToken(token) {
+        token.index = this.tokens.length;
+        this.tokens.push(token);
     }
 
     /** 
@@ -151,12 +174,32 @@ class ParsedCommand {
     get lastToken() {
         return this.tokens[this.tokens.length - 1] || {};
     }
+
+    /**
+     * Convert this command into a value that can be stored in history
+     * @returns {string}
+     */
+    toHistoryString() {
+        let result = this.leadingWhitespace && this.leadingWhitespace.source || '',
+            nextCommand = this.conditional || this.alternate || this.nextCommand || this.pipeTarget,
+            operator = this.operator;
+
+        result += this.verb + this.tokens.map(t => t.source).join('')
+        if (operator) {
+            result += operator;
+            if (nextCommand) {
+                result += nextCommand.toHistoryString();
+            }
+        }
+        return result;
+    }
 }
 
 class ParsedToken {
     constructor(start) {
         this.start = start;
         this.end = -1;
+        this.index = -1;
         this.source = '';
         this.complete = false;
         this.tokenType = TOKEN_WORD;
@@ -182,26 +225,28 @@ class CommandParser {
      * Construct a new command parser.
      * @param {string} source The source to parse
      */
-    constructor(source) {
+    constructor(source, shell = false) {
         this.source = source || '';
         this.index = 0;
 
         /** @type {CommandShellOptions} */
-        this.options = false;
+        this.options = shell && shell.options || {};
+        this.commandCount = 0;
+        this.shell = shell;
     }
 
     /**
      * Return the next command
-     * @returns {{ operator: string, command: ParsedCommand }} 
+     * @returns {{ operator: ParsedToken, command: ParsedCommand }} 
      */
-    nextCommand() {
+    async nextCommand() {
         /** @type {ParsedCommand} */
         let cmd;
 
         /** @type {ParsedToken} */
         let token;
 
-        while (token = this.nextToken(cmd)) {
+        while (token = await this.nextToken(cmd)) {
             if (!cmd) {
                 let verbLookup = false;
 
@@ -209,8 +254,14 @@ class CommandParser {
                     case TOKEN_ALIAS:
                         //  Defer additional processing until the command is completely parsed.
                         cmd = new ParsedCommand();
-                        cmd.verb = token;
                         verbLookup = token.tokenValue.slice(0, token.tokenValue.search(/[^a-zA-Z0-9_-]/));
+                        cmd.verb = token;
+                        break;
+
+                    case TOKEN_HISTORY:
+                        cmd = new ParsedCommand();
+                        verbLookup = token.tokenValue.slice(0, token.tokenValue.search(/[^a-zA-Z0-9_-]/));
+                        cmd.verb = token;
                         break;
 
                     case TOKEN_NUMERIC:
@@ -228,6 +279,7 @@ class CommandParser {
 
                     case TOKEN_WHITESPACE:
                         //  Ignore leading whitespace
+                        this.leadingWhitespace = token;
                         break;
 
                     default:
@@ -235,20 +287,60 @@ class CommandParser {
                             throw new Error(`-kmsh: Unexpected token ${token.tokenType} '${token.tokenValue}' found at position ${token.start}; Expected verb.`);
                 }
 
-                if (verbLookup && false) {
+                if (cmd && this.leadingWhitespace) {
+                    cmd.leadingWhitespace = this.leadingWhitespace;
+                    delete this.leadingWhitespace;
+                }
+
+                if (verbLookup && this.shell) {
+                    cmd.options = await this.shell.getShellSettings(verbLookup, new CommandShellOptions());
                 }
             }
             else {
                 let lastToken = cmd.lastToken;
 
-                if (token.tokenType === TOKEN_OPERATOR)
-                    return { operator: token, command: cmd };
+                if (token.tokenType === TOKEN_OPERATOR) {
+                    switch (token.tokenValue) {
+                        case OP_READSTDIN:
+                            {
+                                cmd.addToken(token);
+                                let filename = await this.nextCompleteWord(cmd);
+                                if (!filename)
+                                    throw new Error(`-kmsh: Syntax error while searching for expected input file`);
+                                token.fileToken = filename.index;
+                                token.fileName = filename.source;
+                            }
+                            break;
+
+                        case OP_APPENDOUT:
+                        case OP_WRITEOUT:
+                            {
+                                cmd.addToken(token);
+                                let filename = await this.nextCompleteWord(cmd);
+                                if (!filename)
+                                    throw new Error(`-kmsh: Syntax error while searching for expected output file`);
+                                token.fileToken = filename.index;
+                                token.fileName = filename.source;
+                            }
+                            break;
+
+                        default:
+                            return { operator: token, command: cmd };
+                    }
+                }
                 else if (token.tokenType === TOKEN_WORD && lastToken.tokenType === TOKEN_WORD) {
                     lastToken.tokenValue += token.tokenValue;
                     lastToken.end = token.end;
+                    lastToken.source = this.source.slice(lastToken.start, lastToken.end);
                 }
-                else
-                    cmd.tokens.push(token);
+                else if (lastToken.tokenType === TOKEN_WORD) {
+                    //switch (lastToken.tokenValue) {
+                    //}
+                    cmd.addToken(token);
+                }
+                else {
+                    cmd.addToken(token);
+                }
             }
         }
         return cmd && {
@@ -459,14 +551,45 @@ class CommandParser {
     }
 
     /**
+     * Fetch the next complete word
+     * @param {ParsedCommand} cmd The command being built
+     * @returns {ParsedToken} The next token
+     */
+    async nextCompleteWord(cmd) {
+        let nextToken = await this.nextToken(cmd),
+            wordToken = false;
+
+        while (nextToken && !wordToken) {
+            if (nextToken.tokenType === TOKEN_WORD) {
+                if (!wordToken)
+                    wordToken = nextToken;
+
+                nextToken = await this.nextToken(cmd);
+
+                while (nextToken.tokenType === TOKEN_WORD) {
+                    wordToken.tokenValue += nextToken.tokenValue;
+                    wordToken.end = nextToken.end;
+                    nextToken = await this.nextToken(cmd);
+                }
+                wordToken.source = this.source.slice(wordToken.start, wordToken.end);
+                cmd.addToken(wordToken);
+                if (nextToken) cmd.addToken(nextToken);
+                return wordToken;
+            }
+            else
+                cmd.addToken(nextToken);
+            nextToken = await this.nextToken(cmd);
+        }
+        return wordToken;
+    }
+
+    /**
      * Fetch the next token
      * @param {ParsedCommand} cmd The command being built
      * @returns {ParsedToken} The next token
      */
-    nextToken(cmd) {
+    async nextToken(cmd) {
         try {
-            const retoken = /^((?<number>\d+[.]{0,1}\d*|\d*[.]{0,1}\d+)|(?<word>[a-zA-Z0-9_]+)|(?<whitespace>[\s]+))/;
-
             let
                 options = cmd && cmd.options || this.options,
                 token = new ParsedToken(this.index),
@@ -481,22 +604,20 @@ class CommandParser {
                 if (!cmd) {
                     //  History substitution support
                     if (options.allowHistory && c === '^') {
-                        let middle = text.indexOf('^', i + 1),
-                            end = middle > -1 && text.indexOf('^', middle + 1) || -1;
+                        let parts = text.split('^');
 
-                        if (middle > -1 && end > -1) {
+                        if (parts.length === 4 && parts[1].length > 0) {
                             let searchFor = this.source.slice(1, middle),
                                 replaceWith = this.source.slice(middle + 1, end),
                                 commandText = options.history[options.history.length - 1];
 
                             commandText = commandText.replace(searchFor, replaceWith);
                             this.source = this.source.slice(0, i) + commandText + this.source.slice(end + 1);
-                            return this.nextToken(cmd);
+                            return await this.nextToken(cmd);
                         }
                     }
-
                     //  Special case check for XALIASES
-                    if (options.allowAliases) {
+                    if (options.expandAliases) {
                         let alias = options.aliases[`$${c}`];
                         if (alias) {
                             return this.buildToken({ tokenType: TOKEN_ALIAS, tokenValue: alias });
@@ -534,7 +655,7 @@ class CommandParser {
                             token.tokenType = TOKEN_WORD;
                             token.source = text.slice(0, token.tokenValue.length);
 
-                            if (!cmd && options.allowAliases) {
+                            if (!cmd && options.expandAliases) {
                                 let alias = options.aliases[token.tokenValue];
                                 if (alias) {
                                     token.tokenValue = alias;
@@ -542,7 +663,7 @@ class CommandParser {
                                 }
                             }
 
-                            return token.done(this.index = token.start + token.tokenValue.length);
+                            return token.done(this.index = token.start + token.source.length);
                         }
                         break;
 
@@ -582,6 +703,32 @@ class CommandParser {
                         else
                             return this.buildToken({ tokenValue: c });
                         break;
+
+                    case c === '<':
+                        // Read file as stdin
+                        if (options.allowFileIO) {
+                            return this.buildToken({ tokenValue: c, tokenType: TOKEN_OPERATOR });
+                        }
+                        else
+                            return this.buildToken({ tokenValue: c });
+
+                    case c === '>':
+                        if (options.allowFileIO) {
+                            if (text.charAt(1) === '>') {
+                                token.tokenType = TOKEN_OPERATOR;
+                                token.source = token.tokenValue = OP_APPENDOUT;
+                                token.start = i;
+                                return token.done(this.index = i += 2);
+                            }
+                            else {
+                                token.tokenType = TOKEN_OPERATOR;
+                                token.source = token.tokenValue = OP_WRITEOUT;
+                                token.start = i;
+                                return token.done(this.index = ++i);
+                            }
+                        }
+                        else
+                            return this.buildToken({ tokenValue: c });
 
                     case c === '|':
                         if (options.allowPipelining) {
@@ -623,10 +770,12 @@ class CommandParser {
                     case c === '\"':
                         {
                             let r = new RegExp(`([^\\\\]{1}\\${c})`);
-                            let parts = text.split(r);
 
                             // look for the end of the string
                             let n = text.slice(1).search(r);
+
+                            if (n === -1)
+                                return this.buildToken({ tokenValue: c });
 
                             token.tokenValue = text.slice(1, n + 2);
                             token.source = text.slice(0, n + 3);
@@ -635,6 +784,98 @@ class CommandParser {
                             return token.done(this.index = i + token.tokenValue.length + 2);
                         }
                         break;
+
+                    case c === '!':
+                        {
+                            let m = rehistory.exec(text),
+                                history = options.history,
+                                len = Array.isArray(history) ? history.length : -1,
+                                entry = -1;
+
+                            if (len === -1)
+                                return this.buildToken({ tokenValue: c });
+                            else if (m) {
+                                if (m.groups.number) {
+                                    let n = parseInt(m.groups.number);
+                                    if (n < 0)
+                                        entry = len + n - 1;
+                                    else
+                                        entry = n;
+                                }
+                                else if (m.groups.last) {
+                                    entry = len - 1;
+                                }
+                                else if (m.groups.lookup) {
+                                    for (let i = len - 1; i > -1; i--) {
+                                        if (history[i].startsWith(m.groups.lookup)) {
+                                            entry = i;
+                                            break;
+                                        }
+                                    }
+                                }
+                                else
+                                    entry = len - 1;
+
+                                if (history[entry] === undefined)
+                                    throw new Error(`-kmsh: ${m.groups.lookup}: Event not found`);
+
+                                token.tokenType = TOKEN_HISTORY;
+                                token.start = m.index;
+                                token.end = m.index + m[0].length;
+                                token.modifiers = [];
+                                token.tokenValue = history[entry];
+
+                                if (m.groups.param) {
+                                    let values = token.tokenValue.split(/\s+/),
+                                        pv = token.tokenValue.slice(1);
+                                    if (pv === '*')
+                                        token.tokenValue = values.join(' ');
+                                    else if (pv === '^')
+                                        token.tokenValue = values.shift();
+                                    else if (pv === '$')
+                                        token.tokenValue = values.pop();
+                                    else {
+                                        let n = parseInt(v);
+                                        if (n < 0 || n > values.length)
+                                            throw new Error(`-kmsh: ${m.groups.param}: Bad specifier`);
+                                        token.tokenValue = values[n];
+                                    }
+                                }
+
+                                let remainder = text.slice(token.end);
+                                m = rehistoryModifiers.exec(remainder);
+
+                                while (m) {
+                                    token.modifiers.push(m[0]);
+                                    remainder = remainder.slice(token.end = m.index + m[0].length);
+                                    m = rehistoryModifiers.exec(remainder);
+                                }
+                                token.source = text.slice(token.start, token.end);
+                                return this.buildToken(token);
+                            }
+                            else
+                                return this.buildToken({ tokenValue: c });
+                        }
+                        break;
+
+                    case c === '`':
+                        {
+                            if (options.allowBackticks === true) {
+                                let r = new RegExp(`([^\\\\]{1}\\${c})`);
+                                let parts = text.split(r);
+
+                                // look for the end of the string
+                                let n = text.slice(1).search(r);
+
+                                token.tokenValue = text.slice(1, n + 2);
+                                token.source = text.slice(0, n + 3);
+                                token.tokenType = TOKEN_BACKTICK;
+
+                                return token.done(this.index = i + token.tokenValue.length + 2);
+                            }
+                            else
+                                return this.buildToken({ tokenValue: c });
+                        }
 
                     default:
                         return this.buildToken({ tokenValue: c });
@@ -648,15 +889,67 @@ class CommandParser {
 
     /**
      * Parse some text
-     * @param {string} input
      */
-    async parse(input) {
-        while (result = await this.nextCommand()) {
+    async parse() {
+        let { operator, command } = await this.nextCommand();
+
+        if (!operator)
+            return command;
+
+        while (operator) {
+            let { operator: nextOp, command: nextCmd } = await this.nextCommand();
+
+            if (!operator)
+                throw new Error(`-kmsh: Operator not followed by command`);
+
+            command.operator = operator.tokenValue;
+
+            switch (operator.tokenValue) {
+                case OP_AND:
+                    command.conditional = nextCmd;
+                    break;
+
+                case OP_COMPOUND:
+                    command.nextCommand = nextCmd;
+                    break;
+
+                case OP_OR:
+                    command.alternate = nextCmd;
+                    break;
+
+                case OP_PIPELINE:
+                    command.nextCommand = nextCmd;
+                    command.stdout = {}; // TODO: Create stdout here
+                    nextCmd.stdin = {}; //  TODO: Create reader for command.stdout
+                    break;
+
+                case OP_PIPEBOTH:
+                    command.nextCommand = nextCmd;
+                    command.stdout = {}; // TODO: Create stdout here
+                    command.stderr = command.stdout;
+                    nextCmd.stdin = {}; //  TODO: Create reader for command.stdout
+                    break;
+
+                default:
+                    throw new Error(`-kmsh: Unsupported operator: ${operator}`);
+            }
+
+            operator = nextOp;
         }
+        return command;
     }
 
     get remainder() {
         return this.source.slice(this.index);
+    }
+
+    /**
+     * 
+     * @param {ParsedToken} token
+     */
+    rewindToken(token) {
+        if (token)
+            this.index = token.start;
     }
 }
 

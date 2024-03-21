@@ -15,10 +15,6 @@ const
     LoginTimeout = efuns.time.timespan('10 minutes');
 
 class HtmlLogin extends MUDObject {
-    private getShellSettings() {
-        return { allowEscaping: false };
-    }
-
     private applyInputError(error) {
         let countDown = 10,
             timerId = setInterval(() => {

@@ -3,8 +3,8 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-import { LIB_COMMAND } from 'Base';
-import Command from LIB_COMMAND;
+import { LIB_SHELLCMD } from 'Base';
+import Command from LIB_SHELLCMD;
 
 const
     RM_OPT_INTERACTIVE = 1 << 0,

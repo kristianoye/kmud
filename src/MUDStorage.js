@@ -10,7 +10,8 @@ const
     MUDEventEmitter = require('./MUDEventEmitter'),
     ClientComponent = require('./ClientComponent'),
     ClientCaps = require('./network/ClientCaps'),
-    MUDStorageFlags = require('./MUDStorageFlags');
+    MUDStorageFlags = require('./MUDStorageFlags'),
+    CommandShellOptions = require('./CommandShellOptions');
 
 /**
  * Storage for MUD Objects.  In-game objects do not hold their data directly.
@@ -111,7 +112,7 @@ class MUDStorage extends MUDEventEmitter {
                     context.popCommand();
                 }
                 return result;
-            }, false);
+            }, false, 'eventCommand');
         }, this.filename, true);
     }
 
@@ -225,7 +226,7 @@ class MUDStorage extends MUDEventEmitter {
                 await driver.driverCallAsync('connect', async context => {
                     return await context.withPlayerAsync(this, async player => {
                         return await driver.driverCallAsync('connect', async () => {
-                            let shellSettings = typeof player['getShellSettings'] === 'function' ? await player.getShellSettings() : false;
+                            let shellSettings = typeof player.getShellSettings === 'function' ? await player.getShellSettings() : false;
                             this.shell.update(shellSettings || {});
                             await player.connect(...args);
                         });
@@ -638,6 +639,23 @@ class MUDStorage extends MUDEventEmitter {
      */
     getClientCaps() {
         return this.protected['$clientCaps'] || false;
+    }
+
+    /**
+     * 
+     * @param {string} verb
+     * @param {CommandShellOptions} opts
+     * @returns {CommandShellOptions}
+     */
+    async getShellSettings(verb, opts) {
+        return await driver.driverCallAsync('getShellSettings', async context => {
+            return await context.withPlayerAsync(this, async player => {
+                if (player && typeof player.getShellSettings === 'function')
+                    return await player.getShellSettings(verb, opts);
+                else
+                    return {};
+            }, false);
+        });
     }
 
     /**
