@@ -85,7 +85,7 @@ class MUDStorage extends MUDEventEmitter {
     async eventCommand(clientCommand) {
         return await driver.driverCallAsync('executeCommand', async (context) => {
             let cmd = {
-                verb: clientCommand.verb.value,
+                verb: clientCommand.verb,
                 args: clientCommand.args.map(a => a.hasOwnProperty('value') ? a.value : a),
                 text: clientCommand.text,
                 stdout: clientCommand.stdout || this.shell.console,
@@ -226,7 +226,7 @@ class MUDStorage extends MUDEventEmitter {
                 await driver.driverCallAsync('connect', async context => {
                     return await context.withPlayerAsync(this, async player => {
                         return await driver.driverCallAsync('connect', async () => {
-                            let shellSettings = typeof player.getShellSettings === 'function' ? await player.getShellSettings() : false;
+                            let shellSettings = typeof player.getShellSettings === 'function' ? await player.getShellSettings(false, {}) : false;
                             this.shell.update(shellSettings || {});
                             await player.connect(...args);
                         });

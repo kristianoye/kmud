@@ -53,7 +53,18 @@ const
     TOKEN_VARIABLE = 'Variable',
     TOKEN_WHITESPACE = 'Whitespace',
     TOKEN_WORD = 'Word',
-    TOKEN_BACKTICK = 'Backtick';
+    TOKEN_BACKTICK = 'Backtick',
+    TokenTypes = {
+        TOKEN_ALIAS,
+        TOKEN_BACKTICK,
+        TOKEN_HISTORY,
+        TOKEN_NUMERIC,
+        TOKEN_OPERATOR,
+        TOKEN_STRING,
+        TOKEN_VARIABLE,
+        TOKEN_WHITESPACE,
+        TOKEN_WORD
+    };
 
 class ParsedCommand {
     constructor(options = {}) {
@@ -143,7 +154,6 @@ class ParsedCommand {
                             .join('')
                             .trim();
                         template = template.replace(expr, replacement);
-                        this.tokens = []; // used up all remaining tokens
                     }
                     else if (/^\$[\d]+/.test(expr)) {
                         //  Get the nTh non-whitespace token
@@ -168,6 +178,18 @@ class ParsedCommand {
             }
         }
         return this;
+    }
+
+    expandVariable(name) {
+        if (name in this.options.variables) {
+            let val = this.options.variables[name];
+            if (typeof val === 'string')
+                return val;
+            else if (typeof val === 'function')
+                return val();
+            else
+                return val.toString();
+        }
     }
 
     /** @type {ParsedToken} */
@@ -259,10 +281,9 @@ class CommandParser {
                         break;
 
                     case TOKEN_HISTORY:
-                        cmd = new ParsedCommand();
-                        verbLookup = token.tokenValue.slice(0, token.tokenValue.search(/[^a-zA-Z0-9_-]/));
-                        cmd.verb = token;
-                        break;
+                        this.source = this.source.slice(0, token.start) + token.tokenValue + this.source.slice(token.end);
+                        this.index = token.start;
+                        continue;
 
                     case TOKEN_NUMERIC:
                     case TOKEN_WORD:
@@ -748,6 +769,17 @@ class CommandParser {
                         else
                             return this.buildToken({ tokenValue: c });
 
+                    case c === ';':
+                        if (options.allowPipelining) {
+                            token.tokenType = TOKEN_OPERATOR;
+                            token.source = token.tokenValue = OP_COMPOUND;
+                            token.start = i;
+                            return token.done(this.index = ++i);
+                        }
+                        else
+                            return this.buildToken({ tokenValue: c });
+                        break;
+
                     case c === '&':
                         if (options.allowPipelining) {
                             if (text.charAt(1) === '&') {
@@ -780,6 +812,7 @@ class CommandParser {
                             token.tokenValue = text.slice(1, n + 2);
                             token.source = text.slice(0, n + 3);
                             token.tokenType = TOKEN_STRING;
+                            token.isLiteral = c === '\'';
 
                             return token.done(this.index = i + token.tokenValue.length + 2);
                         }
@@ -910,7 +943,7 @@ class CommandParser {
                     break;
 
                 case OP_COMPOUND:
-                    command.nextCommand = nextCmd;
+                    shcommand.nextCommand = nextCmd;
                     break;
 
                 case OP_OR:
@@ -953,4 +986,9 @@ class CommandParser {
     }
 }
 
-module.exports = CommandParser;
+module.exports = {
+    CommandParser,
+    ParsedCommand,
+    TokenTypes
+};
+

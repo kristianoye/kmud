@@ -19,6 +19,9 @@ class CommandShellOptions {
         /** @type {boolean} */
         this.allowPipelining = typeof opts.allowPipelining === 'boolean' ? opts.allowPipelining : false;
 
+        /** @type {string} */
+        this.cwd = typeof opts.cwd === 'string' ? opts.cwd : '/';
+
         /** @type {Object.<string,any>} */
         this.environment = opts.environment || {};
 

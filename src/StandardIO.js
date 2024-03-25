@@ -7,7 +7,8 @@
  */
 const
     ClientComponent = require('./ClientComponent'),
-    { Writable, Readable } = require('stream'),
+    { Writable, Readable, Duplex } = require('stream'),
+    readline = require('readline'),
     uuidv1 = require('uuid/v1'),
     os = require('os');
 
@@ -174,7 +175,6 @@ class StandardInputStream extends Readable {
             {
                 encoding: 'utf8'
             }, opts));
-
         let buffer = InternalBuffer.create(component, shell, opts.encoding);
 
         Object.defineProperty(this, 'id', {
@@ -228,6 +228,36 @@ class StandardInputStream extends Readable {
      */
     readLine() {
         return InternalBuffer.get(this).readLine();
+    }
+}
+
+class StandardInputS extends Duplex {
+    constructor() {
+        super();
+    }
+
+    /** @type {readline.Interface} */
+    #lineReader;
+
+    _final(callback) {
+        this.push(null);
+        typeof callback === 'function' && callback();
+    }
+
+    _read(size) {
+        return super._read(size);
+    }
+
+    _write(chunk, encoding, callback) {
+        this.push(chunk, encoding);
+        typeof callback === 'function' && callback();
+    }
+
+    async readLine() {
+        if (!this.#lineReader) {
+            this.#lineReader = readline.createInterface({ input: this, crlfDelay: Infinity });
+        }
+        return await this.#lineReader.line;
     }
 }
 
@@ -387,5 +417,6 @@ module.exports = {
     StandardInputStream,
     StandardOutputStream,
     StandardPassthruStream,
-    NullOutputStream
+    NullOutputStream,
+    StandardInputS
 };

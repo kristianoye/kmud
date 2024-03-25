@@ -11,9 +11,11 @@ class FileSystemQuery {
     constructor(query = {}, queryDepth = 0) {
         /** @type {string} */
         this.absolutePath = query.absolutePath;
+        /** @type {string} */
+        this.cwd = query.cwd || '/';
         /** @type {string|RegExp|false} */
         this.expression = query.expression || false;
-        this.crossFilesystem = query.crossFilesystem === true;
+        this.crossFilesystem = query.crossFilesystem !== true;
         this.contains = query.contains || false;
         this.containsPattern = query.containsPattern || false;
         this.containsWildcard = this.expression && FileSystemQuery.containsWildcard(this.expression);
@@ -113,6 +115,7 @@ class FileSystemQuery {
                     expression: false // get all
                 });
                 let results = await query.executeAsync();
+                resolve(results);
             }
             catch (err) {
                 reject(err);

@@ -428,7 +428,6 @@
     <Content Include="lib\sys\cmds\creator\Groups.js" />
     <Content Include="lib\sys\cmds\creator\Which.js" />
     <Content Include="lib\sys\cmds\filesystem\Rehash.js" />
-    <Content Include="lib\sys\cmds\player\History.js" />
     <Content Include="lib\sys\etc\accessEx.json">
       <SubType>Code</SubType>
     </Content>

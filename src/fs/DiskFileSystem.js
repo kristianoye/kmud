@@ -1055,7 +1055,12 @@ class DiskFileSystem extends BaseFileSystem {
                             finalResults = finalResults.concat(files);
                         }
 
-                        resolve(finalResults);
+                        resolve(finalResults.map(o => {
+                            if (o instanceof FileSystemObject)
+                                return o;
+                            else
+                                return new DiskFileObject(o);
+                        }));
                     }
                     catch (ex) {
                         reject(ex);
