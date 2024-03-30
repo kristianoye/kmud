@@ -22,8 +22,36 @@ export default singleton class WhoCommand extends Command {
         writeLine('-='.repeat(Math.floor(width / 2) - 1) + '-');
         writeLine('');
 
+        players.sort((a, b) => {
+            if (efuns.adminp(a) && !efuns.adminp(b))
+                return -1;
+            else if (efuns.adminp(b) && !efuns.adminp(b))
+                return 1;
+            if (efuns.archp(a) && !efuns.archp(b))
+                return -1;
+            else if (efuns.archp(b) && !efuns.archp(b))
+                return 1;
+            if (efuns.wizardp(a) && !efuns.wizardp(b))
+                return -1;
+            else if (efuns.wizardp(b) && !efuns.wizardp(b))
+                return 1;
+            else if (a.keyId < b.keyId)
+                return -1;
+            else
+                return 1;
+        })
+
         players.forEach(player => {
-            writeLine(player.getTitle());
+            let prefix = '';
+
+            if (efuns.adminp(player))
+                prefix = '%^MAGENTA%^%^BOLD%^' + '[Admin]' + '%^RESET%^' ;
+            else if (efuns.archp(player))
+                prefix = '%^ORANGE%^%^BOLD%^' + '[Arch]' + '%^RESET%^' ;
+            else if (efuns.wizardp(player))
+                prefix = '%^YELLOW%^%^BOLD%^' + '[Wizard]' + '%^RESET%^ ';
+
+            writeLine('    {0,-10}{1}'.fs(prefix, player.getTitle()));
         });
 
         writeLine('');

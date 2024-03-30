@@ -1713,10 +1713,10 @@ class EFUNProxy {
         if (typeof expr !== 'string')
             throw new Error(`Bad argument 1 to resolvePath; Expected string got ${(typeof expr)}`);
 
-        if (expr[0] === '/')
+        if (expr.charAt(0) === '/')
             return expr;
-        if (expr[0] === '~') {
-            var re = /^~([\\\/])*([^\\\/]+)/,
+        else if (expr.charAt(0) === '~') {
+            let re = /^~([\\\/])*([^\\\/]+)/,
                 m = re.exec(expr) || [];
 
             if (m.length === 2) {
@@ -1735,7 +1735,11 @@ class EFUNProxy {
                 expr = '/realms/' + expr.slice(1);
             }
         }
-        return path.posix.join(relativeToPath, expr);
+        else if (expr.charAt(0) === '^') {
+            // TODO: Remove lib-specific home directory logic
+            expr = '/world/' + expr.slice(1);
+        }
+        return path.posix.resolve(relativeToPath, expr);
     }
 
     restoreObject(data) {
