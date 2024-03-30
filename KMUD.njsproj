@@ -139,9 +139,6 @@
     <Compile Include="lib\cmds\player\Alias.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\cmds\filesystem\CD.jsx">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="lib\sys\cmds\filesystem\Compile.jsx">
       <SubType>Code</SubType>
     </Compile>

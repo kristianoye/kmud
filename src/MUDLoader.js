@@ -405,16 +405,19 @@ class MUDLoader {
     destruct(target, ...args) {
         return efuns.destruct(target, ...args);
     }
+
+    get ENV() { return driver.efuns.env; }
+
     /**
      * Write to standard error
      * @param {...any} args
      */
     error(...args) {
-        return efuns.writeToStream(false, efuns.err, ...args);
+        return efuns.error(...args);
     }
 
     errorLine(...args) {
-        return efuns.writeToStream(true, efuns.err, ...args);
+        return efuns.errorLine(...args);
     }
 
     eventSend(event, target = false) {
@@ -631,6 +634,18 @@ class MUDLoader {
         let timerId = typeof ident === 'number' ? ident : ident[Symbol.toPrimitive]();
         Intervals[ident] = childContext.addCustomVariable(`setTimeout-${timerId}`, frame.id);
         return timerId;
+    }
+
+    get stderr() {
+        return driver.efuns.err;
+    }
+
+    get stdin() {
+        return driver.efuns.in;
+    }
+
+    get stdout() {
+        return driver.efuns.out;
     }
 
     thisPlayer(flag) {

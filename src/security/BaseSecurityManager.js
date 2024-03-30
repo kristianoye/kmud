@@ -95,7 +95,7 @@ class BaseSecurityManager extends EventEmitter {
 
     isValidGroupId(id) {
         if (typeof id === 'string') {
-            return ['~', '@', '$'].indexOf(id.charAt(0)) > -1;
+            return ['~', '^', '$'].indexOf(id.charAt(0)) > -1;
         }
         return false;
     }

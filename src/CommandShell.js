@@ -200,9 +200,6 @@ class CommandShell extends events.EventEmitter {
             result = await this.storage.eventCommand(cmd);
             let success = result === true || result === 0;
 
-            if (typeof result === 'string')
-                driver.efuns.errorLine(result);
-
             if (cmd.conditional) {
                 //  If command succeeded, proceed to execute next
                 if (success) {

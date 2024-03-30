@@ -1951,6 +1951,12 @@ class EFUNProxy {
         });
     }
 
+    get env() {
+        let ecc = driver.getExecution(),
+            cmd = ecc.command;
+        return cmd.env || {};
+    }
+
     get err() {
         let ecc = driver.getExecution(),
             cmd = ecc.command;
@@ -2178,11 +2184,26 @@ class EFUNProxy {
     }
 
     error(...expr) {
+        let ecc = driver.getExecution(),
+            cmd = ecc.command,
+            ec = cmd?.env?.ERRORCOLOR;
+
+        if (ec) {
+            expr = expr.map(s => '%^BOLD%^%^' + ec + '%^' + s + '%^RESET%^');
+        }
         this.writeToStream(false, this.err, ...expr);
         return false;
     }
 
     errorLine(...expr) {
+        let ecc = driver.getExecution(),
+            cmd = ecc.command,
+            ec = cmd?.env?.ERRORCOLOR;
+
+        if (ec) {
+            expr = expr.map(s => '%^BOLD%^%^' + ec + '%^' + s + '%^RESET%^');
+        }
+
         this.writeToStream(true, this.err, ...expr);
         return false;
     }

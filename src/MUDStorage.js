@@ -90,7 +90,10 @@ class MUDStorage extends MUDEventEmitter {
                 text: clientCommand.text,
                 stdout: clientCommand.stdout || this.shell.console,
                 stderr: clientCommand.stderr || this.shell.console,
-                stdin: clientCommand.stdin || false
+                stdin: clientCommand.stdin || false,
+                env: Object.assign({},
+                    clientCommand.options.environment || {},
+                    clientCommand.options.variables || {})
             };
 
             return await context.withPlayerAsync(this, async (player) => {
@@ -103,6 +106,8 @@ class MUDStorage extends MUDEventEmitter {
                         if (typeof actionResult === 'boolean' || typeof actionResult === 'string')
                             result = actionResult;
                     }
+                    if (typeof result === 'string')
+                        driver.efuns.errorLine(result);
                     return result;
                 }
                 catch (err) {
