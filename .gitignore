@@ -14,3 +14,4 @@ shadowfs/
 .vs
 **/.acl
 **/acl.json
+/lib/world/sarta/errors
