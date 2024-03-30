@@ -894,6 +894,18 @@ class EFUNProxy {
         }
     }
 
+    /**
+     * Log an error
+     * @param {Error} err
+     */
+    async logError(err) {
+        try {
+            return driver.logError(err);
+        }
+        catch (e) {
+        }
+    }
+
     merge(...o) {
         return Object.assign({}, ...o);
     }

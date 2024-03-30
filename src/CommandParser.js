@@ -143,28 +143,30 @@ class ParsedCommand {
         if (typeof this.verb === 'object') {
             if (this.verb.tokenType === TOKEN_ALIAS) {
                 let template = this.verb.tokenValue,
-                    variables = template.split(/(\$[0-9*]+)/)
-                        .where(t => t.startsWith('$'))
-                        .orderByDescending();
+                    variables = template.split(/(\$(?:\*|[0-9]+))/)
+                        .filter(t => t.startsWith('$'))
+                        .map(t => {
+                            let n = parseInt(t.slice(1));
+                            return isNaN(n) ? -1 : n - 1;
+                        })
+                        .sort((a, b) => { a > b ? -1 : 1 }),
+                    tokens = this.tokens
+                        .filter(t => t.tokenType !== TokenTypes.TOKEN_WHITESPACE)
+                        .map(t => t.tokenValue)
+                        .slice(0);
 
-                variables.forEach(expr => {
-                    if (expr.startsWith('$*')) {
-                        let replacement = this.tokens
-                            .select(t => t.tokenValue)
+                variables.forEach(n => {
+                    let expr = n === -1 ? '$*' : `$${(n + 1)}`;
+                    if (expr === '$*') {
+                        let replacement = tokens
                             .join('')
                             .trim();
                         template = template.replace(expr, replacement);
+                        tokens = tokens.map(t => '');
                     }
                     else if (/^\$[\d]+/.test(expr)) {
-                        //  Get the nTh non-whitespace token
-                        let n = parseInt(expr.slice(1)) - 1,
-                            valueToken = this.tokens
-                                .where(t => t.tokenType !== TOKEN_WHITESPACE)
-                                .skip(n)
-                                .firstOrDefault(),
-                            replacement = valueToken ? valueToken.tokenValue : '';
-                        template = template.replace(expr, replacement);
-                        valueToken.tokenValue = '';
+                        template = template.replace(expr, tokens[n]);
+                        tokens[n] = '';
                     }
                 });
 
@@ -228,6 +230,17 @@ class ParsedToken {
         this.tokenValue = '';
     }
 
+    /**
+     * Combine two tokens
+     * @param {CommandParser} parser The parser doing the work
+     * @param {ParsedToken} token The token being appended
+     */
+    appendToken(parser, token) {
+        this.tokenValue += token.tokenValue;
+        this.end = token.end;
+        this.source = parser.source.slice(this.start, token.end);
+    }
+
     done(endIndex = false, start = -1) {
         if (typeof endIndex === 'number')
             this.end = endIndex;
@@ -255,6 +268,8 @@ class CommandParser {
         this.options = shell && shell.options || {};
         this.commandCount = 0;
         this.shell = shell;
+        /** @type {ParsedToken[]} */
+        this.tokenStack = [];
     }
 
     /**
@@ -287,9 +302,22 @@ class CommandParser {
 
                     case TOKEN_NUMERIC:
                     case TOKEN_WORD:
-                        cmd = new ParsedCommand();
-                        cmd.verb = token.tokenValue;
-                        verbLookup = token.tokenValue;
+                        {
+                            cmd = new ParsedCommand();
+                            let nextToken = await this.nextToken(cmd);
+                            while (nextToken) {
+                                if (nextToken.tokenType === TOKEN_WHITESPACE) {
+                                    this.tokenStack.unshift(nextToken);
+                                    break;
+                                }
+                                else {
+                                    token.appendToken(this, nextToken);
+                                    nextToken = await this.nextToken(cmd);
+                                }
+                            }
+                            cmd.verb = token.tokenValue;
+                            verbLookup = token.tokenValue;
+                        }
                         break;
 
                     case TOKEN_VARIABLE:
@@ -314,7 +342,8 @@ class CommandParser {
                 }
 
                 if (verbLookup && this.shell) {
-                    cmd.options = await this.shell.getShellSettings(verbLookup, new CommandShellOptions());
+                    let options = await this.shell.getShellSettings(verbLookup, new CommandShellOptions());
+                    cmd.options = options;
                 }
             }
             else {
@@ -350,9 +379,7 @@ class CommandParser {
                     }
                 }
                 else if (token.tokenType === TOKEN_WORD && lastToken.tokenType === TOKEN_WORD) {
-                    lastToken.tokenValue += token.tokenValue;
-                    lastToken.end = token.end;
-                    lastToken.source = this.source.slice(lastToken.start, lastToken.end);
+                    lastToken.appendToken(this, token);
                 }
                 else if (lastToken.tokenType === TOKEN_WORD) {
                     //switch (lastToken.tokenValue) {
@@ -367,7 +394,8 @@ class CommandParser {
         return cmd && {
             command: cmd.compile(),
             operator: null
-        };
+        } || { cmd: false, operator: null };
+;
     }
 
     /**
@@ -611,6 +639,9 @@ class CommandParser {
      */
     async nextToken(cmd) {
         try {
+            if (this.tokenStack.length)
+                return this.tokenStack.shift();
+
             let
                 options = cmd && cmd.options || this.options,
                 token = new ParsedToken(this.index),
@@ -905,6 +936,22 @@ class CommandParser {
                                 token.tokenType = TOKEN_BACKTICK;
 
                                 return token.done(this.index = i + token.tokenValue.length + 2);
+                            }
+                            else
+                                return this.buildToken({ tokenValue: c });
+                        }
+
+                    case c === '\\':
+                        {
+                            if (options.allowEscaping) {
+                                let nc = text.charAt(1);
+                                if (nc) {
+                                    token.tokenValue = c;
+                                    token.source = text.slice(0, 2);
+                                    token.tokenType = TOKEN_WORD;
+                                    return token.done(this.index = i + 1);
+                                }
+                                throw new Error('-kmsh: Unexpected end of input');
                             }
                             else
                                 return this.buildToken({ tokenValue: c });

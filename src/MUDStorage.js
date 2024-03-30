@@ -171,7 +171,6 @@ class MUDStorage extends MUDEventEmitter {
      * @param {ClientComponent} component The client bound to this store and in-game object.
      */
     async eventExec(component, ...args) {
-        console.log('eventExec');
         try {
             if (component instanceof ClientComponent) {
                 //  If the client has an old body, the client needs to be dissassociated with it
@@ -228,6 +227,9 @@ class MUDStorage extends MUDEventEmitter {
                         return await driver.driverCallAsync('connect', async () => {
                             let shellSettings = typeof player.getShellSettings === 'function' ? await player.getShellSettings(false, {}) : false;
                             this.shell.update(shellSettings || {});
+                            if (shellSettings.variables && shellSettings.variables.SHELLRC) {
+                                await this.shell.executeResourceFile(shellSettings.variables.SHELLRC);
+                            }
                             await player.connect(...args);
                         });
                     }, false);

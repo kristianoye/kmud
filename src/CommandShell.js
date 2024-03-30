@@ -197,12 +197,11 @@ class CommandShell extends events.EventEmitter {
 
             await this.prepareCommand(cmd);
 
-            //  Display error from previous command
-            if (result && typeof result === 'string')
-                driver.efuns.err.writeLine(result);
-
             result = await this.storage.eventCommand(cmd);
             let success = result === true || result === 0;
+
+            if (typeof result === 'string')
+                driver.efuns.errorLine(result);
 
             if (cmd.conditional) {
                 //  If command succeeded, proceed to execute next
@@ -256,6 +255,37 @@ class CommandShell extends events.EventEmitter {
     }
 
     /**
+     * Execute commands in a resource file
+     * @param {string} filename
+     */
+    async executeResourceFile(filename) {
+        try {
+            let fso = await driver.efuns.fs.getFileAsync(filename);
+            if (fso.isFile) {
+                let fullText = await fso.readFileAsync(),
+                    lines = fullText
+                        .split('\n')
+                        .map(s => s.trim())
+                        .filter(s => {
+                            if (s.length === 0 || s.charAt(0) === '#')
+                                return false;
+                            return true;
+                        });
+                for (const line of lines) {
+                    let cp = new CommandParser(line, this),
+                        cmd = await cp.parse();
+                    if (cmd) {
+                        await this.executeCommand(cmd);
+                    }
+                }
+            }
+        }
+        catch (err) {
+            driver.efuns.errorLine(`-kmsh: Error executing ${filename}: ${err}`);
+        }
+    }
+
+    /**
      * Prepare a command for execution
      * @param {ParsedCommand} cmd
      */
@@ -274,6 +304,10 @@ class CommandShell extends events.EventEmitter {
                         btcmd.stdout = new IO.StandardInputS();
                         await this.executeCommand(btcmd);
                     }
+                    break;
+
+                case TokenTypes.TOKEN_NUMERIC:
+                    finalText.push(token.tokenValue.toString());
                     break;
 
                 case TokenTypes.TOKEN_WHITESPACE:
@@ -505,7 +539,10 @@ class CommandShell extends events.EventEmitter {
             this.options = await this.storage.getShellSettings(false, new CommandShellOptions());
             let cp = new CommandParser(input, this),
                 cmd = await cp.parse(),
-                hist = cmd.toHistoryString();
+                hist = cmd && cmd.toHistoryString();
+
+            if (!cmd)
+                return true;
 
             if (Array.isArray(cmd.options.history))
                 cmd.options.history.push(hist);
