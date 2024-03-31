@@ -48,6 +48,11 @@ class CommandShellOptions {
          * @type {number} */
         this.historyLevel = opts.historyLevel || 0;
 
+        /**
+         * @type {boolean}
+         */
+        this.preserveQuotes = opts.preserveQuotes === true;
+
         /** @type {Object.<string,any>} */
         this.variables = opts.variables || {};
     }

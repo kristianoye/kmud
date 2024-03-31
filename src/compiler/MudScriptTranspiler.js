@@ -417,9 +417,11 @@ class MudScriptAstAssembler {
  * @param {NodeType} e The node that is being transpiled.
  * @param {string} preText Text inserted before the expression.
  * @param {string} postText Text inserted after the expression.
- * @param {boolean=} isCon Is it a constructor?
+ * @param {boolean} isCon Is it a constructor?
+ * @param {boolean} addIfEmpty Add to an empty block?
+ * @param {MudScriptAstAssembler} op
  */
-function addRuntimeAssert(e, preText, postText, isCon) {
+function addRuntimeAssert(e, preText, postText, isCon, addIfEmpty=false, op) {
     if (e.body.type === 'EmptyStatement') {
         let newBody = {
             type: 'BlockStatement',
@@ -442,7 +444,18 @@ function addRuntimeAssert(e, preText, postText, isCon) {
          */
         let body = e.body.body;
         if (body.length === 0) {
-            // TODO: Does an empty block need to be on the stack?
+            if (addIfEmpty) {
+                let startOfBlock = op.source.slice(op.pos).search('{');
+
+                if (startOfBlock > -1) {
+                    e.body.body.unshift({
+                        end: op.pos + startOfBlock + 1,
+                        type: 'RuntimeAssertion',
+                        start: op.pos + startOfBlock + 1,
+                        text: preText
+                    });
+                }
+            }
         }
         else {
             let first = body[0], last = body[body.length - 1],
@@ -945,7 +958,7 @@ async function parseElement(op, e, depth) {
                 break;
 
             case 'DoWhileStatement':
-                addRuntimeAssert(e, '__ala(); ');
+                addRuntimeAssert(e, '__ala(); ', undefined, undefined, true, op);
                 ret += await parseElement(op, e.body, depth + 1);
                 ret += await parseElement(op, e.test, depth + 1);
                 break;
@@ -1042,14 +1055,14 @@ async function parseElement(op, e, depth) {
             case 'ForInStatement':
                 ret += await parseElement(op, e.left, depth + 1);
                 ret += await parseElement(op, e.right, depth + 1);
-                addRuntimeAssert(e, '__ala(); ');
+                addRuntimeAssert(e, '__ala(); ', undefined, undefined, true, op);
                 ret += await parseElement(op, e.body, depth + 1);
                 break;
 
             case 'ForOfStatement':
                 ret += await parseElement(op, e.left, depth + 1);
                 ret += await parseElement(op, e.right, depth + 1);
-                addRuntimeAssert(e, '__ala(); ');
+                addRuntimeAssert(e, '__ala(); ', undefined, undefined, true, op);
                 ret += await parseElement(op, e.body, depth + 1);
                 break;
 
@@ -1057,7 +1070,7 @@ async function parseElement(op, e, depth) {
                 ret += await parseElement(op, e.init, depth + 1);
                 ret += await parseElement(op, e.test, depth + 1);
                 ret += await parseElement(op, e.update, depth + 1);
-                addRuntimeAssert(e, '__ala(); ');
+                addRuntimeAssert(e, '__ala(); ', undefined, undefined, true, op);
                 ret += await parseElement(op, e.body, depth + 1);
                 break;
 
@@ -1620,7 +1633,7 @@ async function parseElement(op, e, depth) {
 
             case 'WhileStatement':
                 ret += await parseElement(op, e.test, depth + 1);
-                addRuntimeAssert(e, '__ala(); ');
+                addRuntimeAssert(e, '__ala(); ', undefined, undefined, true, op);
                 ret += await parseElement(op, e.body, depth + 1);
                 break;
 

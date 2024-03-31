@@ -472,6 +472,21 @@ class ExecutionContext extends MUDEventEmitter {
         });
     }
 
+    /**
+     * Change context settings and return their original values
+     * @param {Object.<string,any>} changes
+     */
+    changeSettings(changes) {
+        let original = {};
+        for (const [key, val] of Object.entries(changes)) {
+            if (key in this) {
+                original[key] = this[key];
+                this[key] = val;
+            }
+        }
+        return original;
+    }
+
     get command() {
         return this.cmdStack.length && this.cmdStack[0];
     }

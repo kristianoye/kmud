@@ -11,7 +11,8 @@ const
     ClientComponent = require('./ClientComponent'),
     ClientCaps = require('./network/ClientCaps'),
     MUDStorageFlags = require('./MUDStorageFlags'),
-    CommandShellOptions = require('./CommandShellOptions');
+    CommandShellOptions = require('./CommandShellOptions'),
+    maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime;
 
 /**
  * Storage for MUD Objects.  In-game objects do not hold their data directly.
@@ -96,6 +97,8 @@ class MUDStorage extends MUDEventEmitter {
                     clientCommand.options.variables || {})
             };
 
+            let originalContextSettings = context.changeSettings({ alarmTime: efuns.ticks + maxCommandExecutionTime });
+
             return await context.withPlayerAsync(this, async (player) => {
                 let result = false;
                 try {
@@ -115,6 +118,7 @@ class MUDStorage extends MUDEventEmitter {
                 }
                 finally {
                     context.popCommand();
+                    context.changeSettings(originalContextSettings);
                 }
                 return result;
             }, false, 'eventCommand');

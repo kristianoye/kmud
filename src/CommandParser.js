@@ -844,8 +844,12 @@ class CommandParser {
                             token.source = text.slice(0, n + 3);
                             token.tokenType = TOKEN_STRING;
                             token.isLiteral = c === '\'';
-
-                            return token.done(this.index = i + token.tokenValue.length + 2);
+                            if (options.preserveQuotes) {
+                                token.tokenValue = token.source;
+                                return token.done(this.index = i + token.tokenValue.length);
+                            }
+                            else
+                                return token.done(this.index = i + token.tokenValue.length + 2);
                         }
                         break;
 

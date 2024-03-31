@@ -45,7 +45,7 @@ class MUDLoader {
             __ala: {
                 //  Assert Loop Alarm (ala)
                 value: function () {
-                    if (--_loopCounter === 0) {
+                    if (--_loopCounter <= 0) {
                         let ecc = driver.executionContext;
                         ecc && ecc.alarm();
                     }
