@@ -42,7 +42,7 @@ export default singleton class WhoCommand extends Command {
         })
 
         players.forEach(player => {
-            let prefix = '';
+            let prefix = '', idleStatus = '';
 
             if (efuns.adminp(player))
                 prefix = '%^MAGENTA%^%^BOLD%^' + '[Admin]' + '%^RESET%^' ;
@@ -51,7 +51,10 @@ export default singleton class WhoCommand extends Command {
             else if (efuns.wizardp(player))
                 prefix = '%^YELLOW%^%^BOLD%^' + '[Wizard]' + '%^RESET%^ ';
 
-            writeLine('    {0,-10}{1}'.fs(prefix, player.getTitle()));
+            if (efuns.living.queryIdle(player) > 60000) {
+                idleStatus = ' %^CYAN%^(Idle)%^RESET%^';
+            }
+            writeLine('    {0,-10}{1}{2}'.fs(prefix, player.getTitle(), idleStatus));
         });
 
         writeLine('');

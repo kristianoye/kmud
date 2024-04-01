@@ -538,6 +538,8 @@ class CommandShell extends events.EventEmitter {
                 cmd = await cp.parse(),
                 hist = cmd && cmd.toHistoryString();
 
+            this.storage.lastActivity = driver.efuns.ticks;
+
             if (!cmd)
                 return true;
 
