@@ -959,6 +959,9 @@ async function parseElement(op, e, depth) {
 
             case 'DoWhileStatement':
                 addRuntimeAssert(e, '__ala(); ', undefined, undefined, true, op);
+                if (e.body.type !== 'BlockStatement') {
+                    op.raise('Do-while loop body must be a block statement');
+                }
                 ret += await parseElement(op, e.body, depth + 1);
                 ret += await parseElement(op, e.test, depth + 1);
                 break;
@@ -1056,6 +1059,9 @@ async function parseElement(op, e, depth) {
                 ret += await parseElement(op, e.left, depth + 1);
                 ret += await parseElement(op, e.right, depth + 1);
                 addRuntimeAssert(e, '__ala(); ', undefined, undefined, true, op);
+                if (e.body.type !== 'BlockStatement') {
+                    op.raise('For loop body must be a block statement');
+                }
                 ret += await parseElement(op, e.body, depth + 1);
                 break;
 
@@ -1063,6 +1069,9 @@ async function parseElement(op, e, depth) {
                 ret += await parseElement(op, e.left, depth + 1);
                 ret += await parseElement(op, e.right, depth + 1);
                 addRuntimeAssert(e, '__ala(); ', undefined, undefined, true, op);
+                if (e.body.type !== 'BlockStatement') {
+                    op.raise('For loop body must be a block statement');
+                }
                 ret += await parseElement(op, e.body, depth + 1);
                 break;
 
@@ -1070,6 +1079,9 @@ async function parseElement(op, e, depth) {
                 ret += await parseElement(op, e.init, depth + 1);
                 ret += await parseElement(op, e.test, depth + 1);
                 ret += await parseElement(op, e.update, depth + 1);
+                if (e.body.type !== 'BlockStatement') {
+                    op.raise('For loop body must be a block statement');
+                }
                 addRuntimeAssert(e, '__ala(); ', undefined, undefined, true, op);
                 ret += await parseElement(op, e.body, depth + 1);
                 break;
@@ -1634,6 +1646,9 @@ async function parseElement(op, e, depth) {
             case 'WhileStatement':
                 ret += await parseElement(op, e.test, depth + 1);
                 addRuntimeAssert(e, '__ala(); ', undefined, undefined, true, op);
+                if (e.body.type !== 'BlockStatement') {
+                    op.raise('While loop body must be a block statement');
+                }
                 ret += await parseElement(op, e.body, depth + 1);
                 break;
 

@@ -928,7 +928,7 @@ class CommandParser {
 
                     case c === '`':
                         {
-                            if (options.allowBackticks === true) {
+                            if (options.expandBackticks === true) {
                                 let r = new RegExp(`([^\\\\]{1}\\${c})`);
                                 let parts = text.split(r);
 

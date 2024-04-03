@@ -59,7 +59,7 @@ class CommandShell extends events.EventEmitter {
         /** @type {CommandShellOptions} */
         this.options = {
             expandAliases: false,
-            allowBackticks: false,
+            expandBackticks: false,
             allowPipelining: false,
             allowEnvironment: false,
             allowFileExpressions: false,
@@ -194,7 +194,6 @@ class CommandShell extends events.EventEmitter {
         let result = '';
 
         while (cmd) {
-
             await this.prepareCommand(cmd);
 
             result = await this.storage.eventCommand(cmd);
@@ -208,10 +207,10 @@ class CommandShell extends events.EventEmitter {
                 }
                 else {
                     do {
-                        cmd = cmd.conditional;
+                        cmd = cmd.conditional || cmd.pipeTarget;
                     }
-                    while (cmd.conditional);
-                    cmd = cmd.alternate || cmd.pipeTarget || cmd.nextCommand || false;
+                    while (cmd);
+                    cmd = cmd.alternate || cmd.nextCommand || false;
                     continue;
                 }
             }
@@ -221,7 +220,7 @@ class CommandShell extends events.EventEmitter {
                     do {
                         cmd = cmd.alternate;
                     }
-                    while (cmd.alternate);
+                    while (cmd);
                     cmd = cmd.conditional || cmd.pipeTarget || cmd.nextCommand || false;
                     continue;
                 }
@@ -231,7 +230,7 @@ class CommandShell extends events.EventEmitter {
                     do {
                         cmd = cmd.alternate;
                     }
-                    while (cmd.alternate);
+                    while (cmd);
                     cmd = cmd.conditional || cmd.pipeTarget || cmd.nextCommand || false;
                     continue;
                 }
@@ -241,9 +240,9 @@ class CommandShell extends events.EventEmitter {
             else {
                 if (cmd.conditional) {
                     do {
-                        cmd = cmd.conditional;
+                        cmd = cmd.conditional || cmd.pipeTarget;
                     }
-                    while (cmd.conditional);
+                    while (cmd);
                 }
                 cmd = cmd.alternate || cmd.nextCommand || cmd.pipeTarget || false;
             }
@@ -298,8 +297,17 @@ class CommandShell extends events.EventEmitter {
                         let cp = new CommandParser(token.tokenValue, this),
                             btcmd = await cp.parse();
 
-                        btcmd.stdout = new IO.StandardInputS();
+                        let s = btcmd.stdout = new IO.StandardBufferStream();
+                        btcmd.redirectStdoutTo = s;
+
                         await this.executeCommand(btcmd);
+
+                        let line = s.readLine();
+                        while (line) {
+                            finalArgs.push(line);
+                            line = s.readLine();
+                        }
+                        continue;
                     }
                     break;
 
@@ -357,7 +365,18 @@ class CommandShell extends events.EventEmitter {
             }
             finalArgs.push(token.tokenValue);
         }
+
         cmd.args = finalArgs.slice(0);
+
+        if (cmd.pipeTarget) {
+            cmd.stdout = cmd.pipeTarget.stdin = new IO.StandardBufferStream();
+        }
+        else if (cmd.redirectStdoutTo) {
+            if (cmd.conditional) cmd.conditional.stdout = cmd.redirectStdoutTo;
+            if (cmd.alternate) cmd.alternate.stdout = cmd.redirectStdoutTo;
+            if (cmd.nextCommand) cmd.nextCommand.stdout = cmd.redirectStdoutTo;
+        }
+
         if (!cmd.text)
             cmd.text = finalText.join('').trim();
         if (typeof cmd.verb !== 'string') {

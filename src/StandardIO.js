@@ -7,7 +7,7 @@
  */
 const
     ClientComponent = require('./ClientComponent'),
-    { Writable, Readable, Duplex } = require('stream'),
+    { Writable, Readable, Duplex, Transform } = require('stream'),
     readline = require('readline'),
     uuidv1 = require('uuid/v1'),
     os = require('os');
@@ -231,33 +231,37 @@ class StandardInputStream extends Readable {
     }
 }
 
-class StandardInputS extends Duplex {
+class StandardBufferStream extends Transform {
     constructor() {
         super();
+        this.buffer = Buffer.alloc(0);
     }
 
-    /** @type {readline.Interface} */
-    #lineReader;
-
-    _final(callback) {
-        this.push(null);
-        typeof callback === 'function' && callback();
+    readAll(enc = 'utf8') {
+        let result = this.buffer.toString(enc);
+        this.buffer = Buffer.alloc(0);
+        return result;
     }
 
-    _read(size) {
-        return super._read(size);
-    }
+    readLine(enc = 'utf8') {
+        if (this.buffer.length === 0)
+            return '';
+        let n = this.buffer.findIndex(v => v === 10);
 
-    _write(chunk, encoding, callback) {
-        this.push(chunk, encoding);
-        typeof callback === 'function' && callback();
-    }
-
-    async readLine() {
-        if (!this.#lineReader) {
-            this.#lineReader = readline.createInterface({ input: this, crlfDelay: Infinity });
+        if (n > -1) {
+            let result = Uint8Array.prototype.slice.call(this.buffer, 0, n),
+                len = this.buffer[n + 1] === 13 ? 2 : 1;
+            this.buffer = Buffer.from(Uint8Array.prototype.slice.call(this.buffer, n + len));
+            return result.toString(enc).trimEnd();
         }
-        return await this.#lineReader.line;
+        else {
+            return this.readAll(enc).trimEnd();
+        }
+    }
+
+    _transform(chunk, encoding, done) {
+        this.buffer = Buffer.concat([this.buffer, chunk]);
+        done();
     }
 }
 
@@ -418,5 +422,5 @@ module.exports = {
     StandardOutputStream,
     StandardPassthruStream,
     NullOutputStream,
-    StandardInputS
+    StandardBufferStream
 };

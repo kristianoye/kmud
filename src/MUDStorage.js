@@ -97,7 +97,7 @@ class MUDStorage extends MUDEventEmitter {
                     clientCommand.options.variables || {})
             };
 
-            let originalContextSettings = context.changeSettings({ alarmTime: efuns.ticks + maxCommandExecutionTime });
+            let originalContextSettings = context.changeSettings({ alarmTime: Number.MAX_SAFE_INTEGER /* efuns.ticks + maxCommandExecutionTime */ });
 
             return await context.withPlayerAsync(this, async (player) => {
                 let result = false;
