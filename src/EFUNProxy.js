@@ -362,6 +362,11 @@ class EFUNProxy {
         throw new Error('Not implemented');
     }
 
+    get console() {
+        let ecc = driver.getExecution();
+        return ecc.shell && ecc.shell.console;
+    }
+
     /**
      * Create an encrypted password.
      * @param {string} plainText The plain text to be encrypted.

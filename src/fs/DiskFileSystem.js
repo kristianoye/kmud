@@ -121,6 +121,35 @@ class DiskFileObject extends FileSystemObject {
         });
     }
 
+    createReadStream(options = { encoding: 'utf8', flags: 'r' }) {
+        if (this.isDirectory)
+            throw new Error(`createReadStream(): ${this.fullPath} is a directory`);
+        else {
+            options = Object.assign({
+                encoding: 'utf8',
+                flags: 'r'
+            }, options);
+            return fs.createReadStream(this.#physicalLocation, options);
+        }
+    }
+
+    /**
+     * Create a write stream
+     * @param {any} options
+     * @returns {fs.WriteStream}
+     */
+    createWriteStream(options = { encoding: 'utf8', flags: 'w' }) {
+        if (this.isDirectory)
+            throw new Error(`createWriteStream(): ${this.fullPath} is a directory`);
+        else {
+            options = Object.assign({
+                encoding: 'utf8',
+                flags: 'w'
+            }, options);
+            return fs.createWriteStream(this.#physicalLocation, options);
+        }
+    }
+
     /**
      * Delete the file
      */

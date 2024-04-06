@@ -40,7 +40,19 @@ const
     OP_PIPELINE = '|',
     OP_READSTDIN = '<',
     OP_APPENDOUT = '>>',
-    OP_WRITEOUT = '>';
+    OP_WRITEOUT = '>',
+    OperatorTypes = {
+        OP_AND,
+        OP_ASSIGNMENT,
+        OP_BACKGROUND,
+        OP_COMPOUND,
+        OP_OR,
+        OP_PIPEBOTH,
+        OP_PIPELINE,
+        OP_READSTDIN,
+        OP_APPENDOUT,
+        OP_WRITEOUT
+    };
 
 const
     TOKEN_ALIAS = 'Alias',
@@ -604,7 +616,7 @@ class CommandParser {
      * @param {ParsedCommand} cmd The command being built
      * @returns {ParsedToken} The next token
      */
-    async nextCompleteWord(cmd) {
+    async nextCompleteWord(cmd, errorIfNotWordOrWhitespace=true) {
         let nextToken = await this.nextToken(cmd),
             wordToken = false;
 
@@ -625,6 +637,8 @@ class CommandParser {
                 if (nextToken) cmd.addToken(nextToken);
                 return wordToken;
             }
+            else if (errorIfNotWordOrWhitespace && nextToken.tokenType !== TOKEN_WHITESPACE)
+                throw new Error(`-kmsh: Unexpected token type ${nextToken.tokenType}`);
             else
                 cmd.addToken(nextToken);
             nextToken = await this.nextToken(cmd);
@@ -975,7 +989,8 @@ class CommandParser {
      * Parse some text
      */
     async parse() {
-        let { operator, command } = await this.nextCommand();
+        let { operator, command } = await this.nextCommand(),
+            firstCommand = command;
 
         if (!operator)
             return command;
@@ -994,7 +1009,7 @@ class CommandParser {
                     break;
 
                 case OP_COMPOUND:
-                    shcommand.nextCommand = nextCmd;
+                    command.nextCommand = nextCmd;
                     break;
 
                 case OP_OR:
@@ -1019,8 +1034,9 @@ class CommandParser {
             }
 
             operator = nextOp;
+            command = nextCmd;
         }
-        return command;
+        return firstCommand;
     }
 
     get remainder() {
@@ -1040,6 +1056,7 @@ class CommandParser {
 module.exports = {
     CommandParser,
     ParsedCommand,
-    TokenTypes
+    TokenTypes,
+    OperatorTypes
 };
 

@@ -13,7 +13,7 @@ const
     events = require('events'),
     SecurityFlags = require('../security/SecurityFlags');
 
-const { NotImplementedError } = require('../ErrorTypes'),
+const { NotImplementedError, SecurityError } = require('../ErrorTypes'),
     CompilerFlags = require('../compiler/CompilerFlags');
 
 /**
@@ -335,6 +335,14 @@ class FileSystemObject extends events.EventEmitter {
             isSocket: false,
             isSymbolicLink: false
         }, baseStat);
+    }
+
+    createReadStream(options) {
+        throw new NotImplementedError('createReadStream');
+    }
+
+    createWriteStream(options) {
+        throw new NotImplementedError('createWriteStream');
     }
 
     /**
@@ -866,6 +874,14 @@ class FileWrapperObject extends FileSystemObject {
         }
     }
 
+    async createReadStream(options) {
+        if (await this.can(SecurityFlags.P_READ, 'createReadStream')) {
+            return this.#instance.createReadStream(options);
+        }
+        else
+            throw new SecurityError(`${this.fullPath}: createReadStream(): Permission denied`);
+    }
+
     static createSafeCompilerOptions(options) {
         return {
             file: this.fullPath,
@@ -873,6 +889,14 @@ class FileWrapperObject extends FileSystemObject {
             onCompilerStageExecuted: typeof options.onCompilerStageExecuted === 'function' && options.onCompilerStageExecuted,
             onDebugOutput: typeof options.onDebugOutput === 'function' && options.onDebugOutput,
         }
+    }
+
+    async createWriteStream(options) {
+        if (await this.can(SecurityFlags.P_WRITE, 'createWriteStream')) {
+            return this.#instance.createWriteStream(options); 
+        }
+        else
+            throw new SecurityError(`${this.fullPath}: createWriteStream(): Permission denied`);
     }
 
     /**

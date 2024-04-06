@@ -1,4 +1,6 @@
-﻿/*
+﻿const { TokenType } = require('../node_modules/acorn/dist/acorn');
+
+/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: February 20, 2019
@@ -10,7 +12,7 @@ const
     { ExecutionSignaller } = require('./ExecutionContext'),
     { LinkedList } = require('./LinkedList'),
     BaseInput = require('./inputs/BaseInput'),
-    { CommandParser, ParsedCommand, TokenTypes } = require('./CommandParser'),
+    { CommandParser, ParsedCommand, TokenTypes, OperatorTypes } = require('./CommandParser'),
     CommandShellOptions = require('./CommandShellOptions'),
     events = require('events'),
     CommandInterval = 5,
@@ -194,7 +196,13 @@ class CommandShell extends events.EventEmitter {
         let result = '';
 
         while (cmd) {
+            let previousCmd = cmd;
+
             await this.prepareCommand(cmd);
+
+            if (cmd.redirectStdoutTo) {
+                cmd.stdout = cmd.redirectStdoutTo;
+            }
 
             result = await this.storage.eventCommand(cmd);
             let success = result === true || result === 0;
@@ -203,7 +211,6 @@ class CommandShell extends events.EventEmitter {
                 //  If command succeeded, proceed to execute next
                 if (success) {
                     cmd = cmd.conditional;
-                    continue;
                 }
                 else {
                     do {
@@ -211,7 +218,6 @@ class CommandShell extends events.EventEmitter {
                     }
                     while (cmd);
                     cmd = cmd.alternate || cmd.nextCommand || false;
-                    continue;
                 }
             }
             else if (cmd.alternate) {
@@ -222,7 +228,6 @@ class CommandShell extends events.EventEmitter {
                     }
                     while (cmd);
                     cmd = cmd.conditional || cmd.pipeTarget || cmd.nextCommand || false;
-                    continue;
                 }
             }
             else if (success) {
@@ -232,10 +237,10 @@ class CommandShell extends events.EventEmitter {
                     }
                     while (cmd);
                     cmd = cmd.conditional || cmd.pipeTarget || cmd.nextCommand || false;
-                    continue;
                 }
-                cmd = cmd.conditional || cmd.nextCommand || cmd.pipeTarget || false;
-                continue;
+                else {
+                    cmd = cmd.conditional || cmd.nextCommand || cmd.pipeTarget || false;
+                }
             }
             else {
                 if (cmd.conditional) {
@@ -245,6 +250,10 @@ class CommandShell extends events.EventEmitter {
                     while (cmd);
                 }
                 cmd = cmd.alternate || cmd.nextCommand || cmd.pipeTarget || false;
+            }
+
+            if (cmd && previousCmd.redirectStdoutTo) {
+                cmd.redirectStdoutTo = previousCmd.redirectStdoutTo;
             }
         }
         return true;
@@ -297,7 +306,7 @@ class CommandShell extends events.EventEmitter {
                         let cp = new CommandParser(token.tokenValue, this),
                             btcmd = await cp.parse();
 
-                        let s = btcmd.stdout = new IO.StandardBufferStream();
+                        let s = new IO.StandardBufferStream();
                         btcmd.redirectStdoutTo = s;
 
                         await this.executeCommand(btcmd);
@@ -313,6 +322,28 @@ class CommandShell extends events.EventEmitter {
 
                 case TokenTypes.TOKEN_NUMERIC:
                     finalText.push(token.tokenValue.toString());
+                    break;
+
+                case TokenTypes.TOKEN_OPERATOR:
+                    {
+                        switch (token.tokenValue) {
+                            case OperatorTypes.OP_APPENDOUT:
+                            case OperatorTypes.OP_WRITEOUT:
+                                {
+                                    let filename = driver.efuns.resolvePath(token.fileName, cmd.options.cwd),
+                                        fso = await driver.efuns.fs.getObjectAsync(filename);
+
+                                    cmd.stdout = await fso.createWriteStream({ flags: token.tokenValue === OperatorTypes.OP_APPENDOUT ? 'a' : 'w' });
+
+                                    for (let i = token.index; i <= token.fileToken; i++) {
+                                        cmd.tokens[i].tokenType = TokenTypes.TOKEN_WHITESPACE;
+                                        cmd.tokens[i].source = '';
+                                        cmd.tokens[i].tokenValue = '';
+                                    }
+                                }
+                                continue;
+                        }
+                    }
                     break;
 
                 case TokenTypes.TOKEN_WHITESPACE:
@@ -370,11 +401,6 @@ class CommandShell extends events.EventEmitter {
 
         if (cmd.pipeTarget) {
             cmd.stdout = cmd.pipeTarget.stdin = new IO.StandardBufferStream();
-        }
-        else if (cmd.redirectStdoutTo) {
-            if (cmd.conditional) cmd.conditional.stdout = cmd.redirectStdoutTo;
-            if (cmd.alternate) cmd.alternate.stdout = cmd.redirectStdoutTo;
-            if (cmd.nextCommand) cmd.nextCommand.stdout = cmd.redirectStdoutTo;
         }
 
         if (!cmd.text)

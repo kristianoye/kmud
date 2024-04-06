@@ -68,6 +68,10 @@ String.prototype.fs = function (...args) {
     return s;
 };
 
+String.prototype.splitLines = function () {
+    let str = this.slice(0);
+    return str.split(/\r?\n/);
+};
 String.prototype.stripColors = function () {
     let str = this.slice(0);
     str = str.replace(/(\%\^[A-Z]+\%\^)/g, '');
