@@ -933,6 +933,7 @@ class AclSecurityManager extends BaseSecurityManager {
                 case 'M': result |= SecurityFlags.P_READMETADATA | SecurityFlags.P_WRITEMETADATA; break;
                 case 'O': result |= SecurityFlags.P_TAKEOWNERSHIP; break;
                 case 'P': result |= SecurityFlags.P_CHANGEPERMS; break;
+                case 'p': result |= SecurityFlags.P_READPERMS; break;
                 case 'r': result |= SecurityFlags.P_READ | SecurityFlags.P_READPERMS; break;
                 case 'R': result |= SecurityFlags.P_LISTDIR | SecurityFlags.P_READ | SecurityFlags.P_READPERMS; break;
                 case 'w': result |= SecurityFlags.P_WRITE; break;
