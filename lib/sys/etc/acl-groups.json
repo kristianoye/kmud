@@ -46,8 +46,7 @@
          "name": "MUDLib Development",
          "description": "Mudlib developers are responsible for maintaining the base code that other creators use.",
          "members": [
-            "$ADMIN",
-            "creators\\testwiz"
+            "$ADMIN"
          ]
       },
       "~KRITON\\WORKROOM": {

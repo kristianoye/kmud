@@ -8,7 +8,14 @@ const
     MUDCompilerOptions = require('./compiler/MUDCompilerOptions'),
     { PipelineContext } = require('./compiler/PipelineContext'),
     events = require('events'),
-    MemberModifiers = require("./compiler/MudscriptMemberModifiers");
+    MemberModifiers = require("./compiler/MudscriptMemberModifiers"),
+    MemberType = {
+        Unknown: 0,
+        Property: 1 << 0,
+        PropertyGetter: 1 << 1,
+        PropertySetter: 1 << 2,
+        Method: 1 << 3
+    };
 
 var
     useAuthorStats = false,
@@ -31,7 +38,20 @@ class MUDModuleTypeMemberInfo {
         this.memberName = memberName;
         /** @type {number} */
         this.modifiers = modifiers;
+        /** @type {number} */
         this.depth = depth;
+        /** @type {number} */
+        this.memberType = MemberType.Unknown;
+
+        if (memberName.indexOf('get ')) {
+            this.memberType = MemberType.Property | MemberType.PropertyGetter;
+        }
+        else if (memberName.indexOf('set ')) {
+            this.memberType = MemberType.Property | MemberType.PropertySetter;
+        }
+        else {
+            this.memberType = MemberType.Method;
+        }
     }
 
     get filename() {
@@ -50,6 +70,10 @@ class MUDModuleTypeMemberInfo {
         return (this.modifiers & MemberModifiers.Final) > 0;
     }
 
+    get isGetter() {
+        return (this.memberType & MemberType.PropertyGetter) > 0;
+    }
+
     get isOrigin() {
         return (this.modifiers & MemberModifiers.Origin) > 0;
     }
@@ -58,12 +82,20 @@ class MUDModuleTypeMemberInfo {
         return (this.modifiers & MemberModifiers.Package) > 0;
     }
 
+    get isProperty() {
+        return (this.memberType & MemberType.Property) > 0;
+    }
+
     get isProtected() {
         return (this.modifiers & MemberModifiers.Protected) > 0;
     }
 
     get isPublic() {
         return (this.modifiers & MemberModifiers.Public) > 0;
+    }
+
+    get isSetter() {
+        return (this.memberType & MemberType.PropertySetter) > 0;
     }
 
     get typeName() {
@@ -205,6 +237,9 @@ class MUDModuleTypeInfo {
          * @type {Object.<string,MUDModuleTypeMemberInfo[]>}
          */
         this.propertyOrigins = {};
+
+        this.possibleLazyBindings = {};
+        this.lazyBindingCount = 0;
     }
 
     /**
@@ -220,9 +255,15 @@ class MUDModuleTypeInfo {
 
         }
 
+        if (memberName in this.possibleLazyBindings) {
+            //  Nope, this member is actually defined
+            delete this.possibleLazyBindings[memberName];
+        }
+
         //  Does this type implement an abstract member?
         if (memberName in this.abstractMembers && !member.isAbstract) {
             delete this.abstractMembers[memberName];
+            this.lazyBindingCount--;
         }
         else if (member.isAbstract) {
             if (!this.isAbstract)
@@ -239,6 +280,13 @@ class MUDModuleTypeInfo {
             this.hasAsyncConstructor |= true;
         }
         return member;
+    }
+
+    addPossibleLazyBinding(prop) {
+        if (prop in this.members === false && /^[a-zA-Z0-9\$]+$/) {
+            this.possibleLazyBindings[prop] = true;
+            this.lazyBindingCount++;
+        }
     }
 
     getMember(memberName) {

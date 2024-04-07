@@ -122,6 +122,7 @@ class MudScriptAstAssembler {
     constructor(p) {
         this.acornOptions = p.acornOptions || false;
         this.allowJsx = p.allowJsx;
+        this.allowLazyBindings = p.allowLazyBindings === true;
 
         this.awaitDepth = 0;
         this.appendText = '';
@@ -577,12 +578,21 @@ async function parseElement(op, e, depth) {
                 break; 
 
             case 'AssignmentExpression':
-                op.pushScope(ScopeType.AssignmentExpression);
-                ret += op.readUntil(e.left.start);
-                ret += await parseElement(op, e.left, depth + 1);
-                ret += op.readUntil(e.right.start);
-                ret += await parseElement(op, e.right, depth + 1);
-                op.popScope();
+                {
+                    if (op.allowLazyBindings) {
+                        let expr = op.source.slice(e.left.start, e.left.end);
+                        if (expr.startsWith('this.')) {
+                            op.typeDef && op.typeDef.addPossibleLazyBinding(`set ${expr.slice(5)}`);
+                        }
+                    }
+
+                    op.pushScope(ScopeType.AssignmentExpression);
+                    ret += op.readUntil(e.left.start);
+                    ret += await parseElement(op, e.left, depth + 1);
+                    ret += op.readUntil(e.right.start);
+                    ret += await parseElement(op, e.right, depth + 1);
+                    op.popScope();
+                }
                 break;
 
             case 'AssignmentPattern':
@@ -921,6 +931,25 @@ async function parseElement(op, e, depth) {
                     ret += await parseElement(op, e.body, depth + 1);
                     ret += ` ${e.id.name}.prototype.baseName = '${op.getBaseName(e.id.name)}'; `;
                     ret += ` ${e.id.name}.prototype.typeModifiers = ${(e.classModifiers || 0)}; `;
+                    if (op.allowLazyBindings && op.typeDef.lazyBindingCount > 0) {
+                        for (const entry of Object.keys(op.typeDef.possibleLazyBindings)) {
+                            //  TODO: Make sure this is not a getter-only property
+                            let propName = entry.slice(4),
+                                getterOnly = op.typeDef.getMember(`get ${propName}`),
+                                setterOnly = op.typeDef.getMember(`set ${propName}`),
+                                getter = ` let __mec = __bfc(this || ${e.id.name}, ${op.options.defaultMemberAccess}, 'get ${propName}', __FILE__, false, __LINE__, ${e.id.name}, ${CallOrigin.GetProperty}); try { return __mec.validSyncCall(__FILE__, __LINE__, () => get.call(this, ${e.id.name}, '${propName}', undefined)); } finally { __efc(__mec, 'get ${propName}'); }`,
+                                setter = ` let __mec = __bfc(this || ${e.id.name}, ${op.options.defaultMemberAccess}, 'set ${propName}', __FILE__, false, __LINE__, ${e.id.name}, ${CallOrigin.SetProperty}); try { __mec.validSyncCall(__FILE__, __LINE__, () => set.call(this, ${e.id.name}, '${propName}', val)); } finally { __efc(__mec, 'set ${propName}'); }`,
+                                injectedSource = ` Object.defineProperty(${e.id.name}.prototype, '${propName}', { configurable: false, enumerable: true, get: function() { ${getter}}, set: function(val) { ${setter} } }); `;
+
+                            if (getterOnly) {
+                                op.raise(`Class '${typeDef.typeName}' cannot automatically define 'set ${propName}' for read-only property`);
+                            }
+                            else if (setterOnly) {
+                                op.raise(`Class '${typeDef.typeName}' cannot automatically define 'set ${propName}' for write-only property`);
+                            }
+                            ret += injectedSource;
+                        }
+                    }
                     ret += `extendType(${typeDef.typeName}, ${parentClassList.join(',')});`;
                     ret += `__dmt("${op.filename}", ${e.id.name}); `;
                     if (op.context.mustDefineCreate) {
@@ -1689,6 +1718,8 @@ class MudScriptTranspiler extends PipelineComponent {
         };
 
         this.allowJsx = typeof config.allowJsx === 'boolean' ? config.allowJsx : true;
+        this.allowLazyBindings = config.allowLazyBindings === true;
+        this.config = config;
         this.extension = config.extension || '.js';
         this.parser = acorn.Parser
             .extend(jsx())
@@ -1717,6 +1748,9 @@ class MudScriptTranspiler extends PipelineComponent {
             source: context.content,
             injectedSuperClass: 'MUDObject'
         }, options.transpilerOptions));
+
+        op.allowLazyBindings = this.allowLazyBindings === true;
+
         try {
             if (this.enabled) {
                 options.onDebugOutput(`\t\tRunning pipeline stage ${(step + 1)} of ${maxStep}: ${this.name}`, 3);
