@@ -9,6 +9,7 @@
  */
 const
     IO = require('./StandardIO'),
+    StreamPromises = require('stream/promises'),
     { ExecutionSignaller } = require('./ExecutionContext'),
     { LinkedList } = require('./LinkedList'),
     BaseInput = require('./inputs/BaseInput'),
@@ -342,6 +343,27 @@ class CommandShell extends events.EventEmitter {
                                     }
                                 }
                                 continue;
+
+                            case OperatorTypes.OP_READSTDIN:
+                                {
+                                    let filename = driver.efuns.resolvePath(token.fileName, cmd.options.cwd),
+                                        fso = await driver.efuns.fs.getObjectAsync(filename),
+                                        s = await fso.createReadStream();
+
+                                    if (!cmd.stdin) {
+                                        cmd.stdin = new IO.StandardBufferStream();
+                                    }
+
+                                    await StreamPromises.pipeline(s, cmd.stdin, { end: false });
+                                    await StreamPromises.finished(s);
+
+                                    for (let i = token.index; i <= token.fileToken; i++) {
+                                        cmd.tokens[i].tokenType = TokenTypes.TOKEN_WHITESPACE;
+                                        cmd.tokens[i].source = '';
+                                        cmd.tokens[i].tokenValue = '';
+                                    }
+                                }
+                                continue;
                         }
                     }
                     break;
@@ -405,6 +427,7 @@ class CommandShell extends events.EventEmitter {
 
         if (!cmd.text)
             cmd.text = finalText.join('').trim();
+
         if (typeof cmd.verb !== 'string') {
             throw new Error('-kmsh: Invalid verb');
         }

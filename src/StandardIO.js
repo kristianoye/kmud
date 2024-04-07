@@ -237,6 +237,10 @@ class StandardBufferStream extends Transform {
         this.buffer = Buffer.alloc(0);
     }
 
+    end(...args) {
+        return super.end(...args);
+    }
+
     readAll(enc = 'utf8') {
         let result = this.buffer.toString(enc);
         this.buffer = Buffer.alloc(0);
