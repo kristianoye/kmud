@@ -402,6 +402,7 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="libman.json" />
+    <Content Include="lib\base\ArgParser.js" />
     <Content Include="lib\base\mixins\Drop.js" />
     <Content Include="lib\base\mixins\Get.js" />
     <Content Include="lib\base\mixins\Listen.js" />
@@ -664,6 +665,7 @@
     <Content Include="src\setup\general\NetBindingSetup.js" />
     <Content Include="src\setup\MudSetupTypes.js" />
     <Content Include="src\setup\SectionSetup.js" />
+    <Content Include="src\SimpleObject.js" />
     <Content Include="src\StandardIO.js" />
     <Content Include="TODO.md">
       <SubType>Code</SubType>

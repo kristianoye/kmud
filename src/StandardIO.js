@@ -263,6 +263,16 @@ class StandardBufferStream extends Transform {
         }
     }
 
+    readLines(enc = 'utf8') {
+        let results = [],
+            line = this.readLine(enc);
+        while (line) {
+            results.push(line);
+            line = this.readLine();
+        }
+        return results;
+    }
+
     _transform(chunk, encoding, done) {
         this.buffer = Buffer.concat([this.buffer, chunk]);
         done();

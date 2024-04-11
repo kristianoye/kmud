@@ -12,6 +12,7 @@ const
     RM_OPT_SMARTPROMPT = 1 << 2,
     RM_OPT_RECURSIVE = 1 << 3,
     RM_OPT_VERBOSE = 1 << 4,
+    RM_OPT_FORCE = 1 << 5,
     VERSION = '1.01';
 
 class RmOperation {
@@ -69,12 +70,33 @@ class RmOperation {
  * Removes files from the filesystem.
  */
 export default singleton class RmCommand extends Command {
+    protected override create() {
+        super.create();
+        this.verbs = ['rm', 'del'];
+        this.command
+            .setVerb(...this.verbs)
+            .addOption('-f, --force, /F', 'Ignore nonexistent files and arguments, delete read-only files, never prompt', { name: 'force', sets: RM_OPT_FORCE, clears: RM_OPT_INTERACTIVE })
+            .addOption('-i, --prompt, /P', 'Prompt before every removal', { name: 'prompt', sets: RM_OPT_INTERACTIVE, clears: RM_OPT_FORCE })
+            .addOption('-r, --recursive, /S', 'Remove directories and their contents recursively', { name: 'recursive', sets: RM_OPT_RECURSIVE })
+            .addArgument('<...files>')
+            .setDescription('Remove (unlink)/delete FILE(s) from the filesystem')
+            .setAuthor('Kris Oye')
+            .complete();
+    }
+
     /**
      * 
      * @param {string} str The raw input from the user
      * @param {MUDInputEvent} evt
      */
     override async cmd(str, evt) {
+        let options = await this.command.parse(evt);
+
+        if (typeof options !== 'object')
+            return options;
+
+        let { files, bitflags } = options;
+
         let args = evt.args,
             cwd = thisPlayer().workingDirectory,
             op = new RmOperation(0, []);

@@ -5,6 +5,7 @@
  */
 const
     MUDObject = require('./MUDObject'),
+    SimpleObject = require('./SimpleObject'),
     MUDHtml = require('./MUDHtml'),
     { TimeoutError } = require('./ErrorTypes'),
     { ExecutionContext, CallOrigin } = require('./ExecutionContext'),
@@ -39,6 +40,7 @@ class MUDLoader {
                     }
                     driver.errorHandler(val, true);
                 },
+                configurable: false,
                 enumerable: false,
                 writable: false
             },
@@ -50,6 +52,7 @@ class MUDLoader {
                         ecc && ecc.alarm();
                     }
                 },
+                configurable: false,
                 enumerable: false,
                 writable: false
             },
@@ -63,6 +66,7 @@ class MUDLoader {
                     }
                     return ind;
                 },
+                configurable: false,
                 enumerable: false,
                 writable: false
             },
@@ -99,7 +103,7 @@ class MUDLoader {
                         //  to be incremented prior to checking method access
                         ecc
                             .alarm()
-                            .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, callType);
+                            .push((ob instanceof MUDObject || ob instanceof SimpleObject) && ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, callType);
                     }
 
                     if ((access & MemberModifiers.Public) !== MemberModifiers.Public)
@@ -114,6 +118,7 @@ class MUDLoader {
 
                     return ecc;
                 },
+                configurable: false,
                 enumerable: false,
                 writable: false
             },
@@ -122,6 +127,7 @@ class MUDLoader {
                 value: function (/** @type {ExecutionContext} */ mec, methodOrFunc) {
                     mec && mec.pop(methodOrFunc);
                 },
+                configurable: false,
                 enumerable: false,
                 writable: false
             },
@@ -131,7 +137,7 @@ class MUDLoader {
                     let ecc = driver.getExecution(thisObject, 'constructor', file, false, lineNumber);
 
                     try {
-                        if (type.prototype && type.prototype.baseName && type.prototype.baseName !== 'MUDObject')
+                        if (type.prototype && type.prototype.baseName && type.prototype.baseName !== 'MUDObject' && type.prototype instanceof SimpleObject === false)
                             throw new Error(`Mudlib objects must be created with createAsync(...)`);
                         else
                             return con(type);
@@ -142,6 +148,7 @@ class MUDLoader {
                     }
                     return result;
                 },
+                configurable: false,
                 writable: false,
                 enumerable: false
             },
@@ -155,6 +162,7 @@ class MUDLoader {
                     // You would THINK we could clear exports here, but no.
                     // module.exports = {};
                 },
+                configurable: false,
                 writable: false,
                 enumerable: false
             },
@@ -165,7 +173,10 @@ class MUDLoader {
                     if (module) {
                         module.eventDefineType(type);
                     }
-                }
+                },
+                configurable: false,
+                writable: false,
+                enumerable: false
             },
             Buffer: {
                 value: global.Buffer,
@@ -274,6 +285,10 @@ class MUDLoader {
             PUBLIC: {
                 value: 0,
                 writeable: false
+            },
+            SimpleObject: {
+                value: global.SimpleObject,
+                writable: false
             }
         });
     }

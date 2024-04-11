@@ -1,4 +1,6 @@
-﻿/*
+﻿const SimpleObject = require('./SimpleObject');
+
+/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
@@ -283,7 +285,7 @@ class MUDModuleTypeInfo {
     }
 
     addPossibleLazyBinding(prop) {
-        if (prop in this.members === false && /^[a-zA-Z0-9\$]+$/) {
+        if (prop in this.members === false && /^[a-zA-Z0-9\$]+$/.test(prop)) {
             this.possibleLazyBindings[prop] = true;
             this.lazyBindingCount++;
         }
@@ -555,11 +557,12 @@ class MUDModule extends events.EventEmitter {
         if (!key) {
             if (efuns.isClass(val)) key = val.name;
             else if (val instanceof MUDObject) key = val.constructor.name;
+            else if (val instanceof SimpleObject) key = val.constructor.name;
             else if (typeof val === 'function') key = val.name;
         }
 
         this.oldExports.length++;
-        this.singletons[key] = val instanceof MUDObject;
+        this.singletons[key] = val instanceof MUDObject || val instanceof SimpleObject;
 
         if (isDefault === false && this.explicitDefault === false) {
             if (this.oldExports.length === 1)
@@ -586,7 +589,7 @@ class MUDModule extends events.EventEmitter {
         if (Array.isArray(val)) {
             val.forEach(a => this.addExportElement(a, undefined, isDefault));
         }
-        else if (val instanceof MUDObject) {
+        else if (val instanceof MUDObject || val instanceof SimpleObject) {
             this.addExportElement(val, val.constructor.name, isDefault);
         }
         else if (typeof val === 'object') {

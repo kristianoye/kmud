@@ -8,6 +8,7 @@ const
     { NetUtil } = require('./network/NetUtil'),
     { LinkedList, LinkedListWithID, LinkedListWithLookup } = require('./LinkedList'),
     MUDObject = require('./MUDObject'),
+    SimpleObject = require('./SimpleObject'),
     CompilerFlags = require('./compiler/CompilerFlags'),
     async = require('async');
 
@@ -638,6 +639,9 @@ class GameServer extends MUDEventEmitter {
                 else if (target instanceof MUDObject) { // if (typeof target === 'object' && result.constructor.name !== 'Object') {
                     result = target;
                 }
+                else if (target instanceof SimpleObject) {
+                    result = target;
+                }
                 else if (typeof target === 'function') {
                     result = target();
                 }
@@ -687,6 +691,8 @@ class GameServer extends MUDEventEmitter {
                         module = driver.cache.get(parts.file);
                     return module.getInstanceWrapper(parts);
                 }
+                else if (o instanceof SimpleObject)
+                    throw new Error('SimpleObject types cannot be wrapped');
                 return false;
             };
 

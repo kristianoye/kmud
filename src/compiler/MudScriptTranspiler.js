@@ -905,7 +905,7 @@ async function parseElement(op, e, depth) {
                             let classRef = op.symbols[classId] || false;
 
                             if (!classRef) {
-                                if (classId === 'MUDObject' || classId === 'EFUNProxy') continue;
+                                if (classId === 'MUDObject' || classId === 'EFUNProxy' || classId === 'SimpleObject') continue;
                                 op.raise(`Could not inherit unresolved class: '${classId}'`);
                             }
                             else if (!driver.efuns.isClass(classRef)) {

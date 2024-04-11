@@ -7,6 +7,7 @@ const { NotImplementedError } = require('./ErrorTypes');
 const
     MUDLoader = require('./MUDLoader');
 const MUDObject = require('./MUDObject');
+const SimpleObject = require('./SimpleObject');
 
 class MUDOSLoader extends MUDLoader {
     /**
@@ -128,7 +129,7 @@ class MUDOSLoader extends MUDLoader {
             return [];
 
         if (typeof functionOrMethod === 'string') {
-            if (false === target instanceof MUDObject)
+            if (false === target instanceof MUDObject && false === target instanceof SimpleObject)
                 throw `filter_array(): Filter method '${functionOrMethod}' must exist in a valid MUD object`;
             filterCallback = efuns.bindFunctionByName(target, functionOrMethod);
         }
@@ -155,7 +156,7 @@ class MUDOSLoader extends MUDLoader {
             return [];
 
         if (typeof functionOrMethod === 'string') {
-            if (false === target instanceof MUDObject)
+            if (false === target instanceof MUDObject && false === target instanceof SimpleObject)
                 throw `filter_array(): Filter method '${functionOrMethod}' must exist in a valid MUD object`;
             filterCallback = efuns.bindFunctionByName(target, functionOrMethod);
         }
@@ -249,7 +250,7 @@ class MUDOSLoader extends MUDLoader {
             var ob = args.shift();
             if (typeof ob !== 'object')
                 throw new Error(`Bad argument 3 to sort_array(); Expected object got ${typeof ob}`);
-            if (!(ob instanceof MUDObject))
+            if (!(ob instanceof MUDObject || ob instanceof SimpleObject))
                 throw new Error(`Bad argument 3 to sort_array(); ${ob.prototype.name} does not inherit MUDObject`);
             if (typeof ob[filter] !== 'function')
                 throw new Error(`Bad argument 2 to sort_array(); ${ob.prototype.name} does not contain method ${filter}`);
@@ -302,7 +303,7 @@ class MUDOSLoader extends MUDLoader {
         if (sep === 'string') {
             if (typeof to[sep] !== 'function')
                 throw new Error(`Object ${_efuns.filename} does not contain method ${sep}`);
-            arr = arr.filter(o => o instanceof MUDObject);
+            arr = arr.filter(o => o instanceof MUDObject || o instanceof SimpleObject);
             sep = (function (_to, _fn) {
                 return function (o) { return _to[_fn].call(_to, _fn, o); };
             })(to, sep);
@@ -415,7 +416,7 @@ class MUDOSLoader extends MUDLoader {
             case 1:
                 return ecc.stack
                     .map(frame => frame.object)
-                    .filter(o => o instanceof MUDObject)
+                    .filter(o => o instanceof MUDObject || o instanceof SimpleObject)
                     .slice(0);
 
             case 2:
@@ -478,7 +479,7 @@ class MUDOSLoader extends MUDLoader {
      * @returns
      */
     disassemble_class(ob) {
-        if (ob instanceof MUDObject)
+        if (ob instanceof MUDObject || ob instanceof SimpleObject)
             return Object.values(ob);
         else
             return [];

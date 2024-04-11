@@ -136,6 +136,15 @@ function plugin(options, Parser) {
             this.keywords = wordsRegexp(existingWords.join(' '));
         }
 
+        checkKeyName(node, name) {
+            let computed = node.computed;
+            let key = node.key;
+            return !computed && (
+                key.type === "Identifier" && key.name === name ||
+                key.type === "Literal" && key.value === name
+            )
+        }
+
         /**
          * Eat whitespace
          * @returns {[ number, number ]} Returns previous location and number of spaces skipped
@@ -469,7 +478,8 @@ function plugin(options, Parser) {
             if (method.kind === "constructor") {
                 if (isGenerator) { this.raise(key.start, "Constructor can't be a generator"); }
                 if (isAsync && options.allowAsyncConstructors === false) { this.raise(key.start, "Constructor can't be an async method"); }
-            } else if (method.static && checkKeyName(method, "prototype")) {
+            }
+            else if (method.static && this.checkKeyName(method, "prototype")) {
                 this.raise(key.start, "Classes may not have a static property named prototype");
             }
 
