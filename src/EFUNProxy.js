@@ -394,6 +394,16 @@ class EFUNProxy {
         return result & 0xFFFFFFFF;
     }
 
+    get currentCommand() {
+        let ecc = driver.getExecution(),
+            cmd = ecc.command;
+
+        if (cmd)
+            return cmd;
+        else
+            return { verb: '', args: [] };
+    }
+
     /**
      * Returns the currently executing verb.
      * @returns {string|false} The current verb or false if none.

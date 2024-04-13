@@ -13,6 +13,7 @@ const
     RM_OPT_RECURSIVE = 1 << 3,
     RM_OPT_VERBOSE = 1 << 4,
     RM_OPT_FORCE = 1 << 5,
+    RM_OPT_SINGLEFS = 1 << 6,
     VERSION = '1.01';
 
 class RmOperation {
@@ -75,11 +76,16 @@ export default singleton class RmCommand extends Command {
         this.verbs = ['rm', 'del'];
         this.command
             .setVerb(...this.verbs)
-            .addOption('-f, --force, /F', 'Ignore nonexistent files and arguments, delete read-only files, never prompt', { name: 'force', sets: RM_OPT_FORCE, clears: RM_OPT_INTERACTIVE })
-            .addOption('-i, --prompt, /P', 'Prompt before every removal', { name: 'prompt', sets: RM_OPT_INTERACTIVE, clears: RM_OPT_FORCE })
-            .addOption('-r, --recursive, /S', 'Remove directories and their contents recursively', { name: 'recursive', sets: RM_OPT_RECURSIVE })
-            .addArgument('<...files>')
-            .setDescription('Remove (unlink)/delete FILE(s) from the filesystem')
+            .addOption('-d, --dir', 'Remove empty directories', { name: 'removeEmpties', sets: RM_OPT_RMEMPTYDIRS })
+            .addOption('-f, --force', 'Ignore nonexistent files and arguments, delete read-only files, never prompt', { name: 'force', sets: RM_OPT_FORCE, clears: RM_OPT_INTERACTIVE })
+            .addOption('--interactive <interactive:always|always|never|once|smart>', 'Prompt according to WHEN: never, once (-I), or always (-i); without WHEN, prompt always', { name: 'interactive' })
+            .addOption('--one-file-system', 'when removing a hierarchy recursively, skip any directory that is on a file system different from that of the corresponding command line argument', { name: 'sfs', sets: RM_OPT_SINGLEFS })
+            .addOption('-i, --prompt', 'Prompt before every removal', { name: 'prompt', sets: RM_OPT_INTERACTIVE, clears: RM_OPT_FORCE })
+            .addOption('-I', 'prompt  once  before removing more than three files, or when removing recursively; less intrusive than -i, while still giving protection against most mistakes', { name: 'smartPrompt', sets: RM_OPT_SMARTPROMPT, clears: RM_OPT_FORCE })
+            .addOption('-r, --recursive', 'Remove directories and their contents recursively', { name: 'recursive', sets: RM_OPT_RECURSIVE })
+            .addOption('-v, --verbose', 'Explain what is being done', { name: 'verbose', sets: RM_OPT_VERBOSE })
+            .addArgument('<FILE(s)...>')
+            .setDescription('Remove/unlink/delete FILE(s) from the filesystem')
             .setAuthor('Kris Oye')
             .complete();
     }

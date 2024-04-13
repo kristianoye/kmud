@@ -7,6 +7,7 @@
  */
 
 const CommandShellOptions = require("./CommandShellOptions");
+const { StandardBufferStream } = require("./StandardIO");
 
 const
     /*
@@ -1017,16 +1018,16 @@ class CommandParser {
                     break;
 
                 case OP_PIPELINE:
-                    command.nextCommand = nextCmd;
-                    command.stdout = {}; // TODO: Create stdout here
-                    nextCmd.stdin = {}; //  TODO: Create reader for command.stdout
+                    command.pipeTarget = nextCmd;
+                    command.stdout = new StandardBufferStream();
+                    nextCmd.stdin = command.stdout;
                     break;
 
                 case OP_PIPEBOTH:
                     command.nextCommand = nextCmd;
-                    command.stdout = {}; // TODO: Create stdout here
+                    command.stdout = new StandardBufferStream();
                     command.stderr = command.stdout;
-                    nextCmd.stdin = {}; //  TODO: Create reader for command.stdout
+                    nextCmd.stdin = command.stdout;
                     break;
 
                 default:

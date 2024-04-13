@@ -194,18 +194,18 @@ class CommandShell extends events.EventEmitter {
      * @param {ParsedCommand} cmd
      */
     async executeCommand(cmd) {
-        let result = '';
+        let result = '',
+            isPipeline = false,
+            previousCmd;
 
         while (cmd) {
-            let previousCmd = cmd;
-
             await this.prepareCommand(cmd);
 
             if (cmd.redirectStdoutTo) {
                 cmd.stdout = cmd.redirectStdoutTo;
             }
 
-            result = await this.storage.eventCommand(cmd);
+            result = await this.storage.eventCommand(previousCmd = cmd);
             let success = result === true || result === 0;
 
             if (cmd.conditional) {
