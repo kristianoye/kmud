@@ -242,6 +242,8 @@ class StandardBufferStream extends Transform {
     }
 
     readAll(enc = 'utf8') {
+        if (this.buffer.length === 0)
+            return false;
         let result = this.buffer.toString(enc);
         this.buffer = Buffer.alloc(0);
         return result;
@@ -249,7 +251,7 @@ class StandardBufferStream extends Transform {
 
     readLine(enc = 'utf8') {
         if (this.buffer.length === 0)
-            return '';
+            return false;
         let n = this.buffer.findIndex(v => v === 10);
 
         if (n > -1) {
@@ -266,7 +268,7 @@ class StandardBufferStream extends Transform {
     readLines(enc = 'utf8') {
         let results = [],
             line = this.readLine(enc);
-        while (line) {
+        while (line !== false) {
             results.push(line);
             line = this.readLine();
         }
