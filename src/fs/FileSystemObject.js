@@ -363,7 +363,7 @@ class FileSystemObject extends events.EventEmitter {
 
     /**
      * Called to delete the object
-     * @param {FileSystemRequest} request
+     * @param {FileSystemObject} request
      */
     async deleteFileAsync(request) {
         throw new NotImplementedError('deleteFileAsync', this);
@@ -371,7 +371,7 @@ class FileSystemObject extends events.EventEmitter {
 
     /** 
      * Get the parent of this object.
-     * @returns {Promise<DirectoryWrapper>}  Returns the parent object
+     * @returns {Promise<FileSystemObject>}  Returns the parent object
      */
     async getParentAsync() {
         let parentPath = this.path === '/' ? '/' : path.posix.resolve(this.path, '..');
@@ -438,7 +438,8 @@ class FileSystemObject extends events.EventEmitter {
     }
 
     /**
-     * 
+     * Read directory contents
+     * @returns {Promise<FileSystemObject[]}
      */
     async readDirectoryAsync() {
         throw new NotImplementedError('readDirectoryAsync');
@@ -866,6 +867,13 @@ class FileWrapperObject extends FileSystemObject {
 
     configureWrapper(t) {
         //  Does nothing
+    }
+
+    async copyAsync(dest) {
+        if (await this.can(SecurityFlags.P_READ, 'copyAsync')) {
+            return this.#instance.copyAsync(dest);
+        }
+        throw new SecurityError(`${this.fullPath}: copyAsync(): Permission denied`);
     }
 
     async createDirectoryAsync(...args) {

@@ -611,8 +611,16 @@ class AclSecurityManager extends BaseSecurityManager {
             else if (!fo.exists && ignoreParent === false)
             {
                 //  Look for the first parent that does exist
-                let parent = await fo.getParentAsync(),
-                    parentAcl = await this.getAcl(parent);
+                let parent = await fo.getParentAsync();
+
+                if (!parent.exists) {
+                    do {
+                        parent = await parent.getParentAsync();
+                    }
+                    while (!parent.exists);
+                }
+
+                let parentAcl = await this.getAcl(parent);
 
                 return resolve(await parentAcl.getChildAsync(fo.name));
             }

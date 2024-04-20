@@ -8,8 +8,9 @@
 
 const
     path = require('path'),
-    { FileSystemQueryFlags } = require('../fs/FileSystemFlags');
-const { CallOrigin } = require('../ExecutionContext');
+    { CopyFlags, FileSystemQueryFlags } = require('../fs/FileSystemFlags'),
+    { FileCopyOperation } = require('../fs/FileOperations'),
+    { CallOrigin } = require('../ExecutionContext');
     
 
 class DeleteDirectoryOptions {
@@ -44,6 +45,68 @@ class FileSystemHelper {
     }
 
     /**
+     * Copy a file object
+     * @param {string | FileCopyOperation} source
+     * @param {string | FileCopyOperation} destination
+     * @param {number | FileCopyOperation} options
+     * @returns
+     */
+    static async copyAsync(source, destination, options) {
+        /** @type {FileCopyOperation} */
+        let opts = {
+            source,
+            destination,
+            flags: 0
+        };
+
+        if (typeof source === 'object')
+            opts = Object.assign(opts, source);
+        if (typeof destination === 'object')
+            opts = Object.assign(opts, destination);
+        if (typeof options === 'object')
+            opts = Object.assign(opts, options);
+
+        if (typeof source === 'string')
+            opts.source = source;
+        if (typeof destination === 'string')
+            opts.destination = destination;
+        if (typeof options === 'number')
+            opts.flags = options;
+
+        try {
+            return await driver.fileManager.copyAsync(opts);
+        }
+        catch (err) {
+            if (opts.onCopyError) {
+                opts.onCopyError(opts.verb, err);
+            }
+            else
+                throw err;
+        }
+        return false;
+    }
+
+    static get CopyFlags() {
+        return CopyFlags;
+    }
+
+    static async createBackupAsync(fileOrPath, backupControl = 'simple', suffix = '~') {
+        if (typeof fileOrPath === 'object' && typeof fileOrPath.fullPath === 'string')
+            fileOrPath = fileOrPath.fullPath;
+
+        let fso = driver.fileManager.getObjectAsync(fileOrPath);
+        if (!fso.exists)
+            return '';
+
+        let ext = await FileSystemHelper.getBackupExtension(fso, backupControl, suffix),
+            backupTarget = driver.fileManager.getObjectAsync(fso.fullPath + ext);
+        if (await fso.copyAsync(backupTarget))
+            return backupTarget.name;
+        else
+            return '';
+    }
+
+    /**
      * Create a directory on the filesystem
      * @param {string} expr The path expression to create
      * @param {number} flags Flags to control the operation
@@ -70,6 +133,56 @@ class FileSystemHelper {
 
     static get FileSystemQueryFlags() {
         return FileSystemQueryFlags;
+    }
+
+    static get BackupControl() {
+        return BackupControl;
+    }
+
+    static async getBackupExtension(fileOrPath, control='simple', suffix='~') {
+        if (typeof fileOrPath === 'object' && typeof fileOrPath.fullPath === 'string')
+            fileOrPath = fileOrPath.fullPath;
+
+        switch (control) {
+            case 'never':
+            case 'simple':
+                return suffix;
+
+            case 'none':
+            case 'off':
+                return '';
+
+            case 'numbered':
+            case 't':
+                existing = await FileSystemHelper.queryFileSystemAsync(`${fileOrPath}.~*~`);
+                if (existing && existing.length > 0) {
+                    let maxId = existing
+                        .map(fo => fo.extension.slice(1))
+                        .filter(ext => !!ext)
+                        .map(ext => parseInt(ext.split('~')[1]))
+                        .filter(n => !isNaN(n) && n > 0)
+                        .sort()
+                        .pop();
+                    return `.~${(maxId + 1)}~`;
+                }
+                else
+                    return '.~1~';
+
+            case 'existing':
+                existing = await FileSystemHelper.queryFileSystemAsync(`${dest.fullPath}.~*`);
+                if (existing && existing.length > 0) {
+                    let maxId = existing
+                        .map(fo => fo.extension.slice(1))
+                        .filter(ext => !!ext)
+                        .map(ext => parseInt(ext.split('~')[1]))
+                        .filter(n => !isNaN(n) && n > 0)
+                        .sort()
+                        .pop();
+                    if (maxId > 0)
+                        return `.~${(maxId + 1)}~`;
+                }
+                return suffix;
+        }
     }
 
     /**

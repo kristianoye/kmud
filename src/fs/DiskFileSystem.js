@@ -1,13 +1,11 @@
-﻿const { relative } = require('path');
-const { isReturnStatement } = require('typescript');
-
-/*
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
 const
     BaseFileSystem = require('./BaseFileSystem'),
+    StreamPromises = require('stream/promises'),
     { FileSystemObject, ObjectNotFound, SecurityFlags, WrapperBase, FileWrapperObject } = require('./FileSystemObject'),
     { FileSystemQueryFlags } = require('./FileSystemFlags'),
     async = require('async'),
@@ -79,13 +77,37 @@ class DiskFileObject extends FileSystemObject {
     }
 
     /**
+     * Copy a file to another location
+     * @param {FileSystemObject} dest
+     */
+    async copyAsync(dest) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const thisFile = await this.createReadStream();
+                let parent = await dest.getParentAsync();
+
+                parent = await parent.createDirectoryAsync(true);
+
+                let targetFile = await dest.createWriteStream();
+
+                await StreamPromises.pipeline(thisFile, targetFile);
+
+                resolve(true);
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /**
      * Attempt to create this as a directory
      */
     async createDirectoryAsync(createAsNeeded = false) {
         return new Promise(async (resolve, reject) => {
             if (this.exists) {
                 if (createAsNeeded)
-                    return resolve(true);
+                    return resolve(this);
                 else if (!this.isDirectory)
                     reject(`createDirectoryAsync: Path ${this.path} is not a directory.`);
                 else
@@ -101,7 +123,7 @@ class DiskFileObject extends FileSystemObject {
                             let parent = await driver.fileManager.getFileAsync(parentPath, 0, false === this.isWrapper());
 
                             if (!parent.exists) {
-                                await parent.createDirectoryAsync();
+                                await parent.createDirectoryAsync(createAsNeeded);
                             }
                         }
                     }
@@ -811,12 +833,14 @@ class DiskFileSystem extends BaseFileSystem {
             nlink: getStatValue(baseStat.nlink, -1),
             uid: getStatValue(baseStat.uid, -1),
             mode: getStatValue(baseStat.mode, -1),
-            mtime: dt,
-            mtimeMs: dt.getTime(),
+            mountPoint: this.mountPoint,
+            mtime: getStatValue(baseStat.mtime, dt),
+            mtimeMs: getStatValue(baseStat.mtimeMs, dt.getTime()),
             name: baseStat.name || pathInfo.name,
             path: pathInfo.virtualPath,
             size: getStatValue(baseStat.size, -1),
             rdev: getStatValue(baseStat.rdev, -1),
+            fileSystemId: this.systemId,
             isBlockDevice: getStatValue(baseStat.isBlockDevice),
             isCharacterDevice: getStatValue(baseStat.isCharacterDevice),
             isDirectory: getStatValue(baseStat.isDirectory),

@@ -542,6 +542,7 @@
     <Content Include="src\features\FeatureBase.js" />
     <Content Include="src\features\MUDEditor.js" />
     <Content Include="src\features\VerbSystem.js" />
+    <Content Include="src\fs\FileOperations.js" />
     <Content Include="src\MUDStorageFlags.js" />
     <Content Include="src\security\AclSecurityManager.js" />
     <Content Include="src\security\BaseSecurityManager.js">

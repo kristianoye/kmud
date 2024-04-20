@@ -9,8 +9,10 @@ const
     Cache = require('../Cache'),
     crypto = require('crypto'),
     yaml = require('js-yaml'),
-    path = require('path');
-const { FileSystemQueryFlags } = require('./FileSystemFlags');
+    path = require('path'),
+    { FileSystemQueryFlags, CopyFlags } = require('./FileSystemFlags'),
+    { FileCopyOperation } = require('./FileOperations');
+
 
 /**
  * The file manager object receives external requests, creates internal requests,
@@ -134,6 +136,126 @@ class FileManager extends MUDEventEmitter {
         expr = expr.replace(/\/\/+/g, '\/');
 
         return expr;
+    }
+
+    /**
+     * Copy file objects
+     * @param {FileCopyOperation} opts
+     */
+    async copyAsync(opts, isSystemRequest = false) {
+        let options = opts instanceof FileCopyOperation ? opts : new FileCopyOperation(opts),
+            source = await this.getObjectAsync(options.resolvedSource, 0, isSystemRequest === true),
+            dest = await this.getObjectAsync(options.resolvedDestination, 0, isSystemRequest === true);
+
+        if (!source.exists)
+            throw new Error(`${options.verb}: Source '${options.source}' does not exist`);
+        else if (source.isDirectory && !options.hasFlag(CopyFlags.Recursive))
+            throw new Error(`${options.verb}: Recursive flag not specified; omitting directory '${options.source}'`);
+
+        if (source.isDirectory) {
+            if (dest.isFile) {
+                throw new Error(`${options.verb}: Cannot overwrite non-directory '${options.destination} with directory '${options.source}'`);
+            }
+            else if (!dest.exists) {
+                await dest.createDirectoryAsync(true);
+                if (options.hasFlag(CopyFlags.Verbose))
+                    options.onCopyComplete(options.verb, options.source, options.destination);
+            }
+            let sourceFiles = await source.readDirectoryAsync();
+            for (const file of sourceFiles) {
+                try {
+                    let sourcePath = path.posix.join(options.source, file.name);
+
+                    if (file.isDirectory) {
+                        let destPath = path.posix.join(options.destination, source.name, file.name);
+                        if (file.fileSystemId !== source.fileSystemId && options.hasFlag(CopyFlags.SingleFilesystem)) {
+                            options.onCopyInformation(options.verb, `Omitting directory '${sourcePath}' since it is on a different filesystem`);
+                        }
+                        let child = options.createChild({
+                            source: sourcePath,
+                            destination: destPath
+                        });
+                        await this.copyAsync(child, isSystemRequest === true);
+                    }
+                    else if (file.isFile) {
+                        let destPath = path.posix.join(options.destination, source.name, file.name);
+                        let child = options.createChild({
+                            source: sourcePath,
+                            destination: destPath
+                        });
+                        await this.copyAsync(child, isSystemRequest === true);
+                    }
+                }
+                catch (err) {
+                    if (options.onCopyError) {
+                        options.onCopyError(options.verb, err);
+                    }
+                    else
+                        throw err;
+                }
+            }
+        }
+        else if (dest.isDirectory) {
+            let destFullPath = path.posix.join(dest.fullPath, source.name),
+                destPath = path.posix.join(options.destination, source.name),
+                fo = await this.getObjectAsync(destFullPath, 0, isSystemRequest === true),
+                backup = '';
+
+            if (fo.exists) {
+                if (options.hasFlag(CopyFlags.NonClobber))
+                    return true;
+                if (options.hasFlag(CopyFlags.Update) && fo.mtime >= source.mtime) {
+                    options.onCopyInformation(options.verb, `Omitting file '${options.source}' since it is not newer than '${options.destination}'`);
+                    return true;
+                }
+                if (options.hasFlag(CopyFlags.Interactive)) {
+                    if (!await options.onOverwritePrompt(options.verb, destPath))
+                        return true;
+                }
+                if (options.hasFlag(CopyFlags.Backup)) {
+                    let backupName = await driver.efuns.fs.createBackupAsync(fo, options.backupControl, options.backupSuffix);
+                    if (backupName) {
+                        backup = path.posix.join(options.destination, backupName);
+                    }
+                }
+            }
+            if (await source.copyAsync(fo)) {
+                if (options.hasFlag(CopyFlags.Verbose))
+                    options.onCopyComplete(options.verb, options.source, destPath, backup);
+                return true;
+            }
+            return false;
+        }
+        else if (dest.isFile || !dest.exists) {
+            let destPath = options.destination,
+                backup = '';
+
+            if (dest.exists) {
+                if (options.hasFlag(CopyFlags.NonClobber))
+                    return true;
+                if (options.hasFlag(CopyFlags.Update) && dest.mtime >= source.mtime) {
+                    options.onCopyInformation(options.verb, `Omitting file '${options.source}' since it is not newer than '${options.destination}'`);
+                    return true;
+                }
+                if (options.hasFlag(CopyFlags.Interactive)) {
+                    if (!await options.onOverwritePrompt(options.verb, options.destination))
+                        return true;
+                }
+                if (options.hasFlag(CopyFlags.Backup)) {
+                    let backupName = await driver.efuns.fs.createBackupAsync(dest, options.backupControl, options.backupSuffix),
+                        backupExtension = backupName.slice(dest.name.length);
+                    if (backupName) {
+                        backup = options.destination + backupExtension;
+                    }
+                }
+            }
+            if (await source.copyAsync(dest)) {
+                if (options.hasFlag(CopyFlags.Verbose))
+                    options.onCopyComplete(options.verb, options.source, destPath, backup);
+                return true;
+            }
+            return false;
+        }
     }
 
     /**
@@ -468,10 +590,9 @@ class FileManager extends MUDEventEmitter {
                 if (!result) {
                     await req.fileSystem.getFileAsync(req)
                         .then(fso => {
-                            if (!fso.isDirectory)
-                                return reject(`getDirectoryAsync: ${expr} is not a directory`);
-                            this.cache.store(fso);
-                            return resolve(fso);
+                            if (fso.isDirectory)
+                                this.cache.store(fso);
+                            resolve(fso);
                         })
                 }
                 else
