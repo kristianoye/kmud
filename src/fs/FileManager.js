@@ -161,24 +161,30 @@ class FileManager extends MUDEventEmitter {
                 if (options.hasFlag(CopyFlags.Verbose))
                     options.onCopyComplete(options.verb, options.source, options.destination);
             }
-            let sourceFiles = await source.readDirectoryAsync();
+            let sourceFiles = await source.readDirectoryAsync(),
+                targetPath = path.posix.join(options.destination, source.name),
+                targetPathFull = path.posix.join(options.resolvedDestination, source.name),
+                targetDir = await this.getObjectAsync(targetPathFull);
+
+            if (!targetDir.exists)
+                await targetDir.createDirectoryAsync(true);
+
             for (const file of sourceFiles) {
                 try {
                     let sourcePath = path.posix.join(options.source, file.name);
 
                     if (file.isDirectory) {
-                        let destPath = path.posix.join(options.destination, source.name, file.name);
                         if (file.fileSystemId !== source.fileSystemId && options.hasFlag(CopyFlags.SingleFilesystem)) {
                             options.onCopyInformation(options.verb, `Omitting directory '${sourcePath}' since it is on a different filesystem`);
                         }
                         let child = options.createChild({
                             source: sourcePath,
-                            destination: destPath
+                            destination: targetPath
                         });
                         await this.copyAsync(child, isSystemRequest === true);
                     }
                     else if (file.isFile) {
-                        let destPath = path.posix.join(options.destination, source.name, file.name);
+                        let destPath = path.posix.join(targetPath, file.name);
                         let child = options.createChild({
                             source: sourcePath,
                             destination: destPath
@@ -202,10 +208,12 @@ class FileManager extends MUDEventEmitter {
                 backup = '';
 
             if (fo.exists) {
-                if (options.hasFlag(CopyFlags.NonClobber))
+                if (options.hasFlag(CopyFlags.NonClobber)) {
+                    options.onCopyInformation(options.verb, `NoClobber: Omitting file '${options.source}' since it already exists as '${options.destination}'`);
                     return true;
+                }
                 if (options.hasFlag(CopyFlags.Update) && fo.mtime >= source.mtime) {
-                    options.onCopyInformation(options.verb, `Omitting file '${options.source}' since it is not newer than '${options.destination}'`);
+                    options.onCopyInformation(options.verb, `Omitting file '${options.source}' since it is not newer than '${destPath}'`);
                     return true;
                 }
                 if (options.hasFlag(CopyFlags.Interactive)) {
@@ -213,9 +221,11 @@ class FileManager extends MUDEventEmitter {
                         return true;
                 }
                 if (options.hasFlag(CopyFlags.Backup)) {
-                    let backupName = await driver.efuns.fs.createBackupAsync(fo, options.backupControl, options.backupSuffix);
+                    let backupFile = await driver.efuns.fs.createBackupAsync(dest, options.backupControl, options.backupSuffix),
+                        backupName = backupFile && backupFile.name,
+                        backupExtension = backupName && backupName.slice(dest.name.length);
                     if (backupName) {
-                        backup = path.posix.join(options.destination, backupName);
+                        backup = options.destination + backupExtension;
                     }
                 }
             }
@@ -242,11 +252,19 @@ class FileManager extends MUDEventEmitter {
                         return true;
                 }
                 if (options.hasFlag(CopyFlags.Backup)) {
-                    let backupName = await driver.efuns.fs.createBackupAsync(dest, options.backupControl, options.backupSuffix),
-                        backupExtension = backupName.slice(dest.name.length);
+                    let backupFile = await driver.efuns.fs.createBackupAsync(dest, options.backupControl, options.backupSuffix),
+                        backupName = backupFile && backupFile.name,
+                        backupExtension = backupName && backupName.slice(dest.name.length);
                     if (backupName) {
                         backup = options.destination + backupExtension;
                     }
+                }
+            }
+            else if (options.hasFlag(CopyFlags.NoTargetDir)) {
+                if (await source.copyAsync(dest)) {
+                    if (options.hasFlag(CopyFlags.Verbose))
+                        options.onCopyComplete(options.verb, options.source, destPath, backup);
+                    return true;
                 }
             }
             if (await source.copyAsync(dest)) {

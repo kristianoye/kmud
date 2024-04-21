@@ -94,14 +94,14 @@ class FileSystemHelper {
         if (typeof fileOrPath === 'object' && typeof fileOrPath.fullPath === 'string')
             fileOrPath = fileOrPath.fullPath;
 
-        let fso = driver.fileManager.getObjectAsync(fileOrPath);
+        let fso = await driver.fileManager.getObjectAsync(fileOrPath);
         if (!fso.exists)
             return '';
 
         let ext = await FileSystemHelper.getBackupExtension(fso, backupControl, suffix),
-            backupTarget = driver.fileManager.getObjectAsync(fso.fullPath + ext);
+            backupTarget = await driver.fileManager.getObjectAsync(fso.fullPath + ext);
         if (await fso.copyAsync(backupTarget))
-            return backupTarget.name;
+            return backupTarget;
         else
             return '';
     }
