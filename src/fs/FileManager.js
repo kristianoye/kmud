@@ -228,6 +228,9 @@ class FileManager extends MUDEventEmitter {
                         backup = options.destination + backupExtension;
                     }
                 }
+                if (options.hasFlag(CopyFlags.RemoveDestination) && fo.exists) {
+                    await fo.deleteFileAsync();
+                }
             }
             if (await source.copyAsync(fo)) {
                 if (options.hasFlag(CopyFlags.Verbose))
@@ -242,12 +245,15 @@ class FileManager extends MUDEventEmitter {
 
             if (dest.exists) {
                 if (options.hasFlag(CopyFlags.NonClobber))
+                {
+                    options.onCopyInformation(options.verb, `NoClobber: Omitting file '${options.source}' since it already exists as '${options.destination}'`);
                     return true;
-                if (options.hasFlag(CopyFlags.Update) && dest.mtime >= source.mtime) {
+                }
+                else if (options.hasFlag(CopyFlags.Update) && dest.mtime >= source.mtime) {
                     options.onCopyInformation(options.verb, `Omitting file '${options.source}' since it is not newer than '${options.destination}'`);
                     return true;
                 }
-                if (options.hasFlag(CopyFlags.Interactive)) {
+                else if (options.hasFlag(CopyFlags.Interactive)) {
                     if (!await options.onOverwritePrompt(options.verb, options.destination))
                         return true;
                 }
@@ -258,6 +264,9 @@ class FileManager extends MUDEventEmitter {
                     if (backupName) {
                         backup = options.destination + backupExtension;
                     }
+                }
+                if (options.hasFlag(CopyFlags.RemoveDestination) && dest.exists) {
+                    await dest.deleteAsync();
                 }
             }
             else if (options.hasFlag(CopyFlags.NoTargetDir)) {

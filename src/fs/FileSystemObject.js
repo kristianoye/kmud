@@ -226,6 +226,15 @@ class FileSystemObject extends events.EventEmitter {
         return this.#fileInfo.size || -1;
     }
 
+
+    /**
+     * Describes what mechanism holds the data in the backend
+     * @returns {string}
+     */
+    get storageType() {
+        return this.#fileInfo.storageType;
+    }
+
     get uid() {
         return this.#fileInfo.uid || -1;
     }
@@ -827,6 +836,10 @@ class FileWrapperObject extends FileSystemObject {
 
     get size() {
         return this.#instance.size || -1;
+    }
+
+    get storageType() {
+        return this.#instance.storageType;
     }
 
     get uid() {

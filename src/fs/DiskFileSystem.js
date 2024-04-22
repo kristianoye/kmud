@@ -83,20 +83,52 @@ class DiskFileObject extends FileSystemObject {
     async copyAsync(dest) {
         return new Promise(async (resolve, reject) => {
             try {
-                const thisFile = await this.createReadStream();
-                let parent = await dest.getParentAsync();
+                if (typeof dest === 'string')
+                    dest = await driver.fs.getObjectAsync(dest);
 
-                parent = await parent.createDirectoryAsync(true);
+                if (!await this.tryDirectCopyAsync(dest)) {
+                    const thisFile = await this.createReadStream();
+                    let parent = await dest.getParentAsync();
 
-                let targetFile = await dest.createWriteStream();
+                    parent = await parent.createDirectoryAsync(true);
 
-                await StreamPromises.pipeline(thisFile, targetFile);
+                    let targetFile = await dest.createWriteStream();
 
+                    await StreamPromises.pipeline(thisFile, targetFile);
+                }
                 resolve(true);
             }
             catch (err) {
                 reject(err);
             }
+        });
+    }
+
+    /**
+     * Try and copy a file using the OS
+     * @param {FileSystemObject} dest
+     * @returns
+     */
+    async tryDirectCopyAsync(dest) {
+        return new Promise(async resolve => {
+            try {
+                if (dest.storageType !== this.storageType)
+                    resolve(false);
+                else {
+                    /** @type {{ fileSystem: DiskFileSystem, relativePath: string }}*/
+                    let { fileSystem, relativePath } = driver.fileManager.getFilesystem(dest.fullPath),
+                        physicalDest = fileSystem.getRealPath(relativePath);
+
+                    fs.copyFile(this.#physicalLocation, physicalDest, fs.constants.COPYFILE_FICLONE, err => {
+                        if (err)
+                            resolve(false);
+                        else
+                            resolve(true);
+                    });
+                }
+            }
+            catch (err) { }
+            resolve(false);
         });
     }
 
@@ -841,6 +873,7 @@ class DiskFileSystem extends BaseFileSystem {
             size: getStatValue(baseStat.size, -1),
             rdev: getStatValue(baseStat.rdev, -1),
             fileSystemId: this.systemId,
+            storageType: 'disk',
             isBlockDevice: getStatValue(baseStat.isBlockDevice),
             isCharacterDevice: getStatValue(baseStat.isCharacterDevice),
             isDirectory: getStatValue(baseStat.isDirectory),
