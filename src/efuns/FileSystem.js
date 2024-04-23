@@ -8,7 +8,7 @@
 
 const
     path = require('path'),
-    { CopyFlags, FileSystemQueryFlags } = require('../fs/FileSystemFlags'),
+    { CatFlags, CopyFlags, DeleteFlags, FileSystemQueryFlags } = require('../fs/FileSystemFlags'),
     { FileCopyOperation } = require('../fs/FileOperations'),
     { CallOrigin } = require('../ExecutionContext');
     
@@ -86,6 +86,10 @@ class FileSystemHelper {
         return false;
     }
 
+    static get CatFlags() {
+        return CatFlags;
+    }
+
     static get CopyFlags() {
         return CopyFlags;
     }
@@ -129,6 +133,10 @@ class FileSystemHelper {
     /** Options object for deleting directories */
     static get DeleteDirectoryOptions() {
         return DeleteDirectoryOptions;
+    }
+
+    static get DeleteFlags() {
+        return DeleteFlags;
     }
 
     static get FileSystemQueryFlags() {

@@ -16,7 +16,7 @@ export default singleton class CopyCommand extends ShellCommand {
      */
     protected override create() {
         super.create();
-        this.verbs = ['cp', 'copy'];
+        this.verbs = ['cp', 'copy', 'copy-item'];
         this.command
             .setVerb(...this.verbs)
             .setBitflagBucketName('copyFlags')
@@ -34,9 +34,24 @@ export default singleton class CopyCommand extends ShellCommand {
             .addOption('-S, --suffix <suffix>', 'Override the usual backup suffix', { name: 'backupSuffix' })
             .addOption('-t, --target-directory <targetDirectory>', 'Copy all SOURCE arguments into DIRECTORY', { name: 'targetDirectory', copyTo: 'DEST=targetDirectory' })
             .addOption('-T, --no-target-directory', 'Copy all SOURCE arguments into DIRECTORY', { name: 'noTargetDirectory', sets: CopyFlags.NoTargetDir })
-            .addOption('-u, --update', 'Copy only when the SOURCE fbile is newer than the destination file or when the destination file is missing', { name: 'update ', sets: CopyFlags.Update })
+            .addOption('-u, --update', 'Copy only when the SOURCE fbile is newer than the destination file or when the destination file is missing', { name: 'update', sets: CopyFlags.Update })
             .addOption('-v, --verbose', 'Explain what is being done', { name: 'verbose ', sets: CopyFlags.Verbose })
+            .addOption('--no-clone', 'Do not use the OS FIClone option even if available', { name: 'noclone', sets: CopyFlags.NoFileClone })
             .addArgument('<SOURCE...> <DEST>')
+            .addFiller('SOURCE', () => {
+                if (objin) {
+                    let results = [];
+                    for (const ob of objin) {
+                        let filename = typeof ob === 'string' ? ob : ob.fullPath;
+                        if (results.findIndex(f => f === filename) === -1)
+                            results.push(filename);
+                    }
+                    return results;
+                }
+                if (stdin)
+                    return stdin.readLines();
+                return undefined;
+            })
             .complete();
     }
 
@@ -50,7 +65,7 @@ export default singleton class CopyCommand extends ShellCommand {
         let options = await this.command.parse(cmdline),
             apiSettings;
 
-        if (!text)
+        if (!text && !Array.isArray(options.SOURCE))
             return `Usage: ${cmdline.verb} [OPTIONS...] [SOURCE...] [DESTINATION]`;
 
         if (typeof options !== 'object')

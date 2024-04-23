@@ -109,4 +109,8 @@ class FileCopyOperation {
     }
 }
 
+class FileDeleteOperation {
+
+}
+
 module.exports = { FileCopyOperation };

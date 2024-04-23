@@ -6,8 +6,8 @@
 const
     BaseFileSystem = require('./BaseFileSystem'),
     StreamPromises = require('stream/promises'),
-    { FileSystemObject, ObjectNotFound, SecurityFlags, WrapperBase, FileWrapperObject } = require('./FileSystemObject'),
-    { FileSystemQueryFlags } = require('./FileSystemFlags'),
+    { FileSystemObject, FileWrapperObject } = require('./FileSystemObject'),
+    { FileSystemQueryFlags, CopyFlags } = require('./FileSystemFlags'),
     async = require('async'),
     path = require('path'),
     fs = require('fs'),
@@ -80,13 +80,13 @@ class DiskFileObject extends FileSystemObject {
      * Copy a file to another location
      * @param {FileSystemObject} dest
      */
-    async copyAsync(dest) {
+    async copyAsync(dest, flags = 0) {
         return new Promise(async (resolve, reject) => {
             try {
                 if (typeof dest === 'string')
                     dest = await driver.fs.getObjectAsync(dest);
 
-                if (!await this.tryDirectCopyAsync(dest)) {
+                if ((flags & CopyFlags.NoFileClone) === 0 || !await this.tryDirectCopyAsync(dest)) {
                     const thisFile = await this.createReadStream();
                     let parent = await dest.getParentAsync();
 

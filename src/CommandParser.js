@@ -122,6 +122,12 @@ class ParsedCommand {
          */
         this.nextCommand;
 
+        /**
+         * OBJOUT stream
+         * @type {any[]}
+         */
+        this.objout = [];
+
         this.operator = '';
 
         /**
@@ -1018,16 +1024,20 @@ class CommandParser {
                     break;
 
                 case OP_PIPELINE:
+                    command.objout = [];
                     command.pipeTarget = nextCmd;
                     command.stdout = new StandardBufferStream();
                     nextCmd.stdin = command.stdout;
+                    nextCmd.objin = command.objout;
                     break;
 
                 case OP_PIPEBOTH:
+                    command.objout = [];
                     command.nextCommand = nextCmd;
                     command.stdout = new StandardBufferStream();
                     command.stderr = command.stdout;
                     nextCmd.stdin = command.stdout;
+                    nextCmd.objin = command.objout;
                     break;
 
                 default:

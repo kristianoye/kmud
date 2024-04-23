@@ -94,6 +94,13 @@ class EFUNProxy {
         }
     }
 
+    addOutputObject(obj) {
+        let ecc = driver.getExecution();
+        if (ecc.command && Array.isArray(ecc.command.objout)) {
+            ecc.command.objout.push(obj);
+        }
+    }
+
     /**
      * Determine if an object is an admin.
      * @param {MUDObject} target The target object to check.
@@ -1995,7 +2002,15 @@ class EFUNProxy {
             cmd = ecc.command;
         if (cmd && cmd.stdin)
             return cmd.stdin;
-        return ecc.shell && ecc.shell.stdin;
+        return false;
+    }
+
+    get objin() {
+        let ecc = driver.getExecution(),
+            cmd = ecc.command;
+        if (cmd && Array.isArray(cmd.objin))
+            return cmd.objin;
+        return false;
     }
 
     get out() {

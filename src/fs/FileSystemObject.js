@@ -882,9 +882,9 @@ class FileWrapperObject extends FileSystemObject {
         //  Does nothing
     }
 
-    async copyAsync(dest) {
+    async copyAsync(dest, flags = 0) {
         if (await this.can(SecurityFlags.P_READ, 'copyAsync')) {
-            return this.#instance.copyAsync(dest);
+            return this.#instance.copyAsync(dest, flags);
         }
         throw new SecurityError(`${this.fullPath}: copyAsync(): Permission denied`);
     }

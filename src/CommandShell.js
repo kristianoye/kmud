@@ -78,7 +78,7 @@ class CommandShell extends events.EventEmitter {
 
         this.client = component.client;
 
-        this.stdin = new IO.StandardInputStream({ encoding: 'utf8' }, component, this);
+        this.stdin =  new IO.StandardInputStream({ encoding: 'utf8' }, component, this);
         this.stdout = new IO.StandardOutputStream({ encoding: 'utf8' }, component, this);
         this.stderr = new IO.StandardOutputStream({ encoding: 'utf8' }, component, this);
         this.console = new IO.StandardPassthruStream({ encoding: 'utf8' }, component, this);

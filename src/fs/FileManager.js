@@ -208,6 +208,9 @@ class FileManager extends MUDEventEmitter {
                 backup = '';
 
             if (fo.exists) {
+                if (options.hasFlag(CopyFlags.RemoveDestination) && fo.exists) {
+                    await fo.deleteFileAsync();
+                }
                 if (options.hasFlag(CopyFlags.NonClobber)) {
                     options.onCopyInformation(options.verb, `NoClobber: Omitting file '${options.source}' since it already exists as '${options.destination}'`);
                     return true;
@@ -228,13 +231,11 @@ class FileManager extends MUDEventEmitter {
                         backup = options.destination + backupExtension;
                     }
                 }
-                if (options.hasFlag(CopyFlags.RemoveDestination) && fo.exists) {
-                    await fo.deleteFileAsync();
-                }
             }
-            if (await source.copyAsync(fo)) {
+            if (await source.copyAsync(fo, options.flags)) {
                 if (options.hasFlag(CopyFlags.Verbose))
                     options.onCopyComplete(options.verb, options.source, destPath, backup);
+                driver.efuns.addOutputObject(dest);
                 return true;
             }
             return false;
@@ -244,16 +245,19 @@ class FileManager extends MUDEventEmitter {
                 backup = '';
 
             if (dest.exists) {
+                if (options.hasFlag(CopyFlags.RemoveDestination) && dest.exists) {
+                    await dest.deleteAsync();
+                }
                 if (options.hasFlag(CopyFlags.NonClobber))
                 {
                     options.onCopyInformation(options.verb, `NoClobber: Omitting file '${options.source}' since it already exists as '${options.destination}'`);
                     return true;
                 }
-                else if (options.hasFlag(CopyFlags.Update) && dest.mtime >= source.mtime) {
+                if (options.hasFlag(CopyFlags.Update) && dest.mtime >= source.mtime) {
                     options.onCopyInformation(options.verb, `Omitting file '${options.source}' since it is not newer than '${options.destination}'`);
                     return true;
                 }
-                else if (options.hasFlag(CopyFlags.Interactive)) {
+                if (options.hasFlag(CopyFlags.Interactive)) {
                     if (!await options.onOverwritePrompt(options.verb, options.destination))
                         return true;
                 }
@@ -261,24 +265,24 @@ class FileManager extends MUDEventEmitter {
                     let backupFile = await driver.efuns.fs.createBackupAsync(dest, options.backupControl, options.backupSuffix),
                         backupName = backupFile && backupFile.name,
                         backupExtension = backupName && backupName.slice(dest.name.length);
+
                     if (backupName) {
                         backup = options.destination + backupExtension;
                     }
                 }
-                if (options.hasFlag(CopyFlags.RemoveDestination) && dest.exists) {
-                    await dest.deleteAsync();
-                }
             }
             else if (options.hasFlag(CopyFlags.NoTargetDir)) {
-                if (await source.copyAsync(dest)) {
+                if (await source.copyAsync(dest, options.flags)) {
                     if (options.hasFlag(CopyFlags.Verbose))
                         options.onCopyComplete(options.verb, options.source, destPath, backup);
+                    driver.efuns.addOutputObject(dest);
                     return true;
                 }
             }
-            if (await source.copyAsync(dest)) {
+            if (await source.copyAsync(dest, options.flags)) {
                 if (options.hasFlag(CopyFlags.Verbose))
                     options.onCopyComplete(options.verb, options.source, destPath, backup);
+                driver.efuns.addOutputObject(dest);
                 return true;
             }
             return false;

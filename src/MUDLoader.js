@@ -492,6 +492,10 @@ class MUDLoader {
         return Object.assign({}, global.MUDFS);
     }
 
+    get objin() {
+        return efuns.objin;
+    }
+
     origin(...args) {
         return efuns.origin(...args);
     }

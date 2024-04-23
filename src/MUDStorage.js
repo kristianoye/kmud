@@ -92,6 +92,8 @@ class MUDStorage extends MUDEventEmitter {
                 stdout: clientCommand.stdout || this.shell.console,
                 stderr: clientCommand.stderr || this.shell.console,
                 stdin: clientCommand.stdin || false,
+                objin: clientCommand.objin || false,
+                objout: clientCommand.objout || false,
                 env: Object.assign({},
                     clientCommand.options.environment || {},
                     clientCommand.options.variables || {})

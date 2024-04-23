@@ -882,7 +882,7 @@ async function parseElement(op, e, depth) {
                     if (e.modifier) {
                         //  Do not include raw modifiers in output
                         if (e.modifier.raw.length > 0) ret += `/*${e.modifier.raw}*/`;
-                        op.pos = e.modifier.end;
+                        op.pos = Math.max(op.pos, e.modifier.end);
                     }
                     let typeDef = op.eventBeginTypeDefinition(e.id.name, e.classModifiers || 0, e.loc);
 
