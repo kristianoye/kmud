@@ -120,10 +120,14 @@ class CommandShell extends events.EventEmitter {
 
         this.on('addPrompt', async prompt => {
             if (prompt.isAsync) {
-                this.inputTo = prompt;
-                await this.drawPrompt();
-                let userInput = await this.getUserInput();
-                await this.processInput(userInput);
+                let result = false;
+                do {
+                    this.inputTo = prompt;
+                    await this.drawPrompt();
+                    let userInput = await this.getUserInput();
+                    result = await this.processInput(userInput);
+                }
+                while (result instanceof Error);
         }
             else if (!this.inputController)
                 this.startInputLoop();
@@ -597,8 +601,9 @@ class CommandShell extends events.EventEmitter {
 
                 }
                 else if (input instanceof Error) {
-                    driver.efuns.errorLine(efuns.eol + `${input.message}` + efuns.eol + efuns.eol);
+                    driver.efuns.errorLine(`${input.message}\n`);
                     inputTo.error = input.message;
+                    return input;
                 }
                 return true;
             }

@@ -9,28 +9,10 @@
 const
     path = require('path'),
     { CatFlags, CopyFlags, DeleteFlags, FileSystemQueryFlags } = require('../fs/FileSystemFlags'),
-    { FileCopyOperation } = require('../fs/FileOperations'),
+    { FileCopyOperation, FileDeleteOperation } = require('../fs/FileOperations'),
     { CallOrigin } = require('../ExecutionContext');
+const { FileSystemObject } = require('../fs/FileSystemObject');
     
-
-class DeleteDirectoryOptions {
-    /**
-     * 
-     * @param {number} flags
-     */
-    constructor(flags) {
-        this.flags = flags;
-    }
-
-    /** Confirm each delete */
-    static get PromptConfirm() { return 1 << 1; }
-
-    /** Recursively delete */
-    static get Recursive() { return 1 << 0; }
-
-    /** Print out what is happening */
-    static get Verbose() { return 1 << 2; }
-}
 
 class FileSystemHelper {
 
@@ -121,18 +103,54 @@ class FileSystemHelper {
     }
 
     /**
-     * Delete a directory from the filesystem
-     * @param {string} expr The path to delete^
-     * @param {number|DeleteDirectoryOptions} flags Flags to control the operation
-     * @returns {Promise<boolean>} Returns true if successful
+     * 
+     * @param {string} file
+     * @param {number | FileDeleteOperation} options
+     * @returns
      */
-    static async deleteDirectoryAsync(expr, flags = 0) {
-        return await driver.fileManager.deleteDirectory(expr, flags);
-    }
+    static async deleteAsync(files, options) {
+        /** @type {FileDeleteOperation} */
+        let opts = {
+            files,
+            flags: 0
+        };
 
-    /** Options object for deleting directories */
-    static get DeleteDirectoryOptions() {
-        return DeleteDirectoryOptions;
+        if (Array.isArray(files)) {
+            opts.files = files.map(f => {
+                if (typeof f === 'string')
+                    return f;
+                else if (f instanceof FileSystemObject)
+                    return f.fullPath;
+                else
+                    return f;
+            });
+        }
+        else if (typeof files === 'object') {
+            if (files instanceof FileSystemObject)
+                opts.files = [files.fullPath];
+            else
+                opts = Object.assign(opts, files);
+        }
+        if (typeof options === 'object')
+            opts = Object.assign(opts, options);
+
+        if (typeof files === 'string')
+            opts.files = [files];
+
+        if (typeof options === 'number')
+            opts.flags = options;
+
+        try {
+            return await driver.fileManager.deleteAsync(opts);
+        }
+        catch (err) {
+            if (opts.onDeleteFailure) {
+                opts.onDeleteFailure(opts.verb, opts.files.join(', '), err);
+            }
+            else
+                throw err;
+        }
+        return false;
     }
 
     static get DeleteFlags() {

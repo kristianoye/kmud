@@ -13,10 +13,9 @@ class BaseInput {
      * @param {{ onError: function(text) }} opts
      */
     constructor(type, opts = {}) {
-        Object.keys(opts).forEach(key => {
-            this[key] = opts[key];
-        });
-
+        for (let [key, val] of Object.entries(opts)) {
+            this[key] = val;
+        }
         this.onError = opts.onError;
         this.type = type;
     }
@@ -30,7 +29,7 @@ class BaseInput {
     normalize(input, client) {
         let result = this._normalize(input, client);
         if (result instanceof Error) {
-            if (this.onError && this.onError(input))
+            if (typeof this.onError === 'function' && this.onError(input))
                 return undefined;
             return result;
         }

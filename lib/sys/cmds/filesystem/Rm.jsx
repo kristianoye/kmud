@@ -59,9 +59,70 @@ export default singleton class RmCommand extends Command {
         if (typeof options !== 'object')
             return options;
 
+        let
+            maxPrompts = (options.deleteFlags & DeleteFlags.SmartPrompt) > 0 ? 3 : Number.MAX_SAFE_INTEGER,
+            defaultResponse = true,
+            apiSettings = {
+                flags: options.deleteFlags,
+                onConfirmDelete: async (verb, filename, isDir = false) => {
+                    if (typeof defaultResponse === 'undefined')
+                        return false;
+                    let opts = Object.assign({
+                        text: `${verb}: Remove ${(isDir ? 'directory' : 'file')} '${filename}'?\n`, type: 'pickOne', options: {
+                            y: 'yes',
+                            n: 'no',
+                            Y: 'Yes to all',
+                            N: 'No to all',
+                            A: 'Abort'
+                        },
+                        compact: true,
+                        prompt: ''
+                    });
+
+                    if (maxPrompts < 1)
+                        return defaultResponse;
+
+                    let resp = await promptAsync('pickone', opts);
+                    switch (resp) {
+                        case 'yes':
+                            maxPrompts--;
+                            return true;
+                        case 'no':
+                            return false;
+                        case 'Abort':
+                            defaultResponse = undefined;
+                            throw new Error(`${verb}: Aborted by user`);
+                        case 'Yes to all':
+                            maxPrompts = 0;
+                            return true;
+                        case 'No to all':
+                            maxPrompts = 0;
+                            return (defaultResponse = false);
+                    }
+                    return false;
+                },
+                onDeleteComplete: async (verb, filename, fso) => {
+                    if ((options.deleteFlags & DeleteFlags.Verbose) > 0) {
+                        writeLine(`${verb}: Removed '${filename}'`);
+                    }
+                    efuns.addOutputObject(fso);
+                },
+                onDeleteFailure: (verb, displayPath, msg) => {
+                    errorLine(`${verb}: Failed to remove '${displayPath}': ${msg}`);
+                },
+                onDeleteInformation: (verb, msg) => {
+                    writeLine(`${verb}: ${msg}`);
+                },
+                verb: evt.verb
+            };
+
         for (const file of options.FILES) {
-            writeLine(`Deleting ${file}`);
-            //await efuns.fs.deleteAsync(file, options.deleteFlags);
+            try {
+                await efuns.fs.deleteAsync(file, apiSettings);
+            }
+            catch (err) {
+                errorLine(`${evt.verb}: Error while removing ${file}: ${err}`);
+            }
         }
 
         return true;

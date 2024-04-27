@@ -10,8 +10,8 @@ const
     crypto = require('crypto'),
     yaml = require('js-yaml'),
     path = require('path'),
-    { FileSystemQueryFlags, CopyFlags } = require('./FileSystemFlags'),
-    { FileCopyOperation } = require('./FileOperations');
+    { FileSystemQueryFlags, CopyFlags, DeleteFlags } = require('./FileSystemFlags'),
+    { FileCopyOperation, FileDeleteOperation } = require('./FileOperations');
 
 
 /**
@@ -367,6 +367,136 @@ class FileManager extends MUDEventEmitter {
             isSystemRequest
         });
         return result;
+    }
+
+    /**
+     * Delete files and directories
+     * @param {FileDeleteOperation} opts
+     * @param {boolean} isSystemRequest
+     */
+    async deleteAsync(opts, isSystemRequest = false) {
+        let options = opts instanceof FileDeleteOperation ? opts : new FileDeleteOperation(opts);
+
+        for (const [displayPath, resolvedPath] of Object.entries(options.filesResolved)) {
+            if (options.aborted)
+                return false;
+            try {
+                let target = await this.getObjectAsync(resolvedPath, isSystemRequest === true);
+
+                if (!target.exists) {
+                    if (options.onDeleteFailure)
+                        options.onDeleteFailure(options.verb, displayPath, `Cannot remove '${displayPath}': Does not exist`);
+                    continue;
+                }
+                else if (target.isDirectory) {
+                    if (!options.hasFlag(DeleteFlags.Recursive)) {
+                        if (options.onDeleteFailure)
+                            options.onDeleteFailure(options.verb, displayPath, `Cannot remove '${displayPath}': It is a directory`);
+                        continue;
+                    }
+                    if (options.hasFlag(DeleteFlags.RemoveEmpty) && !await target.isEmpty()) {
+                        if (options.onDeleteFailure)
+                            options.onDeleteFailure(options.verb, displayPath, `Cannot remove '${displayPath}': Directory is not empty`);
+                        continue;
+                    }
+                    let files = await target.readDirectoryAsync();
+                    for (const file of files) {
+                        let displayChild = path.posix.join(displayPath, file.name);
+                        try {
+
+                            if (file.isDirectory) {
+                                if (options.hasFlag(DeleteFlags.SingleFilesystem) && file.fileSystemId !== target.fileSystemId) {
+                                    if (options.hasFlag(DeleteFlags.Verbose)) {
+                                        options.onDeleteInformation(options.verb, `Skipping '${displayChild}': Different filesystem`);
+                                    }
+                                    continue;
+                                }
+                                if (options.hasFlag(DeleteFlags.Interactive)) {
+                                    try {
+                                        if (!await options.onConfirmDelete(options.verb, displayChild, true)) {
+                                            options.onDeleteInformation(options.verb, `Skipping directory '${displayChild}'`);
+                                            continue;
+                                        }
+                                    }
+                                    catch (err) {
+                                        options.abort();
+                                        return false;
+                                    }
+                                }
+                                let childRequest = options.createChild({ files: [displayChild] });
+                                await this.deleteAsync(childRequest, isSystemRequest === true);
+                                if (childRequest.aborted)
+                                    return false;
+                            }
+                            else if (file.isFile) {
+                                if (options.hasFlag(DeleteFlags.Interactive)) {
+                                    try {
+                                        if (!await options.onConfirmDelete(options.verb, displayChild)) {
+                                            options.onDeleteInformation(options.verb, `Skipping file '${displayChild}'`);
+                                            continue;
+                                        }
+                                    }
+                                    catch (err) {
+                                        options.abort();
+                                        return false;
+                                    }
+                                    if (await file.deleteAsync()) {
+                                        await options.onDeleteComplete(options.verb, displayChild, file);
+                                    }
+                                }
+                            }
+                            else if (!file.exists)
+                                continue;
+                            else {
+                                options.onDeleteFailure(options.verb, `Unable to delete ${displayChild}: Unhandled file type`);
+                            }
+                        }
+                        catch (err) {
+                            if (options.onDeleteFailure)
+                                options.onDeleteFailure(options.verb, `Unable to delete ${displayChild}: ${err}`);
+                            else
+                                throw err;
+                        }
+                    }
+                    files = await target.readDirectoryAsync();
+                    if (files.length === 0) {
+                        if (!target.deleteAsync()) {
+                            options.onDeleteFailure(options.verb, displayPath, `Unable to delete directory '${displayPath}'`);
+                        }
+                        else {
+                            await options.onDeleteComplete(options.verb, displayPath, target);
+                        }
+                    }
+                    else {
+                        options.onDeleteFailure(options.verb, displayPath, `Cannot remove '${displayPath}': Directory is not empty`);
+                    }
+                }
+                else if (target.isFile) {
+                    if (options.hasFlag(DeleteFlags.Interactive)) {
+                        try {
+                            if (!await options.onConfirmDelete(options.verb, displayPath)) {
+                                options.onDeleteInformation(options.verb, `Skipping file '${displayPath}'`);
+                                continue;
+                            }
+                        }
+                        catch (err) {
+                            options.aborted = true;
+                        }
+                    }
+                    if (await target.deleteAsync()) {
+                        await options.onDeleteComplete(options.verb, displayPath, target);
+                    }
+                }
+                else
+                    throw new Error(`${options.verb}: Unexpected file type: ${displayPath}`);
+            }
+            catch (err) {
+                if (options.onDeleteFailure)
+                    options.onDeleteFailure(options.verb, displayPath, err);
+                else
+                    throw err;
+            }
+        }
     }
 
     /**

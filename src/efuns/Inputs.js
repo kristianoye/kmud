@@ -655,9 +655,8 @@ class InputHelper {
             type: 'text'
         }, opts, { isAsync: true });
 
+        let ecc = driver.getExecution();
         return new Promise((resolve, reject) => {
-            let ecc = driver.getExecution();
-
             if (ecc && ecc.shell) {
                 try {
                     let prompt = BaseInput.create(type, opts),

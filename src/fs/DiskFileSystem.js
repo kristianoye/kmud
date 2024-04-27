@@ -283,6 +283,19 @@ class DiskFileObject extends FileSystemObject {
         });
     }
 
+    async isEmpty() {
+        if (this.isDirectory) {
+            await this.#loadDirectoryInternal();
+            return this.#files.length === 0;
+        }
+        else if (this.isFile) {
+            return this.size === 0;
+        }
+        else if (!this.exists) {
+            return true;
+        }
+    }
+
     async #loadDirectoryInternal() {
         if (!this.isDirectory || this.#hasLoaded)
             return true;

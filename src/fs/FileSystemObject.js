@@ -299,6 +299,7 @@ class FileSystemObject extends events.EventEmitter {
     }
 
     async createDirectoryAsync(...args) {
+        throw new NotImplementedError('createDirectoryAsync');
     }
 
     /**
@@ -396,6 +397,14 @@ class FileSystemObject extends events.EventEmitter {
             return this.fullPath.slice(expr.length + (expr.endsWith('/') ? 0 : 1));
         else
             return path.posix.relative(expr, this.fullPath.slice(1));
+    }
+
+    /**
+     * Is this object empty?
+     * @returns {boolean}
+     */
+    async isEmpty() {
+        throw new NotImplementedError('isEmpty');
     }
 
     /**
@@ -963,6 +972,21 @@ class FileWrapperObject extends FileSystemObject {
 
     emit() {
         //  In-game wrappers are not allowed to call
+    }
+
+    /**
+     * Determine if the file/directory is empty
+     * @returns
+     */
+    async isEmpty() {
+        await this.refreshAsync();
+        if (this.isDirectory) {
+            let files = this.readAsync();
+            return Array.isArray(files) && files.length === 0;
+        }
+        else if (this.isFile) {
+            return this.size === 0;
+        }
     }
 
     async readAsync(...args) {

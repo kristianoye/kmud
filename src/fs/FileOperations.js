@@ -6,6 +6,8 @@
  * Helper methods for filesystem operations.
  */
 
+const { FileSystemObject } = require("./FileSystemObject");
+
 class FileCopyOperation {
     /**
      * Construct a file copy operation request
@@ -110,7 +112,107 @@ class FileCopyOperation {
 }
 
 class FileDeleteOperation {
+    /**
+     * Construct a file delete operation request
+     * @param {Partial<FileDeleteOperation>} opts
+     * @param {FileDeleteOperation} parent
+     */
+    constructor(opts, parent) {
+        /**
+         * Has this process been aborted?
+         */
+        this.aborted = false;
 
+        /**
+         * The name of the file to delete
+         * @type {(string | FileSystemObject)[]}
+         */
+        this.files = opts.files;
+
+        /**
+         * The name of the file to delete
+         * @type {(string | FileSystemObject)[]}
+         */
+        this.verb = opts.verb || 'rm';
+
+        /**
+         * A function to call to confirm the delete (verb and filename are passed)
+         * @type {function(string,string,boolean):boolean}
+         */
+        this.onConfirmDelete = typeof opts.onConfirmDelete === 'function' ? opts.onConfirmDelete : function () { return true; };
+
+        /**
+         * A function that fires when a file deletion is complete
+         * @type {function(string,string,FileSystemObject):void}
+         */
+        this.onDeleteComplete = typeof opts.onDeleteComplete === 'function' ? opts.onDeleteComplete : function () { };
+
+        /**
+         * A function to call when a deletion fails
+         * @type {function(string,string,string|Error):boolean}
+         */
+        this.onDeleteFailure = typeof opts.onDeleteFailure === 'function' && opts.onDeleteFailure;
+
+        /**
+         * A function to call when a displaying extra information
+         * @type {function(string,string):boolean}
+         */
+        this.onDeleteInformation = typeof opts.onDeleteInformation === 'function' && opts.onDeleteInformation || function () { };
+
+        /**
+         * The name of the current, working directory
+         * @type {string}
+         */
+        this.workingDirectory = opts.workingDirectory || '/';
+
+        /**
+         * Flags to control the operation
+         * @type {number}
+         */
+        this.flags = opts.flags;
+
+        /**
+         * Mapping of relative path to resolved path
+         * @type {Object.<string,string>}
+         */
+        this.filesResolved = {};
+
+        this.files.forEach(f => {
+            let fn = typeof f === 'string' ? f : f.fullPath;
+
+            if (fn) {
+                this.filesResolved[fn] = driver.efuns.resolvePath(fn, this.workingDirectory);
+            }
+        });
+
+        this.parent = parent;
+    }
+
+    abort() {
+        this.aborted = true;
+        if (this.parent) {
+            this.parent.abort();
+        }
+    }
+
+    /**
+     * Create a new request based in part on the settings in this request
+     * @param {FileDeleteOperation} opts
+     * @returns
+     */
+    createChild(opts) {
+        let options = Object.assign({}, this, opts);
+        return new FileDeleteOperation(options, this);
+    }
+
+    /**
+     * Check if a particular delete flag is set
+     * @param {number} f The flag to test
+     * @returns True if the flag is set
+     */
+    hasFlag(f) {
+        return (this.flags & f) > 0;
+    }
 }
 
-module.exports = { FileCopyOperation };
+module.exports = { FileCopyOperation, FileDeleteOperation };

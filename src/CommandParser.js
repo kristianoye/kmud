@@ -715,6 +715,51 @@ class CommandParser {
                     case !!mt.groups.number:
                         {
                             token.tokenValue = mt.groups.number;
+                            if (token.tokenValue.length === 1 && options.allowFileIO && text.charAt(1) === '>') {
+                                switch (token.tokenValue) {
+                                    case '1': // redir STDOUT
+                                        if (text.charAt(2) === '>') {
+                                            token.tokenType = TOKEN_OPERATOR;
+                                            token.source = token.tokenValue = OP_APPENDOUT;
+                                            token.start = i;
+                                            token.source = text.slice(0, (i += 3));
+                                            return token.done(this.index = i);
+                                        }
+                                        else {
+                                            token.tokenType = TOKEN_OPERATOR;
+                                            token.source = token.tokenValue = OP_WRITEOUT;
+                                            token.start = i;
+                                            token.source = text.slice(0, (i += 2));
+                                            return token.done(this.index = i);
+                                        }
+                                    case '2': // redir STDERR
+                                        if (text.charAt(2) === '>') {
+                                            token.tokenType = TOKEN_OPERATOR;
+                                            token.source = token.tokenValue = OP_APPENDOUT;
+                                            token.start = i;
+                                            token.stream = 'stderr';
+                                            token.source = text.slice(0, (i += 3));
+                                            return token.done(this.index = i);
+                                        }
+                                        else if (text.charAt(2) === '&') {
+                                            if (text.charAt(3) !== '1')
+                                                throw new Error(`-kmsh: Unexpected file descriptor at '${text.slice(0, 3)}'`);
+                                            token.tokenType = TOKEN_OPERATOR;
+                                            token.start = i;
+                                            token.redirStream = 'stderr';
+                                            token.source = text.slice(0, (i += 3));
+                                            return token.done(this.index = i);
+                                        }
+                                        else {
+                                            token.tokenType = TOKEN_OPERATOR;
+                                            token.source = token.tokenValue = OP_WRITEOUT;
+                                            token.start = i;
+                                            token.stream = 'stderr';
+                                            token.source = text.slice(0, (i += 2));
+                                            return token.done(this.index = i);
+                                        }
+                                }
+                            }
                             token.tokenType = TOKEN_NUMERIC;
                             token.source = text.slice(0, token.tokenValue.length);
 
