@@ -341,9 +341,25 @@ class CommandShell extends events.EventEmitter {
                                         let filename = driver.efuns.resolvePath(token.fileName, cmd.options.cwd),
                                             fso = await driver.efuns.fs.getObjectAsync(filename);
 
-                                        cmd.stdout = await fso.createWriteStream({ flags: token.tokenValue === OperatorTypes.OP_APPENDOUT ? 'a' : 'w' });
+                                        if (token.stream)
+                                            cmd[token.stream] = await fso.createWriteStream({ flags: token.tokenValue === OperatorTypes.OP_APPENDOUT ? 'a' : 'w' });
+                                        else
+                                            cmd.stdout = await fso.createWriteStream({ flags: token.tokenValue === OperatorTypes.OP_APPENDOUT ? 'a' : 'w' });
 
                                         for (let i = token.index; i <= token.fileToken; i++) {
+                                            cmd.tokens[i].tokenType = TokenTypes.TOKEN_WHITESPACE;
+                                            cmd.tokens[i].source = '';
+                                            cmd.tokens[i].tokenValue = '';
+                                        }
+                                    }
+                                    continue;
+
+                                case OperatorTypes.OP_JOINSTREAM:
+                                    {
+                                        if (!cmd[token.targetStream])
+                                            throw new Error(`-kmsh: Target stream '${token.targetStream}' is not set`);
+                                        cmd[token.stream] = cmd[token.targetStream];
+                                        for (let i = token.index; i <= token.index + 1; i++) {
                                             cmd.tokens[i].tokenType = TokenTypes.TOKEN_WHITESPACE;
                                             cmd.tokens[i].source = '';
                                             cmd.tokens[i].tokenValue = '';

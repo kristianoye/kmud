@@ -37,6 +37,7 @@ const
     OP_BACKGROUND = '&',
     OP_COMPOUND = ';',
     OP_OR = '||',
+    OP_JOINSTREAM = '>&',
     OP_PIPEBOTH = '|&',
     OP_PIPELINE = '|',
     OP_READSTDIN = '<',
@@ -44,14 +45,15 @@ const
     OP_WRITEOUT = '>',
     OperatorTypes = {
         OP_AND,
+        OP_APPENDOUT,
         OP_ASSIGNMENT,
         OP_BACKGROUND,
         OP_COMPOUND,
+        OP_JOINSTREAM,
         OP_OR,
         OP_PIPEBOTH,
         OP_PIPELINE,
         OP_READSTDIN,
-        OP_APPENDOUT,
         OP_WRITEOUT
     };
 
@@ -386,10 +388,18 @@ class CommandParser {
                             {
                                 cmd.addToken(token);
                                 let filename = await this.nextCompleteWord(cmd);
+
                                 if (!filename)
                                     throw new Error(`-kmsh: Syntax error while searching for expected output file`);
                                 token.fileToken = filename.index;
                                 token.fileName = filename.source;
+                                token.stream = token.stream || 'stdout';
+                            }
+                            break;
+
+                        case OP_JOINSTREAM:
+                            {
+                                cmd.addToken(token);
                             }
                             break;
 
@@ -720,14 +730,14 @@ class CommandParser {
                                     case '1': // redir STDOUT
                                         if (text.charAt(2) === '>') {
                                             token.tokenType = TOKEN_OPERATOR;
-                                            token.source = token.tokenValue = OP_APPENDOUT;
+                                            token.tokenValue = OP_APPENDOUT;
                                             token.start = i;
                                             token.source = text.slice(0, (i += 3));
                                             return token.done(this.index = i);
                                         }
                                         else {
                                             token.tokenType = TOKEN_OPERATOR;
-                                            token.source = token.tokenValue = OP_WRITEOUT;
+                                            token.tokenValue = OP_WRITEOUT;
                                             token.start = i;
                                             token.source = text.slice(0, (i += 2));
                                             return token.done(this.index = i);
@@ -735,7 +745,7 @@ class CommandParser {
                                     case '2': // redir STDERR
                                         if (text.charAt(2) === '>') {
                                             token.tokenType = TOKEN_OPERATOR;
-                                            token.source = token.tokenValue = OP_APPENDOUT;
+                                            token.tokenValue = OP_APPENDOUT;
                                             token.start = i;
                                             token.stream = 'stderr';
                                             token.source = text.slice(0, (i += 3));
@@ -745,14 +755,16 @@ class CommandParser {
                                             if (text.charAt(3) !== '1')
                                                 throw new Error(`-kmsh: Unexpected file descriptor at '${text.slice(0, 3)}'`);
                                             token.tokenType = TOKEN_OPERATOR;
+                                            token.tokenValue = OP_JOINSTREAM;
                                             token.start = i;
-                                            token.redirStream = 'stderr';
+                                            token.stream = 'stderr';
+                                            token.targetStream = 'stdout';
                                             token.source = text.slice(0, (i += 3));
                                             return token.done(this.index = i);
                                         }
                                         else {
                                             token.tokenType = TOKEN_OPERATOR;
-                                            token.source = token.tokenValue = OP_WRITEOUT;
+                                            token.tokenValue = OP_WRITEOUT;
                                             token.start = i;
                                             token.stream = 'stderr';
                                             token.source = text.slice(0, (i += 2));
