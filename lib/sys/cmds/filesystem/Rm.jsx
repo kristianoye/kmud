@@ -19,6 +19,7 @@ export default singleton class RmCommand extends Command {
         this.verbs = ['rm', 'del', 'remove-item'];
         this.command
             .setVerb(...this.verbs)
+            .setDescription('Remove/unlink/delete FILE(s) from the filesystem')
             .setBitflagBucketName('deleteFlags')
             .addOption('-d, --dir', 'Remove empty directories', { name: 'removeEmpties', sets: DeleteFlags.RemoveEmpty })
             .addOption('-f, --force', 'Ignore nonexistent files and arguments, delete read-only files, never prompt', { name: 'force', sets: DeleteFlags.Force, clears: DeleteFlags.Interactive })
@@ -29,7 +30,6 @@ export default singleton class RmCommand extends Command {
             .addOption('-r, --recursive', 'Remove directories and their contents recursively', { name: 'recursive', sets: DeleteFlags.Recursive })
             .addOption('-v, --verbose', 'Explain what is being done', { name: 'verbose', sets: DeleteFlags.Verbose })
             .addArgument('<FILE(S)...>')
-            .setDescription('Remove/unlink/delete FILE(s) from the filesystem')
             .addFiller('FILES', () => {
                 if (objin) {
                     let results = [];
@@ -113,7 +113,8 @@ export default singleton class RmCommand extends Command {
                 onDeleteInformation: (verb, msg) => {
                     writeLine(`${verb}: ${msg}`);
                 },
-                verb: evt.verb
+                verb: evt.verb,
+                workingDirectory: thisPlayer().workingDirectory
             };
 
         for (const file of options.FILES) {

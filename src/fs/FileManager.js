@@ -460,6 +460,18 @@ class FileManager extends MUDEventEmitter {
                     }
                     files = await target.readDirectoryAsync();
                     if (files.length === 0) {
+                        if (options.hasFlag(DeleteFlags.Interactive)) {
+                            try {
+                                if (!await options.onConfirmDelete(options.verb, displayPath, true)) {
+                                    options.onDeleteInformation(options.verb, `Skipping directory '${displayPath}'`);
+                                    continue;
+                                }
+                            }
+                            catch (err) {
+                                options.aborted = true;
+                                return false;
+                            }
+                        }
                         if (!target.deleteAsync()) {
                             options.onDeleteFailure(options.verb, displayPath, `Unable to delete directory '${displayPath}'`);
                         }
@@ -481,6 +493,7 @@ class FileManager extends MUDEventEmitter {
                         }
                         catch (err) {
                             options.aborted = true;
+                            return false;
                         }
                     }
                     if (await target.deleteAsync()) {

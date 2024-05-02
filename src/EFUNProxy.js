@@ -860,9 +860,7 @@ class EFUNProxy {
      * Join path
      * @param {...string} expr
      */
-    join(...expr) {
-        if (expr[0] && expr[0].charAt(0) !== '/')
-            expr.unshift(this.directory);
+    joinPath(...expr) {
         return path.posix.join(...expr);
     }
 
@@ -2203,24 +2201,39 @@ class EFUNProxy {
      * @param {string=} lineBreak
      */
     wrapText(text, maxLength, lineBreak, indent) {
-        var result = [], line = [];
-        var length = 0;
-        text = text.replace(this.eol.length ==2 ? /\r\n/g : /\n/g, ' ');
+        text = text.replace(/[\r\n]+/g, ' ');
+        maxLength = maxLength || this.env.COLUMNS || 80;
 
-        maxLength = maxLength || 80;
+        if (typeof maxLength === 'function')
+            maxLength = maxLength();
 
-        text.split(" ").forEach(function (word) {
-            if ((length + word.length) >= maxLength) {
-                result.push(line.join(" "));
-                line = []; length = 0;
+        let wordsAndSpace = text.split(/(\s+)/g),
+            line = '',
+            lineLength = 0,
+            lines = [];
+
+        for (const chunk of wordsAndSpace) {
+            let clen = this.stripColor(chunk).length;
+
+            if ((lineLength + clen) > maxLength) {
+                lines.push(line);
+                if (!/^\s+$/.test(chunk)) {
+                    line = chunk;
+                    lineLength = clen;
+                }
+                else {
+                    line = '';
+                    lineLength = 0;
+                }
             }
-            length += word.length + 1;
-            line.push(word);
-        });
-        if (line.length > 0) {
-            result.push(line.join(" "));
+            else {
+                line += chunk;
+                lineLength += clen;
+            }
         }
-        return result.join(this.eol);
+        if (!/^\s+$/.test(line))
+            lines.push(line);
+        return lines.join('\n');
     }
 
     error(...expr) {
