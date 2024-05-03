@@ -100,6 +100,10 @@ class BaseSecurityManager extends EventEmitter {
         return false;
     }
 
+    async getGroupName(fo) {
+        throw new NotImplementedError('getGroupName');
+    }
+
     /**
      * Retrieve the owner name of a particular file
      * @param {object} fo The file object to retreve ownership info for

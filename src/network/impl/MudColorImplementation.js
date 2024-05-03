@@ -32,12 +32,35 @@ class MudColorImplementation extends ClientImplementation {
      * @returns {string} The same string with the color codes expanded for the client.
      */
     expandColors(s) {
+        const rainbowList = [
+            'RED',
+            'ORANGE',
+            'YELLOW',
+            'GREEN',
+            'CYAN',
+            'BLUE',
+            'MAGENTA'
+        ];
         let chunks = s.split(/\%\^([a-zA-Z0-9\_]+)\%\^/);
 
         if (chunks.length > 1) {
             let lookup = this.colorMap(),
-                multicolor = chunks.map(chunk => {
-                    return lookup.hasOwnProperty(chunk) ? lookup[chunk] : chunk;
+                multicolor = chunks.map((chunk, i) => {
+                    if (chunk === 'RAINBOW') {
+                        let nextChunk = chunks[i + 1];
+
+                        if (nextChunk && nextChunk in lookup === false) {
+                            chunks[i + 1] = nextChunk
+                                .split('')
+                                .map((letter, index) => {
+                                    let color = rainbowList[(index % rainbowList.length)];
+                                    return lookup[color] + letter;
+                                })
+                                .join('') + lookup['RESET'];
+                            return '';
+                        }
+                    }
+                    else return chunk in lookup ? lookup[chunk] : chunk;
                 }).join('');
 
             return multicolor;

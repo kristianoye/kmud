@@ -197,6 +197,10 @@ class FileSystemObject extends events.EventEmitter {
         return this.#fileInfo.name;
     }
 
+    async getGroupName() {
+        return await driver.securityManager.getGroupName(this);
+    }
+
     async getOwnerName() {
         return await driver.securityManager.getOwnerName(this);
     }

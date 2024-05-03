@@ -690,26 +690,31 @@ class EFUNProxy {
     /**
      * Converts a numeric storage size into a human-friendly form.
      * @param {number} n A number of bytes
+     * @param {number} decim Number of decimal places
      * @returns {string} A human-friendly string.
      */
-    getMemSizeString(n) {
-        var numeric = parseInt(n);
+    getMemSizeString(n,decim=0) {
+        let numeric = parseInt(n);
+
         if (isNaN(numeric))
-            return 'invalid';
+            return n;
+
+        if (decim > 0)
+            decim = -decim;
         if (numeric > TeraByte) {
-            return this.math.round10(numeric / TeraByte, -2) + 'TB';
+            return this.math.round10(numeric / TeraByte, decim) + 'TB';
         }
         else if (numeric > GigaByte) {
-            return this.math.round10(numeric / GigaByte, -2) + 'GB';
+            return this.math.round10(numeric / GigaByte, decim) + 'GB';
         }
         else if (numeric > MegaByte) {
-            return this.math.round10(numeric / MegaByte, -2) + 'MB';
+            return this.math.round10(numeric / MegaByte, decim) + 'MB';
         }
         else if (numeric > KiloByte) {
-            return this.math.round10(numeric / KiloByte, -2) + 'KB';
+            return this.math.round10(numeric / KiloByte, decim) + 'KB';
         }
         else {
-            return numeric + 'B';
+            return numeric.toString();
         }
     }
 

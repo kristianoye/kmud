@@ -892,6 +892,12 @@ class AclSecurityManager extends BaseSecurityManager {
         return this.initialized ? names.map(n => this.getCredential(n)) : names;
     }
 
+    async getGroupName(fo) {
+        let acl = await this.getAcl(fo);
+        return acl && acl.group || '(no group)';
+    }
+
+
     /**
      * Retrieve the owner name of a particular file
      * @param {FileSystemObject} fo The file object to retreve ownership info for
