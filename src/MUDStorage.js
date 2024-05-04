@@ -79,6 +79,25 @@ class MUDStorage extends MUDEventEmitter {
         return false;
     }
 
+    async eventClientCaps(evt) {
+        await driver.driverCallAsync('disconnect', async context => {
+            await context.withPlayerAsync(this, async player => {
+                if (typeof player.setEnv !== 'function')
+                    return;
+
+                switch (evt.type) {
+                    case 'terminalType':
+                        player.setEnv('TERM', evt.data);
+                        break;
+
+                    case 'windowSize':
+                        player.setEnv({ COLUMNS: evt.data.width, LINES: evt.data.height });
+                        break;
+                }
+            });
+        });
+    }
+
     /**
      * Execute a command from the shell.
      * @param {ParsedCommand} clientCommand
@@ -192,6 +211,9 @@ class MUDStorage extends MUDEventEmitter {
                         await driver.driverCallAsync('disconnect', async context => {
                             await context.withPlayerAsync(store, async player => {
                                 await driver.driverCallAsync('disconnect', async () => {
+                                    if (typeof store.clientCaps.off === 'function' && store.clientCapEventHandlerId) {
+                                        store.clientCaps.off('kmud', store.clientCapEventHandlerId);
+                                    }
                                     store.connected = false;
                                     store.interactive = false;
                                     store.connected = false;
@@ -222,6 +244,10 @@ class MUDStorage extends MUDEventEmitter {
 
 
                 this.clientCaps = component.caps || ClientCaps.DefaultCaps;
+
+                if (typeof this.clientCaps.on === 'function') {
+                    this.clientCapEventHandlerId = this.clientCaps.on('kmud', (...args) => this.eventClientCaps(...args));
+                }
 
                 //  Linkdeath
                 component.once('disconnected', () => {
@@ -651,7 +677,7 @@ class MUDStorage extends MUDEventEmitter {
      * @returns {ClientCaps} Returns the client capabilities.
      */
     getClientCaps() {
-        return this.protected['$clientCaps'] || false;
+        return this.clientCaps;
     }
 
     /**

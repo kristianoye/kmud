@@ -543,25 +543,6 @@ class EFUNProxy {
         }, this.fileName, true);
     }
 
-    /**
-     * Render the exits to the client.  (There must be a better way?)
-     * @param {string} prefix Not sure
-     * @param {string[]} exits A list of exits available to the client.
-     * @param {MUDObject} target The recipient of the exit list.
-     * @returns {boolean} True if the exits were sent.
-     */
-    clientExits(prefix, exits, target) {
-        let player = target || this.thisPlayer();
-        if (player) {
-            let $storage = driver.storage.get(player),
-                caps = $storage.getClientCaps();
-            if (caps) {
-                return caps.do('renderRoomExits', prefix, exits);
-            }
-        }
-        return false;
-    }
-
     get config() {
         return driver.config.createExport();
     }

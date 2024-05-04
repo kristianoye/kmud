@@ -14,7 +14,6 @@ const
 class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, client) {
         super(endpoint, client, client.remoteAddress);
-        var mainWindow;
 
         this.caps = new ClientCaps(this);
 

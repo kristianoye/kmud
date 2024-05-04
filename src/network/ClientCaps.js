@@ -8,7 +8,16 @@
  */
 const
     ClientImplementation = require('./impl/ClientImplementation'),
-    MUDEventEmitter = require('../MUDEventEmitter');
+    MUDEventEmitter = require('../MUDEventEmitter'),
+    DefaultCaps = Object.freeze({
+        clientHeight: 24,
+        clientWidth: 80,
+        colorEnabled: false,
+        htmlEnabled: false,
+        soundEnabled: false,
+        terminalType: 'ascii',
+        videoEnabled: false
+    });
 
 
 class ClientCaps extends MUDEventEmitter {
@@ -149,16 +158,10 @@ class ClientCaps extends MUDEventEmitter {
 
         return result;
     }
-}
 
-ClientCaps.DefaultCaps = Object.freeze({
-    clientHeight: 24,
-    clientWidth: 80,
-    colorEnabled: false,
-    htmlEnabled: false,
-    soundEnabled: false,
-    terminalType: 'ascii',
-    videoEnabled: false
-});
+    static get DefaultCaps() {
+        return DefaultCaps;
+    }
+}
 
 module.exports = ClientCaps;
