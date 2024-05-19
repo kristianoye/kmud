@@ -1613,6 +1613,11 @@ async function parseElement(op, e, depth) {
                 }
                 break;
 
+            case 'TaggedTemplateExpression':
+                ret += op.source.slice(e.start, e.end);
+                op.pos = e.end;
+                break;
+
             case 'TemplateElement':
                 ret += op.source.slice(e.start, e.end);
                 op.pos = e.end;

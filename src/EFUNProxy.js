@@ -7,7 +7,7 @@ const
     crypto = require('crypto'),
     path = require('path'),
     os = require('os'),
-    sprintf = require('sprintf').sprintf,
+    sprintf = require('sprintf-js').sprintf,
     uuid = require('uuid').v4;
 
 const

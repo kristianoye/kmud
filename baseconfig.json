@@ -30,7 +30,8 @@
         "port": 8000,
         "type": "telnet",
         "wizardsOnly": false,
-        "maxConnections": 100
+        "maxConnections": 100,
+        "autowiz": true
       },
       {
         "name": "Web port 8088",
@@ -43,7 +44,8 @@
         "port": 8088,
         "type": "http",
         "wizardsOnly": true,
-        "maxConnections": 5
+        "maxConnections": 5,
+        "autowiz": true
       }
     ]
   },
