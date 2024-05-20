@@ -217,7 +217,6 @@ class FileSystemHelper {
      * @param {any} flags Flags to control the operation
      */
     static async getDirectoryAsync(expr, flags = 0) {
-        efuns.isAwaited(true);
         let frame = driver.pushFrame({ method: 'getDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let result = await driver.fileManager.getDirectoryAsync(expr, flags);

@@ -691,7 +691,7 @@ async function parseElement(op, e, depth) {
                         });
 
                         if (object in op.symbols) {
-                            object = `'${op.symbols[object]}'`;
+                            // do not double-expand symbols
                         }
                         else if (ctx.isSuperExpression && e.callee.property.type === 'ScopedIdentifier') {
                             op.warn(`Scoped identifiers should be accessed using 'this' instead of 'super'; Example: this${(e.callee.usingDerefArrow ? '->' : '.')}${op.source.slice(e.callee.property.start, e.callee.property.end)}`, e.callee);
@@ -1188,7 +1188,7 @@ async function parseElement(op, e, depth) {
                     if (typeof symbolValue === 'string') {
                         ret += `'${op.symbols[identifier]}'`;
                     }
-                    if (driver.efuns.isClass(symbolValue)) {
+                    else if (driver.efuns.isClass(symbolValue)) {
                         ret += identifier;
                     }
                     else if (typeof symbolValue === 'function') {
@@ -1196,6 +1196,15 @@ async function parseElement(op, e, depth) {
                     }
                     else if (efuns.isPOO(symbolValue)) {
                         ret += JSON.stingify(symbolValue);
+                    }
+                    else if (Array.isArray(symbolValue)) {
+                        ret += identifier;
+                    }
+                    else if (typeof symbolValue === 'object') {
+                        ret += identifier;
+                    }
+                    else {
+                        ret += identifier;
                     }
                 }
                 else

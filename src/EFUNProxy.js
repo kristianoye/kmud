@@ -157,7 +157,7 @@ class EFUNProxy {
             if (consolidate) {
                 let uniq = {}, count = 0;
                 list.forEach(s => {
-                    if (s in uniq[s] === false) { uniq[s] = 0; count++; }
+                    if (s in uniq === false) { uniq[s] = 0; count++; }
                     uniq[s]++;
                 });
                 if (count === 0) return '';
@@ -1478,51 +1478,47 @@ class EFUNProxy {
     /**
      * 
      */
-    present() {
-        let args = {},
-            objId = '', self = this;
+    present(id, env=false, returnAll=false) {
+        if (!env) {
+            env = this.thisObject();
+        }
+        if (typeof id === 'string') {
+            let parts = id.split(/\s+/),
+                lastPart = parts.length > 1 && parts.pop(),
+                numberedSpec = lastPart && parseInt(lastPart);
 
-        if (args.optional('string', s => objId = s)) {
-            let targets = args.optional('object', o => [o]);
-            if (!targets) {
-                targets = [this.thisObject()];
-                targets.push(targets[0].environment);
+            if (lastPart && (isNaN(numberedSpec) || numberedSpec < 1)) {
+                numberedSpec = 0;
+                parts.push(lastPart);
             }
-            let idList = objId.split(/\s+/g),
-                which = parseInt(idList[idList.length - 1]);
 
-            if (isNaN(which)) which = 0;
-            else { idList.pop(), which--; }
+            let matches = env.inventory.filter(o => {
+                for (const p of parts) {
+                    if (!o.id(p)) return false;
+                }
+                return true;
+            });
 
-            for (let i = 0; i < targets.length; i++) {
-                let result = unwrap(targets[i], o => {
-                    let inv = o.inventory;
-                    for (let j = 0; j < inv.length; j++) {
-                        if (inv[j].matchesId(idList) && !which--) return inv[j];
-                    }
-                });
-                if (result) return result;
+            if (numberedSpec--) {
+                return matches.length > numberedSpec ? matches[numberedSpec] : false;
+            }
+            if (returnAll === true)
+                return matches;
+            else if (matches.length > 0)
+                return matches[0];
+            else
+                return false;
+        }
+        else if (typeof id === 'object' && id instanceof MUDObject) {
+            if (id.environment === env)
+                return id;
+            let foo = id.environment.environment;
+            while (foo) {
+                if (foo === env)
+                    return id;
+                foo = foo.environment;
             }
             return false;
-        }
-        else if(args.nextIs('object')) {
-            return args.required('object', target => {
-                return unwrap(target, o => {
-                    /** @type {MUDObject} */
-                    let env = args.optional('object', e => unwrap(e));
-                    if (env) {
-                        return env.inventory.indexOf(o) > -1 ? o : false;
-                    }
-                    let prev = self.thisObject();
-                    if (prev.inventory.indexOf(o) > -1)
-                        return prev;
-                    env = prev.environment;
-                    if (env) {
-                        return env.inventory.indexOf(o) > -1 ? env : false;
-                    }
-                    return false;
-                });
-            });
         }
         throw new Error(`Bad argument 1 to present(); Expected string or object but got ${typeof arguments[0]}`);
     }

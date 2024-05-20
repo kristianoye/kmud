@@ -148,6 +148,15 @@ class FileSystemObject extends events.EventEmitter {
         return this.#fileInfo.isFIFO || false;
     }
 
+    get isLoadable() {
+        if (this.isFile) {
+            let ext = this.extension,
+                re = new RegExp(driver.compiler.extensionPattern);
+            return re.test(ext);
+        }
+        return false;
+    }
+
     get isLoaded() {
         let result = driver.cache.get(this.fullPath);
         return !!result;

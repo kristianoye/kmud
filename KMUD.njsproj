@@ -403,6 +403,7 @@
     </Content>
     <Content Include="libman.json" />
     <Content Include="lib\base\ArgParser.js" />
+    <Content Include="lib\base\CharacterClass.js" />
     <Content Include="lib\base\mixins\Drop.js" />
     <Content Include="lib\base\mixins\Get.js" />
     <Content Include="lib\base\mixins\Listen.js" />
@@ -424,9 +425,11 @@
     <Content Include="lib\sys\cmds\creator\Clone.js" />
     <Content Include="lib\sys\cmds\creator\Echo.js" />
     <Content Include="lib\sys\cmds\creator\Groups.js" />
+    <Content Include="lib\sys\cmds\creator\Reset.js" />
     <Content Include="lib\sys\cmds\creator\Which.js" />
     <Content Include="lib\sys\cmds\filesystem\Cat.js" />
     <Content Include="lib\sys\cmds\filesystem\Rehash.js" />
+    <Content Include="lib\sys\daemon\ClassDaemon.js" />
     <Content Include="lib\sys\etc\accessEx.json">
       <SubType>Code</SubType>
     </Content>
@@ -440,7 +443,9 @@
     <Content Include="lib\sys\etc\acls.json">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\sys\include\ValidStats.js" />
     <Content Include="lib\sys\include\VerbMixins.js" />
+    <Content Include="lib\sys\lib\classes\Mage.js" />
     <Content Include="lib\sys\shell\FileSystem.js" />
     <Content Include="lib\sys\skeleton\creator\cmds\HelloWorld.js">
       <SubType>Code</SubType>
@@ -860,6 +865,7 @@
     <Folder Include="lib\base\include\" />
     <Folder Include="lib\base\Combat\" />
     <Folder Include="lib\base\mixins\" />
+    <Folder Include="lib\base\events\" />
     <Folder Include="lib\base\Verbs\" />
     <Folder Include="lib\cmds\creator\" />
     <Folder Include="lib\cmds\admin\" />
@@ -888,6 +894,7 @@
     <Folder Include="lib\sys\include\" />
     <Folder Include="lib\sys\etc\" />
     <Folder Include="lib\sys\cmds\" />
+    <Folder Include="lib\sys\lib\classes\" />
     <Folder Include="lib\sys\shell\" />
     <Folder Include="lib\sys\skeleton\creator\cmds\" />
     <Folder Include="lib\sys\test\" />

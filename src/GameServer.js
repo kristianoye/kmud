@@ -762,7 +762,7 @@ class GameServer extends MUDEventEmitter {
                     this.masterObject || this,
                     method,
                     fileName || this.masterFilename,
-                    false,
+                    true,
                     0);
 
         if (newContext) {
@@ -1285,28 +1285,28 @@ class GameServer extends MUDEventEmitter {
         }
 
         if (this.config.mudlib.objectResetInterval > 0 && this.config.driver.useLazyResets === false) {
-            this.resetTimer = setInterval(() => {
+            this.resetTimer = setInterval(async () => {
                 let n = 0;
+
                 for (let i = 0, now = efuns.ticks; i < this.resetStack.length; i++) {
                     let timestamp = this.resetStack[i],
                         list = this.resetTimes[timestamp];
 
                     if (timestamp > 0 && timestamp < now) {
-                        list.forEach((item, index) => {
-                            unwrap(item, (ob) => {
-                                try {
-                                    let $storage = driver.storage.get(ob);
-                                    if ($storage.nextReset < now) {
-                                        ob.reset();
-                                        this.registerReset(item, false);
-                                    }
+                        for (const [item, index] of Object.entries(list)) {
+                            let ob = item.instance;
+                            try {
+                                let $storage = driver.storage.get(ob);
+                                if ($storage.nextReset < now) {
+                                    await ob.resetAsync();
+                                    this.registerReset(item, false);
                                 }
-                                catch (resetError) {
-                                    // Do not re-register reset--now disabled for previous object.
-                                    this.errorHandler(resetError, false);
-                                }
-                            });
-                        });
+                            }
+                            catch (resetError) {
+                                // Do not re-register reset--now disabled for previous object.
+                                this.errorHandler(resetError, false);
+                            }
+                        };
                         delete this.resetTimes[timestamp];
                         n++;
                         continue;

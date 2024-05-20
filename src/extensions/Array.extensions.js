@@ -18,7 +18,9 @@ class AmbiguousElementError extends Error {
 }
 
 Array.prototype.any = function (test) {
-    if (typeof test !== 'function') test = function (x) { return true; };
+    if (typeof test !== 'function') {
+        return this.findIndex(v => v === test) > -1;
+    }
     for (let i = 0; i < this.length; i++) {
         if (test(this[i], i)) return true;
     }
@@ -203,61 +205,4 @@ Array.prototype.where = function (test) {
 };
 
 
-class ArrayWithMax extends Array {
-    constructor(maxCount) {
-        super();
-
-        this.#firstIndex = 0;
-        this.#maxCount = maxCount;
-    }
-
-    /** @type {number} */
-    #firstIndex;
-
-    /** @type {number} */
-    #maxCount;
-
-    get length() {
-        return super.length;
-    }
-
-    get maxLength() {
-        return this.#maxCount;
-    }
-
-    push(...items) {
-        let count = super.push(...items);
-        if (count > this.#maxCount) {
-            let overage = this.length - this.maxLength;
-            if (overage > 0) {
-                this.fill(undefined, this.#firstIndex, overage);
-                this.#firstIndex = overage;
-            }
-        }
-        return count;
-    }
-
-    shift() {
-        let result = this[this.#firstIndex];
-        this[this.#firstIndex++] = undefined;
-        return result;
-    }
-
-    unshift(...items) {
-        this.splice(this.#firstIndex, items.length, ...items);
-        let overage = this.length - this.maxLength;
-        while (overage-- > 0) {
-            this.pop();
-        }
-        return this.length;
-    }
-}
-
-if (typeof global === 'function') {
-    global.ArrayWithMax = ArrayWithMax;
-}
-
 Object.freeze(Array.prototype);
-
-if (typeof module !== 'undefined')
-    module.exports = ArrayWithMax;

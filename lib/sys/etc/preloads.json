@@ -17,5 +17,6 @@
   "/daemon/HelpSystem.js",
   "/sys/daemon/PlayerDaemon.js",
   "/sys/daemon/CommandResolver.js",
-  "/sys/lib/HtmlLogin.jsx"
+  "/sys/lib/HtmlLogin.jsx",
+  "/sys/daemon/ClassDaemon.js"
 ]

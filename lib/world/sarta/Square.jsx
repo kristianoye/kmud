@@ -50,7 +50,7 @@ export default final singleton class Square extends Room {
     async resetAsync() {
         if (!efuns.present('harry')) {
             let harry = await efuns.cloneObjectAsync('mob/Harry');
-            await harry().moveObjectAsync(this);
+            await harry.instance.moveObjectAsync(this);
         }
     }
 }

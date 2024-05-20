@@ -153,10 +153,9 @@ class MUDObject extends MUDEventEmitter {
 
                         //  Do lazy reset if it's time
                         if (driver && driver.useLazyResets) {
-                            if (typeof newEnvironment.reset === 'function') {
+                            if (typeof newEnvironment.resetAsync === 'function') {
                                 if (targetStore.nextReset < efuns.ticks) {
-                                    driver.driverCall('reset',
-                                        () => newEnvironment.reset(),
+                                    driver.driverCallAsync('reset', async () => await newEnvironment.resetAsync(),
                                         newEnvironment.filename);
                                 }
                             }
