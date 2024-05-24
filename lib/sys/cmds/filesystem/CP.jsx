@@ -4,7 +4,7 @@
  * Date: October 1, 2017
  * Updated: April 20, 2024
  */
-import { LIB_SHELLCMD } from 'Base';
+import { LIB_SHELLCMD } from '@Base';
 import ShellCommand from LIB_SHELLCMD;
 
 const

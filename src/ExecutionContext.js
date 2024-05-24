@@ -289,7 +289,7 @@ class ExecutionContext extends MUDEventEmitter {
             this.cmdStack = parent.cmdStack;
         }
         else {
-            this.alarmTime = Number.MAX_SAFE_INTEGER;// driver.efuns.ticks + 5000;
+            this.#alarmTime = Number.MAX_SAFE_INTEGER;// driver.efuns.ticks + 5000;
             this.currentVerb = false;
             this.forkedAt = 0;
             this.player = false;
@@ -334,6 +334,12 @@ class ExecutionContext extends MUDEventEmitter {
         return this.virtualCreationContexts[0];
     }
 
+    /** 
+     * The time at which to throw an exception
+     * @type {nummber}
+     */
+    #alarmTime;
+
     /**
      * Check to see if this thread has exceeded the max execution time
      * @returns {ExecutionContext}
@@ -346,6 +352,20 @@ class ExecutionContext extends MUDEventEmitter {
             throw err;
         }
         return this;
+    }
+
+    get alarmTime() {
+        if (this.parent)
+            return this.parent.alarmTime;
+        else
+            return this.#alarmTime;
+    }
+
+    set alarmTime(n) {
+        if (this.parent)
+            this.parent.alarmTime = n;
+        else
+            this.#alarmTime = n;
     }
 
     /**
@@ -442,6 +462,7 @@ class ExecutionContext extends MUDEventEmitter {
                 frame.awaitCount++;
                 this.restore();
                 let result = await asyncCode();
+                this.restore();
                 await this.assertStateAsync(true);
                 resolve(result);
             }

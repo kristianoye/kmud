@@ -217,9 +217,6 @@
     <Compile Include="lib\sys\include\InputTypes.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\include\Lib.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="lib\cmds\items\Drop.js">
       <SubType>Code</SubType>
     </Compile>
@@ -404,6 +401,7 @@
     <Content Include="libman.json" />
     <Content Include="lib\base\ArgParser.js" />
     <Content Include="lib\base\CharacterClass.js" />
+    <Content Include="lib\base\CharacterRace.js" />
     <Content Include="lib\base\mixins\Drop.js" />
     <Content Include="lib\base\mixins\Get.js" />
     <Content Include="lib\base\mixins\Listen.js" />
@@ -429,7 +427,9 @@
     <Content Include="lib\sys\cmds\creator\Which.js" />
     <Content Include="lib\sys\cmds\filesystem\Cat.js" />
     <Content Include="lib\sys\cmds\filesystem\Rehash.js" />
+    <Content Include="lib\sys\daemon\AccountDaemon.js" />
     <Content Include="lib\sys\daemon\ClassDaemon.js" />
+    <Content Include="lib\sys\daemon\RaceDaemon.js" />
     <Content Include="lib\sys\etc\accessEx.json">
       <SubType>Code</SubType>
     </Content>
@@ -446,7 +446,7 @@
     <Content Include="lib\sys\include\ValidStats.js" />
     <Content Include="lib\sys\include\VerbMixins.js" />
     <Content Include="lib\sys\lib\classes\Mage.js" />
-    <Content Include="lib\sys\shell\FileSystem.js" />
+    <Content Include="lib\sys\lib\races\Human.js" />
     <Content Include="lib\sys\skeleton\creator\cmds\HelloWorld.js">
       <SubType>Code</SubType>
     </Content>
@@ -895,7 +895,7 @@
     <Folder Include="lib\sys\etc\" />
     <Folder Include="lib\sys\cmds\" />
     <Folder Include="lib\sys\lib\classes\" />
-    <Folder Include="lib\sys\shell\" />
+    <Folder Include="lib\sys\lib\races\" />
     <Folder Include="lib\sys\skeleton\creator\cmds\" />
     <Folder Include="lib\sys\test\" />
     <Folder Include="lib\sys\skeleton\" />

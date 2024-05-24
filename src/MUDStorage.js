@@ -80,7 +80,7 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     async eventClientCaps(evt) {
-        await driver.driverCallAsync('disconnect', async context => {
+        await driver.driverCallAsync('eventClientCaps', async context => {
             await context.withPlayerAsync(this, async player => {
                 if (typeof player.setEnv !== 'function')
                     return;
@@ -95,7 +95,7 @@ class MUDStorage extends MUDEventEmitter {
                         break;
                 }
             });
-        });
+        }, undefined, false, true);
     }
 
     /**
@@ -246,7 +246,7 @@ class MUDStorage extends MUDEventEmitter {
                 this.clientCaps = component.caps || ClientCaps.DefaultCaps;
 
                 if (typeof this.clientCaps.on === 'function') {
-                    this.clientCapEventHandlerId = this.clientCaps.on('kmud', (...args) => this.eventClientCaps(...args));
+                    this.clientCapEventHandlerId = this.clientCaps.on('kmud', async (...args) => await this.eventClientCaps(...args));
                 }
 
                 //  Linkdeath

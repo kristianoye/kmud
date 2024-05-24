@@ -22,7 +22,7 @@ class LivingsHelper {
      * @param {boolean|string} [flag=true] Disables the player flag if set to false
      * @returns {boolean} True if the flag state changed.
      */
-    static enableLiving(flag = false) {
+    static enableLiving(flag = true) {
         let ecc = driver.getExecution(),
             thisObject = ecc.thisObject,
             store = driver.storage.get(thisObject);

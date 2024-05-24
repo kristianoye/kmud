@@ -18,5 +18,6 @@
   "/sys/daemon/PlayerDaemon.js",
   "/sys/daemon/CommandResolver.js",
   "/sys/lib/HtmlLogin.jsx",
-  "/sys/daemon/ClassDaemon.js"
+  "/sys/daemon/ClassDaemon.js",
+  "/sys/daemon/RaceDaemon.js"
 ]

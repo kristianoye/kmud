@@ -42,6 +42,7 @@ class MUDEventEmitter {
             handlesToRemove = [];
 
         if (event) {
+            event = event.slice(0);
             for (let i = 0, max = event.length; i < max; i++) {
                 let listener = event[i].listener,
                     isAsync = driver.efuns.isAsync(listener),

@@ -1195,7 +1195,7 @@ async function parseElement(op, e, depth) {
                         ret += symbolValue.toString();
                     }
                     else if (efuns.isPOO(symbolValue)) {
-                        ret += JSON.stingify(symbolValue);
+                        ret += JSON.stringify(symbolValue);
                     }
                     else if (Array.isArray(symbolValue)) {
                         ret += identifier;

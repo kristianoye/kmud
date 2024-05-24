@@ -1686,7 +1686,16 @@ class EFUNProxy {
      */
     async resolveIncludeAsync(file, ignoreCache) {
         let result = !ignoreCache && IncludeCache[file];
-        let includePath = [this.directory].concat(driver.includePath);
+        let includePath = [this.directory];
+
+        //  TODO: Fix all code to require @ prefix to use search path
+        if (file.charAt(0) === '@') {
+            file = file.slice(1);
+            includePath = includePath.concat(driver.includePath);
+        }
+        else {
+            //includePath = includePath.concat(driver.includePath);
+        }
 
         if (!result) {
             for (let i = 0, max = includePath.length; i < max; i++) {

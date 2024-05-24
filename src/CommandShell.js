@@ -305,7 +305,7 @@ class CommandShell extends events.EventEmitter {
         return await ecc.withPlayerAsync(this.storage, async player => {
             let finalArgs = [],
                 finalText = [],
-                options = cmd.options;
+                options = cmd.options || {};
 
             for (const token of cmd.tokens) {
                 switch (token.tokenType) {
@@ -795,7 +795,7 @@ class CommandShell extends events.EventEmitter {
                         await ecc.withPlayerAsync(this.storage, async () => {
                             await this.processInput(input);
                         });
-                    });
+                    }, undefined, true, true);
                 }
                 while (true);
             }
