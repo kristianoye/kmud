@@ -287,6 +287,8 @@ class ExecutionContext extends MUDEventEmitter {
             this.player = parent.player;
             this.truePlayer = parent.truePlayer;
             this.cmdStack = parent.cmdStack;
+            /** @type {ExecutionContext} */
+            this.master = parent.master;
         }
         else {
             this.#alarmTime = Number.MAX_SAFE_INTEGER;// driver.efuns.ticks + 5000;
@@ -354,16 +356,20 @@ class ExecutionContext extends MUDEventEmitter {
         return this;
     }
 
+    /**
+     * The time at which this process must die
+     * @returns {number}
+     */
     get alarmTime() {
-        if (this.parent)
-            return this.parent.alarmTime;
+        if (this.master)
+            return this.master.alarmTime;
         else
             return this.#alarmTime;
     }
 
     set alarmTime(n) {
-        if (this.parent)
-            this.parent.alarmTime = n;
+        if (this.master)
+            this.master.alarmTime = n;
         else
             this.#alarmTime = n;
     }

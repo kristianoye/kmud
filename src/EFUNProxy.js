@@ -1759,6 +1759,17 @@ class EFUNProxy {
         return path.posix.resolve(relativeToPath, expr);
     }
 
+    async resetObject(target = false) {
+        if (!target) {
+            target = this.thisObject();
+        }
+        if (target) {
+            let storage = driver.storage.get(target);
+            if (storage)
+                await storage.eventReset();
+        }
+    }
+
     restoreObject(data) {
         let parts = this.parsePath(data.$type),
             module = driver.cache.get(parts.file),

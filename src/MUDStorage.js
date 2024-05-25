@@ -12,7 +12,8 @@ const
     ClientCaps = require('./network/ClientCaps'),
     MUDStorageFlags = require('./MUDStorageFlags'),
     CommandShellOptions = require('./CommandShellOptions'),
-    maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime;
+    maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime,
+    defaultResetInterval = driver.config.mudlib.objectResetInterval;
 
 /**
  * Storage for MUD Objects.  In-game objects do not hold their data directly.
@@ -63,6 +64,8 @@ class MUDStorage extends MUDEventEmitter {
 
         /** @type {Object.<string,any>} */
         this.properties = {};
+
+        this.resetInterval = defaultResetInterval;
     }
 
     /** 
@@ -347,6 +350,15 @@ class MUDStorage extends MUDEventEmitter {
             return true;
         }
         return false;
+    }
+
+    async eventReset() {
+        this.nextReset = driver.efuns.ticks + this.resetInterval;
+        return await driver.driverCallAsync('reset', async (ecc) => {
+            return await ecc.withObject(this.owner, 'reset', async () => {
+                await this.owner.reset();
+            }, true);
+        });
     }
 
     /**

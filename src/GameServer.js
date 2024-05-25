@@ -1298,7 +1298,7 @@ class GameServer extends MUDEventEmitter {
                             try {
                                 let $storage = driver.storage.get(ob);
                                 if ($storage.nextReset < now) {
-                                    await ob.resetAsync();
+                                    await ob.reset();
                                     this.registerReset(item, false);
                                 }
                             }
