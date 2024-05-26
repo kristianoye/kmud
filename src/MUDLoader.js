@@ -11,7 +11,22 @@ const
     { ExecutionContext, CallOrigin } = require('./ExecutionContext'),
     { SecurityError } = require('./ErrorTypes'),
     loopsPerAssert = 10000,
-    MemberModifiers = require("./compiler/MudscriptMemberModifiers");
+    MemberModifiers = require("./compiler/MudscriptMemberModifiers"),
+    UnitsOfMeasurement = Object.freeze({
+        g: 1,
+        Gram: 1,
+        Grams: 1,
+        Lb: 453.59237,
+        Lbs: 453.59237,
+        mg: 0.001,
+        mgs: 0.001,
+        Kg: 1000,
+        Kgs: 1000,
+        Ounce: 28.3495231,
+        Ounces: 28.3495231,
+        Pound: 453.59237,
+        Pounds: 453.59237
+    });
 
 var /** @type {Object.<number,ExecutionContext>} */
     Intervals = {};
@@ -703,6 +718,10 @@ class MUDLoader {
 
     writeRaw(str) {
         return efuns.efuns.writeRaw(str);
+    }
+
+    get UOM() {
+        return UnitsOfMeasurement;
     }
 }
 

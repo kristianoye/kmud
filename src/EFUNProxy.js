@@ -595,7 +595,7 @@ class EFUNProxy {
     }
 
     get eol() {
-        return '\r\n';
+        return '\n';
     }
 
     get exports() {
@@ -1142,14 +1142,8 @@ class EFUNProxy {
      * @returns {string} A pluralized form of the string.
      */
     pluralize(what) {
-        var o = unwrap(what),
-            result;
+        let result;
 
-        if (o) {
-            var _p = _o.getPluralizedName();
-            if (_p) return _p;
-            return this.pluralize(o.getPrimaryName());
-        }
         if (typeof what !== 'string')
             throw new Error(`Bad argument 1 to pluralize(); Expected string|object got ${typeof what}`);
 

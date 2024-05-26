@@ -335,7 +335,7 @@ class GameServer extends MUDEventEmitter {
      * @param {boolean} sdf Show external frames
      * @returns {Error} The cleaned up error.
      */
-    cleanError(e, sdf = false) {
+    cleanError(e, sdf = true) {
         if (e.clean || !e.stack)
             return e;
         let s = e.stack,

@@ -218,12 +218,12 @@ class LivingsHelper {
     }
 
     static setLivingName(name) {
-        let previousObject = efuns.previousObject();
-        return unwrap(previousObject, po => {
-            let $storage = driver.storage.get(ob);
-            if ($storage)
-                $storage.livingName = name;
-        });
+        let previousObject = efuns.previousObject(),
+            ob = previousObject.instance,
+            store = driver.storage.get(ob);
+
+        if (store)
+            store.livingName = name;
     }
 
     /**
