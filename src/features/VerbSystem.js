@@ -843,7 +843,7 @@ class VerbContainer {
             return false;
 
         result[direct.index] = result[direct.index].filter(_d => {
-            if (direct.living && !_d.isLiving()) {
+            if (direct.living && !efuns.living.isAlive (_d)) {
                 errors.push(`${_d.displayName} is not alive.`);
                 return false;
             }
@@ -872,7 +872,7 @@ class VerbContainer {
 
         if (objTokenCount > 1) {
             result[indirect.index] = result[indirect.index].filter(_d => {
-                if (indirect.living && !_d.isLiving()) {
+                if (indirect.living && !efuns.living.isAlive(_d)) {
                     errors.push(`${_d.displayName} is not alive.`);
                     return false;
                 }
