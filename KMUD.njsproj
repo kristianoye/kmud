@@ -443,10 +443,11 @@
     <Content Include="lib\sys\etc\acls.json">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\sys\include\DataFiles.js" />
     <Content Include="lib\sys\include\ValidStats.js" />
     <Content Include="lib\sys\include\VerbMixins.js" />
     <Content Include="lib\sys\lib\classes\Mage.js" />
-    <Content Include="lib\sys\lib\races\Human.js" />
+    <Content Include="lib\sys\etc\Races.yaml" />
     <Content Include="lib\sys\skeleton\creator\cmds\HelloWorld.js">
       <SubType>Code</SubType>
     </Content>
@@ -895,7 +896,6 @@
     <Folder Include="lib\sys\etc\" />
     <Folder Include="lib\sys\cmds\" />
     <Folder Include="lib\sys\lib\classes\" />
-    <Folder Include="lib\sys\lib\races\" />
     <Folder Include="lib\sys\skeleton\creator\cmds\" />
     <Folder Include="lib\sys\test\" />
     <Folder Include="lib\sys\skeleton\" />
