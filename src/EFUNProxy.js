@@ -376,7 +376,7 @@ class EFUNProxy {
             words = input.split(/(\s+)/g),
             evt = {
                 verb: words.shift(),
-                text: words.join(''),
+                text: words.join('').trim(),
                 args: words.filter(s => s.trim().length > 0)
             };
         await ecc.withPlayerAsync(thisObject, async player => {
