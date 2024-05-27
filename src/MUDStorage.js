@@ -323,14 +323,18 @@ class MUDStorage extends MUDEventEmitter {
      * @param {number} total
      * @param {number} ticks
      */
-    eventHeartbeat(total, ticks) {
+    async eventHeartbeat(total, ticks) {
         if (this.lastActivity) {
             if (this.idleTime > this.maxIdleTime) {
                 this.heartbeat = false;
                 return this.eventExec(false, 'You have been idle for too long.');
             }
         }
-        this.owner.heartbeat(total, ticks);
+        let ecc = driver.getExecution();
+        await ecc.withPlayerAsync(this, async player => {
+            await player.eventHeartbeat(total, ticks);
+        }, true, 'eventHeartbeat');
+        
     }
 
     /**
@@ -654,7 +658,7 @@ class MUDStorage extends MUDEventEmitter {
                     break;
 
                 case MUDStorageFlags.PROP_HEARTBEAT:
-                    if (this.owner && typeof this.owner.heartbeat === 'function') {
+                    if (this.owner && typeof this.owner.eventHeartbeat === 'function') {
                         driver.setHeartbeat(this, setFlag);
                     }
                     break;

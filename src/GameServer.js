@@ -886,28 +886,29 @@ class GameServer extends MUDEventEmitter {
     }
 
     /** Periodically call heartbeat on all applicable objects in the game. */
-    executeHeartbeat() {
+    async executeHeartbeat() {
         try {
             let heartbeatStart = new Date(),
                 maxExecTime = this.config.driver.maxCommandExecutionTime,
                 heartbeatInterval = maxExecTime || 2000,
+                beatingHearts = this.heartbeatObjects.toArray(),
                 failed = [];
 
-            async.forEachOfLimit(this.heartbeatObjects.toArray(), this.heartbeatLimit || 10,
-                (obj, index, itr) => {
-                    this.driverCall('heartbeat', ecc => {
+            await async.forEachOfLimit(beatingHearts, this.heartbeatLimit || 10,
+                async (obj, index, itr) => {
+                    return this.driverCallAsync('heartbeat', async ecc => {
                         try {
                             ecc.alarmTime = efuns.ticks + heartbeatInterval;
                             ecc.truePlayer = ecc.player = obj.owner;
-                            obj.eventHeartbeat(this.heartbeatInterval, this.heartbeatCounter);
+                            await obj.eventHeartbeat(this.heartbeatInterval, this.heartbeatCounter);
                         }
                         catch (err) {
                             failed.push(obj);
                         }
                         finally {
-                            itr();
+                            typeof itr === 'function' && itr();
                         }
-                    })
+                    }, undefined, false, true);
                 },
                 () => {
                     let timing = efuns.ticks - heartbeatStart.getTime();
@@ -915,8 +916,8 @@ class GameServer extends MUDEventEmitter {
                         logger.log(`\tWARNING: Last heartbeat cycle took ${timing}ms > ${heartbeatInterval}`);
                     }
                     this.heartbeatCounter++;
-                    this.heartbeatTimer = setTimeout(() => {
-                        this.executeHeartbeat();
+                    this.heartbeatTimer = setTimeout(async () => {
+                        await this.executeHeartbeat();
                     }, this.heartbeatInterval);
                 });
         }
@@ -1279,8 +1280,8 @@ class GameServer extends MUDEventEmitter {
             ecc.pop('onReady');
         }
         if (this.config.mudlib.heartbeatInterval > 0) {
-            this.heartbeatTimer = setTimeout(() => {
-                this.executeHeartbeat();
+            this.heartbeatTimer = setTimeout(async () => {
+                await this.executeHeartbeat();
             }, this.config.mudlib.heartbeatInterval);
         }
 
