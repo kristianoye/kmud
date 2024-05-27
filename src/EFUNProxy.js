@@ -365,8 +365,23 @@ class EFUNProxy {
      * Force the previous object to perform an in-game object.
      * @param {string} input The complete command to execute.
      */
-    command(input) {
-        throw new Error('Not implemented');
+    async command(input, isForced = false) {
+        let truePlayer = isForced && this.thisPlayer(1),
+            thisObject = this.thisObject();
+
+        if (!this.living.isAlive(thisObject))
+            throw new Error(`${thisObject.fullPath} is not alive and cannot execute commands`);
+
+        let ecc = driver.getExecution(),
+            words = input.split(/(\s+)/g),
+            evt = {
+                verb: words.shift(),
+                text: words.join(''),
+                args: words.filter(s => s.trim().length > 0)
+            };
+        await ecc.withPlayerAsync(thisObject, async player => {
+            await player.executeCommand(evt);
+        }, true, 'command');
     }
 
     get console() {
@@ -807,7 +822,7 @@ class EFUNProxy {
      * @returns {boolean} True if the object is alive or false if not.
      */
     isLiving(target) {
-        return unwrap(target, (ob) => ob.isLiving(), false);
+        return this.living.isAlive(target);
     }
 
     /**
@@ -912,7 +927,8 @@ class EFUNProxy {
      */
     async logError(err) {
         try {
-            return driver.logError(err);
+            let to = this.thisObject();
+            return await driver.logError(to.fullPath, err);
         }
         catch (e) {
         }
@@ -1533,8 +1549,7 @@ class EFUNProxy {
      * @returns {string} The verb currently being executed.
      */
     queryVerb() {
-        let ctx = driver.currentContext;
-        return ctx && ctx.input && ctx.input.verb;
+        return this.currentVerb || '';
     }
 
     /**

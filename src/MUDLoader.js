@@ -613,7 +613,7 @@ class MUDLoader {
                     callback.apply(thisObject, args);
             }
             catch (err) {
-                logger.log('Error in setInterval() callback; Disabling.');
+                await efuns.logError(err);
                 hasError = true;
             }
             finally {
@@ -658,7 +658,7 @@ class MUDLoader {
                     callback.apply(thisObject, args);
             }
             catch (err) {
-                hasError = true;
+                await efuns.logError(err);
             }
             finally {
                 frame.pop();

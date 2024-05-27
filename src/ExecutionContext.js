@@ -1040,7 +1040,7 @@ class ExecutionContext extends MUDEventEmitter {
             return await callback(player, this);
         }
         catch (err) {
-            console.log('Error in withPlayerAsync(): ', err);
+            await this.logError(err);
             if (catchErrors === false) throw err;
         }
         finally {
