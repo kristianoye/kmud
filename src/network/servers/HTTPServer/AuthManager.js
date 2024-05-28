@@ -38,25 +38,39 @@ class AuthManager {
                 config.cryptoKeyFile || 'MachineKey.dat',
                 config.cryptoKeySize);
         }
-
+        if (typeof this.cryptoKey === 'string') {
+            this.cryptoKey = Buffer.from(this.cryptoKey, 'base64');
+        }
         Object.freeze(this);
     }
 
-    create(username, password) {
-        let criptor = crypto.createCipher(this.cryptoAlgorithm, this.cryptoKey);
+    create(username, password, iv = false) {
+        if (iv === false) {
+            iv = Buffer.alloc(16);
+            iv = Buffer.from(Array.prototype.map.call(iv, () => { return Math.floor(Math.random() * 256) }));
+        }
+        let criptor = crypto.createCipheriv(this.cryptoAlgorithm, this.cryptoKey, iv);
         let cryptoText = criptor.update(JSON.stringify({
             username,
             password
         }), 'utf8', 'base64');
 
         cryptoText += criptor.final('base64');
+        cryptoText += '::' + Buffer.from(iv).toString('base64');
 
         return cryptoText;
     }
 
-    decrypt(cryptoText) {
+    /**
+     * 
+     * @param {string} cryptoChunk
+     * @returns
+     */
+    decrypt(cryptoChunk) {
         try {
-            let criptor = crypto.createCipher(this.cryptoAlgorithm, this.cryptoKey);
+            let [cryptoText, ivText] = cryptoChunk.split('::', 2);
+            let iv = Buffer.from(ivText, 'base64');
+            let criptor = crypto.createCipheriv(this.cryptoAlgorithm, this.cryptoKey, iv);
             let decrypted = criptor.update(cryptoText, 'base64', 'utf8');
 
             decrypted += criptor.final('utf8');
