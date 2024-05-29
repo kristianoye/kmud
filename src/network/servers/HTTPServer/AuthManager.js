@@ -44,6 +44,13 @@ class AuthManager {
         Object.freeze(this);
     }
 
+    /**
+     * Create an auth token
+     * @param {string} username
+     * @param {string} password
+     * @param {Buffer} iv Optional initialization vector
+     * @returns
+     */
     create(username, password, iv = false) {
         if (iv === false) {
             iv = Buffer.alloc(16);
@@ -62,7 +69,7 @@ class AuthManager {
     }
 
     /**
-     * 
+     * Decrypt an auth token
      * @param {string} cryptoChunk
      * @returns
      */

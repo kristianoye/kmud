@@ -888,6 +888,7 @@
     <Folder Include="lib\sys\cmds\player\" />
     <Folder Include="lib\sys\data\creators\" />
     <Folder Include="lib\sys\" />
+    <Folder Include="lib\sys\data\accounts\" />
     <Folder Include="lib\sys\data\players\" />
     <Folder Include="lib\sys\lib\" />
     <Folder Include="lib\sys\daemon\" />

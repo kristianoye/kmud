@@ -329,7 +329,7 @@ class EFUNProxy {
      * @param {MUDObject} [player] The optional player to format for.
      * @returns {string} A page of columns.
      */
-    columnText(list, width, player = false) {
+    columnText(list, width, minSpacing = 2) {
         let rows = [],
             row = [],
             longest = 0,
@@ -340,13 +340,13 @@ class EFUNProxy {
             list = list.split(/\s+/);
         }
 
-        width = (width || this.clientCaps(player || this.thisPlayer()).clientWidth || 80);
+        width = (width || this.env.COLUMNS || 80);
 
         list.forEach(i => {
             let n = this.stripColor(i).length;
             longest = n > longest ? n : longest;
         });
-        colWidth = longest + 2;
+        colWidth = longest + minSpacing;
         colCount = Math.floor(width / colWidth);
         list.forEach((item, index) => {
             let s = item + Array(colWidth - this.stripColor(item).length).join(' ');

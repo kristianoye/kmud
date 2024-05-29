@@ -270,7 +270,7 @@ class MUDStorage extends MUDEventEmitter {
                             if (shellSettings.variables && shellSettings.variables.SHELLRC) {
                                 await this.shell.executeResourceFile(shellSettings.variables.SHELLRC);
                             }
-                            await player.connect(...args);
+                            await player.connect(this.connectedPort, this.remoteAddress, ...args);
                         });
                     }, false);
                 });
@@ -472,6 +472,13 @@ class MUDStorage extends MUDEventEmitter {
         return this.flag(MUDStorageFlags.PROP_CONNECTED, flag);
     }
 
+    get connectedPort() {
+        if (this.shell) {
+            return this.shell.connectedPort || -1;
+        }
+        return -1;
+    }
+
     get destroyed() {
         return this.hasFlag(MUDStorageFlags.PROP_DESTRUCTED);
     }
@@ -556,6 +563,13 @@ class MUDStorage extends MUDEventEmitter {
             this.playerName = flag;
         }
         this.flag(MUDStorageFlags.PROP_ISPLAYER, flag !== false);
+    }
+
+    get remoteAddress() {
+        if (this.connected && this.shell) {
+            return this.shell.remoteAddress;
+        }
+        return false;
     }
 
     getSafeCredential() {

@@ -177,6 +177,14 @@ class CommandShell extends events.EventEmitter {
         return false;
     }
 
+    get connectedPort() {
+        let ep = this.component.client;
+        if (ep) {
+            return ep.port || -1;
+        }
+        return -1;
+    }
+
     /**
      * Destroy the shell and free its contents.
      */
@@ -707,6 +715,14 @@ class CommandShell extends events.EventEmitter {
         this.stdin = this.stdout = this.stderr = this.console = false;
 
         return result;
+    }
+
+    get remoteAddress() {
+        let client = this.component.client;
+        if (client) {
+            return client.remoteAddress;
+        }
+        return false;
     }
 
     drawPrompt() {

@@ -98,7 +98,7 @@ class LivingsHelper {
      * @param {string} name
      * @param {boolean} allowPartial
      */
-    static findWizard(name, allowPartial = false) {
+    static findCreator(name, allowPartial = false) {
         let result = driver.wizardObjects
             .find(efuns.normalizeName(name), allowPartial);
 
