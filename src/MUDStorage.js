@@ -719,11 +719,14 @@ class MUDStorage extends MUDEventEmitter {
     async getShellSettings(verb, opts) {
         return await driver.driverCallAsync('getShellSettings', async context => {
             return await context.withPlayerAsync(this, async player => {
-                if (player && typeof player.getShellSettings === 'function')
-                    return await player.getShellSettings(verb, opts);
+                if (player && typeof player.getShellSettings === 'function') {
+                    let result = await player.getShellSettings(verb, opts);
+                    context.restore();
+                    return result;
+                }
                 else
                     return {};
-            }, false);
+            }, false, 'getShellSettings');
         });
     }
 

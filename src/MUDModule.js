@@ -683,7 +683,16 @@ class MUDModule extends events.EventEmitter {
 
                 if (typeof instance.create === 'function') {
                     await ecc.withObject(instance, 'create', async () => {
-                        return await instance.create(...args);
+                        let result = await instance.create(...args);
+                        if (typeof instance.postCreate === 'function') {
+                            try {
+                                await instance.postCreate();
+                            }
+                            catch (err) {
+
+                            }
+                        }
+                        return result;
                     }, true, true);
                 }
                 if (store !== false && instance !== false)

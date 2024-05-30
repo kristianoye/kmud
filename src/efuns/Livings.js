@@ -23,12 +23,17 @@ class LivingsHelper {
      * @returns {boolean} True if the flag state changed.
      */
     static enableLiving(flag = true) {
-        let ecc = driver.getExecution(),
-            thisObject = ecc.thisObject,
-            store = driver.storage.get(thisObject);
+        try {
+            let ecc = driver.getExecution(),
+                thisObject = ecc.thisObject,
+                store = driver.storage.get(thisObject);
 
-        if (store) {
-            return (store.living = flag);
+            if (store) {
+                return (store.living = flag);
+            }
+        }
+        catch (err) {
+            console.log(`efuns.living.enableLiving() error: ${err}`);
         }
         return false;
     }
