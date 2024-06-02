@@ -2,9 +2,6 @@
  * Extensions to the Array object
  * Lots of LINQ-like functionality
  */
-const
-    driverInstance = driver;
-
 class NoElementError extends Error {
     constructor() {
         super('Sequence contains no elements');
@@ -203,6 +200,3 @@ Array.prototype.where = function (test) {
         test = function (x) { return true; }
     return this.filter((x, i) => test(x, i));
 };
-
-
-Object.freeze(Array.prototype);

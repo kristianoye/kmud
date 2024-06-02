@@ -39,5 +39,3 @@ if (!Math.ceil10) {
         return decimalAdjust('ceil', value, exp);
     };
 }
-
-Object.freeze(Math);

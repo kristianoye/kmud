@@ -39,5 +39,3 @@ Object.mapEach = function (target, callback) {
     }
     return ac > 0 ? arr : obj;
 };
-
-Object.seal(Object.prototype);

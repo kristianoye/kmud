@@ -87,9 +87,15 @@ class MUDLoader {
             },
             __bfc: {
                 //  Begin Function Call
-                value: function (ob, access, method, fileName, isAsync, lineNumber, type, callType) {
-                    let ecc = driver.getExecution(),
-                        newContext = false;
+                value: function (ecc, parameters, ob, access, method, fileName, isAsync, lineNumber, type, callType) {
+                    let args = Array.prototype.__native.slice(parameters);
+                    let newContext = false;
+
+                    ecc = ecc instanceof ExecutionContext ? ecc : driver.getExecution();
+
+                    if (args[0] instanceof ExecutionContext) {
+                        parameters[0] = undefined;
+                    }
 
                     if (method.length === 0) {
                         method = '(MAIN)';
@@ -126,12 +132,11 @@ class MUDLoader {
 
                     //  Check access prior to pushing the new frame to the stack
                     if (access && !newContext)
-                        return ecc
-                            .alarm()
+                        ecc = ecc.alarm()
                             //  Previously only allowed objects inheriting from MUDObject to be allowed on stack
                             .push(/* ob instanceof MUDObject && */ ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, callType);
 
-                    return ecc;
+                    return [ecc, args];
                 },
                 configurable: false,
                 enumerable: false,
@@ -179,6 +184,13 @@ class MUDLoader {
                 },
                 configurable: false,
                 writable: false,
+                enumerable: false
+            },
+            __mec: {
+                get: function () {
+                    return driver.getExecution();
+                },
+                configurable: false,
                 enumerable: false
             },
             __dmt: {

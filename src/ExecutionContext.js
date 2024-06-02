@@ -266,7 +266,9 @@ class ExecutionContext extends MUDEventEmitter {
         this.onComplete = [];
         this.handleId = uuidv1();
         this.completed = false;
-        this.pid = nextPID++;
+
+        /** @type {Object.<string,ExecutionContext>} */
+        this.children = {};
 
         /** @type {ExecutionSignaller} */
         this.controller = new ExecutionSignaller();
@@ -289,6 +291,8 @@ class ExecutionContext extends MUDEventEmitter {
             this.cmdStack = parent.cmdStack;
             /** @type {ExecutionContext} */
             this.master = parent.master;
+            this.pid = parent.pid;
+            parent.children[this.handleId] = this;
         }
         else {
             this.#alarmTime = Number.MAX_SAFE_INTEGER;// driver.efuns.ticks + 5000;
@@ -296,9 +300,11 @@ class ExecutionContext extends MUDEventEmitter {
             this.forkedAt = 0;
             this.player = false;
             this.truePlayer = false;
+            this.pid = nextPID++;
+
+            contexts[this.handleId] = this;
+            contextsByPID[this.pid] = this;
         }
-        contexts[this.handleId] = this;
-        contextsByPID[this.pid] = this;
     }
 
     /**

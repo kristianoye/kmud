@@ -50,6 +50,14 @@ class GameServer extends MUDEventEmitter {
                 console.log(`Error including extension file ${file}: ${ex.message}\n` + ex.stack);
             }
         });
+        this.mudifyPrototype(
+            Array.prototype,
+            String.prototype,
+            Object.prototype,
+            Number.prototype,
+            Math
+        );
+        let test = Math.floor(1.2);
         this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
 
         /** @type {EFUNProxy} */
@@ -951,6 +959,48 @@ class GameServer extends MUDEventEmitter {
             this.executionContext = new ExecutionContext();
         }
         return this.executionContext.push(ob, method, fileName, isAsync, lineNumber, callString || method);
+    }
+
+    mudifyPrototype(...protos) {
+        for (const proto of protos) {
+            if (!proto.__native) {
+                proto.__native = {};
+                let props = Object.getOwnPropertyDescriptors(proto);
+
+                for (const [name, prop] of Object.entries(props)) {
+                    if (typeof proto[name] === 'function') {
+                        (function (name, impl) {
+                            /**
+                             * 
+                             * @param {ExecutionContext} ctx
+                             * @param {...any} parms
+                             * @returns
+                             */
+                            proto[name] = function (ctx, ...parms) {
+                                try {
+                                    if (arguments.length) {
+                                        let args = Array.prototype.__native.slice.apply(parms);
+                                        if (ctx instanceof ExecutionContext === false) {
+                                            Array.prototype.__native.unshift.call(args, ctx);
+                                            ctx = false;
+                                        }
+                                        else {
+                                            ctx.pushFrame(this, name, typeof efuns === 'undefined' ? '(unknown)' : efunx.filename, ctx.isAwaited);
+                                        }
+                                        return impl.apply(this, args);
+                                    }
+                                    return impl.apply(this);
+                                }
+                                finally {
+                                    ctx && ctx.pop(name);
+                                }
+                            };
+                        })(name, proto.__native[name] = proto[name]);
+                    }
+                }
+            }
+            Object.seal(proto);
+        }
     }
 
     /**
