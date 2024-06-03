@@ -578,17 +578,17 @@ async function parseElement(op, e, depth) {
                     }
                     ret += op.readUntil(e.body.start);
                     if (e.body.type === 'BlockStatement') {
-                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, [${pnames.join(', ')}], ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try `;
+                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, [${pnames.join(', ')}], { ${pnames.join(', ')} }, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try `;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += ` finally { __efc(${ctx.mecName}, '${funcName}'); } }`;
                     }
                     else if (e.body.type === 'MemberExpression') {
-                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, [${pnames.join(', ')}], ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return `;
+                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, [${pnames.join(', ')}], { ${pnames.join(', ')} }, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return `;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += `; } finally { __efc(${ctx.mecName}, '${funcName}'); } }`;
                     }
                     else {
-                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, [${pnames.join(', ')}], ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return (`;
+                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, [${pnames.join(', ')}], { ${pnames.join(', ')} }, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return (`;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += `); } finally { __efc(${ctx.mecName}, '${funcName}'); } }`;
                     }
@@ -963,8 +963,8 @@ async function parseElement(op, e, depth) {
                             let propName = entry.slice(4),
                                 getterOnly = op.typeDef.getMember(`get ${propName}`),
                                 setterOnly = op.typeDef.getMember(`set ${propName}`),
-                                getter = ` const [__mec, parameters] = __bfc(false, arguments, this || ${e.id.name}, ${op.options.defaultMemberAccess}, 'get ${propName}', __FILE__, false, __LINE__, ${e.id.name}, ${CallOrigin.GetProperty}); try { return __mec.validSyncCall(__FILE__, __LINE__, () => get.call(this, ${e.id.name}, '${propName}', undefined)); } finally { __efc(__mec, 'get ${propName}'); }`,
-                                setter = ` const [__mec, parameters] = __bfc(false, arguments, this || ${e.id.name}, ${op.options.defaultMemberAccess}, 'set ${propName}', __FILE__, false, __LINE__, ${e.id.name}, ${CallOrigin.SetProperty}); try { __mec.validSyncCall(__FILE__, __LINE__, () => set.call(this, ${e.id.name}, '${propName}', val)); } finally { __efc(__mec, 'set ${propName}'); }`,
+                                getter = ` const [__mec, parameters] = __bfc(false, arguments, {}, this || ${e.id.name}, ${op.options.defaultMemberAccess}, 'get ${propName}', __FILE__, false, __LINE__, ${e.id.name}, ${CallOrigin.GetProperty}); try { return __mec.validSyncCall(__FILE__, __LINE__, () => get.call(this, ${e.id.name}, '${propName}', undefined)); } finally { __efc(__mec, 'get ${propName}'); }`,
+                                setter = ` const [__mec, parameters] = __bfc(false, arguments, { val }, this || ${e.id.name}, ${op.options.defaultMemberAccess}, 'set ${propName}', __FILE__, false, __LINE__, ${e.id.name}, ${CallOrigin.SetProperty}); try { __mec.validSyncCall(__FILE__, __LINE__, () => set.call(this, ${e.id.name}, '${propName}', val)); } finally { __efc(__mec, 'set ${propName}'); }`,
                                 injectedSource = ` Object.defineProperty(${e.id.name}.prototype, '${propName}', { configurable: false, enumerable: true, get: function() { ${getter}}, set: function(val) { ${setter} } }); `;
 
                             if (getterOnly) {
@@ -1158,17 +1158,19 @@ async function parseElement(op, e, depth) {
                         op.raise(`Illegal function name: ${functionName}`, e.id);
                     ret += await parseElement(op, e.id, depth + 1);
 
+                    let pnames = [];
                     for (const _ of e.params) {
                         ret += await parseElement(op, _, depth + 1);
+                        pnames.push(_.name);
                     }
                     if (op.typeDef) {
                         addRuntimeAssert(e,
-                            `const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, arguments, ${op.thisParameter}, ${MemberModifiers.Public}, '${e.id.name}', __FILE__, ${ctx.isAsync}, __LINE__); try { `,
+                            `const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${MemberModifiers.Public}, '${e.id.name}', __FILE__, ${ctx.isAsync}, __LINE__); try { `,
                             ` } finally { __efc(${ctx.mecName}, '${e.id.name}'); }`);
                     }
                     else
                         addRuntimeAssert(e,
-                            `const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, arguments, this, ${MemberModifiers.Public}, '${e.id.name}', __FILE__,  ${ctx.isAsync}, __LINE__); try { `,
+                            `const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, arguments, { ${pnames.join(', ')} }, this, ${MemberModifiers.Public}, '${e.id.name}', __FILE__,  ${ctx.isAsync}, __LINE__); try { `,
                             ` } finally { __efc(${ctx.mecName}, '${e.id.name}'); }`);
                     ret += await parseElement(op, e.body, depth + 1, { name: functionName });
                     ctx.pop();
@@ -1177,10 +1179,11 @@ async function parseElement(op, e, depth) {
 
             case 'FunctionExpression':
                 {
-                    let ctx = op.pushContext({ isAsync: e.async === true, mecDepth: op.context.mecDepth + 1 });
+                    let ctx = op.pushContext({ isAsync: e.async === true, mecDepth: op.context.mecDepth + 1 }), pnames = [];
                     ret += await parseElement(op, e.id, depth + 1);
                     for (const _ of e.params) {
                         ret += await parseElement(op, _, depth + 1);
+                        pnames.push(_.name);
                     }
                     ret += op.readUntil(e.body.start);
                     let n = ret.indexOf('(');
@@ -1194,19 +1197,19 @@ async function parseElement(op, e, depth) {
                         if (op.method === 'constructor' && op.typeDef) {
                             addRuntimeAssert(e,
                                 (op.forcedInheritance && op.wroteConstructorName === false ? 'super();' : '') +
-                                `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${CallOrigin.Constructor}); try { `,
+                                `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${CallOrigin.Constructor}); try { `,
                                 ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, true);
                             op.wroteConstructorName = true;
                         }
                         else {
                             addRuntimeAssert(e,
-                                `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${op.context.callType}); try { `,
+                                `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${op.context.callType}); try { `,
                                 ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false);
                         }
                     }
                     else if (op.context.functionName) {
                         addRuntimeAssert(e,
-                            `const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, arguments, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.functionName}', __FILE__, false, __LINE__, false, ${op.context.callType}); try { `,
+                            `const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.functionName}', __FILE__, false, __LINE__, false, ${op.context.callType}); try { `,
                             ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false);
                     }
                     ret += await parseElement(op, e.body, depth + 1);

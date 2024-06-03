@@ -87,7 +87,7 @@ class MUDLoader {
             },
             __bfc: {
                 //  Begin Function Call
-                value: function (ecc, parameters, ob, access, method, fileName, isAsync, lineNumber, type, callType) {
+                value: function (ecc, parameters, namedParameters, ob, access, method, fileName, isAsync, lineNumber, type, callType) {
                     let args = Array.prototype.__native.slice(parameters);
                     let newContext = false;
 

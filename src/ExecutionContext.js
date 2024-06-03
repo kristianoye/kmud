@@ -555,6 +555,14 @@ class ExecutionContext extends MUDEventEmitter {
         return this;
     }
 
+    /**
+     * Create a new, empty execution context
+     * @returns {ExecutionContext}
+     */
+    static createNewContext() {
+        return (driver.executionContext = new ExecutionContext());
+    }
+
     get currentFileName() {
         let frame = this.stack[0];
         return frame.file || false;
@@ -822,6 +830,10 @@ class ExecutionContext extends MUDEventEmitter {
             isUnguarded || false,
             callType || 0);
         return frame;
+    }
+
+    pushNewScope() {
+        return this;
     }
 
     /**
