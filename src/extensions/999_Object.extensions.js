@@ -39,3 +39,7 @@ Object.mapEach = function (target, callback) {
     }
     return ac > 0 ? arr : obj;
 };
+
+if (__ivc === true) {
+    __igt(Object.prototype);
+}

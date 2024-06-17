@@ -3,6 +3,7 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
+const { ExecutionContext } = require('../ExecutionContext');
 const
     { PipelineContext } = require('./PipelineContext'),
     VMAbstraction = require('./VMAbstraction'),
@@ -56,11 +57,12 @@ class VMWrapper extends VMAbstraction {
 
     /**
      * Load an object in its own virtual sandbox;
+     * @param {ExecutionContext} ecc The execution context
      * @param {PipelineContext} context The compiler context.
      * @param {MUDModule} module The module being loaded.
      * @returns {any} Returns a value from the virtual machine.
      */
-    run(context, module) {
+    async runAsync(ecc, context, module) {
         module.context = vm.createContext(module.loader);
         module.loader.ctx = module.context;
 
@@ -75,58 +77,16 @@ class VMWrapper extends VMAbstraction {
             options.timeout = CompilerTimeout;
         }
 
-        let content = [`(() => { const [__DIR__, __FILE__] = ['${module.directory}', '${module.filename}'], `,
-            '__filename = __FILE__, __dirname = __DIR__, efuns = createEfuns(), module = efuns, ',
-            'require = function(str) { return efuns.require(str);  };',
-            context.content,
-            ' })()'].join('');
-
-        if (!module.context.initialized) {
-            let content = module.context.constructor.getInitialization && module.context.constructor.getInitialization();
-            content && vm.runInContext(content, module.context);
-            module.context.initialized = true;
-
-            vm.runInContext(ExtensionText, module.context, {
-                filename: './src/Extensions.js',
-                displayErrors: true
-            });
-
-        }
-
-        return vm.runInContext(content, module.context, options);
-    }
-
-    /**
-     * Load an object in its own virtual sandbox;
-     * @param {PipelineContext} context The compiler context.
-     * @param {MUDModule} module The module being loaded.
-     * @returns {any} Returns a value from the virtual machine.
-     */
-    async runAsync(context, module) {
-        module.context = vm.createContext(module.loader);
-        module.loader.ctx = module.context;
-
-        let options = {
-            filename: context.resolvedName.toLowerCase(),
-            lineOffset: 0,
-            produceCachedData: false,
-            displayErrors: true
-        };
-
-        if (CompilerTimeout > 0) {
-            options.timeout = CompilerTimeout;
-        }
-
-        let content = ['(async() => { ',
+        let content = ['(async(__hid) => { ',
             `const [__DIR__, __FILE__] = ['${module.directory}', '${module.filename}'], `,
             '__filename = __FILE__, ',
             '__dirname = __DIR__, ',
-            'efuns = createEfuns(), ',
+            '[efuns, __mec] = __cef(__hid), ',
             'module = efuns, ',
             'requireAsync = async (s) => { return await efuns.requireAsync(s); }, ',
             'require = function(str) { return efuns.require(str);  };',
         context.content,
-            ' })()'].join('');
+            ` })('${ecc.handleId}')`].join('');
 
         if (!this.initialized) {
             try {

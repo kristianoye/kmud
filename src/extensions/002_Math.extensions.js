@@ -39,3 +39,7 @@ if (!Math.ceil10) {
         return decimalAdjust('ceil', value, exp);
     };
 }
+
+if (__ivc === true) {
+    __igt(Math);
+}

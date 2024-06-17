@@ -1,12 +1,12 @@
-﻿const SimpleObject = require('./SimpleObject');
-
-/*
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
 const
     MUDObject = require('./MUDObject'),
+    { ExecutionContext, CallOrigin } = require('./ExecutionContext'),
+    SimpleObject = require('./SimpleObject'),
     MUDCompilerOptions = require('./compiler/MUDCompilerOptions'),
     { PipelineContext } = require('./compiler/PipelineContext'),
     events = require('events'),
@@ -538,19 +538,30 @@ class MUDModule extends events.EventEmitter {
             this.$defaultExport = val;
     }
 
-    async setDefaultExport(val) {
-        if (driver.efuns.isClass(val)) {
-            let flags = val.prototype.typeModifiers;
+    /**
+     * 
+     * @param {ExecutionContext} ecc
+     * @param {any} val
+     */
+    async setDefaultExport(ecc, val) {
+        let frame = ecc.pushFrame(ecc.thisObject, 'setDefaultExport', this.filename, true);
+        try {
+            if (driver.efuns.isClass(val)) {
+                let flags = val.prototype.typeModifiers;
 
-            if ((flags & MemberModifiers.Singleton) > 0) {
-                let inst = await this.createInstanceAsync(val, false, [], false, this.filename);
-                this.$defaultExport = inst;
+                if ((flags & MemberModifiers.Singleton) > 0) {
+                    let inst = await this.createInstanceAsync(ecc.branch(), val, false, [], false, this.filename);
+                    this.$defaultExport = inst;
+                }
+                else
+                    this.$defaultExport = val;
             }
             else
                 this.$defaultExport = val;
         }
-        else
-            this.$defaultExport = val;
+        finally {
+            frame.pop();
+        }
     }
 
     addExportElement(val, key = false, isDefault = false) {
@@ -628,7 +639,19 @@ class MUDModule extends events.EventEmitter {
         return instance;
     }
 
-    async createInstanceAsync(type, instanceData, args, factory = false, callingFile = false, isReload = false) {
+    /**
+     * 
+     * @param {ExecutionContext} ecc
+     * @param {any} type
+     * @param {any} instanceData
+     * @param {any[]} args
+     * @param {any} factory
+     * @param {any} callingFile
+     * @param {any} isReload
+     * @returns
+     */
+    async createInstanceAsync(ecc, type, instanceData, args, factory = false, callingFile = false, isReload = false) {
+        let frame = ecc.pushFrame(ecc.thisObject, 'createInstanceAsync', this.filename, true);
         try {
             let instance = false, store = false;
 
@@ -651,14 +674,13 @@ class MUDModule extends events.EventEmitter {
                     type = this.types[type];
             }
             if (instance === false) {
-                let ecc = driver.getExecution();
                 let virtualContext = ecc && ecc.popVirtualCreationContext();
 
                 if (virtualContext) {
                     virtualContext.module = this;
                     virtualContext.trueName = this.filename + '$' + type.name + '#' + virtualContext.objectId;
                     virtualContext.typeName = type.name;
-                    return await this.createInstanceAsync(type, virtualContext, args);
+                    return await this.createInstanceAsync(ecc.branch(), type, virtualContext, args);
                 }
 
                 if (!instanceData) {
@@ -671,32 +693,46 @@ class MUDModule extends events.EventEmitter {
                 // Storage needs to be set before starting...
                 store = driver.storage.createForId(instanceData.objectId, instanceData.filename);
 
-                ecc.addCreationContext(instanceData);
-                ecc.storage = store;
+                let frame = ecc
+                    .branch()
+                    .pushFrameObject({ object: instance, method: 'constructor', file: this.filename, callType: CallOrigin.Constructor });
 
-                instance = factory ? factory(type, ...args) : new type(...args);
-                this.addInstance(instance, type, instanceData);
+                try {
+                    let constructorArgs = args.slice(0);
+
+                    frame.context.addCreationContext(instanceData);
+                    frame.context.storage = store;
+
+                    constructorArgs.unshift(frame.context);
+                    instance = factory ? factory(type, ...constructorArgs) : new type(...constructorArgs);
+                    this.addInstance(instance, type, instanceData);
+                }
+                finally {
+                    frame.pop();
+                }
 
                 if (typeof this.compilerOptions.onInstanceCreated === 'function') {
                     this.compilerOptions.onInstanceCreated(instance);
                 }
 
                 if (typeof instance.create === 'function') {
-                    await ecc.withObject(instance, 'create', async () => {
-                        let result = await instance.create(...args);
-                        if (typeof instance.postCreate === 'function') {
-                            try {
-                                await instance.postCreate();
-                            }
-                            catch (err) {
+                    let frame = ecc
+                        .branch()
+                        .pushFrameObject({ object: instance, file: this.filename, method: 'createInstanceAsync' });
+                    try {
+                        let createArgs = args.slice(0);
+                        createArgs.unshift(frame.context);
+                        await instance.create(...args);
 
-                            }
-                        }
-                        return result;
-                    }, true, true);
+                        if (typeof instance.setup === 'function')
+                            await instance.setup(frame.context.branch());
+                    }
+                    finally {
+                        frame.pop();
+                    }
                 }
                 if (store !== false && instance !== false)
-                    await driver.driverCallAsync('initStorage', async () => await store.eventInitialize(instance));
+                    await store.eventInitialize(ecc.branch(), instance);
             }
 
             return instance;
@@ -705,6 +741,9 @@ class MUDModule extends events.EventEmitter {
             /* rollback object creation */
             driver.storage.delete(instanceData.filename);
             throw err;
+        }
+        finally {
+            frame.pop();
         }
     }
 

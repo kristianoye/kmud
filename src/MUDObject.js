@@ -10,13 +10,12 @@ const
  * Base type for all MUD objects.
  */
 class MUDObject extends MUDEventEmitter {
-    constructor() {
+    constructor(ecc) {
         super();
 
         if (!new.target)
             throw new Error('Illegal constructor call');
 
-        let ecc = driver.getExecution(this, 'constructor', this.__proto__.fileName, this.constructor);
         try {
             if (ecc && ecc.newContext) {
                 let ctx = ecc.newContext;
@@ -80,7 +79,6 @@ class MUDObject extends MUDEventEmitter {
         }
         finally {
             ecc.popCreationContext();
-            ecc.pop('constructor');
             Object.freeze(this);
         }
     }
@@ -99,7 +97,7 @@ class MUDObject extends MUDEventEmitter {
 
     create(...args) { }
 
-    async createAsync(...args) { }
+    setup(...args) { }
 
     get environment() {
         let store = driver.storage.get(this);

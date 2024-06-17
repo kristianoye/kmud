@@ -88,7 +88,7 @@ class MUDLoader {
             __bfc: {
                 //  Begin Function Call
                 value: function (ecc, parameters, namedParameters, ob, access, method, fileName, isAsync, lineNumber, type, callType) {
-                    let args = Array.prototype.__native.slice(parameters);
+                    let args = Array.prototype.slice(parameters);
                     let newContext = false;
 
                     ecc = ecc instanceof ExecutionContext ? ecc : driver.getExecution();
@@ -186,12 +186,16 @@ class MUDLoader {
                 writable: false,
                 enumerable: false
             },
-            __mec: {
-                get: function () {
-                    return driver.getExecution();
+            __cef: {
+                //  Create efuns
+                value: function(handleId) {
+                    let ctx = ExecutionContext.getContextByHandleID(handleId),
+                    fn = ctx.currentFileName;
+                    return [driver.createEfunInstance(fn), ctx];
                 },
                 configurable: false,
-                enumerable: false
+                enumerable: false,
+                writable: false
             },
             __dmt: {
                 //  Define Module Type
@@ -204,6 +208,66 @@ class MUDLoader {
                 configurable: false,
                 writable: false,
                 enumerable: false
+            },
+            __igt: {
+                value: function (proto) {
+                    if (!proto.__native) {
+                        proto.__native = {};
+                        let props = Object.getOwnPropertyDescriptors(proto);
+
+                        for (const [name, prop] of Object.entries(props)) {
+                            if (typeof proto[name] === 'function') {
+                                (function (name, impl) {
+                                    /**
+                                     * 
+                                     * @param {ExecutionContext} ctx
+                                     * @param {...any} parms
+                                     * @returns
+                                     */
+                                    proto[name] = function (ctx, ...parms) {
+                                        let frame = false;
+                                        try {
+                                            if (arguments.length) {
+                                                let args = __ivc ? Array.prototype.__native.slice.apply(parms) : Array.prototype.slice.apply(parms);
+                                                if (ctx instanceof ExecutionContext === false) {
+                                                    if (__ivc)
+                                                        Array.prototype.__native.unshift.call(args, ctx);
+                                                    else
+                                                        args.unshift(ctx);
+                                                    ctx = false;
+                                                }
+                                                else {
+                                                    frame = ctx.pushFrame(this, name, typeof efuns === 'undefined' ? '(unknown)' : efuns.filename, ctx.isAwaited);
+                                                }
+                                                let result = impl.apply(this, args);
+                                                return result;
+                                            }
+                                            else {
+                                                let result = impl.apply(this);
+                                                return result;
+                                            }
+                                        }
+                                        finally {
+                                            if (frame)
+                                                frame.pop();
+                                        }
+                                    };
+                                })(name, proto.__native[name] = proto[name]);
+                            }
+                        }
+                        Object.seal(proto);
+                    }
+                    return proto;
+                },
+                enumerable: false,
+                writable: false,
+                configurable: false
+            },
+            __ivc: {
+                value: true,
+                enumerable: false,
+                writable: false,
+                configurable: false
             },
             Buffer: {
                 value: global.Buffer,
@@ -373,12 +437,6 @@ class MUDLoader {
         }
         else
             throw new Error(`Bad argument 1 to createAsync(); Expected string or type but got ${typeof type}`);
-    }
-
-    createEfuns() {
-        let ctx = driver.getExecution(),
-            fn = ctx.currentFileName;
-        return driver.createEfunInstance(fn);
     }
 
     /**
@@ -567,23 +625,24 @@ class MUDLoader {
 
     /**
      * Allows us to unwind the Javascript stack without unwinding the MUD stack
+     * @param {ExecutionContext} ecc
      * @param {any} callback
      */
-    setImmediate(callback) {
-        let ecc = driver.getExecution(),
-            child = ecc.fork(),
+    setImmediate(ecc, callback) {
+        let child = ecc.fork(),
             isAsync = efuns.isAsync(callback);
 
         global.setImmediate(async () => {
-            child.restore();
-
-            let frame = child.pushFrameObject({ method: 'setImmediate', isAsync });
+            let frame = child
+                .branch()
+                .restore()
+                .pushFrameObject({ method: 'setImmediate', isAsync });
             try
             {
-                if (isAsync)
-                    await callback();
+                if (efuns.isAsync(callback))
+                    await callback.call(thisObject, frame.context);
                 else
-                    callback();
+                    callback.call(thisObject, frame.context);
             }
             finally {
                 frame.pop();
@@ -593,32 +652,35 @@ class MUDLoader {
 
     /**
      * Periodically call a function
+     * @param {ExecutionContext} ecc
      * @param {function} callback The function to execute after the timer has expired
      * @param {number} timer The amount of time to delay execution (in ms)
      * @param {...any} args Additional parameters to pass to callback
      * @returns {number} Returns the unique ID/handle for the timer
      */
-    setInterval(callback, timer, ...args) {
+    setInterval(ecc, callback, timer, ...args) {
         //  TODO: Make this configurable
         if (timer < 50)
             throw new Error('Interval cannot be less than 50ms');
 
         //  Fork execution
-        let /** @type {ExecutionContext} */ ecc = driver.getExecution(),
-            childContext = ecc.fork(),
+        let childContext = ecc.fork(),
             thisObject = ecc.thisObject;
-
-        //  Push this frame onto the stack as a placeholder
-        let frame = childContext.pushFrameObject({ object: thisObject, method: 'setInterval', callType: CallOrigin.Callout });
 
         let ident = global.setInterval(async () => {
             //  Make this context the active one
-            childContext.restore();
+            let frame = childContext
+                .branch()
+                .restore()
+                .pushFrameObject({ object: thisObject, method: 'setInterval', callType: CallOrigin.Callout });
 
             //  Check for the health of this timer
             let hasError = false;
 
             try {
+                //  Insert branched execution context
+                args.unshift(frame.context);
+
                 if (efuns.isAsync(callback))
                     await callback.apply(thisObject, args);
                 else
@@ -631,6 +693,7 @@ class MUDLoader {
             finally {
                 if (hasError === true)
                     this.clearInterval(typeof ident === 'number' ? ident : ident[Symbol.toPrimitive]());
+                frame.pop();
             }
         }, timer);
 
@@ -641,29 +704,31 @@ class MUDLoader {
 
     /**
      * Call a function after the specified time has past
+     * @param {ExecutionContext} ecc
      * @param {function} callback The function to execute after the timer has expired
      * @param {number} timer The amount of time to delay execution (in ms)
      * @param {...any} args Additional parameters to pass to callback
      * @returns {number} Returns the unique ID/handle for the timer
      */
-    setTimeout(callback, timer, ...args) {
+    setTimeout(ecc, callback, timer, ...args) {
         //  TODO: Make this configurable
         if (timer < 50)
             throw new Error('Interval cannot be less than 50ms');
 
         //  Fork execution
-        let /** @type {ExecutionContext} */ ecc = driver.getExecution(),
-            childContext = ecc.fork(),
+        let childContext = ecc.fork(),
             thisObject = ecc.thisObject;
 
-        //  Push this frame onto the stack as a placeholder
-        let frame = childContext.pushFrameObject({ object: thisObject, method: 'setTimeout', callType: CallOrigin.Callout });
-
         let ident = global.setTimeout(async () => {
-            //  Make this context the active one
-            childContext.restore();
+            let frame = childContext
+                .branch()
+                .restore()
+                .pushFrameObject({ object: thisObject, method: 'setTimeout', callType: CallOrigin.Callout });
 
             try {
+                //  Insert branched execution context
+                args.unshift(frame.context);
+
                 if (efuns.isAsync(callback))
                     await callback.apply(thisObject, args);
                 else

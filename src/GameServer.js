@@ -4,7 +4,7 @@
  * Date: October 1, 2017
  */
 const
-    { ExecutionContext, ExecutionFrame } = require('./ExecutionContext'),
+    { ExecutionContext, ExecutionFrame, CallOrigin } = require('./ExecutionContext'),
     { NetUtil } = require('./network/NetUtil'),
     { LinkedList, LinkedListWithID, LinkedListWithLookup } = require('./LinkedList'),
     MUDObject = require('./MUDObject'),
@@ -31,6 +31,11 @@ class GameServer extends MUDEventEmitter {
         global.driver = this;
 
         let extensionsDir = path.join(__dirname, 'extensions');
+        Object.defineProperty(global, '__ivc', {
+            value: false,
+            writable: false,
+            configurable: false
+        });
         fs.readdirSync(extensionsDir).forEach(file => {
             try {
                 let fullPath = path.join(__dirname, 'extensions', file);
@@ -50,13 +55,6 @@ class GameServer extends MUDEventEmitter {
                 console.log(`Error including extension file ${file}: ${ex.message}\n` + ex.stack);
             }
         });
-        this.mudifyPrototype(
-            Array.prototype,
-            String.prototype,
-            Object.prototype,
-            Number.prototype,
-            Math
-        );
         let test = Math.floor(1.2);
         this.efunProxyPath = path.resolve(__dirname, './EFUNProxy.js');
 
@@ -420,93 +418,86 @@ class GameServer extends MUDEventEmitter {
         });
     }
 
-    /** Create the in-game master object */
-    async createMasterObjectAsync() {
-        return await this.driverCallAsync('createMasterObjectAsync', async () => {
-            try {
-                /**
-                 * Attempts to find an apply method in the master object.
-                 * @param {string} name THe name of the apply to look for
-                 * @param {boolean} required Is the apply absolutely required (true) or optional (false)
-                 * @returns {function(...any)} The master object apply if it exists
-                 */
-                let locateApply = (name, required) => {
-                    let func = this.masterObject[config.applyNames[name] || name];
-                    if (typeof func !== 'function' && required === true)
-                        throw new Error(`Invalid master object; Could not locate required ${name} apply: ${(config.applyNames[name] || name)}`);
-                    if (!func)
-                        return false;
-                    return func.bind(this.masterObject);
-                };
-                let config = this.config.mudlib,
-                    masterFile = await this.fileManager.getObjectAsync(config.master.path, 0, true),
-                    gameMaster = await this.compiler.compileObjectAsync({
-                        file: config.master.path,
-                        onInstanceCreated: o => {
-                            this.masterObject = o;
-                            /* validate in-game master */
-                            this.applyCompileVirtual = locateApply('compileVirtualObject', false);
-                            this.applyConnect = locateApply('connect', false);
-                            this.applyConvertUnits = locateApply('convertUnits', false);
-                            this.applyCreateFileACL = locateApply('createFileACL', false);
-                            this.applyErrorHandler = locateApply('errorHandler', false);
-                            this.applyGetPreloads = locateApply('getPreloads', false);
-                            this.applyGetHomePath = locateApply('getHomePath', false);
-                            this.applyLogError = locateApply('logError', false);
-                            this.applyGetGroups = locateApply('getPermissionGroups', false);
-                            this.applyUserExists = locateApply('userExists', true);
-                            this.applyRegisterServer = locateApply('registerServer', false);
-                            this.applyStartup = locateApply('startup', false);
-                            this.applyValidDestruct = locateApply('validDestruct', false);
-                            this.applyValidExec = locateApply('validExec', false);
-                            this.applyValidObject = locateApply('validObject', false);
-                            this.applyValidGroupChange = locateApply('validSecurityGroupChange', true);
-                            this.applyValidRead = locateApply('validRead', true);
-                            this.applyValidReadConfig = locateApply('validReadConfig', false);
-                            this.applyValidRequire = locateApply('validRequire', true);
-                            this.applyValidSocket = locateApply('validSocket', false);
-                            this.applyValidShutdown = locateApply('validShutdown', true);
-                            this.applyValidWrite = locateApply('validWrite', true);
-                        }
-                    });
-
-                if (!gameMaster) {
-                    throw new Error('In-game master could not be loaded; Abort!');
-                }
-
-                /** @type {MasterObject} */
-                this.masterObject = gameMaster.defaultExport;
-
-                if (!this.masterObject) {
-                    throw new Error(`Failed to load master object (${config.master.path})`);
-                }
-
-                this.rootUid = typeof this.masterObject.get_root_uid === 'function' ?
-                    this.masterObject.get_root_uid() || 'ROOT' : 'ROOT';
-
-                this.backboneUid = typeof this.masterObject.get_backbone_uid === 'function' ?
-                    this.masterObject.get_backbone_uid() || 'BACKBONE' : 'BACKBONE';
-
-                return this;
-            }
-            catch (err) {
-                console.log(`CRITICAL: GameServer.createMasterObject() failed with error: ${err.message}`);
-                throw err;
-            }
-        }, 'master', true);
-    }
-
-    /**
-     * Attempt to load/create a directory-based ACL
-     * @param {string} directory
+    /** 
+     * Create the in-game master object 
+     * @param {ExecutionContext} ecc
      */
-    async createFileACL(directory) {
-        if (this.applyCreateFileACL === false)
-            return null;
+    async createMasterObjectAsync(ecc) {
+        let frame = ecc.pushFrameObject({ object: this, method: 'createMasterObjectAsync', file: __filename, isAsync: true, callType: CallOrigin.Driver });
 
-        return await this.driverCallAsync('applyCreateFileACL', async () => {
-            return await this.applyCreateFileACL(directory, frame.object || frame.file, frame.method);
-        });
+        try {
+            /**
+             * Attempts to find an apply method in the master object.
+             * @param {string} name THe name of the apply to look for
+             * @param {boolean} required Is the apply absolutely required (true) or optional (false)
+             * @returns {function(...any)} The master object apply if it exists
+             */
+            let locateApply = (name, required) => {
+                let func = this.masterObject[config.applyNames[name] || name];
+
+                if (typeof func !== 'function' && required === true)
+                    throw new Error(`Invalid master object; Could not locate required ${name} apply: ${(config.applyNames[name] || name)}`);
+                if (!func)
+                    return false;
+                return func.bind(this.masterObject);
+            };
+            let config = this.config.mudlib,
+                gameMaster = await this.compiler.compileObjectAsync(ecc.branch(), {
+                    file: config.master.path,
+                    onInstanceCreated: o => {
+                        this.masterObject = o;
+                        /* validate in-game master */
+                        this.applyCompileVirtual = locateApply('compileVirtualObject', false);
+                        this.applyConnect = locateApply('connect', false);
+                        this.applyConvertUnits = locateApply('convertUnits', false);
+                        this.applyCreateFileACL = locateApply('createFileACL', false);
+                        this.applyErrorHandler = locateApply('errorHandler', false);
+                        this.applyGetPreloads = locateApply('getPreloads', false);
+                        this.applyGetHomePath = locateApply('getHomePath', false);
+                        this.applyLogError = locateApply('logError', false);
+                        this.applyGetGroups = locateApply('getPermissionGroups', false);
+                        this.applyUserExists = locateApply('userExists', true);
+                        this.applyRegisterServer = locateApply('registerServer', false);
+                        this.applyStartup = locateApply('startup', false);
+                        this.applyValidDestruct = locateApply('validDestruct', false);
+                        this.applyValidExec = locateApply('validExec', false);
+                        this.applyValidObject = locateApply('validObject', false);
+                        this.applyValidGroupChange = locateApply('validSecurityGroupChange', true);
+                        this.applyValidRead = locateApply('validRead', true);
+                        this.applyValidReadConfig = locateApply('validReadConfig', false);
+                        this.applyValidRequire = locateApply('validRequire', true);
+                        this.applyValidSocket = locateApply('validSocket', false);
+                        this.applyValidShutdown = locateApply('validShutdown', true);
+                        this.applyValidWrite = locateApply('validWrite', true);
+                    }
+                });
+
+            if (!gameMaster) {
+                throw new Error('In-game master could not be loaded; Abort!');
+            }
+
+            /** @type {MasterObject} */
+            this.masterObject = gameMaster.defaultExport;
+
+            if (!this.masterObject) {
+                throw new Error(`Failed to load master object (${config.master.path})`);
+            }
+
+            this.rootUid = typeof this.masterObject.get_root_uid === 'function' ?
+                this.masterObject.get_root_uid() || 'ROOT' : 'ROOT';
+
+            this.backboneUid = typeof this.masterObject.get_backbone_uid === 'function' ?
+                this.masterObject.get_backbone_uid() || 'BACKBONE' : 'BACKBONE';
+
+            return this;
+        }
+        catch (err) {
+            console.log(`CRITICAL: GameServer.createMasterObject() failed with error: ${err.message}`);
+            throw err;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /** Initializes the filesystem. */
@@ -576,38 +567,34 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Create the simul efuns object.
+     * @param {ExecutionContext} ecc
      * @returns {EFUNProxy} The sealed simul efun object.
      */
-    async createSimulEfuns() {
-
-        return await this.driverCallAsync('createSimulEfuns', async () => {
-            try {
-                let EFUNProxy = require('./EFUNProxy');
-                if (this.simulEfunPath) {
-                    let module = await this.compiler.compileObjectAsync({
-                        file: this.simulEfunPath,
-                        flags: CompilerFlags.CompileOnly,
-                        altParent: require('./EFUNProxy'),
-                        noSeal: true
-                    });
-                    this.simulEfunType = module.getType();
-                }
-                else {
-                    this.simulEfunType = EFUNProxy;
-                }
+    async createSimulEfuns(ecc) {
+        let frame = ecc.pushFrameObject({ object: this, method: 'createSimulEfuns', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let EFUNProxy = require('./EFUNProxy');
+            if (this.simulEfunPath) {
+                let module = await this.compiler.compileObjectAsync(ecc.branch(), {
+                    file: this.simulEfunPath,
+                    flags: CompilerFlags.CompileOnly,
+                    altParent: require('./EFUNProxy'),
+                    noSeal: true
+                });
+                this.simulEfunType = module.getType();
             }
-            catch (err) {
-                // Oh snap... fallback plan...
-                this.simulEfunType = require('./EFUNProxy');
+            else {
+                this.simulEfunType = EFUNProxy;
             }
-            finally {
-                Object.seal(this.simulEfunType);
-                this.initDriverEfuns(new this.simulEfunType('/', '/'));
-                this.efuns.SaveExtension = this.config.mudlib.defaultSaveExtension;
-                Object.freeze(this.efuns);
-            }
-            return this.efuns;
-        });
+        }
+        finally {
+            frame.pop();
+            Object.seal(this.simulEfunType);
+            this.initDriverEfuns(new this.simulEfunType('/', '/'));
+            this.efuns.SaveExtension = this.config.mudlib.defaultSaveExtension;
+            Object.freeze(this.efuns);
+        }
+        return this.efuns;
     }
 
     /** Configure the various components attached to the driver. */
@@ -961,6 +948,10 @@ class GameServer extends MUDEventEmitter {
         return this.executionContext.push(ob, method, fileName, isAsync, lineNumber, callString || method);
     }
 
+    /**
+     * Instrument global prototypes to accept an execution context.
+     * @param {...any} protos
+     */
     mudifyPrototype(...protos) {
         for (const proto of protos) {
             if (!proto.__native) {
@@ -968,6 +959,9 @@ class GameServer extends MUDEventEmitter {
                 let props = Object.getOwnPropertyDescriptors(proto);
 
                 for (const [name, prop] of Object.entries(props)) {
+                    if (name === 'toString') {
+                        continue;
+                    }
                     if (typeof proto[name] === 'function') {
                         (function (name, impl) {
                             /**
@@ -977,6 +971,7 @@ class GameServer extends MUDEventEmitter {
                              * @returns
                              */
                             proto[name] = function (ctx, ...parms) {
+                                let frame = false;
                                 try {
                                     if (arguments.length) {
                                         let args = Array.prototype.__native.slice.apply(parms);
@@ -985,14 +980,19 @@ class GameServer extends MUDEventEmitter {
                                             ctx = false;
                                         }
                                         else {
-                                            ctx.pushFrame(this, name, typeof efuns === 'undefined' ? '(unknown)' : efunx.filename, ctx.isAwaited);
+                                            frame = ctx.pushFrame(this, name, typeof efuns === 'undefined' ? '(unknown)' : efuns.filename, ctx.isAwaited);
                                         }
-                                        return impl.apply(this, args);
+                                        let result = impl.apply(this, args);
+                                        return result;
                                     }
-                                    return impl.apply(this);
+                                    else {
+                                        let result = impl.apply(this);
+                                        return result;
+                                    }
                                 }
                                 finally {
-                                    ctx && ctx.pop(name);
+                                    if (frame)
+                                        frame.pop();
                                 }
                             };
                         })(name, proto.__native[name] = proto[name]);
@@ -1216,7 +1216,7 @@ class GameServer extends MUDEventEmitter {
             this.serverAddress = '127.0.0.1';
         }
 
-        logger.log('Starting %s', this.mudName.ucfirst());
+        logger.log('Starting %s', this.mudName);
         if (this.globalErrorHandler) {
             process.on('uncaughtException', err => {
                 logger.log('uncaughtException', err);
@@ -1231,11 +1231,11 @@ class GameServer extends MUDEventEmitter {
         await this.createFileSystems();
         this.configureRuntime();
 
-        return await this.driverCallAsync('startup', async () => {
+        return await this.driverCallAsync('startup', async (ecc) => {
             console.log('Loading driver and external features');
             try {
-                let ef = await this.createSimulEfuns();
-                await this.createMasterObjectAsync();
+                await this.createSimulEfuns(ecc);
+                await this.createMasterObjectAsync(ecc);
                 await this.securityManager.validateAsync(this);
                 await this.securityManager.initSecurityAsync();
                 await this.enableFeaturesAsync();
@@ -1252,7 +1252,7 @@ class GameServer extends MUDEventEmitter {
             if (callback)
                 callback.call(this);
             return await this.runMain();
-        });
+        }, __filename, true, true);
     }
 
     async runStarting() {

@@ -16,9 +16,10 @@ const
     acorn = require('acorn'),
     MudscriptAcornPlugin = require('./MudscriptAcornPlugin'),
     jsx = require('acorn-jsx'),
-    { CallOrigin } = require('../ExecutionContext'),
+    { CallOrigin, ExecutionContext } = require('../ExecutionContext'),
     MemberModifiers = require("./MudscriptMemberModifiers"),
-    { SyntaxError, SyntaxWarning, CompositeError } = require('../ErrorTypes');
+    { SyntaxError, SyntaxWarning, CompositeError } = require('../ErrorTypes'),
+    PipelineContext = PipeContext.PipelineContext;
 
 const
     //  These cannot be used as identifiers (reserved words)
@@ -33,6 +34,9 @@ const
         'apply',
         'bind',
         'call',
+
+        //  Create efuns
+        '__cef',
 
         //  Async-related reserved tokens
         '__acb',    // Async Callback
@@ -125,8 +129,9 @@ class MudScriptAstAssembler {
     /**
      * Construct a transpiler op
      * @param {OpParams} p The constructor parameters
+     * @param {ExecutionContext} ecc The execution context in which the transpiler is running
      */
-    constructor(p) {
+    constructor(p, ecc) {
         this.acornOptions = p.acornOptions || false;
         this.allowJsx = p.allowJsx;
         this.allowLazyBindings = p.allowLazyBindings === true;
@@ -141,6 +146,7 @@ class MudScriptAstAssembler {
         /** @type {SyntaxError[]} */
         this.errors = [];
         this.errorCount = 0;
+        this.executionContext = ecc;
         this.warningCount = 0;
         this.exportCount = 0;
         this.exports = {};
@@ -854,19 +860,25 @@ async function parseElement(op, e, depth) {
                     if (writeCallee)
                         ret += callee;
                     if (!isCallout && !argsWritten) {
-                        for (const _ of e.arguments) {
-                            ret += op.readUntil(_.start);
-                            ret += await parseElement(op, _, depth + 1);
+                        if (e.callee.type !== 'ArrowFunctionExpression') {
+                            let c = 0;
+
+                            for (const _ of e.arguments) {
+                                ret += op.readUntil(_.start);
+                                if (c++ === 0) {
+                                    ret += op.context.mecName + '.branch(), ';
+                                }
+                                ret += await parseElement(op, _, depth + 1);
+                            }
+                            if (c === 0) {
+                                if (op.source.charAt(e.arguments.start) === '(') {
+                                    ret += op.readUntil(e.arguments.start + 1);
+                                    ret += op.context.mecName + '.branch()';
+                                }
+                            }
                         }
                     }
                     ret += op.readUntil(e.end);
-                    let lp = !ret.startsWith('await') && ret.indexOf('(');
-                    if (lp && lp > -1) {
-                        let injection = op.context.mecName + '.fork()';
-                        if (e.arguments.length)
-                            injection += ',';
-                        ret = ret.slice(0, lp + 1) + injection + ret.slice(lp + 1);
-                    }
                     //if (!ret.startsWith('await')) {
                     //    let nowrap = false;
 
@@ -1034,7 +1046,7 @@ async function parseElement(op, e, depth) {
                 else {
                     ret += await parseElement(op, e.declaration, depth + 1);
                     op.defaultExport = e.declaration.id.name;
-                    ret += `await module.setDefaultExport(${op.defaultExport});`;
+                    ret += `await module.setDefaultExport(${op.context.mecName}.branch(), ${op.defaultExport});`;
                 }
                 break;
 
@@ -1312,8 +1324,8 @@ async function parseElement(op, e, depth) {
                                 op.raise(`Unhandled import specifier: ${spec.type}`);
                         }
                     }
-                    ret += `const { ${locals.join(', ')} } = await efuns.importAsync(${source}, ${JSON.stringify(specifiers)});`;
-                    op.importSymbols(await efuns.importAsync(source.replace(/^[\'\"]{1}|[\'\"]{1}$/g, ''), specifiers, op.directory));
+                    ret += `const { ${locals.join(', ')} } = await efuns.importAsync(${op.context.mecName}.branch(), ${source}, ${JSON.stringify(specifiers)}, false, __LINE__);`;
+                    op.importSymbols(await efuns.importAsync(op.executionContext, source.replace(/^[\'\"]{1}|[\'\"]{1}$/g, ''), specifiers, op.directory));
                     op.pos = e.end;
                 }
                 break;
@@ -1788,13 +1800,14 @@ class MudScriptTranspiler extends PipelineComponent {
 
     /**
      * Transpile the source code
-     * @param {any} context
+     * @param {ExecutionContext} ecc
+     * @param {PipelineContext} context
      * @param {MUDCompilerOptions} options
      * @param {number} step
      * @param {number} maxStep
      * @returns
      */
-    async runAsync(context, options, step, maxStep) {
+    async runAsync(ecc, context, options, step, maxStep) {
         let op = new MudScriptAstAssembler(Object.assign({
             acornOptions: Object.assign({ locations: true, sourceType: 'mudscript' }, this.acornOptions, context.acornOptions),
             allowConstructorKeyword: false,
@@ -1804,10 +1817,10 @@ class MudScriptTranspiler extends PipelineComponent {
             context,
             source: context.content,
             injectedSuperClass: 'MUDObject'
-        }, options.transpilerOptions));
+        }, options.transpilerOptions), ecc);
 
+        let frame = ecc.pushFrame(ecc.thisObject, 'runAsync', options.file, true, 0);
         op.allowLazyBindings = this.allowLazyBindings === true;
-
         try {
             if (this.enabled) {
                 options.onDebugOutput(`\t\tRunning pipeline stage ${(step + 1)} of ${maxStep}: ${this.name}`, 3);
@@ -1876,6 +1889,7 @@ class MudScriptTranspiler extends PipelineComponent {
             throw x;
         }
         finally {
+            frame.pop();
             this.emit('compiler', op.eventCompleteMessages);
             if (Array.isArray(op.eventCompleteMessages) && op.eventCompleteMessages.length > 0) {
                 for (const err of op.eventCompleteMessages) {

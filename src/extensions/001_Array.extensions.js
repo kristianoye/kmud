@@ -200,3 +200,7 @@ Array.prototype.where = function (test) {
         test = function (x) { return true; }
     return this.filter((x, i) => test(x, i));
 };
+
+if (__ivc === true) {
+    __igt(Array.prototype);
+}

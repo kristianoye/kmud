@@ -12,6 +12,7 @@ const
     ClientCaps = require('./network/ClientCaps'),
     MUDStorageFlags = require('./MUDStorageFlags'),
     CommandShellOptions = require('./CommandShellOptions'),
+    { ExecutionContext, CallOrigin } = require('./ExecutionContext'),
     maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime,
     defaultResetInterval = driver.config.mudlib.objectResetInterval;
 
@@ -339,21 +340,28 @@ class MUDStorage extends MUDEventEmitter {
 
     /**
      * Initialize the storage object.
+     * @param {ExecutionContext} ecc
      * @param {MUDObject} ownerObject
      */
-    async eventInitialize(ownerObject) {
-        if (ownerObject instanceof MUDObject) {
-            this.owner = ownerObject;
+    async eventInitialize(ecc, ownerObject) {
+        let frame = ecc.pushFrameObject({ object: ownerObject, method: 'eventInitialize', file: ownerObject.fullPath, isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (ownerObject instanceof MUDObject) {
+                this.owner = ownerObject;
 
-            //  Special case
-            if (driver.masterObject != null) {
-                this.$credential = await driver.securityManager.getCredential(ownerObject.filename);
+                //  Special case
+                if (driver.masterObject != null) {
+                    this.$credential = await driver.securityManager.getCredential(ecc.fork(), ownerObject.filename);
+                }
+                else
+                    throw new Error('CRASH: Master object has not been created!');
+                return true;
             }
-            else
-                throw new Error('CRASH: Master object has not been created!');
-            return true;
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
     async eventReset() {

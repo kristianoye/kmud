@@ -31,6 +31,7 @@
 const
     { BaseSecurityCredential, BaseSecurityGroup, BaseSecurityManager } = require('./BaseSecurityManager'),
     { FileSystemObject } = require('../fs/FileSystemObject'),
+    { ExecutionContext } = require('../ExecutionContext'),
     SecurityFlags = require('./SecurityFlags'),
     DefaultGroupName = '$ALL',
     DefaultSystemName = '$SYSTEM',
@@ -846,18 +847,20 @@ class AclSecurityManager extends BaseSecurityManager {
 
     /**
      * Get a credential
+     * @param {ExecutionContext} ecc
      * @param {string} filename
      * @returns {AclSecurityCredential | AclSecurityGroup}
      */
-    getCredential(filename, reload = false) {
-        return driver.driverCall('getCredentialApply', () => {
+    getCredential(ecc, filename, reload = false) {
+        let frame = ecc.pushFrameObject({ method: 'getCredential' });
+        try {
             if ('~@$'.indexOf(filename.charAt(0)) > -1) {
                 return this.groups[filename];
             }
             /** @type {{ IsUser: boolean, UserId: string, IsWizard: boolean, Groups: string[]}} */
             let result = filename.indexOf('\\') > -1 ? {
                 UserId: filename
-            } : driver.masterObject[this.getCredentialApply](filename);
+            } : driver.masterObject[this.getCredentialApply](ecc.branch(), filename);
 
             if (!result || typeof result !== 'object')
                 throw new Error(`Master object ${driver.filename}.${this.getCredentialApply} did not return valid credentials for ${filename}`);
@@ -880,7 +883,10 @@ class AclSecurityManager extends BaseSecurityManager {
                 result.Groups[i] = this.resolveGroup(result.Groups[i]);
             }
             return (this.credentials[result.UserId] = new AclSecurityCredential(this, result));
-        }, __filename, true, true);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**

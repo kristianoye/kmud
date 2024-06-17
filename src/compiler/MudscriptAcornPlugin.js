@@ -740,6 +740,37 @@ function plugin(options, Parser) {
             );
         }
 
+        parseExprList(close, allowTrailingComma, allowEmpty, refDestructuringErrors) {
+            var elts = [], first = true;
+            if (close === types$1.parenR) {
+                let n = this.pos;
+                if (this.type === types$1.parenR) {
+                    while (this.input.charAt(n) !== '(') n--;
+                }
+                else {
+                    while (this.input.charAt(n) !== '(') n++;
+                }
+                elts.start = n;
+            }
+            while (!this.eat(close)) {
+                if (!first) {
+                    this.expect(types$1.comma);
+                    if (allowTrailingComma && this.afterTrailingComma(close)) { break }
+                } else { first = false; }
+
+                var elt = (void 0);
+                if (allowEmpty && this.type === types$1.comma) { elt = null; }
+                else if (this.type === types$1.ellipsis) {
+                    elt = this.parseSpread(refDestructuringErrors);
+                    if (refDestructuringErrors && this.type === types$1.comma && refDestructuringErrors.trailingComma < 0) { refDestructuringErrors.trailingComma = this.start; }
+                } else {
+                    elt = this.parseMaybeAssign(false, refDestructuringErrors);
+                }
+                elts.push(elt);
+            }
+            return elts
+        }
+
         shouldParseExportStatement() {
             return this.type.keyword === "var" ||
                 this.type.keyword === 'abstract' ||

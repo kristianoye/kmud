@@ -1641,50 +1641,63 @@ class EFUNProxy {
         }
     }
 
-    async importAsync(moduleName, specifiers, relativePath = false) {
-        if (typeof moduleName === 'string') {
-            switch (moduleName) {
-                case 'lpc':
-                    return require('./LPCCompat');
+    /**
+     * 
+     * @param {ExecutionContext} ecc
+     * @param {string} moduleName
+     * @param {any} specifiers
+     * @param {any} relativePath
+     */
+    async importAsync(ecc, moduleName, specifiers, relativePath = false, lineNumber = 0) {
+        let frame = ecc.pushFrame(ecc.thisObject, 'importAsync', this.fileName, true, lineNumber, false, false, CallOrigin.DriverEfun);
+        try {
+            if (typeof moduleName === 'string') {
+                switch (moduleName) {
+                    case 'lpc':
+                        return require('./LPCCompat');
 
-                case 'path':
-                    return path.posix;
+                    case 'path':
+                        return path.posix;
 
-                case 'async':
-                case 'net':
-                    return require(moduleName);
+                    case 'async':
+                    case 'net':
+                        return require(moduleName);
 
-                default:
-                    let isInclude = moduleName.indexOf('/') === -1,
-                        filename = isInclude ?
-                            await this.resolveIncludeAsync(moduleName) :
-                            await this.resolvePath(moduleName, relativePath || this.directoryName(this.filename)),
-                        module = driver.cache.get(filename);
+                    default:
+                        let isInclude = moduleName.indexOf('/') === -1,
+                            filename = isInclude ?
+                                await this.resolveIncludeAsync(moduleName) :
+                                await this.resolvePath(moduleName, relativePath || this.directoryName(this.filename)),
+                            module = driver.cache.get(filename);
 
-                    if (!module)
-                        module = await driver.compiler.compileObjectAsync({
-                            file: filename,
-                            reload: false,
-                            relativePath: this.directory
-                        });
-                    if (!module)
-                        throw new Error(`Failed to load required module '${filename}'`);
-                    else if (module.isCompiling)
-                        throw new Error(`Circular dependency detected: ${module.filename} <-> ${this.fileName}`);
+                        if (!module)
+                            module = await driver.compiler.compileObjectAsync(ecc, {
+                                file: filename,
+                                reload: false,
+                                relativePath: this.directory
+                            });
+                        if (!module)
+                            throw new Error(`Failed to load required module '${filename}'`);
+                        else if (module.isCompiling)
+                            throw new Error(`Circular dependency detected: ${module.filename} <-> ${this.fileName}`);
 
-                    let result = {};
-                    for (const [exportAs, definedAs] of Object.entries(specifiers)) {
-                        if (definedAs === 'default')
-                            result[exportAs] = module.defaultExport;
-                        else if (definedAs === 'exports')
-                            result[exportAs] = Object.assign({}, module.exports);
-                        else if (definedAs in module.exports)
-                            result[exportAs] = module.exports[definedAs];
-                        else
-                            throw new Error(`SyntaxError: The requested module '${filename}' does not provide an export named '${definedAs}'`);
-                    }
-                    return result;
+                        let result = {};
+                        for (const [exportAs, definedAs] of Object.entries(specifiers)) {
+                            if (definedAs === 'default')
+                                result[exportAs] = module.defaultExport;
+                            else if (definedAs === 'exports')
+                                result[exportAs] = Object.assign({}, module.exports);
+                            else if (definedAs in module.exports)
+                                result[exportAs] = module.exports[definedAs];
+                            else
+                                throw new Error(`SyntaxError: The requested module '${filename}' does not provide an export named '${definedAs}'`);
+                        }
+                        return result;
+                }
             }
+        }
+        finally {
+            frame.pop(true);
         }
     }
 
@@ -2083,10 +2096,19 @@ class EFUNProxy {
         return Math.max(0, total + modifier);
     }
 
-    /** Sets the default export for the module */
-    async setDefaultExport(val) {
-        let module = driver.cache.get(this.fullPath);
-        return await module.setDefaultExport(val, true);
+    /** 
+     * Sets the default export for the module 
+     * @param {ExecutionContext} ecc
+     */
+    async setDefaultExport(ecc, val) {
+        let frame = ecc.pushFrame(ecc.thisObject, 'setDefaultExport', this.fileName, true);
+        try {
+            let module = driver.cache.get(this.fullPath);
+            return await module.setDefaultExport(ecc.branch(), val, true);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
