@@ -30,6 +30,7 @@ class MUDCache {
                 let index = this.moduleNames.indexOf(filename);
                 if (index > -1) {
                     this.moduleNames.splice(index, 1);
+                    this.length--;
                 }
                 return true;
             }
@@ -51,7 +52,6 @@ class MUDCache {
      * @returns {MUDModule|boolean} Returns a previously compiled object.
      */
     get(filename) {
-        filename = this.normalize(filename);
         return filename ? this[filename] || false : false;
     }
 
@@ -64,7 +64,7 @@ class MUDCache {
      * @returns {MUDModule} The module
      */
     getOrCreate(context, isVirtual, options, parent = false) {
-        let filename = this.normalize(context.filename);
+        let filename = context.fullPath;
         let module = this[filename];
         if (!module) {
             this[filename] = module = new MUDModule(context, isVirtual, options, parent);
@@ -79,25 +79,9 @@ class MUDCache {
      * @param {string} file The module that defines the type.
      * @param {string} typeName The name of the class being referenced.
      */
-    getType(file, typeName) {
-        let filename = this.normalize(file),
-            module = this.get(filename) || driver.compiler.compileObject({ file: filename });
+    getType(filename, typeName) {
+        let module = this.get(filename) || driver.compiler.compileObject({ file: filename });
         return module && module.getType(typeName);
-    }
-
-    /**
-     * Normalizes a cache entry filename.
-     * @param {String} filename The filename to normalize.
-     * @returns {String} The normalized filename
-     */
-    normalize(filename) {
-        if (typeof filename !== 'string') {
-            throw new Error(`Bad argument 0 to normalize; Expected string got ${(typeof filename)}`);
-        }
-        filename = (filename || '').replace(/\/{2,}/g, '/');
-        if (filename.endsWith('.js'))
-            filename = filename.slice(0, filename.length - 3);
-        return filename;
     }
 
     /**
@@ -112,8 +96,8 @@ class MUDCache {
     }
 
     store(module) {
-        if (!this[module.filename]) {
-            this[module.filename] = module;
+        if (!this[module.fullPath]) {
+            this[module.fullPath] = module;
             this.length++;
         }
         return this;

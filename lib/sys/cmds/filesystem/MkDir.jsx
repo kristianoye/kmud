@@ -19,7 +19,7 @@ export default singleton class MkDirCommand extends Command {
             .setBitflagBucketName('mkdirFlags')
             .setDescription('Create directories')
             .addOption('-p, --parents', 'No error if existing, make parent directories as needed', { name: 'createParents', sets: 1 })
-            .addOption('-v, --verbose', ' print a message for each created directory', { name: 'showNonPrinting', sets: CatFlags.ShowNonPrinting })
+            .addOption('-v, --verbose', ' print a message for each created directory', { name: 'showNonPrinting', sets: MkdirVerbose })
             .addArgument('<DIRECTORY...>');
     }
 

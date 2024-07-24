@@ -1,6 +1,6 @@
 /*
  * Written by Kris Oye <kristianoye@gmail.com>
- * Copyright (C) 2017.  All rights reserved.
+ * Copyright (C) 2017.  All rights reserved.callType
  * Date: October 1, 2017
  *
  * Description: MUD eXecution Context (MXC).  Maintains object stack and
@@ -33,12 +33,15 @@ const
         Aborted: 1,
         Suspended: 2
     }),
-    events = require('events');
+    events = require('events'),
+    parseErrorLine = /\s*at (?<callType>new|async)?\s*(?<callee>[^\b]+) \((?<loc>[^\)]+)\)/;
 
 var
     /** @type {Object.<string,ExecutionContext>} */ contexts = {},
     /** @type {Object.<number,ExecutionContext>} */ contextsByPID = {},
-    nextPID = 1;
+    nextPID = 1,
+    /** @type {ExecutionContext} */
+    currentExecution = undefined;
 
 /**
  * Represents a single frame on the MUD call stack
@@ -61,6 +64,8 @@ class ExecutionFrame {
          * Is this frame awaiting a result?
          */
         this.awaitCount = 0;
+
+        this.ellapsed = 0;
 
         /** 
          * The unique UUID of this frame
@@ -96,6 +101,7 @@ class ExecutionFrame {
          * @type {string}
          */
         this.file = filename || thisObject.filename;
+
         /** 
          * The name of the method being executed 
          * @type {string}
@@ -125,8 +131,30 @@ class ExecutionFrame {
         this.unguarded = isUnguarded === true;
     }
 
+    /**
+     * Create a branch in the stack
+     * @param {number} lineNumber
+     * @returns
+     */
+    branch(lineNumber = 0) {
+        return this.context.branch(lineNumber);
+    }
+
     get caller() {
         return this.object || this.file;
+    }
+
+    clone() {
+        return new ExecutionFrame(
+            this.context,
+            this.object,
+            this.file,
+            this.method,
+            this.lineNumber,
+            this.isAsync,
+            this.unguarded,
+            this.callType,
+            this.callType);
     }
 
     getContext() {
@@ -156,7 +184,8 @@ class ExecutionFrame {
      * @param {boolean} yieldBack
      */
     pop(yieldBack = false) {
-        this.context.pop(this.method, this.isAsync === true || yieldBack === true);
+        this.ellapsed = this.ticks;
+        this.context.popFrame(this, yieldBack === true);
     }
 
     /**
@@ -290,7 +319,7 @@ class ExecutionContext extends MUDEventEmitter {
         if (parent) {
             /** @type {ExecutionFrame[]} */
             this.stack = parent.stack.slice(0);
-            this.forkedAt = parent.stack.length;
+            this.branchedAt = parent.stack.length;
             this.alarmTime = parent.alarmTime;
             this.currentVerb = parent.currentVerb || false;
             this.client = parent.client;
@@ -311,7 +340,7 @@ class ExecutionContext extends MUDEventEmitter {
         else {
             this.#alarmTime = Number.MAX_SAFE_INTEGER;// driver.efuns.ticks + 5000;
             this.currentVerb = false;
-            this.forkedAt = 0;
+            this.branchedAt = 0;
             this.player = false;
             this.truePlayer = false;
             this.pid = nextPID++;
@@ -319,6 +348,7 @@ class ExecutionContext extends MUDEventEmitter {
             contextsByPID[this.pid] = this;
         }
         contexts[this.handleId] = this;
+        ExecutionContext.current = this;
     }
 
     /**
@@ -495,7 +525,7 @@ class ExecutionContext extends MUDEventEmitter {
             catch (err) {
                 let cleanError = driver.cleanError(err);
                 if (cleanError.file) {
-                    await driver.logError(cleanError.file, cleanError);
+                    await driver.logError(this.branch(), cleanError.file, cleanError);
                 }
                 reject(err);
             }
@@ -521,10 +551,17 @@ class ExecutionContext extends MUDEventEmitter {
 
     /**
      * Start a new execution branch on the call stack
+     * @param {number} lineNumber The line number the call to branch was made from
      * @returns {ExecutionContext} Returns a child context.
      */
-    branch() {
-        return new ExecutionContext(this, false);
+    branch(lineNumber = 0) {
+        let result = new ExecutionContext(this, false);
+        if (lineNumber > 0) {
+            let lastFrame = result.stack[0].clone();
+            lastFrame.lineNumber = lineNumber;
+            result.stack[0] = lastFrame;
+        }
+        return result;
     }
 
     /**
@@ -566,7 +603,7 @@ class ExecutionContext extends MUDEventEmitter {
      */
     complete(forceCompletion = false) {
         try {
-            if ((this.stack.length === this.forkedAt && this.children.length === 0) || true === forceCompletion) {
+            if ((this.stack.length === this.branchedAt && this.children.length === 0) || true === forceCompletion) {
                 this.completed = true;
                 for (let i = 0; i < this.onComplete; i++) {
                     try {
@@ -594,6 +631,14 @@ class ExecutionContext extends MUDEventEmitter {
             }
         }
         return this;
+    }
+
+    static get current() {
+        return currentExecution;
+    }
+
+    static set current(ecc) {
+        driver.executionContext = currentExecution = ecc;
     }
 
     /**
@@ -747,9 +792,6 @@ class ExecutionContext extends MUDEventEmitter {
     pop(method, yieldBack=false) {
         let lastFrame = this.stack.shift();
 
-        if (method instanceof ExecutionFrame)
-            method = method.callString;
-
         if (!lastFrame || lastFrame.callString !== method) {
             if (lastFrame) {
                 console.log(`ExecutionContext out of sync; Expected ${method} but found ${lastFrame.callString}`);
@@ -759,12 +801,12 @@ class ExecutionContext extends MUDEventEmitter {
         }
 
         if (true === yieldBack) {
-            this.alarmTime += lastFrame.ticks;
+            if (this.alarmTime < Number.MAX_SAFE_INTEGER)
+                this.alarmTime += lastFrame.ellapsed;
         }
 
-        if (this.stack.length === this.forkedAt) {
+        if (this.stack.length === this.branchedAt) {
             this.complete();
-            return this;
         }
         else
             this.assertStateSync();
@@ -789,6 +831,39 @@ class ExecutionContext extends MUDEventEmitter {
             return ctx;
         }
         return undefined;
+    }
+
+    /**
+     * Pop a frame object off the stack
+     * @param {ExecutionFrame} frame
+     * @param {boolean} yieldBack
+     */
+    popFrame(frame, yieldBack = false) {
+        if (true === yieldBack) {
+            if (this.alarmTime < Number.MAX_SAFE_INTEGER)
+                this.alarmTime += lastFrame.ellapsed;
+        }
+        if (frame !== this.stack[0]) {
+            console.log(`ExecutionContext out of sync; Expected ${frame.method} but found ${this.stack[0].method}`);
+            let index = this.stack.findIndex(f => f === frame);
+            if (index === -1) {
+                //  Crash?
+                console.log(`CRITICAL ERROR: FRAME NOT FOUND IN STACK: ${frame.method}`);
+            }
+            else {
+                this.stack = this.stack.slice(0, index);
+            }
+        }
+        else 
+            this.stack.shift();
+
+        if (this.stack.length <= this.branchedAt) {
+            this.complete();
+        }
+        else
+            this.assertStateSync();
+
+        return frame;
     }
 
     popVirtualCreationContext() {
@@ -871,20 +946,58 @@ class ExecutionContext extends MUDEventEmitter {
             throw new Error('CRASH: pushFrameObject() received invalid parameter');
         else if (typeof frameInfo.method !== 'string')
             throw new Error('CRASH: pushFrameObject() received invalid parameter');
-
-        let frame = this.pushFrame(frameInfo.object || this.thisObject,
-            frameInfo.method,
+        let newFrame = new ExecutionFrame(
+            this,
+            frameInfo.object || this.thisObject,
             frameInfo.file,
+            frameInfo.method,
             frameInfo.lineNumber || 0,
             frameInfo.callString || frameInfo.method,
-            frameInfo.isAsync || false,
-            frameInfo.isUnguarded || false,
+            frameInfo.isAsync === true,
+            frameInfo.isUnguarded === true,
             frameInfo.callType || 0);
-        return frame;
+        this.stack.unshift(newFrame);
+        return newFrame;
     }
 
     pushNewScope() {
         return this;
+    }
+
+    /**
+     * Push a new frame based on the NodeJS callstack
+     * THIS IS SUPER SLOW (23x slower than pushFrameObject); Avoid use if possible
+     * @param {{object:MUDObject?, file:string?, method:string, lineNumber:number?, callString:string?, isAsync:boolean?, isUnguarded:boolean?, callType:number? }} partialInfo
+     * @returns
+     */
+    pushFromStack(partialInfo = {}) {
+        let stack = __stack,
+            frame = stack[1];
+
+        if (frame) {
+            let info = Object.assign({
+                object: undefined,
+                file: frame.getFileName(),
+                method: frame.getMethodName() || frame.getFunctionName(),
+                lineNumber: frame.getLineNumber(),
+                isAsync: false,
+                isUnguarded: false,
+                callType: 0
+            }, partialInfo)
+            let newFrame = new ExecutionFrame(
+                this,
+                info.object,
+                info.file,
+                info.method,
+                info.lineNumber,
+                info.callString || info.method,
+                info.isAsync === true,
+                info.isUnguarded === true,
+                info.callType);
+            this.stack.unshift(newFrame);
+            return newFrame;
+        }
+        throw new Error('Could not determine frame information from stack');
     }
 
     /**
@@ -914,7 +1027,7 @@ class ExecutionContext extends MUDEventEmitter {
      * @returns {ExecutionContext}
      */
     restore() {
-        driver.restoreContext(this);
+        ExecutionContext.current = this;
         return this;
     }
 
@@ -959,12 +1072,52 @@ class ExecutionContext extends MUDEventEmitter {
         return false;
     }
 
+    /**
+     * Try and push a frame on to the stack if an ExecutionContext was passed
+     * 
+     * @param {IArguments} argsIn The raw arguments passed to the original function
+     * @param {{object:MUDObject?, file:string?, method:string, lineNumber:number?, callString:string?, isAsync:boolean?, isUnguarded:boolean?, callType:number? }} info Details about the method call location
+     * @param {boolean} useCurrentIfNotPresent tryPushFrame will push a frame on the current context if (1) this is true, (2) no context was present in the arguments
+     * @param {boolean} throwErrorIfNoContext If this method tries to use the current context and none is set, then throw an error
+     * @returns {[ExecutionFrame?, ...any]}
+     */
+    static tryPushFrame(argsIn, info, useCurrentIfNotPresent=false, throwErrorIfNoContext=true) {
+        /** @type {any[]} */
+        let args = Array.prototype.slice.apply(argsIn);
+
+        if (args[0] instanceof ExecutionContext) {
+            /** @type {ExecutionContext} */
+            let ecc = args.shift();
+            return [ecc.pushFrameObject(info), ...args];
+        }
+        else {
+            let frameResult = undefined;
+
+            if (useCurrentIfNotPresent) {
+                let ecc = ExecutionContext.current;
+                if (ecc) {
+                    frameResult = ecc.pushFrameObject(info);
+                }
+                else if (throwErrorIfNoContext)
+                    throw new Error(`There is no active execution context for tryPushFrame(file: ${info.file}, method: ${info.method})`)
+            }
+
+            if (typeof args[0] === 'undefined') {
+                args.shift();
+                return [frameResult, ...args];
+            }
+            else {
+                return [frameResult, ...args];
+            }
+        }
+    }
+
     validSyncCall(filename, lineNumber, expr) {
         let ecc = driver.getExecution(),
             frame = ecc && ecc.stack[0] || false;
 
         let result = expr();
-        if (driver.efuns.isPromise(result)) {
+        if (driver.efuns.isPromise(this, result)) {
             if (frame)
                 throw new Error(`${frame.file}.${frame.method} [Line ${lineNumber}]; Call to must be awaited; e.g. await ${expr}`);
             else

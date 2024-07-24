@@ -5,6 +5,7 @@
  *
  * Description: Creates an endpoint that may be used by web-enabled clients (browsers)
  */
+const { ExecutionContext, CallOrigin } = require('../../../ExecutionContext');
 const
     ClientEndpoint = require('../../ClientEndpoint'),
     HTTPClientInstance = require('./HTTPClientInstance'),
@@ -98,28 +99,35 @@ class HTTPClientEndpoint extends ClientEndpoint {
 
     /**
      * Start listening to the specified port
+     * @param {ExecutionContext} ecc The current callstack
      * @returns {HTTPClientEndpoint} Reference to self
      */
-    bind() {
-        this[_server] = createHttpServer();
-        this.httpServer.listen({ port: this.port, host: this.address });
-        this.httpServer.on('error', (error) => {
-            if (error.code === 'EADDRINUSE') {
-                this.emit('error', error, this);
-            }
-        });
+    bind(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'bind', callType: CallOrigin.Driver });
+        try {
+            this[_server] = createHttpServer();
+            this.httpServer.listen({ port: this.port, host: this.address });
+            this.httpServer.on('error', (error) => {
+                if (error.code === 'EADDRINUSE') {
+                    this.emit('error', error, this);
+                }
+            });
 
-        this.WebSocket = require('socket.io')(this.httpServer, {
-            log: true,
-            transports: ['websocket']
-        });
+            this.WebSocket = require('socket.io')(this.httpServer, {
+                log: true,
+                transports: ['websocket']
+            });
 
-        this.WebSocket.on('connection', (client) => {
-            let wrapper = new HTTPClientInstance(this, client);
-            this.emit('kmud.connection', wrapper);
-            this.emit('kmud.connection.new', wrapper, 'http');
-        });
-        return this;
+            this.WebSocket.on('connection', (client) => {
+                let wrapper = new HTTPClientInstance(this, client);
+                this.emit('kmud.connection', wrapper);
+                this.emit('kmud.connection.new', wrapper, 'http');
+            });
+            return this;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     get httpServer() {

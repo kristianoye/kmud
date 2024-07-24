@@ -1,213 +1,285 @@
+const { ExecutionContext, CallOrigin } = require("../ExecutionContext");
 
 class SecurityHelper {
     /**
      * Add members to a security group
-     * @param {string} id
-     * @param {string[]} members
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} idIn
+     * @param {string[]} membersIn
      * @returns {boolean} True on success
      */
-    static async addGroupMembers(id, members) {
-        let ecc = driver.getExecution(),
-            group = driver.securityManager.getGroup(id),
-            principles = [];
+    static async addGroupMembers(ecc, idIn, membersIn) {
+        let [frame, id, members] = ExecutionContext.tryPushFrame(arguments, { method: 'addGroupMembers', file: __filename, isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            let group = driver.securityManager.getGroup(id),
+                principles = [];
 
-        for (const memberId of members) {
-            let cred = driver.securityManager.getCredential(memberId);
-            if (cred) principles.push(cred);
+            for (const memberId of members) {
+                let cred = driver.securityManager.getCredential(memberId);
+                if (cred) principles.push(cred);
+            }
+
+            if (!group)
+                throw new Error(`addGroupMembers(): ${id} is an invalid group identifier`);
+            if (!principles.length)
+                throw new Error(`addGroupMembers(): No valid members provided`);
+
+            if (await ecc.guarded(f => driver.callApplyAsync(frame.branch(), 'validSecurityGroupChange', f.caller, 'addGroupMembers', group.createSafeExport()))) {
+                return await driver.securityManager.addGroupMembers(group, principles);
+            }
+            throw new Error(`addGroupMembers(): Permission denied`);
         }
-
-        if (!group)
-            throw new Error(`addGroupMembers(): ${id} is an invalid group identifier`);
-        if (!principles.length)
-            throw new Error(`addGroupMembers(): No valid members provided`);
-
-        if (await ecc.guarded(f => driver.callApplyAsync('validSecurityGroupChange', f.caller, 'addGroupMembers', group.createSafeExport()))) {
-            return await driver.securityManager.addGroupMembers(group, principles);
+        finally {
+            frame?.pop();
         }
-        throw new Error(`addGroupMembers(): Permission denied`);
     }
 
-    static async createSecurityGroup(id, name, description) {
-        let ecc = driver.getExecution(),
-            group = typeof id === 'object' ? id : { id, name, description };
+    /**
+     * Create a security group
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} idIn
+     * @param {string} nameIn
+     * @param {string} descriptionIn
+     * @returns
+     */
+    static async createSecurityGroup(ecc, idIn, nameIn, descriptionIn) {
+        let [frame, id, name, description] = ExecutionContext.tryPushFrame(arguments, { method: 'createSecurityGroup', file: __filename, isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            let ecc = frame.context,
+                group = typeof id === 'object' ? id : { id, name, description };
 
-        if (await ecc.guarded(f => driver.callApplyAsync('validSecurityGroupChange', f.caller, 'createSecurityGroup', group)))
-        {
-            return await driver.securityManager.createGroup(group);
+            if (await ecc.guarded(f => driver.callApplyAsync(frame.branch(), 'validSecurityGroupChange', f.caller, 'createSecurityGroup', group))) {
+                return await driver.securityManager.createGroup(group);
+            }
+            throw new Error(`createSecurityGroup(): Permission denied`);
         }
-        throw new Error(`createSecurityGroup(): Permission denied`);
+        finally {
+            frame?.pop();
+        }
     }
 
-    static async deleteSecurityGroup(id) {
-        let ecc = driver.getExecution(),
-            group = await SecurityHelper.getSecurityGroup(id);
+    /**
+     * Delete a security group
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} idIn
+     * @returns {Promise<boolean>}
+     */
+    static async deleteSecurityGroup(ecc, idIn) {
+        let [frame, id] = ExecutionContext.tryPushFrame(arguments, { method: 'deleteSecurityGroup', file: __filename, isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            let ecc = frame.context,
+                group = await SecurityHelper.getSecurityGroup(id);
 
-        if (!group)
-            throw new Error(`deleteSecurityGroup(): Group ${id} does not exist`);
+            if (!group)
+                throw new Error(`deleteSecurityGroup(): Group ${id} does not exist`);
 
-        if (await ecc.guarded(f => driver.callApplyAsync('validSecurityGroupChange', f.caller, 'deleteSecurityGroup', group))) {
-            return await driver.securityManager.deleteGroup(group);
+            if (await ecc.guarded(f => driver.callApplyAsync(frame.branch(), 'validSecurityGroupChange', f.caller, 'deleteSecurityGroup', group))) {
+                return await driver.securityManager.deleteGroup(group);
+            }
+
+            throw new Error(`deleteSecurityGroup(${id}): Permission denied`);
         }
-
-        throw new Error(`deleteSecurityGroup(${id}): Permission denied`);
+        finally {
+            frame?.pop();
+        }
     }
 
     /**
      * Get the security credential for the specified target.
-     * @param {string | MUDObject | MUDWrapper} target
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string | MUDObject | MUDWrapper} targetIn
      */
-    static getCredentialAsync(target, reload) {
-        if (typeof target === 'function' || typeof target === 'object') {
-            target = target.instance;
+    static getCredentialAsync(ecc, targetIn, reloadIn = false) {
+        /**
+         * @type {[ExecutionContext, string, boolean]}
+         */
+        let [frame, target, reload] = ExecutionContext.tryPushFrame(arguments, { method: 'getCredentialAsync', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
+        try {
+            if (typeof target === 'function' || typeof target === 'object') {
+                target = target.instance;
+            }
+            return driver.securityManager.getSafeCredentialAsync(target);
         }
-        return driver.securityManager.getSafeCredentialAsync(target);
+        finally {
+            frame?.pop();
+        }
     }
 
     /**
      * Fetch an export-friendly group object
-     * @param {string} id The group to fetch
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} idIn The group to fetch
      * @returns {{ id: string, description:string, name: string, members: string[] }}
      */
-    static getSecurityGroup(id) {
-        let group = driver.securityManager.getGroup(id);
-        return group && group.createSafeExport();
-    }
-
-    static async getSafeCredentialAsync(user, reload = false) {
-        if (typeof user === 'function' && user.isWrapper)
-            user = user.filename;
-        else if (typeof user === 'object' && user.keyId)
-            user = user.filename;
-
-        if (typeof user !== 'string' || user.length === 0)
-            return false;
-
-        if (user.indexOf('/') === -1) {
-            let [username, isPlayerName] = efuns.normalizeName(user, true),
-                playerFiles = await driver.efuns.living[isPlayerName ? 'playerExists' : 'userExists'](username, true);
-
-            if (playerFiles.length > 0) {
-                user = playerFiles[0].fullPath;
-            }
+    static getSecurityGroup(ecc, idIn) {
+        /**
+         * @type {[ExecutionContext, string]}
+         */
+        let [frame, id] = ExecutionContext.tryPushFrame(arguments, { method: 'getSecurityGroup', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
+        try {
+            let group = driver.securityManager.getGroup(id);
+            return group && group.createSafeExport();
         }
-        return await driver.securityManager.getSafeCredentialAsync(user, reload === true);
+        finally {
+            frame?.pop();
+        }
     }
 
     /**
-     * Loop through a gatekeeper method for each frame on the stack to
-     * ensure all objects are permitted to perform the specified action.
-     * 
-     * @param {any} callback
-     * @param {any} action
-     * @param {any} rethrow
+     * Get a credential object that is safe for the MUDlib
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} userIn
+     * @param {any} reloadIn
+     * @returns
      */
-    static async guardedAsync(callback, action = false, rethrow = false) {
-        let promise = new Promise(async (resolve, reject) => {
-            let ecc = driver.getExecution(driver, 'guarded', '', true, 0);
-            try {
-                let isAsync = driver.efuns.isAsync(callback);
-                for (let i = 0, max = ecc.length, c = {}; i < max; i++) {
-                    let frame = ecc.getFrame(i);
-                    if (!frame.object && !frame.file)
-                        continue; // Does this ever happen?
-                    else if (frame.object === driver)
-                        continue; // The driver always succeeds
-                    else if (frame.object === driver.masterObject)
-                        return true; // The master object always succeeds as well
-                    else if (c[frame.file])
-                        continue;
-                    else if (isAsync && (c[frame.file] = await callback(frame.object || frame.file)) === false)
-                        return false;
-                    else if ((c[frame.file] = callback(frame.object || frame.file)) === false)
-                        return false;
-                    if (frame.unguarded === true)
-                        break;
+    static async getSafeCredentialAsync(ecc, userIn, reloadIn = false) {
+        /**
+         * @type {[ExecutionContext, string, boolean]}
+         */
+        let [frame, user, reload] = ExecutionContext.tryPushFrame(arguments, { method: '', file: __filename, isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            if (typeof user === 'function' && user.isWrapper)
+                user = user.filename;
+            else if (typeof user === 'object' && user.keyId)
+                user = user.filename;
+
+            if (typeof user !== 'string' || user.length === 0)
+                return false;
+
+            if (user.indexOf('/') === -1) {
+                let [username, isPlayerName] = efuns.normalizeName(user, true),
+                    playerFiles = await driver.efuns.living[isPlayerName ? 'playerExists' : 'userExists'](username, true);
+
+                if (playerFiles.length > 0) {
+                    user = playerFiles[0].fullPath;
                 }
             }
-            catch (err) {
-                if (rethrow) reject(err);
-                else resolve(false);
-            }
-            finally {
-                ecc.pop('guarded');
-            }
-        });
-
-        if (typeof action === 'function') {
-            promise.then(action)
+            return await driver.securityManager.getSafeCredentialAsync(user, reload === true);
         }
-
-        return promise;
+        finally {
+            frame?.pop();
+        }
     }
 
     /**
      * Check to see if the specified user is in a particular group
-     * @param {string} username
-     * @param {string} groupName
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} usernameIn
+     * @param {string} groupNameIn
      */
-    static isGroupMember(username, groupName) {
-        return driver.securityManager.isGroupMember(username, groupName);
+    static isGroupMember(ecc, usernameIn, groupNameIn) {
+        /**
+         * @type {[ExecutionContext, string, string]}
+         */
+        let [frame, username, groupName] = ExecutionContext.tryPushFrame(arguments, { method: 'isGroupMember', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
+        try {
+            return driver.securityManager.isGroupMember(username, groupName);
+        }
+        finally {
+            frame?.pop();
+        }
     }
 
-    static listSecurityGroups(expr) {
-        return driver.securityManager.listGroups(expr);
-    }
-
-    static parseAclTree(data) {
-        throw new NotImplementedError('parseAclTree');
+    /**
+     * Get a list of defined security groups
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} exprIn
+     * @returns
+     */
+    static listSecurityGroups(ecc, exprIn) {
+        let [frame, expr] = ExecutionContext.tryPushFrame(arguments, { method: 'listSecurityGroups', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
+        try {
+            return driver.securityManager.listGroups(expr);
+        }
+        finally {
+            frame?.pop();
+        }
     }
 
     /**
      * Converts a permission string into a bitflag collection
-     * @param {string} expr The human-readable permission string
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} exprIn The human-readable permission string
      * @returns {number} The bitflag array
      */
-    static parsePerms(expr) {
-        throw new NotImplementedError('parsePerms');
+    static parsePerms(ecc, exprIn) {
+        let [frame, expr] = ExecutionContext.tryPushFrame(arguments, { method: 'parsePerms', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
+        try {
+            return driver.securityManager.parsePerms(frame?.branch(), expr);
+        }
+        finally {
+            frame?.pop();
+        }
     }
     
     /**
      * Convert a permission set into a human readable string
-     * @param {number} flags
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {number} flagsIn
      */
-    static permsToString(flags) {
-        throw new NotImplementedError('permsToString');
+    static permsToString(ecc, flagsIn) {
+        let [frame, flags] = ExecutionContext.tryPushFrame(arguments, { method: 'permsToString', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
+        try {
+            return driver.securityManager.toPermString(flags);
+        }
+        finally {
+            frame?.pop();
+        }
     }
 
     /**
      * Remove members from a security group
-     * @param {string} id
-     * @param {string[]} members
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} idIn
+     * @param {string[]} membersIn
      * @returns {boolean} True on success
      */
-    static async removeGroupMembers(id, members) {
-        let ecc = driver.getExecution(),
-            group = driver.securityManager.getGroup(id),
-            principles = [];
+    static async removeGroupMembers(ecc, idIn, membersIn) {
+        let [frame, id, members] = ExecutionContext.tryPushFrame(arguments, { method: '', file: __filename, isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            let ecc = frame.context,
+                group = driver.securityManager.getGroup(id),
+                principles = [];
 
-        for (const memberId of members) {
-            let cred = driver.securityManager.getCredential(memberId);
-            if (cred) principles.push(cred);
+            for (const memberId of members) {
+                let cred = driver.securityManager.getCredential(memberId);
+                if (cred) principles.push(cred);
+            }
+
+            if (!group)
+                throw new Error(`removeGroupMembers(): ${id} is an invalid group identifier`);
+            if (!principles.length)
+                throw new Error(`removeGroupMembers(): No valid members provided`);
+
+            if (await ecc.guarded(f => driver.callApplyAsync(frame?.branch(), 'validSecurityGroupChange', f.caller, 'removeGroupMembers', group.createSafeExport()))) {
+                return await driver.securityManager.removeGroupMembers(group, principles);
+            }
+            throw new Error(`removeGroupMembers(): Permission denied`);
         }
-
-        if (!group)
-            throw new Error(`removeGroupMembers(): ${id} is an invalid group identifier`);
-        if (!principles.length)
-            throw new Error(`removeGroupMembers(): No valid members provided`);
-
-        if (await ecc.guarded(f => driver.callApplyAsync('validSecurityGroupChange', f.caller, 'removeGroupMembers', group.createSafeExport()))) {
-            return await driver.securityManager.removeGroupMembers(group, principles);
+        finally {
+            frame?.pop();
         }
-        throw new Error(`removeGroupMembers(): Permission denied`);
     }
 
     static get securityManagerType() {
         return driver.securityManager.constructor.name;
     }
 
-    static async unguardedAsync(callback) {
-        let thisObject = driver.efuns.thisObject();
-        return driver.driverCallAsync('unguarded', callback, thisObject.filename || '[not specified]', true, true);
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {function():boolean} callbackIn
+     * @returns
+     */
+    static async unguardedAsync(ecc, callbackIn) {
+        let [frame, callback] = ExecutionContext.tryPushFrame(arguments, { method: 'unguardedAsync', file: __filename, isAsync: true, callType: CallOrigin.DriverEfun, isUnguarded: true });
+        try {
+            let thisObject = ecc.thisObject;
+            return driver.driverCallAsync('unguarded', callback, thisObject.filename || '[not specified]', true, true);
+        }
+        finally {
+            frame?.pop();
+        }
     }
 }
 

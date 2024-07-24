@@ -79,6 +79,7 @@ class GameServer extends MUDEventEmitter {
             throw new Error('Unable to set game state!');
 
         this.connections = [];
+        /** @type {ExecutionContext} */
         this.currentContext = false;
         this.currentVerb = '';
         this.simulEfunPath = config.mudlib.simulEfuns;
@@ -287,11 +288,13 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Call an apply in the master object and return the result
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string | function} applyName The name of the apply to call
      * @param {...any} args
      */
-    async callApplyAsync(applyName, ...args) {
-        return await this.driverCallAsync(applyName, async ecc => {
+    async callApplyAsync(ecc, applyName, ...args) {
+        let frame = ecc.pushFrameObject({ object: this.masterObject, method: 'callApplyAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
             if (typeof applyName === 'function') {
                 applyName = applyName.name;
             }
@@ -302,19 +305,24 @@ class GameServer extends MUDEventEmitter {
             if (typeof this.masterObject[applyName] !== 'function')
                 throw new Error(`Master object ${this.masterFilename} does not contain apply '${applyName}'`);
             if (this.efuns.isAsync(this.masterObject[applyName]))
-                return await this.masterObject[applyName](...args);
+                return await this.masterObject[applyName](frame.branch(), ...args);
             else
-                return this.masterObject[applyName](...args);
-        }, undefined, true);
+                return this.masterObject[applyName](frame.branch(), ...args);
+        }
+        finally {
+            frame.pop(true);
+        }
     }
 
     /**
      * Call an apply in the master object and return the result
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} applyName The name of the apply to call
      * @param {...any} args
      */
-    callApplySync(applyName, ...args) {
-        return this.driverCall(applyName, ecc => {
+    callApplySync(ecc, applyName, ...args) {
+        let frame = ecc.pushFrameObject({ object: this.masterObject, method: 'callApplySync', isAsync: false, callType: CallOrigin.Driver });
+        try {
             if (typeof applyName === 'function') {
                 applyName = applyName.name;
             }
@@ -325,8 +333,11 @@ class GameServer extends MUDEventEmitter {
             if (this.efuns.isAsync(this.masterObject[applyName]))
                 throw new Error(`Cannot call async method ${applyName} in synchronous context`);
             else
-                return this.masterObject[applyName](...args);
-        }, undefined, true);
+                return this.masterObject[applyName](frame.branch(), ...args);
+        }
+        finally {
+            frame.pop(true);
+        }
     }
 
     async createSecurityManager() {
@@ -413,9 +424,15 @@ class GameServer extends MUDEventEmitter {
      * @param {any} type
      */
     async connect(port, type, credentials = false) {
-        return await this.driverCallAsync('connect', async () => {
-            return await this.applyConnect(port, type);
-        });
+        let ecc = this.createNewContext(),
+            frame = ecc.pushFrameObject({ file: __filename, object: this.masterObject, method: 'connect', callType: CallOrigin.Driver, isAsync: true });
+
+        try {
+            return await this.applyConnect(ecc.branch(), port, type);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /** 
@@ -500,47 +517,71 @@ class GameServer extends MUDEventEmitter {
         }
     }
 
-    /** Initializes the filesystem. */
-    async createFileSystems() {
-        let fsconfig = this.config.mudlib.fileSystem;
+    /** 
+     * Initializes the filesystem. 
+     * @param {ExecutionContext} ecc
+     */
+    async createFileSystems(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'createFileSystems', isAsync: true, callType: CallOrigin.Driver });
 
-        logger.logIf(LOGGER_PRODUCTION, 'Creating filesystem(s)');
-        this.fileManager = await fsconfig.createFileManager(this);
-        await this.fileManager.bootstrap(fsconfig); // fsconfig.eachFileSystem(async (config, index) => await this.fileManager.createFileSystem(config, index));
-        this.securityManager = this.fileManager.securityManager;
-        await this.securityManager.bootstrap(this);
+        try {
+            let fsconfig = this.config.mudlib.fileSystem;
+
+            logger.logIf(LOGGER_PRODUCTION, 'Creating filesystem(s)');
+            this.fileManager = await fsconfig.createFileManager(this);
+            await this.fileManager.bootstrap(fsconfig); // fsconfig.eachFileSystem(async (config, index) => await this.fileManager.createFileSystem(config, index));
+            this.securityManager = this.fileManager.securityManager;
+            await this.securityManager.bootstrap(frame.branch(), this);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
-    /**  Preload some common objects */
-    async createPreloads() {
-        return await this.driverCallAsync('createPreloads', async ecc => {
+    /**
+     * Start a new execution context/stack
+     * @param {Partial<ExecutionFrame>} initialFrame
+     */
+    createNewContext(initialFrame=false) {
+        let ecc = new ExecutionContext();
+        if (initialFrame)
+            ecc.pushFrameObject(initialFrame);
+        return (this.executionContext = ecc);
+    }
+
+    /**  
+     * Preload some common objects 
+     * @param {ExecutionContext} ecc
+     */
+    async createPreloads(ecc) {
+        let frame = ecc.pushFrameObject({ method: 'createPreloads', isAsync: true });
+        try {
             ecc.alarmTime = Number.MAX_SAFE_INTEGER;
 
             if (this.applyGetPreloads !== false) {
-                this.preloads = await this.driverCallAsync('getPreloads', async () => await this.applyGetPreloads());
+                this.preloads = await this.applyGetPreloads(frame.branch());
             }
             if (this.preloads.length > 0) {
                 logger.logIf(LOGGER_PRODUCTION, 'Creating preloads.');
 
                 for (let i = 0; i < this.preloads.length; i++) {
                     let filename = this.preloads[i];
-                    let t0 = efuns.ticks,
-                        err = false;
                     try {
-                        let file = await this.fileManager.getObjectAsync(filename);
-                        await file.loadObjectAsync();
+                        let file = await this.fileManager.getObjectAsync(frame.branch(), filename);
+                        await file.loadObjectAsync(frame.branch());
                     }
                     catch (e) {
-                        err = e;
-                    }
-                    finally {
-                        let t1 = efuns.ticks;
-                        logger.logIf(LOGGER_DEBUG,
-                            `\tPreload: ${filename}: ${(!err ? '[OK]' : '[Failure]')} [${(t1 - t0)} ms; ${ecc.stack.length}]`);
+                        logger.log(`\tPreload: ${filename}: [FAILURE: ${ex}]`);
                     }
                 }
             }
-        });
+        }
+        catch(ex) {
+            console.log(`Failed to load all preloads: ${ex}`);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -550,6 +591,12 @@ class GameServer extends MUDEventEmitter {
      */
     createEfunInstance(fileName) {
         let module = this.cache.get(fileName) || false;
+
+        if (!module) {
+            console.log(`Could not find module ${fileName}`);
+            return false;
+        }
+
         if (module && module.efuns)
             return module.efuns;
 
@@ -597,8 +644,12 @@ class GameServer extends MUDEventEmitter {
         return this.efuns;
     }
 
-    /** Configure the various components attached to the driver. */
-    configureRuntime() {
+    /** 
+     * Configure the various components attached to the driver. 
+     * @param {ExecutionContext} ecc
+     */
+    configureRuntime(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'configureRuntime' });
         try {
             let
                 ClientInstance = require('./network/ClientInstance'),
@@ -621,7 +672,7 @@ class GameServer extends MUDEventEmitter {
             this.cache = new MUDCache();
             this.compiler = new MUDCompiler(this, this.config.driver.compiler);
 
-            global.unwrap = function(target, success, hasDefault) {
+            global.unwrap = function (target, success, hasDefault) {
                 let result = false,
                     defaultValue = hasDefault || false,
                     onSuccess = typeof success === 'function' && success || (s => s);
@@ -697,6 +748,9 @@ class GameServer extends MUDEventEmitter {
             console.log(err.message);
             console.log(err.stack);
             throw err;
+        }
+        finally {
+            frame.pop();
         }
     }
 
@@ -949,61 +1003,6 @@ class GameServer extends MUDEventEmitter {
     }
 
     /**
-     * Instrument global prototypes to accept an execution context.
-     * @param {...any} protos
-     */
-    mudifyPrototype(...protos) {
-        for (const proto of protos) {
-            if (!proto.__native) {
-                proto.__native = {};
-                let props = Object.getOwnPropertyDescriptors(proto);
-
-                for (const [name, prop] of Object.entries(props)) {
-                    if (name === 'toString') {
-                        continue;
-                    }
-                    if (typeof proto[name] === 'function') {
-                        (function (name, impl) {
-                            /**
-                             * 
-                             * @param {ExecutionContext} ctx
-                             * @param {...any} parms
-                             * @returns
-                             */
-                            proto[name] = function (ctx, ...parms) {
-                                let frame = false;
-                                try {
-                                    if (arguments.length) {
-                                        let args = Array.prototype.__native.slice.apply(parms);
-                                        if (ctx instanceof ExecutionContext === false) {
-                                            Array.prototype.__native.unshift.call(args, ctx);
-                                            ctx = false;
-                                        }
-                                        else {
-                                            frame = ctx.pushFrame(this, name, typeof efuns === 'undefined' ? '(unknown)' : efuns.filename, ctx.isAwaited);
-                                        }
-                                        let result = impl.apply(this, args);
-                                        return result;
-                                    }
-                                    else {
-                                        let result = impl.apply(this);
-                                        return result;
-                                    }
-                                }
-                                finally {
-                                    if (frame)
-                                        frame.pop();
-                                }
-                            };
-                        })(name, proto.__native[name] = proto[name]);
-                    }
-                }
-            }
-            Object.seal(proto);
-        }
-    }
-
-    /**
      * Push a new frame onto the execution stack
      * @param {ExecutionFrame} info
      * @returns {ExecutionFrame}
@@ -1026,33 +1025,6 @@ class GameServer extends MUDEventEmitter {
         else return await this.applyGetGroups(target);
     }
 
-    /**
-     * Attempt to read symbols from the specified file
-     * @param {string} file The file
-     */
-    includeFile(file) {
-        let files = this.includePath.map(fn => {
-            let result = fn + '/' + file;
-            if (result.lastIndexOf('.') < result.lastIndexOf('/'))
-                result += '.js';
-            return result;
-        });
-        let result = this.driverCall('includeFile', ecc => {
-            for (let i = 0; i < files.length; i++) {
-                try {
-                    if (efuns.isFileSync(files[i])) {
-                        let module = driver.compiler.compileObject({ file: files[i] });
-                        return module.defaultExport || module.exports;
-                    }
-                }
-                catch (err) {
-                    console.log('includeFile:', err);
-                }
-            }
-        });
-        return result;
-    }
-
     inGroup(target, ...groups) {
         if (this.gameState < GAMESTATE_RUNNING) return true;
         else return driver.masterObject.inGroup(target, [].slice.call(arguments, 1));
@@ -1066,20 +1038,69 @@ class GameServer extends MUDEventEmitter {
         this.efuns = global.efuns = efuns;
     }
 
+    instrumentObject(proto) {
+        if (!proto.__native) {
+            proto.__native = {};
+            let props = Object.getOwnPropertyDescriptors(proto);
+
+            for (const [name, prop] of Object.entries(props)) {
+                if (typeof proto[name] === 'function') {
+                    (function (name, impl) {
+                        /**
+                         * 
+                         * @param {ExecutionContext} ctx
+                         * @param {...any} parms
+                         * @returns
+                         */
+                        proto[name] = function (...parms) {
+                            if (parms[0] instanceof ExecutionContext) {
+                                let [ctx, ...args] = parms,
+                                    frame = ctx.pushFrameObject({ method: name });
+                                try {
+                                    let result = proto.__native[name].apply(this, args);
+                                    return result;
+                                }
+                                finally {
+                                    frame.pop();
+                                }
+                            }
+                            else {
+                                try {
+                                    let result = proto.__native[name].apply(this, parms);
+                                    return result;
+                                }
+                                catch (err) {
+                                    console.log(`Error in ${name}: ${err}`);
+                                }
+                            }
+                        };
+                    })(name, proto.__native[name] = proto[name]);
+                }
+            }
+            Object.seal(proto);
+        }
+        return proto;
+    }
+
     /**
      * Allow the in-game master object to handle an error.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} path The file to write logs to.
      * @param {Error} error The error to log.
      */
-    async logError(path, error) {
-        if (!this.applyLogError) {
-            logger.log('Compiler Error: ' + error.message);
-            logger.log(error.stack);
+    async logError(ecc, path, error) {
+        let frame = ecc.pushFrameObject({ object: this.masterObject, method: 'logError', isAsync: true, callType: CallOrigin.Driver, isUnguarded: true });
+        try {
+            if (!this.applyLogError) {
+                logger.log('Compiler Error: ' + error.message);
+                logger.log(error.stack);
+            }
+            else {
+                await this.applyLogError(frame.branch(), path, error);
+            }
         }
-        else {
-            await this.driverCallAsync('logError', async () => {
-                await this.applyLogError(path, error);
-            })
+        finally {
+            frame.pop();
         }
     }
 
@@ -1119,13 +1140,20 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Perform optional pre-compiler steps
+     * @param {ExecutionContext} ecc
      * @param {MUDModule} module The module being processed
      * @returns {boolean}
      */
-    preCompile(module) {
-        if (this.preCompilers.any(pre => pre.preCompile(module)))
-            return false;
-        return true;
+    preCompile(ecc, module) {
+        let frame = ecc.pushFrameObject({ method: 'preCompile', callType: CallOrigin.Driver });
+        try {
+            if (this.preCompilers.any(pre => pre.preCompile(frame.context, module)))
+                return false;
+            return true;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -1169,15 +1197,19 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Register an external server.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {any} spec
      */
-    registerServer(spec) {
-        //  Failure to register a server is a fatal error
-        return this.driverCall('registerServer', () => {
+    registerServer(ecc, spec) {
+        let frame = ecc.pushFrameObject({ method: 'registerServer', callType: CallOrigin.Driver });
+        try {
             if (this.applyRegisterServer)
-                return this.applyRegisterServer(spec);
+                return this.applyRegisterServer(frame.branch(), spec);
             return false;
-        }, this.masterFilename, true);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -1217,27 +1249,29 @@ class GameServer extends MUDEventEmitter {
         }
 
         logger.log('Starting %s', this.mudName);
-        if (this.globalErrorHandler) {
-            process.on('uncaughtException', err => {
-                logger.log('uncaughtException', err);
-                logger.log(err.stack);
-                this.errorHandler(err, false);
-            });
-            process.on('unhandledRejection', (reason, promise) => {
-                console.log('Unhandled Rejection at:', promise, 'reason:', reason);
-                // Application specific logging, throwing an error, or other logic here
-            });
-        }
-        await this.createFileSystems();
-        this.configureRuntime();
+        let ecc = this.createNewContext(),
+            frame = ecc.pushFrameObject({ object: this, file: __filename, method: 'run', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (this.globalErrorHandler) {
+                process.on('uncaughtException', err => {
+                    logger.log('uncaughtException', err);
+                    logger.log(err.stack);
+                    this.errorHandler(err, false);
+                });
+                process.on('unhandledRejection', (reason, promise) => {
+                    console.log('Unhandled Rejection at:', promise, 'reason:', reason);
+                    // Application specific logging, throwing an error, or other logic here
+                });
+            }
+            await this.createFileSystems(ecc.branch());
+            this.configureRuntime(ecc);
 
-        return await this.driverCallAsync('startup', async (ecc) => {
             console.log('Loading driver and external features');
             try {
-                await this.createSimulEfuns(ecc);
+                await this.createSimulEfuns(ecc.branch());
                 await this.createMasterObjectAsync(ecc);
-                await this.securityManager.validateAsync(this);
-                await this.securityManager.initSecurityAsync();
+                await this.securityManager.validateAsync(ecc, this);
+                await this.securityManager.initSecurityAsync(ecc);
                 await this.enableFeaturesAsync();
                 this.sealProtectedTypes();
             }
@@ -1245,19 +1279,26 @@ class GameServer extends MUDEventEmitter {
                 console.log(`FATAL ERROR DURING STARTUP:`, ex);
                 process.exit(-111);
             }
-            await this.runStarting();
+            await this.runStarting(ecc);
 
             if (this.masterObject && this.applyStartup)
                 await this.applyStartup();
             if (callback)
                 callback.call(this);
             return await this.runMain();
-        }, __filename, true, true);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
-    async runStarting() {
+    /**
+     * Run second stage of startup
+     * @param {ExecutionContext} ecc
+     */
+    async runStarting(ecc) {
         this.gameState = GAMESTATE_STARTING;
-        await this.createPreloads();
+        await this.createPreloads(ecc.branch());
         if (this.config.skipStartupScripts === false) {
             let runOnce = path.resolve(__dirname, '../runOnce.json');
             if (fs.existsSync(runOnce)) {
@@ -1276,38 +1317,44 @@ class GameServer extends MUDEventEmitter {
             }
         }
         for (let i = 0; i < this.endpoints.length; i++) {
-            this.endpoints[i]
-                .bind()
-                .on('kmud.connection', /** @param {MUDClient} client */ client => {
-                    this.driverCall('onConnection', () => {
-                        //let newLogin = this.masterObject.connect(client.port, client.clientType);
-                        //if (newLogin) {
-                        //    client.setBody(newLogin);
+            let frame = ecc.pushFrameObject({ object: this.masterObject, method: 'runStarting', callType: CallOrigin.Driver });
+            try {
+                this.endpoints[i]
+                    .bind(frame.branch())
+                    .on('kmud.connection', /** @param {MUDClient} client */ client => {
+                        this.driverCall('onConnection', () => {
+                            //let newLogin = this.masterObject.connect(client.port, client.clientType);
+                            //if (newLogin) {
+                            //    client.setBody(newLogin);
 
-                        //    if (driver.connections.indexOf(client) === -1)
-                        //        driver.connections.push(client);
-                        //}
-                        //else {
-                        //    client.writeLine('Sorry, something is very wrong right now; Please try again later.');
-                        //    client.close('No Login Object Available');
-                        //}
+                            //    if (driver.connections.indexOf(client) === -1)
+                            //        driver.connections.push(client);
+                            //}
+                            //else {
+                            //    client.writeLine('Sorry, something is very wrong right now; Please try again later.');
+                            //    client.close('No Login Object Available');
+                            //}
+                        });
+                    })
+                    .on('kmud.connection.new', function (client, protocol) {
+                        logger.log(`New ${protocol} connection from ${client.remoteAddress}`);
+                        driver.connections.push(client);
+                    })
+                    .on('kmud.connection.closed', function (client, protocol) {
+                        logger.log(`${protocol} connection from ${client.remoteAddress} closed.`);
+                        driver.connections.removeValue(client);
+                    })
+                    .on('kmud.connection.full', function (c) {
+                        c.write('The game is all full, sorry; Please try again later.\n');
+                        c.close();
+                    })
+                    .on('kmud.connection.timeout', function (c, p) {
+                        logger.log('A %s connection from %s timed out', p, c.remoteAddress);
                     });
-                })
-                .on('kmud.connection.new', function (client, protocol) {
-                    logger.log(`New ${protocol} connection from ${client.remoteAddress}`);
-                    driver.connections.push(client);
-                })
-                .on('kmud.connection.closed', function (client, protocol) {
-                    logger.log(`${protocol} connection from ${client.remoteAddress} closed.`);
-                    driver.connections.removeValue(client);
-                })
-                .on('kmud.connection.full', function (c) {
-                    c.write('The game is all full, sorry; Please try again later.\n');
-                    c.close();
-                })
-                .on('kmud.connection.timeout', function (c, p) {
-                    logger.log('A %s connection from %s timed out', p, c.remoteAddress);
-                });
+            }
+            finally {
+                frame.pop();
+            }
         }
         if (typeof callback === 'function') callback.call(this);
 

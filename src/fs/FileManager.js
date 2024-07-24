@@ -1,6 +1,7 @@
 /*
  *
  */
+const { ExecutionContext, CallOrigin, ExecutionFrame } = require('../ExecutionContext');
 const
     MUDEventEmitter = require('../MUDEventEmitter'),
     { FileSystemObject, ObjectNotFound, VirtualObjectFile, FileWrapperObject } = require('./FileSystemObject'),
@@ -62,13 +63,13 @@ class FileManager extends MUDEventEmitter {
             let moduleImport = require(options.managerModule.startsWith('.') ?
                 path.join(__dirname, '..', options.managerModule) : options.managerModule);
 
-            if (driver.efuns.isClass(moduleImport)) {
+            if (driver.efuns.isClass(driver.getExecution().branch(), moduleImport)) {
                 securityManager = new moduleImport(this, fsconfig.securityManagerOptions);
             }
             else if (!options.managerTypeName) {
                 throw new Error('Config for securityManager is missing required parameter managerTypeName');
             }
-            else if (typeof moduleImport === 'object' && driver.efuns.isClass(moduleImport[options.managerTypeName])) {
+            else if (typeof moduleImport === 'object' && driver.efuns.isClass(driver.getExecution().branch(), moduleImport[options.managerTypeName])) {
                 let managerType = moduleImport[options.managerTypeName];
                 securityManager = new managerType(this, fsconfig.securityManagerOptions);
             }
@@ -780,14 +781,21 @@ class FileManager extends MUDEventEmitter {
 
     /**
      * Get a file object
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} expr The file path to get
      * @param {number} flags Flags associated with the request
      * @returns {Promise<FileObject>}
      */
-    async getFileAsync(expr, flags = 0, isSystemRequest = false) {
-        let request = this.createFileRequest('getFileAsync', expr, flags);
-        let fso = await request.fileSystem.getFileAsync(request);
-        return isSystemRequest ? fso : new FileWrapperObject(fso);
+    async getFileAsync(ecc, expr, flags = 0, isSystemRequest = false) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let request = this.createFileRequest('getFileAsync', expr, flags);
+            let fso = await request.fileSystem.getFileAsync(frame.branch(), request);
+            return isSystemRequest ? fso : new FileWrapperObject(fso);
+        }
+        finally {
+            frame.pop(true);
+        }
     }
 
     /**
@@ -840,32 +848,41 @@ class FileManager extends MUDEventEmitter {
      * This method MUST ALWAYS return a filesystem object.  If the object does
      * not exist or an error occurs this method should return a ObjectNotFound
      * FileSystem object.
+     * @param {ExecutionContext} ecc
      * @param {string} expr The path expression to fetch
      * @param {number} flags Filesystem flags to control the operation
      * @param {boolean} [isSystemRequest] THIS SHOULD ONLY BE USED BY DRIVER INTERNALS
      * @returns {Promise<FileSystemObject>}
      */
-    getObjectAsync(expr, flags = 0, isSystemRequest = false) {
+    getObjectAsync(ecc, expr, flags = 0, isSystemRequest = false) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+
         if (typeof flags === 'boolean') {
             isSystemRequest = flags;
             flags = 0;
         }
         let request = this.createFileRequest('getObjectAsync', expr, flags, isSystemRequest);
 
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async resolve => {
             try {
-                await request.fileSystem.getObjectAsync(request)
+                await request.fileSystem.getObjectAsync(frame.branch(), request)
                     .then(stat => {
                         if (isSystemRequest === true)
                             resolve(stat);
                         else
                             resolve(new FileWrapperObject(stat));
-                    }, reason => reject(reason));
+                    })
+                    .catch(reason => {
+                        let result = new ObjectNotFound(FileSystemObject.createDummyStats(request), reason);
+                        resolve(result);
+                    });
             }
             catch (ex) {
                 let result = new ObjectNotFound(FileSystemObject.createDummyStats(request), ex);
-                reject(result);
+                resolve(result);
             }
+        }).finally(() => {
+            frame.pop(true);
         });
     }
 
@@ -981,55 +998,61 @@ class FileManager extends MUDEventEmitter {
 
     /**
      * Load an object from disk.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} expr Information about what is being requested.
      * @param {any} args Data to pass to the constructor.
      * @param {number} flags Flags to control the operation
      * @returns {MUDObject} The loaded object... hopefully
      */
-    async loadObjectAsync(expr, args, flags = 0) {
-        let request = this.createFileRequest('loadObjectAsync', expr, flags);
+    async loadObjectAsync(ecc, expr, args, flags = 0) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let request = this.createFileRequest('loadObjectAsync', expr, flags);
+            let exts = driver.compiler.supportedExtensions,
+                pattern = new RegExp(driver.compiler.extensionPattern),
+                result = false;
+            let fileParts = driver.efuns.parsePath(frame.branch(), request.fullPath),
+                { file, extension, type, objectId, defaultType } = fileParts,
+                module = driver.cache.get(file);
 
-        return new Promise(async (resolve, reject) => {
-            try {
-                let exts = driver.compiler.supportedExtensions,
-                    pattern = new RegExp(driver.compiler.extensionPattern),
-                    result = false;
-                let { file, extension } = driver.efuns.parsePath(request.fullPath),
-                    targetFile = extension && await this.getFileAsync(file + extension);
-
-                if (extension && pattern.test(targetFile.fullPath)) {
-                    result = await targetFile.loadObjectAsync(request.flags, args);
-                }
-                else if (extension) {
-                    return reject(`loadObjectAsync(): Invalid file extension: ${extension}`);
-                }
-                else {
-                    //  Extension was not specified... try them all
-                    for (let i = 0; i < exts.length; i++) {
-                        let fileWithExtension = await this.getFileAsync(file + exts[i], flags);
-
-                        if (fileWithExtension.exists) {
-                            result = await fileWithExtension.loadObjectAsync(request.flags, args)
-                                .catch(err => reject(err));
-                            break;
-                        }
-                    }
-                    if (!result) {
-                        //  Try virtual
-                        targetFile = new VirtualObjectFile(FileSystemObject.createDummyStats(request), request);
-                        result = await targetFile.loadObjectAsync(request, args)
-                            .catch(err => reject(err));
-                    }
-                }
-
-                if (!result)
-                    return reject(new Error(`loadObjectAsync(): Could not find suitable file to load: ${request.fullPath}`));
-                resolve(result);
+            if (module) {
+                let instance = module.getInstanceWrapper(fileParts);
+                if (instance)
+                    return instance;
             }
-            catch (ex) {
-                reject(ex);
+
+            let targetFile = extension && await this.getObjectAsync(frame.branch(), file);
+
+            if (extension && pattern.test(targetFile.fullPath)) {
+                result = await targetFile.loadObjectAsync(frame.branch(), request.flags, args);
             }
-        });
+            else if (extension) {
+                throw new Error(`loadObjectAsync(): Invalid file extension: ${extension}`);
+            }
+            else {
+                //  Extension was not specified... try them all
+                for (let i = 0; i < exts.length; i++) {
+                    let fileWithExtension = await this.getFileAsync(frame.branch(), file + exts[i], flags);
+
+                    if (fileWithExtension.exists) {
+                        result = await fileWithExtension.loadObjectAsync(frame.branch(), request.flags, args);
+                        break;
+                    }
+                }
+                if (!result) {
+                    //  Try virtual
+                    targetFile = new VirtualObjectFile(FileSystemObject.createDummyStats(request), request);
+                    result = await targetFile.loadObjectAsync(frame.branch(), request, args);
+                }
+            }
+
+            if (!result)
+                throw new Error(`loadObjectAsync(): Could not find suitable file to load: ${request.fullPath}`);
+            return result;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -1179,12 +1202,20 @@ class FileManager extends MUDEventEmitter {
 
     /**
      * Translates a virtual path into an absolute path (if filesystem supported)
-     * @param {string} expr The virtual directory to translate.
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} exprIn The virtual directory to translate.
      * @returns {string} The absolute path.
      */
-    toRealPath(expr) {
-        let req = this.createFileRequest('toRealPath', expr);
-        return req.fileSystem.getRealPath(req.relativePath);
+    toRealPath(ecc, exprIn) {
+        /** @type {[ExecutionFrame, string]} */
+        let [frame, expr] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'toRealPath', callType: CallOrigin.Driver });
+        try {
+            let req = this.createFileRequest('toRealPath', expr);
+            return req.fileSystem.getRealPath(frame?.branch(), req.relativePath);
+        }
+        finally {
+            frame?.pop();
+        }
     }
 
     /**

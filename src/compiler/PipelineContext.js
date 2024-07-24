@@ -1,4 +1,6 @@
-﻿const
+﻿const { ExecutionContext, CallOrigin } = require('../ExecutionContext');
+
+const
     CTX_INIT = -1,
     CTX_RUNNING = 1,
     CTX_STOPPED = 2,
@@ -45,9 +47,10 @@ class PipelineContext {
             this.realPath = driver.fileManager.toRealPath(file.path);;
             this.resolvedName = this.realPath;
         }
+        this.filename = this.fullPath;
         this.errors = [];
         this.state = CTX_INIT;
-        this.module = !isEval && driver.cache.get(this.basename);
+        this.module = !isEval && driver.cache.get(this.fullPath);
     }
 
     addError(err) {
@@ -70,10 +73,12 @@ class PipelineContext {
 
     /**
      * Create a context
+     * @param {ExecutionContext} ecc
      * @param {MUDCompilerOptions} options The file expression to build a context for
      * @param {string} possibleExtensions A list of expressions to search for
      */
-    static async create(options, possibleExtensions = '') {
+    static async create(ecc, options, possibleExtensions = '') {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'create', isAsync: true, callType: CallOrigin.Driver });
         try {
             let expr = options.file,
                 directory = expr.slice(0, expr.lastIndexOf('/')),
@@ -82,27 +87,27 @@ class PipelineContext {
                 fileToUse;
 
             if (!hasExtension) {
-                let directoryObject = await driver.fileManager.getFileAsync(directory, 0, true),
+                let directoryObject = await driver.fileManager.getObjectAsync(frame.branch(), directory, 0, true),
                     filterExpr = fileExpression + possibleExtensions,
-                    files = await directoryObject.readAsync(filterExpr);
+                    files = await directoryObject.readAsync(frame.branch(), filterExpr);
 
                 fileToUse = files.firstOrDefault();
             }
             else
-                fileToUse = await driver.fileManager.getFileAsync(options.file, 0, true);
+                fileToUse = await driver.fileManager.getObjectAsync(frame.branch(), options.file, 0, true);
 
             if (fileToUse) {
-                let content = await fileToUse.readAsync();
+                let content = await fileToUse.readAsync(frame.branch());
 
                 options.fileObject = fileToUse;
 
                 return new PipelineContext(options, false, content);
             }
-            else 
+            else
                 return new PipelineContext(options);
         }
-        catch (ex) {
-            console.log('Error in PipelineContext.create(): ' + ex.message);
+        finally {
+            frame.pop();
         }
         return new PipelineContext(options);
     }

@@ -91,11 +91,12 @@ class MUDLoader {
                     let args = Array.prototype.slice(parameters);
                     let newContext = false;
 
-                    ecc = ecc instanceof ExecutionContext ? ecc : driver.getExecution();
-
-                    if (args[0] instanceof ExecutionContext) {
-                        parameters[0] = undefined;
+                    if (ecc instanceof ExecutionContext === false) {
+                        throw new Error('Illegal function call');
                     }
+
+                    //  Don't allow access to the execution context via arguments object
+                    parameters[0] = undefined;
 
                     if (method.length === 0) {
                         method = '(MAIN)';
@@ -109,7 +110,7 @@ class MUDLoader {
                     if (isAsync === false && method.startsWith('async '))
                         isAsync = true;
 
-                    if (driver.efuns.isClass(type) && typeof ob === 'object' && MUDVTable.doesInherit(ob, type) === false) {
+                    if (driver.efuns.isClass(ecc, type) && typeof ob === 'object' && MUDVTable.doesInherit(ob, type) === false) {
                         throw new SecurityError(`Illegal invocation of '${method}' in ${fileName} [Line ${lineNumber}]; Callee type mismatch`)
                     }
 
@@ -173,14 +174,24 @@ class MUDLoader {
                 enumerable: false
             },
             __rmt: {
-                //  Reset Module Types
-                value: function (fileName) {
-                    let module = driver.cache.get(fileName);
-                    if (module) {
-                        module.eventResetModule();
+                /**
+                 * Reset Module Types
+                 * @param {ExecutionContext} ecc The current callstack
+                 * @param {string} fileName
+                 */
+                value: function (ecc, fileName) {
+                    let frame = ecc.pushFrameObject({ file: fileName, method: '__rmt' });
+                    try {
+                        let module = driver.cache.get(fileName);
+                        if (module) {
+                            module.eventResetModule(frame.branch());
+                        }
+                        // You would THINK we could clear exports here, but no.
+                        // module.exports = {};
                     }
-                    // You would THINK we could clear exports here, but no.
-                    // module.exports = {};
+                    finally {
+                        frame.pop();
+                    }
                 },
                 configurable: false,
                 writable: false,
@@ -188,76 +199,43 @@ class MUDLoader {
             },
             __cef: {
                 //  Create efuns
-                value: function(handleId) {
+                value: function(handleId, filename) {
                     let ctx = ExecutionContext.getContextByHandleID(handleId),
-                    fn = ctx.currentFileName;
-                    return [driver.createEfunInstance(fn), ctx];
+                        newEfuns = driver.createEfunInstance(filename);
+                    return [newEfuns, ctx];
                 },
                 configurable: false,
                 enumerable: false,
                 writable: false
             },
             __dmt: {
-                //  Define Module Type
-                value: function (fileName, type) {
+                /**
+                 * Define Module Type
+                 * @param {ExecutionContext} ecc
+                 * @param {string} fileName
+                 * @param {function} type
+                 */
+                value: function (ecc, fileName, type) {
                     let module = driver.cache.get(fileName);
                     if (module) {
-                        module.eventDefineType(type);
+                        module.eventDefineType(ecc.branch(), type);
                     }
                 },
                 configurable: false,
                 writable: false,
                 enumerable: false
             },
+            __gec: {
+                get: function () {
+                    let current = ExecutionContext.current;
+                    return current;
+                },
+                configurable: false,
+                enumerable: false
+            },
             __igt: {
                 value: function (proto) {
-                    if (!proto.__native) {
-                        proto.__native = {};
-                        let props = Object.getOwnPropertyDescriptors(proto);
-
-                        for (const [name, prop] of Object.entries(props)) {
-                            if (typeof proto[name] === 'function') {
-                                (function (name, impl) {
-                                    /**
-                                     * 
-                                     * @param {ExecutionContext} ctx
-                                     * @param {...any} parms
-                                     * @returns
-                                     */
-                                    proto[name] = function (ctx, ...parms) {
-                                        let frame = false;
-                                        try {
-                                            if (arguments.length) {
-                                                let args = __ivc ? Array.prototype.__native.slice.apply(parms) : Array.prototype.slice.apply(parms);
-                                                if (ctx instanceof ExecutionContext === false) {
-                                                    if (__ivc)
-                                                        Array.prototype.__native.unshift.call(args, ctx);
-                                                    else
-                                                        args.unshift(ctx);
-                                                    ctx = false;
-                                                }
-                                                else {
-                                                    frame = ctx.pushFrame(this, name, typeof efuns === 'undefined' ? '(unknown)' : efuns.filename, ctx.isAwaited);
-                                                }
-                                                let result = impl.apply(this, args);
-                                                return result;
-                                            }
-                                            else {
-                                                let result = impl.apply(this);
-                                                return result;
-                                            }
-                                        }
-                                        finally {
-                                            if (frame)
-                                                frame.pop();
-                                        }
-                                    };
-                                })(name, proto.__native[name] = proto[name]);
-                            }
-                        }
-                        Object.seal(proto);
-                    }
-                    return proto;
+                    return driver.instrumentObject(proto);
                 },
                 enumerable: false,
                 writable: false,
@@ -386,57 +364,65 @@ class MUDLoader {
 
     /**
      * Extends a class using functionality from another type (pseudo-mixin)
+     * @param {ExecutionContext} ecc The current callstack
      * @param {function} target The target type to extend.
      * @param {...string} moduleList The module that contains the extension
      * 
      */
-    extendType(target, ...moduleList) {
+    extendType(ecc, target, ...moduleList) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'extendType' });
         try {
             for (const exp of moduleList) {
-                if (driver.efuns.isClass(exp)) {
+                if (driver.efuns.isClass(frame.branch(), exp)) {
                     global.MUDVTable.extendType(target, exp);
                 }
                 else
                     throw new Error(`Bad argument to extendType: ${exp}`)
             }
         }
-        catch (err) {
-            console.log(err);
-            throw err;
+        finally {
+            frame.pop();
         }
     }
 
+    /**
+     * Create an instance of an object
+     * @param {string} callingFile The file 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} type
+     * @param {...any} args
+     * @returns
+     */
+    async createAsync(callingFile, ecc, type, ...args) {
+        let frame = ecc.pushFrameObject({ file: callingFile, method: 'createAsync', isAsync: true, callType: CallOrigin.Constructor });
+        try {
+            if (typeof type === 'string') {
+                let parts = driver.efuns.parsePath(frame.branch(), type),
+                    module = driver.cache.get(parts.file);
 
-    async createAsync(callingFile, type, ...args) {
-        if (typeof type === 'string') {
-            let parts = driver.efuns.parsePath(type),
-                module = driver.cache.get(parts.file);
+                if (!module)
+                    module = await driver.compiler.compileObjectAsync(frame.branch(), { file, args });
 
-            if (!module)
-                module = await driver.compiler.compileObjectAsync({ file, args });
+                if (module && module.isVirtual === true)
+                    return module.defaultExport;
+                else
+                    return await driver.efuns.objects.cloneObjectAsync(frame.branch(), type, ...args);
+            }
+            else if (type.prototype && typeof type.prototype.baseName === 'string' && type.prototype.baseName !== 'MUDObject') {
+                let parts = driver.efuns.parsePath(frame.branch(), type.prototype.baseName),
+                    module = driver.cache.get(parts.file);
 
-            if (module && module.isVirtual === true)
-                return module.defaultExport;
+                return await module.createInstanceAsync(frame.branch(), parts.type, false, args, false, callingFile);
+            }
+            else if (typeof type === 'function') {
+                return new type(...args);
+            }
             else
-                return await driver.efuns.objects.cloneObjectAsync(type, ...args);
+                throw new Error(`Bad argument 1 to createAsync(); Expected string or type but got ${typeof type}`);
         }
-        else if (type.prototype && typeof type.prototype.baseName === 'string' && type.prototype.baseName !== 'MUDObject') {
-            let parts = driver.efuns.parsePath(type.prototype.baseName),
-                ecc = driver.getExecution(callingFile, 'createAsync', parts.file, false),
-                module = driver.cache.get(parts.file);
-
-            try {
-                return await module.createInstanceAsync(parts.type, false, args, false, callingFile);
-            }
-            finally {
-                ecc && ecc.pop('createAsync');
-            }
+        finally {
+            frame.pop();
         }
-        else if (typeof type === 'function') {
-            return new type(...args);
-        }
-        else
-            throw new Error(`Bad argument 1 to createAsync(); Expected string or type but got ${typeof type}`);
     }
 
     /**
@@ -687,7 +673,7 @@ class MUDLoader {
                     callback.apply(thisObject, args);
             }
             catch (err) {
-                await efuns.logError(err);
+                await efuns.logError(frame.branch(), err);
                 hasError = true;
             }
             finally {
@@ -735,7 +721,7 @@ class MUDLoader {
                     callback.apply(thisObject, args);
             }
             catch (err) {
-                await efuns.logError(err);
+                await efuns.logError(frame.branch(), err);
             }
             finally {
                 frame.pop();

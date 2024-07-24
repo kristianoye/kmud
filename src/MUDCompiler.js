@@ -123,20 +123,20 @@ class MUDCompiler {
 
         if (context.state === PipeContext.CTX_FINISHED) {
             if (!context.content)
-                throw new Error(`Could not load ${context.filename} [empty file?]`);
+                throw new Error(`Could not load ${context.fullPath} [empty file?]`);
             return context.content;
         }
         else {
             switch (context.state) {
                 case PipeContext.CTX_ERRORED:
-                    throw new Error(`Could not load ${context.filename} [${context.errors[0].message}]`);
+                    throw new Error(`Could not load ${context.fullPath} [${context.errors[0].message}]`);
 
                 case PipeContext.CTX_RUNNING:
                 case PipeContext.CTX_STOPPED:
-                    throw new Error(`Could not load ${context.filename} [Incomplete Pipeline]`);
+                    throw new Error(`Could not load ${context.fullPath} [Incomplete Pipeline]`);
 
                 case PipeContext.CTX_INIT:
-                    throw new Error(`Could not load ${context.filename} [Pipeline Failure]`);
+                    throw new Error(`Could not load ${context.fullPath} [Pipeline Failure]`);
             }
         }
     }
@@ -191,7 +191,7 @@ class MUDCompiler {
         }
         let frame = ecc.pushFrame(driver.masterObject || driver, 'compileObjectAsync', options.file, true, 0);
         try {
-            let context = await PipeContext.PipelineContext.create(options, this.extensionPattern),
+            let context = await PipeContext.PipelineContext.create(frame.branch(), options, this.extensionPattern),
                 module = context.module,
                 t0 = efuns.ticks,
                 cleanError = false;
@@ -210,9 +210,9 @@ class MUDCompiler {
                 let pipeline = this.getPipeline(context);
 
                 if (pipeline === false)
-                    throw new Error(`Could not load ${context.filename} [unknown extension]`);
+                    throw new Error(`Could not load ${context.fullPath} [unknown extension]`);
                 else if (!pipeline.enabled)
-                    throw new Error(`Could not load ${context.filename} [${pipeline.name} - not enabled]`);
+                    throw new Error(`Could not load ${context.fullPath} [${pipeline.name} - not enabled]`);
 
                 module = this.driver.cache.getOrCreate(context, false, options);
 
@@ -220,7 +220,7 @@ class MUDCompiler {
 
                 if (context.state === PipeContext.CTX_FINISHED) {
                     if (!context.content)
-                        throw new Error(`Could not load ${context.filename} [empty file?]`);
+                        throw new Error(`Could not load ${context.fullPath} [empty file?]`);
 
                     //module = this.driver.cache.getOrCreate(
                     //    context.filename,
@@ -229,8 +229,8 @@ class MUDCompiler {
                     //    false,
                     //    options);
 
-                    if (!driver.preCompile(module))
-                        throw new Error(`Module ${context.filename} was rejected by driver in pre-compiler stage`);
+                    if (!driver.preCompile(ecc.fork(), module))
+                        throw new Error(`Module ${context.fullPath} was rejected by driver in pre-compiler stage`);
 
                     module.loader = this.getLoader(pipeline, options);
                     if (options.altParent) {
@@ -264,14 +264,14 @@ class MUDCompiler {
                 else {
                     switch (context.state) {
                         case PipeContext.CTX_ERRORED:
-                            throw new Error(`Could not load ${context.filename} [${context.errors[0].message}]`);
+                            throw new Error(`Could not load ${context.fullPath} [${context.errors[0].message}]`);
 
                         case PipeContext.CTX_RUNNING:
                         case PipeContext.CTX_STOPPED:
-                            throw new Error(`Could not load ${context.filename} [Incomplete Pipeline]`);
+                            throw new Error(`Could not load ${context.fullPath} [Incomplete Pipeline]`);
 
                         case PipeContext.CTX_INIT:
-                            throw new Error(`Could not load ${context.filename} [Pipeline Failure]`);
+                            throw new Error(`Could not load ${context.fullPath} [Pipeline Failure]`);
                     }
                 }
             }
@@ -281,10 +281,10 @@ class MUDCompiler {
                     module.stats.errors++;
                 }
                 if (module && !module.loaded) {
-                    driver.cache.delete(context.filename);
+                    driver.cache.delete(context.fullPath);
                 }
                 this.driver.cleanError(cleanError = err);
-                await this.driver.logError(context.filename, err);
+                await this.driver.logError(frame.branch(), context.fullPath, err);
                 logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ERROR: ${cleanError.message}]}`);
                 logger.log(cleanError.stack || cleanError.trace);
                 throw err;
@@ -296,7 +296,7 @@ class MUDCompiler {
                 let t1 = efuns.ticks, ecc = driver.getExecution();
                 if (!cleanError) {
                     if (ecc)
-                        logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ${ecc.stack.length}]`);
+                        logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
                     else
                         logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
                 }
@@ -330,10 +330,10 @@ class MUDCompiler {
                 virtualContext = ecc.addVirtualCreationContext({
                     objectId,
                     isVirtual: true,
-                    filename: context.filename
+                    filename: context.fullPath
                 });
 
-                let virtualResult = await driver.compileVirtualObject(virtualContext.filename, args);
+                let virtualResult = await driver.compileVirtualObject(virtualContext.fullPath, args);
 
                 args.forEach(a => {
                     if (typeof a === 'object') {
@@ -350,16 +350,16 @@ class MUDCompiler {
             }
             catch (err) {
                 console.log(`compileVirtual() error: ${err.message}`);
-                driver.cache.delete(context.filename);
+                driver.cache.delete(context.fullPath);
             }
             finally {
                 ecc.popCreationContext();
             }
-        }, context.filename)
+        }, context.fullPath)
             .catch(err => { throw err; })
 
         if (!virtualResult)
-            throw new Error(`Could not load ${context.filename} [File not found]`);
+            throw new Error(`Could not load ${context.fullPath} [File not found]`);
 
         return module;
     }

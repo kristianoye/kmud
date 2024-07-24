@@ -6,6 +6,7 @@
  * Description: Placeholder for future MVC-based server.
  */
 
+const { ExecutionContext, CallOrigin } = require('../../../ExecutionContext');
 const
     DesktopFileAbstraction = require('./DesktopFileAbstraction'),
     ClientEndpoint = require('../../ClientEndpoint'),
@@ -32,7 +33,13 @@ class DesktopServer extends ClientEndpoint {
         this.#clients = {};
     }
 
-    bind() {
+    /**
+     * 
+     * @param {ExecutionContext} ecc
+     * @returns
+     */
+    bind(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'bind', callType: CallOrigin.Driver });
         this.server = new HTTPServer(
             {
                 enableWebSocket: true,
@@ -63,7 +70,7 @@ class DesktopServer extends ClientEndpoint {
         if (typeof driver.applyRegisterServer === 'function') {
             if (this.port > 0) {
                 driver.driverCall('applyRegisterServer', () => {
-                    driver.applyRegisterServer({
+                    driver.applyRegisterServer(frame.branch(), {
                         address: this.address,
                         protocol: 'http',
                         port: this.port,
@@ -74,9 +81,9 @@ class DesktopServer extends ClientEndpoint {
 
             if (this.securePort > 0) {
                 driver.driverCall('applyRegisterServer', () => {
-                    driver.registerServer({
+                    driver.registerServer(frame.branch(), {
                         address: this.address,
-                        protocol: 'http',
+                        protocol: 'https',
                         port: this.securePort,
                         server: this.server
                     });

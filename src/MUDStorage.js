@@ -27,14 +27,13 @@ class MUDStorage extends MUDEventEmitter {
      * Construct a storage object.
      * @param {MUDObject} owner The owner of the storage object.
      */
-    constructor(owner) {
+    constructor(owner, $credential) {
         super();
 
         this.component = false;
         this.clientCaps = ClientCaps.DefaultCaps;
 
-        if (driver.masterObject)
-            this.$credential = driver.securityManager.getCredential(owner);
+        this.$credential = $credential;
 
         /** @type {MUDObject} The current environment */
         this.$environment = null;
@@ -351,7 +350,7 @@ class MUDStorage extends MUDEventEmitter {
 
                 //  Special case
                 if (driver.masterObject != null) {
-                    this.$credential = await driver.securityManager.getCredential(ecc.fork(), ownerObject.filename);
+                    this.$credential = await driver.securityManager.getCredential(ecc.branch(), ownerObject.filename);
                 }
                 else
                     throw new Error('CRASH: Master object has not been created!');
@@ -375,24 +374,21 @@ class MUDStorage extends MUDEventEmitter {
 
     /**
      * Restore the storage object.  Is this used?
+     * @param {ExecutionContext} ecc The current callstack
      * @param {any} data
      */
-    async eventRestore(data) {
-        if (data) {
-            let owner = this.owner.instance;
+    async eventRestore(ecc, data) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'eventRestore', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (data) {
+                let owner = this.owner.instance;
 
-            if (typeof owner.migrateData === 'function') {
-                owner.migrateData(data);
-                return owner;
-            }
-
-            return await driver.driverCallAsync('eventRestore', async () => {
                 //  Restore inventory
                 data.inventory = data.inventory || [];
                 for (let i = 0; i < data.inventory.length; i++) {
                     try {
-                        let item = await driver.efuns.restoreObjectAsync(data.inventory[i]);
-                        await item.moveObjectAsync(owner);
+                        let item = await driver.efuns.restoreObjectAsync(frame.branch(), data.inventory[i]);
+                        await item.moveObjectAsync(frame.branch(), owner);
                     }
                     catch (e) {
                         this.shell.stderr.writeLine(`* Failed to load object ${data.inventory[i].$type}`);
@@ -401,7 +397,7 @@ class MUDStorage extends MUDEventEmitter {
 
                 let restoreData = async (hive, key, value) => {
                     try {
-                        let type = driver.efuns.objectType(value);
+                        let type = driver.efuns.objectType(frame.branch(), value);
 
                         if (['string', 'boolean', 'number'].indexOf(type) > -1) {
                             return hive ? hive[key] = value : value;
@@ -454,9 +450,12 @@ class MUDStorage extends MUDEventEmitter {
                     this.owner.applyRestore();
                 }
                 return owner;
-            });
+            }
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -817,12 +816,29 @@ class MUDStorageContainer {
         return this.storage[ob.filename] = new MUDStorage(ob);
     }
 
-    createForId(objectId, filename) {
-        //  If this is a reload, then the storage should already exist
-        if (objectId in this.storage) {
-            return this.storage[objectId];
+    /**
+     * Create a new storage object if needed
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} objectId
+     * @param {any} filename
+     * @returns
+     */
+    createForId(ecc, objectId, filename) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'createForId', callType: CallOrigin.Driver });
+        try {
+            //  If this is a reload, then the storage should already exist
+            if (objectId in this.storage) {
+                return this.storage[objectId];
+            }
+            let $credential;
+
+            if (driver.masterObject)
+                $credential = driver.securityManager.getCredential(frame.branch(), filename);
+            return this.storage[objectId] = new MUDStorage(filename, $credential);
         }
-        return this.storage[objectId] = new MUDStorage(filename);
+        finally {
+            frame.pop();
+        }
     }
 
     /**

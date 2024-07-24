@@ -1003,16 +1003,16 @@ class VerbSystemFeature extends FeatureBase {
     createExternalFunctions(efunPrototype) {
         let feature = this, container = this.container;
         if (this.efunNameParseAddRule) {
-            efunPrototype[this.efunNameParseAddRule] = function (verb, rule, target) {
+            efunPrototype[this.efunNameParseAddRule] = function (ecc, verb, rule, target) {
                 let handler = feature.allowHandlerParameter ?
-                    target || this.thisObject() : this.thisObject();
+                    target || this.thisObject(ecc) : this.thisObject(ecc);
                 let scope = feature.useVerbRuleScope ?
                     unwrap(handler, (o) => o.verbScope || o.directory) : false;
                 return container.addRule(verb, rule, handler, scope);
             };
         }
         if (this.efunNameParseAddSynonym) {
-            efunPrototype[this.efunNameParseAddSynonym] = function (synonym, verb) {
+            efunPrototype[this.efunNameParseAddSynonym] = function (ecc, synonym, verb) {
                 return container.addSynonym(synonym, verb);
             };
         }
@@ -1027,7 +1027,7 @@ class VerbSystemFeature extends FeatureBase {
             };
         }
         if (this.efunNameParseSentence) {
-            efunPrototype[this.efunNameParseSentence] = async function (/** @type {string} */ rawInput, /** @type {string[]} */ scopeList) {
+            efunPrototype[this.efunNameParseSentence] = async function (ecc, /** @type {string} */ rawInput, /** @type {string[]} */ scopeList) {
                 let input = rawInput.trim(),
                     scopes = feature.useVerbRuleScope ?
                         Array.isArray(scopeList) && scopeList.length ?
@@ -1038,7 +1038,7 @@ class VerbSystemFeature extends FeatureBase {
             };
         }
         if (this.efunNameParseVerb) {
-            efunPrototype[this.efunNameParseVerb] = async function (/** @type {string} */ verb, /** @type {string|string[]} */ input, /** @type {string[]} */ scopeList) {
+            efunPrototype[this.efunNameParseVerb] = async function (ecc, /** @type {string} */ verb, /** @type {string|string[]} */ input, /** @type {string[]} */ scopeList) {
                 let scopes = feature.useVerbRuleScope ?
                     Array.isArray(scopeList) && scopeList.length ?
                         scopeList : false : false,

@@ -31,7 +31,7 @@
 const
     { BaseSecurityCredential, BaseSecurityGroup, BaseSecurityManager } = require('./BaseSecurityManager'),
     { FileSystemObject } = require('../fs/FileSystemObject'),
-    { ExecutionContext } = require('../ExecutionContext'),
+    { ExecutionContext, CallOrigin } = require('../ExecutionContext'),
     SecurityFlags = require('./SecurityFlags'),
     DefaultGroupName = '$ALL',
     DefaultSystemName = '$SYSTEM',
@@ -156,22 +156,23 @@ class SecurityAcl {
 
     /**
      * Is the requested operation permitted under current context?
+     * @param {ExecutionContext} ecc The current call stack
      * @param {boolean} flags
      * @param {string} fullPath
      * @param {string} methodName The name of the requesting method
      */
-    async can(flags, fullPath, methodName = 'unknown') {
+    async can(ecc, flags, fullPath, methodName = 'unknown') {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'can', callType: CallOrigin.Driver });
         try {
-            let ecc = driver.getExecution(),
-                perms = await this.getEffectivePermissions();
+            let perms = await this.getEffectivePermissions(frame.branch());
 
             //  Silently inject wildcard perms
-            securityManager.applyWildcardAcls(perms);
+            securityManager.applyWildcardAcls(frame.branch(), perms);
 
-            let result = await ecc.guarded(async frame => {
-                if (frame.object) {
+            let result = await frame.context.guarded(async f => {
+                if (f.object) {
                     /** @type {{ userId: string, groups: string[] }} */
-                    let $creds = frame.object.$credential;
+                    let $creds = f.object.$credential;
 
                     //  Owner always succeeds
                     if (this.owner === $creds.userId)
@@ -192,12 +193,12 @@ class SecurityAcl {
 
                     switch (flags) {
                         case SecurityFlags.P_READ:
-                            if (await driver.callApplyAsync(driver.applyValidRead, fullPath, frame.object, methodName)) {
+                            if (await driver.callApplyAsync(frame.branch(), driver.applyValidRead, fullPath, f.object, methodName)) {
                                 return true;
                             }
                             break;
                         case SecurityFlags.P_WRITE:
-                            if (await driver.callApplyAsync(driver.applyValidWrite, fullPath, frame.object, methodName)) {
+                            if (await driver.callApplyAsync(frame.branch(), driver.applyValidWrite, fullPath, f.object, methodName)) {
                                 return true;
                             }
                             break;
@@ -211,135 +212,176 @@ class SecurityAcl {
 
             return result;
         }
-        catch (err) {
-            console.log(`!!! CRITICAL !!! Permission check failure: ${err}\n${err.stack}`);
+        finally {
+            frame.pop();
         }
         return false;
     }
 
     /**
      * Get a file-specific ACL
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} name The name of the file for which we want an ACL
      * @returns {Promise<SecurityAcl> | false}
      */
-    async getChildAsync(name) {
-        if (typeof this.#children === 'object') {
-            //  Does this entry have an explicit entry?
-            if (name in this.#children)
-                return this.#children[name];
-            else {
-                return (this.#children[name] = new SecurityAcl(this, false, this.filename, { inherits: true }));
+    async getChildAsync(ecc, name) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (typeof this.#children === 'object') {
+                //  Does this entry have an explicit entry?
+                if (name in this.#children)
+                    return this.#children[name];
+                else {
+                    return (this.#children[name] = new SecurityAcl(this, false, this.filename, { inherits: true }));
+                }
             }
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Get the effective permissions
-     * @param {Object.<string,AclEffectivePermission} result
+     * @param {ExecutionContext} ecc The current call stack
+     * @param {Object.<string,AclEffectivePermission} result The object to populate with permissions
      * @returns {Object.<string,AclEffectivePermission}
      */
-    async getEffectivePermissions(result = {}) {
-        for (const [id, perms] of Object.entries(this.#permissions)) {
-            //  Do not overwrite permissions inherited from a higher level
-            if (false === id in result) {
-                result[id] = {
-                    perms: perms,
-                    source: this.filename
-                };
+    async getEffectivePermissions(ecc, result = {}) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            for (const [id, perms] of Object.entries(this.#permissions)) {
+                //  Do not overwrite permissions inherited from a higher level
+                if (false === id in result) {
+                    result[id] = {
+                        perms: perms,
+                        source: this.filename
+                    };
+                }
             }
-        }
-        if (this.inherits && this.#parent)
-            await this.#parent.getEffectivePermissions(result);
+            if (this.inherits && this.#parent)
+                await this.#parent.getEffectivePermissions(frame.branch(), result);
 
-        return result;
+            return result;
+        }
+        finally {
+            frame.pop(true);
+        }
     }
 
-    async getPermString(tp, fullPath) {
-        let perms = await this.getEffectivePermissions(),
-            result = 0;
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current call stack
+     * @param {any} tp
+     * @param {any} fullPath
+     * @returns
+     */
+    async getPermString(ecc, tp, fullPath) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getPermString', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let perms = await this.getEffectivePermissions(frame.branch()),
+                result = 0;
 
-        //  Silently inject wildcard perms
-        securityManager.applyWildcardAcls(perms);
+            //  Silently inject wildcard perms
+            securityManager.applyWildcardAcls(frame.branch(), perms);
 
-        /** @type {{ userId: string, groups: string[] }} */
-        let $creds = tp.$credential;
+            /** @type {{ userId: string, groups: string[] }} */
+            let $creds = tp.$credential;
 
-        //  Owner always succeeds
-        if (this.owner === $creds.userId)
-            result = SecurityFlags.P_ALL;
+            //  Owner always succeeds
+            if (this.owner === $creds.userId)
+                result = SecurityFlags.P_ALL;
 
-        //  System group always succeeds
-        else if (securityManager.systemGroupName && $creds.groups.indexOf(securityManager.systemGroupName) > -1)
-            result = SecurityFlags.P_ALL;
-        else {
-            //  Calculate effective permissions
-            for (const [id, data] of Object.entries(perms)) {
-                if ($creds.groups.indexOf(id) > -1)
-                    result |= data.perms;
+            //  System group always succeeds
+            else if (securityManager.systemGroupName && $creds.groups.indexOf(securityManager.systemGroupName) > -1)
+                result = SecurityFlags.P_ALL;
+            else {
+                //  Calculate effective permissions
+                for (const [id, data] of Object.entries(perms)) {
+                    if ($creds.groups.indexOf(id) > -1)
+                        result |= data.perms;
+                }
+                if (await driver.callApplyAsync(frame.branch(), driver.applyValidRead, fullPath, tp, 'getPermString')) {
+                    result |= SecurityFlags.P_READ;
+                }
+                if (await driver.callApplyAsync(frame.branch(), driver.applyValidWrite, fullPath, tp, 'getPermString')) {
+                    result |= SecurityFlags.P_WRITE;
+                }
             }
-            if (await driver.callApplyAsync(driver.applyValidRead, fullPath, tp, 'getPermString')) {
-                result |= SecurityFlags.P_READ;
-            }
-            if (await driver.callApplyAsync(driver.applyValidWrite, fullPath, tp, 'getPermString')) {
-                result |= SecurityFlags.P_WRITE;
-            }
+            let stringResult = SecurityFlags.permsString(result);
+            return stringResult;
         }
-        let stringResult = SecurityFlags.permsString(result);
-        return stringResult;
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Save the ACL data to file
+     * @param {ExecutionContext} ecc The current call stack
      */
-    async saveAsync() {
-        if (this.#children === false) {
-            await this.#parent.saveAsync();
-        }
-        else {
-            let aclFile = await driver.fileManager.getFileAsync(this.filename, 0, true);
-            let exportChildren = () => {
-                let result = {};
-                for (const [fileName, acl] of Object.entries(this.#children)) {
-                    result[fileName] = {
-                        inherits: typeof acl.inherits === 'boolean' ? acl.inherits : true,
-                        owner: acl.owner || this.owner,
-                        permissions: acl.#permissions || {}
-                    };
-                }
-                return result;
-            };
+    async saveAsync(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'saveAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (this.#children === false) {
+                await this.#parent.saveAsync(frame.branch());
+            }
+            else {
+                let aclFile = await driver.fileManager.getObjectAsync(frame.branch(), this.filename, 0, true);
+                let exportChildren = () => {
+                    let result = {};
+                    for (const [fileName, acl] of Object.entries(this.#children)) {
+                        result[fileName] = {
+                            inherits: typeof acl.inherits === 'boolean' ? acl.inherits : true,
+                            owner: acl.owner || this.owner,
+                            permissions: acl.#permissions || {}
+                        };
+                    }
+                    return result;
+                };
 
-            await aclFile.writeJsonAsync({
-                children: exportChildren(),
-                filename: this.filename,
-                inherits: this.inherits,
-                metdata: this.#metadata,
-                owner: this.owner,
-                permissions: this.#permissions,
-            });
+                await aclFile.writeJsonAsync(frame.branch(), {
+                    children: exportChildren(),
+                    filename: this.filename,
+                    inherits: this.inherits,
+                    metdata: this.#metadata,
+                    owner: this.owner,
+                    permissions: this.#permissions,
+                });
+            }
+        }
+        finally {
+            frame.pop();
         }
     }
 
     /**
      * Set ACL permissions
+     * @param {ExecutionContext} ecc The current call stack
      * @param {SecurityAcl} perms
      * @param {string} [filename]
      */
-    async setPermissionsAsync(perms, filename = false) {
-        if (await this.can(SecurityFlags.P_CHANGEPERMS)) {
-            /** @type {SecurityAcl} */
-            let aclToModify = filename ? await this.getChildAsync(filename) : this;
+    async setPermissionsAsync(ecc, perms, filename = false) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_CHANGEPERMS)) {
+                /** @type {SecurityAcl} */
+                let aclToModify = filename ? await this.getChildAsync(frame.branch(), filename) : this;
 
-            aclToModify.#permissions = perms.permissions;
-            if (typeof perms.inherits === 'boolean')
-                aclToModify.#inherits = perms.inherits;
+                aclToModify.#permissions = perms.permissions;
+                if (typeof perms.inherits === 'boolean')
+                    aclToModify.#inherits = perms.inherits;
 
-            await aclToModify.saveAsync();
+                await aclToModify.saveAsync(frame.branch());
 
-            return true;
+                return true;
+            }
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
     //#endregion
@@ -380,7 +422,7 @@ class WildcardAcl {
     constructor(aclInfo) {
         this.directory = aclInfo.directory;
         /** @type {RegExp} */
-        this.pattern = driver.efuns.buildFilenamePattern(aclInfo.directory, false);
+        this.pattern = driver.efuns.buildFilenamePattern(undefined, aclInfo.directory, false);
         this.description = aclInfo.data.description || '[No Description]';
         this.permissions = {};
 
@@ -438,10 +480,17 @@ class AclSecurityManager extends BaseSecurityManager {
 
     /**
      * Add a member to a group
+     * @param {ExecutionContext} ecc The current call stack
      * @param {AclSecurityGroup} group
      * @param {string[] | AclSecurityCredential[]} members
      */
-    async addGroupMembers(group, members) {
+    async addGroupMembers(ecc, group, members) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        try {
+        }
+        finally {
+            frame.pop();
+        }
         if (group.gid in this.groups) {
             if (this.initialized && typeof memberId === 'string')
                 memberId = this.getCredential(memberId);
@@ -467,11 +516,18 @@ class AclSecurityManager extends BaseSecurityManager {
 
     /**
      * Remove members from a group
+     * @param {ExecutionContext} ecc The current call stack
      * @param {AclSecurityGroup} group
      * @param {(AclSecurityCredential | AclSecurityGroup)[]} members
      * @returns
      */
-    async removeGroupMembers(group, members) {
+    async removeGroupMembers(ecc, group, members) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        try {
+        }
+        finally {
+            frame.pop();
+        }
         if (group.gid in this.groups) {
             if (this.initialized && typeof memberId === 'string')
                 memberId = this.getCredential(memberId);
@@ -490,9 +546,16 @@ class AclSecurityManager extends BaseSecurityManager {
 
     /**
      * Apply wildcard ACLs
+     * @param {ExecutionContext} ecc The current call stack
      * @param {SecurityAcl} acl
      */
-    applyWildcardAcls(acl) {
+    applyWildcardAcls(ecc, acl) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        try {
+        }
+        finally {
+            frame.pop();
+        }
         this.wildcardPermissions.forEach(wc => {
             if (wc.directory === '*') {
                 for (const [id, perm] of Object.entries(wc.permissions)) {
@@ -507,46 +570,66 @@ class AclSecurityManager extends BaseSecurityManager {
 
     /**
      * Load and validate the initial security settings
+     * @param {ExecutionContext} ecc The current call stack
      * @param {GameServer} masterObject
      */
-    async bootstrap(masterObject) {
-        if (this.bootstrapApply) {
-            await super.bootstrap(masterObject);
-        }
-        if (!this.groupsFile)
-            throw new Error('bootstrap() security module requires groups file');
-        if (!this.permissionsFile)
-            throw new Error('bootstrap() security module requires permissions file');
+    async bootstrap(ecc, masterObject) {
+        let frame = ecc.pushFrameObject({ object: this, file: __filename, method: 'bootstrap', callType: CallOrigin.Driver });
+        try {
+            if (this.bootstrapApply) {
+                await super.bootstrap(masterObject);
+            }
+            if (!this.groupsFile)
+                throw new Error('bootstrap() security module requires groups file');
+            if (!this.permissionsFile)
+                throw new Error('bootstrap() security module requires permissions file');
 
-        await this.loadGroupsFile();
+            await this.loadGroupsFile(frame.branch());
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Check to see if the type of action is allowed in the current context.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {FileSystemObject} fo
      * @param {number} flags The flags describing the desired I/O operation
      * @param {string} methodName The name of the method making the request
      */
-    async can(fo, flags, methodName = 'unknonwn') {
+    async can(ecc, fo, flags, methodName = 'unknonwn') {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'can', isAsync: true });
         return new Promise(async (resolve, reject) => {
             try {
                 //  Everything is read-write until the master object is loaded
                 if (!driver.masterObject)
                     return resolve(true);
 
-                let ecc = driver.getExecution();
-                let acl = await this.getAcl(fo);
-                
-                let result = await acl.can(flags, fo.fullPath, methodName);
+                let acl = await this.getAcl(ecc.branch(), fo);
+
+                let result = await acl.can(frame.branch(), flags, fo.fullPath, methodName);
                 resolve(result);
             }
             catch (err) {
                 reject(err);
             }
-        });
+        }).finally(() => frame.pop());
     }
 
-    async createGroup(group) {
+    /**
+     * Create a new security group
+     * @param {ExecutionContext} ecc The current call stack
+     * @param {any} group
+     * @returns
+     */
+    async createGroup(ecc, group) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        try {
+        }
+        finally {
+            frame.pop();
+        }
         if (group.id in this.groups)
             throw new Error(`createGroup(): Security group ${group.id} already exists`);
         let newGroup = this.groups[group.id] = new AclSecurityGroup(this, group.id, group.name, group.description, group.members || []);
@@ -556,7 +639,19 @@ class AclSecurityManager extends BaseSecurityManager {
         return this.saveGroups();
     }
 
-    async deleteGroup(group) {
+    /**
+     * Delete an existing security group
+     * @param {ExecutionContext} ecc The current call stack
+     * @param {any} group
+     * @returns
+     */
+    async deleteGroup(ecc, group) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        try {
+        }
+        finally {
+            frame.pop();
+        }
         if (group.id in this.groups === false)
             throw new Error(`deleteGroup(): Security group ${group.id} does not exist`);
         delete this.groups[group.id];
@@ -565,204 +660,275 @@ class AclSecurityManager extends BaseSecurityManager {
 
     /**
      * Get the Access Control List for the specified object.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {FileSystemObject|string} fo The stat to get an Acl for
      * @returns {Promise<SecurityAcl>}
      */
-    async getAcl(fo, ignoreParent = false) {
+    async getAcl(ecc, fo, ignoreParent = false) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
         if (typeof fo === 'string') {
-            return await this.getAcl(await driver.fileManager.getFileAsync(fo, 0, true));
+            try {
+                return await this.getAcl(frame.branch(), await driver.fileManager.getObjectAsync(frame.branch(), fo, 0, true));
+            }
+            finally {
+                frame.pop();
+            }
         }
-        return new Promise(async (resolve, reject) => {
-            if (fo.isFile) {
-                let parent = await fo.getParentAsync(),
-                    parentAcl = await this.getAcl(parent);
+        else
+            return new Promise(async (resolve, reject) => {
+                if (fo.isFile) {
+                    let parent = await fo.getParentAsync(frame.branch()),
+                        parentAcl = await this.getAcl(frame.branch(), parent);
 
-                return resolve(await parentAcl.getChildAsync(fo.name));
-            }
-            else if (fo.isDirectory) {
-                try {
-                    if (fo.path in this.aclCache)
-                        return resolve(this.aclCache[fo.path]);
-                    let aclFilename = await this.getAclFilename(fo);
-                    let aclFile = await driver.fileManager.getFileAsync(aclFilename, 0, true);
-                    let existingData = aclFile.exists ? await this.readAclData(aclFilename) : false;
-                    let parentAcl = fo.parent ? await this.getAcl(fo.parent) : false;
-                    let requireSave = !aclFile.exists;
+                    return resolve(await parentAcl.getChildAsync(frame.branch(), fo.name));
+                }
+                else if (fo.isDirectory) {
+                    try {
+                        if (fo.path in this.aclCache)
+                            return resolve(this.aclCache[fo.path]);
+                        let aclFilename = await this.getAclFilename(frame.branch(), fo);
+                        let aclFile = await driver.fileManager.getObjectAsync(frame.branch(), aclFilename, 0, true);
+                        let existingData = aclFile.exists ? await this.readAclData(frame.branch(), aclFilename) : false;
+                        let parentAcl = fo.parent ? await this.getAcl(frame.branch(), fo.parent) : false;
+                        let requireSave = !aclFile.exists;
 
-                    //  There was no data for this directory; Ask the master
-                    if (existingData === false) {
-                        existingData = await driver.callApplyAsync(this.createAclApply, fo.fullPath);
+                        //  There was no data for this directory; Ask the master
+                        if (existingData === false) {
+                            existingData = await driver.callApplyAsync(frame.branch(), this.createAclApply, fo.fullPath);
+                        }
+
+                        if (!existingData.owner)
+                            existingData.owner = await driver.callApplySync(frame.branch(), this.getFileOwnerApply, fo.fullPath, fo.isDirectory);
+
+                        /** @type {SecurityAcl} */
+                        let acl = new SecurityAcl(parentAcl, true, aclFile.fullPath, existingData);
+
+                        if (requireSave)
+                            await acl.saveAsync(frame.branch());
+
+                        return resolve(this.aclCache[fo.path] = acl);
+                    }
+                    catch (err) {
+                        reject(err);
+                    }
+                }
+                else if (!fo.exists && ignoreParent === false) {
+                    //  Look for the first parent that does exist
+                    let parent = await fo.getParentAsync(frame.branch());
+
+                    if (!parent.exists) {
+                        do {
+                            parent = await parent.getParentAsync(frame.branch());
+                        }
+                        while (!parent.exists);
                     }
 
-                    if (!existingData.owner)
-                        existingData.owner = await driver.callApplySync(this.getFileOwnerApply, fo.fullPath, fo.isDirectory);
+                    let parentAcl = await this.getAcl(parent);
 
-                    /** @type {SecurityAcl} */
-                    let acl = new SecurityAcl(parentAcl, true, aclFile.fullPath, existingData);
-
-                    if (requireSave)
-                        await acl.saveAsync();
-
-                    return resolve(this.aclCache[fo.path] = acl);
+                    return resolve(await parentAcl.getChildAsync(frame.branch(), fo.name));
                 }
-                catch (err) {
-                    reject(err);
-                }
-            }
-            else if (!fo.exists && ignoreParent === false)
-            {
-                //  Look for the first parent that does exist
-                let parent = await fo.getParentAsync();
-
-                if (!parent.exists) {
-                    do {
-                        parent = await parent.getParentAsync();
-                    }
-                    while (!parent.exists);
-                }
-
-                let parentAcl = await this.getAcl(parent);
-
-                return resolve(await parentAcl.getChildAsync(fo.name));
-            }
-            else
-                reject(`Invalid request:`)
-        });
+                else
+                    reject(`Invalid request:`)
+            })
+                .finally(() => frame.pop());
     }
 
     /**
      * Get the filename of the ACL file for the provided object
+     * @param {ExecutionContext} ecc The current call stack
      * @param {FileSystemObject} fso
      * @returns string The full MUD path of the ACL file
      */
-    async getAclFilename(fso) {
-        if (this.shadowFilesystem) {
-            const aclPath = fso.isDirectory ?
-                path.join(this.shadowFilesystem, fso.fullPath.slice(1)) :
-                path.join(this.shadowFilesystem, fso.directory.slice(1));
-            let aclDir = await driver.fileManager.getFileAsync(aclPath, 0, true);
+    async getAclFilename(ecc, fso) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (this.shadowFilesystem) {
+                const aclPath = fso.isDirectory ?
+                    path.join(this.shadowFilesystem, fso.fullPath.slice(1)) :
+                    path.join(this.shadowFilesystem, fso.directory.slice(1));
+                let aclDir = await driver.fileManager.getObjectAsync(frame.branch(), aclPath, 0, true);
 
-            if (!aclDir.exists) {
-                await aclDir.createDirectoryAsync(true);
+                if (!aclDir.exists) {
+                    await aclDir.createDirectoryAsync(frame.branch(), true);
+                }
+                return path.join(aclPath, this.aclFileName);
             }
-            return path.join(aclPath, this.aclFileName);
+            else {
+                const aclPath = fso.isDirectory ?
+                    path.join(fso.fullPath, this.aclFileName) :
+                    path.join(fso.directory, this.aclFileName);
+                return aclPath;
+            }
         }
-        else {
-            const aclPath = fso.isDirectory ?
-                path.join(fso.fullPath, this.aclFileName) :
-                path.join(fso.directory, this.aclFileName);
-            return aclPath;
+        finally {
+            frame.pop();
         }
     }
 
     /**
      * Fetch a particular group
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} groupName
      */
-    getGroup(groupName) {
-        return this.groups[groupName];
+    getGroup(ecc, groupName) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getGroup', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return this.groups[groupName];
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Get a MUD-safe representation of a security credential
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} username
      */
-    async getSafeCredentialAsync(username) {
-        let creds = await this.getCredential(username);
-        return creds.createSafeExport();
+    async getSafeCredentialAsync(ecc, username) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let creds = await this.getCredential(frame.branch(), username);
+            return creds.createSafeExport(frame.branch());
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Initialize permissions on the filesystem
+     * @param {ExecutionContext} ecc The current call stack
      */
-    async initSecurityAsync() {
-        if (this.shadowFilesystem !== false) {
-            let shadowFS = await driver.fileManager.getFileAsync(this.shadowFilesystem, 0, true);
-            if (!shadowFS.exists) {
-                console.log(`Creating shadow volumne: ${shadowFS.fullPath}`);
-                await shadowFS.createDirectoryAsync(true);
+    async initSecurityAsync(ecc) {
+        let frame = ecc.pushFrameObject({ method: 'initSecurityAsync', isAsync: true });
+        try {
+            if (this.shadowFilesystem !== false) {
+                let shadowFS = await driver.fileManager.getFileAsync(ecc.branch(), this.shadowFilesystem, 0, true);
+                if (!shadowFS.exists) {
+                    console.log(`Creating shadow volumne: ${shadowFS.fullPath}`);
+                    await shadowFS.createDirectoryAsync(true);
+                }
+            }
+            this.initialized = true;
+            for (const group of Object.values(this.groups)) {
+                group.resolveMembers(ecc.branch());
             }
         }
-        this.initialized = true;
-        for (const group of Object.values(this.groups)) {
-            group.resolveMembers();
+        finally {
+            frame.pop();
         }
     }
 
     /**
      * Check to see if the specified user is a member of a particular group
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} userId
      * @param {string} groupName
      */
-    isGroupMember(userId, groupName) {
+    isGroupMember(ecc, userId, groupName) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        try {
+        }
+        finally {
+            frame.pop();
+        }
         let group = this.getGroup(groupName);
         return group && group.isMember(userId);
     }
 
     /**
      * Is the file a system file?
+     * @param {ExecutionContext} ecc The current call stack
      * @param {FileSystemObject} file
      */
-    isSystemFile(file) {
-        if (file.fullPath === this.groupsFile) return true;
-        else if (file.fullPath === this.permissionFile) return true;
-        else if (file.name === this.aclFileName) return true;
-        else return super.isSystemFile(file);
+    isSystemFile(ecc, file) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'isSystemFile', isAsync: false, callType: CallOrigin.Driver });
+        try {
+            if (file.fullPath === this.groupsFile) return true;
+            else if (file.fullPath === this.permissionFile) return true;
+            else if (file.name === this.aclFileName) return true;
+            else return super.isSystemFile(ecc.branch(), file);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
-    listGroups(expr) {
-        if (!expr) expr = '*';
-        expr = expr.replace('*', '.*');
-        expr = expr.replace('?', '.');
-        expr = expr.replace('$', '\\$');
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current call stack
+     * @param {any} expr
+     * @returns
+     */
+    listGroups(ecc, expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'listGroups', isAsync: false, callType: CallOrigin.Driver });
         try {
-            let re = new RegExp(expr, 'i');
-            let results = [];
+            if (!expr) expr = '*';
+            expr = expr.replace('*', '.*');
+            expr = expr.replace('?', '.');
+            expr = expr.replace('$', '\\$');
+            try {
+                let re = new RegExp(expr, 'i');
+                let results = [];
 
-            for (const [id, group] of Object.entries(this.groups)) {
-                if (re.test(id))
-                    results.push(group.createSafeExport());
+                for (const [id, group] of Object.entries(this.groups)) {
+                    if (re.test(id))
+                        results.push(group.createSafeExport(frame.branch()));
+                }
+                return results;
             }
-            return results;
+            catch (e) {
+                return [];
+            }
         }
-        catch (e) {
-            return [];
+        finally {
+            frame.pop();
         }
     }
 
     /**
      * Load groups defined in the system groups file
+     * @param {ExecutionContext} ecc The current call stack
      */
-    async loadGroupsFile() {
-        let groupsFile = await driver.fileManager.getFileAsync(this.groupsFile, 0, true),
-            groupData = await groupsFile.readJsonAsync();
+    async loadGroupsFile(ecc) {
+        let frame = ecc.pushFrameObject({ object: this, file: __filename, method: 'loadGroupsFile', isAsync: true });
+        try {
+            let groupsFile = await driver.fileManager.getObjectAsync(frame.branch(), this.groupsFile, 0, true),
+                groupData = await groupsFile.readJsonAsync(frame.branch());
 
-        this.defaultGroupName = groupData.defaultGroupName || '$ALL';
-        this.systemGroupName = groupData.systemGroupName || '$SYSTEM';
+            this.defaultGroupName = groupData.defaultGroupName || '$ALL';
+            this.systemGroupName = groupData.systemGroupName || '$SYSTEM';
 
-        for (const [id, data] of Object.entries(groupData.groups)) {
-            if (id in this.groups)
-                throw new Error(`Group ${id} is specified multiple times in ${this.groupsFile}`);
+            for (const [id, data] of Object.entries(groupData.groups)) {
+                if (id in this.groups)
+                    throw new Error(`Group ${id} is specified multiple times in ${this.groupsFile}`);
 
-            if (!data.name || typeof data.name !== 'string')
-                throw new Error(`Group #${id} in ${this.groupsFile} does not have a property 'name'`);
+                if (!data.name || typeof data.name !== 'string')
+                    throw new Error(`Group #${id} in ${this.groupsFile} does not have a property 'name'`);
 
-            if (data.members && !Array.isArray(data.members))
-                throw new Error(`Group ${id} does not have a valid member collection`);
+                if (data.members && !Array.isArray(data.members))
+                    throw new Error(`Group ${id} does not have a valid member collection`);
 
-            this.groups[id] = new AclSecurityGroup(this, id, data.name, data.description || '[No description]', data.members);
+                this.groups[id] = new AclSecurityGroup(this, id, data.name, data.description || '[No description]', data.members);
+            }
+            if (this.defaultGroupName in this.groups === false) {
+                this.groups[this.defaultGroupName] = new AclSecurityGroup(this, this.defaultGroupName, 'Default Group', 'Default group that all objects are members of', []);
+            }
         }
-        if (this.defaultGroupName in this.groups === false) {
-            this.groups[this.defaultGroupName] = new AclSecurityGroup(this, this.defaultGroupName, 'Default Group', 'Default group that all objects are members of', []);
+        finally {
+            frame.pop();
         }
     }
 
     /** 
      * Load initial ACL information
+     * @param {ExecutionContext} ecc The current call stack
      */
-    async loadPermissionsFile() {
+    async loadPermissionsFile(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadPermissionsFile', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
-            let perms = await efuns.fs.readYamlAsync(this.permissionsFile),
+            let perms = await efuns.fs.readYamlAsync(frame.branch(), this.permissionsFile),
                 permSets = Object.keys(perms).filter(p => p.startsWith('PERMSET')),
                 dirList = Object.keys(perms)
                     .filter(p => p.startsWith('DIRECTORY') || p.startsWith('FILE'))
@@ -790,12 +956,12 @@ class AclSecurityManager extends BaseSecurityManager {
                 let aclData = dirList[i];
 
                 try {
-                    if (driver.efuns.containsWildcard(aclData.directory)) {
+                    if (driver.efuns.containsWildcard(frame.branch(), aclData.directory)) {
                         this.wildcardPermissions.push(new WildcardAcl(dirList[i]));
                         continue;
                     }
                     /** @type {FileSystemObject} */
-                    let fso = await driver.fileManager.getFileAsync(aclData.directory || aclData.file, 0, true);
+                    let fso = await driver.fileManager.getObjectAsync(frame.branch(), aclData.directory || aclData.file, 0, true);
 
                     aclData.data = Object.assign({
                         permissions: {},
@@ -809,29 +975,28 @@ class AclSecurityManager extends BaseSecurityManager {
                         else if (fso.exists) {
                             console.log(`\tEnsuring permissions for directory: ${fso.path}`);
 
-                            const aclFilename = await this.getAclFilename(fso);
-                            let aclFile = await driver.fileManager.getFileAsync(aclFilename, 0, true), // await fso.getFileAsync(this.aclFileName),
-                                existingData = await this.readAclData(aclFile.fullPath),
-                                parentAcl = fso.parent ? await this.getAcl(fso.parent) : false;
+                            let aclFile = await driver.fileManager.getObjectAsync(frame.branch(), this.aclFileName, 0, true), // await fso.getFileAsync(this.aclFileName),
+                                existingData = await this.readAclData(frame.branch(), await this.getAclFilename(frame.branch(), aclFile)),
+                                parentAcl = fso.parent ? await this.getAcl(frame.branch(), fso.parent) : false;
 
                             /** @type {AclDirectoryData} */
                             let data = Object.assign(existingData, aclData.data);
 
                             if (!data.owner)
-                                data.owner = await driver.callApplyAsync(this.getFileOwnerApply, fso.fullPath);
+                                data.owner = await driver.callApplyAsync(frame.branch(), this.getFileOwnerApply, fso.fullPath);
 
                             /** @type {SecurityAcl} */
                             let acl = this.aclCache[fso.fullPath] = new SecurityAcl(parentAcl, true, aclFile.fullPath, data);
 
-                            await acl.saveAsync();
+                            await acl.saveAsync(frame.branch());
                         }
                         else
                             console.log(`\tWARNING: Skipping permissions for missing directory: ${fso.path}`);
                     }
                     else {
-                        let parentAcl = await this.getAcl(await fso.getParentAsync());
+                        let parentAcl = await this.getAcl(frame.branch(), await fso.getParentAsync(frame.branch()));
                         console.log(`\tEnsuring permissions for file: ${aclData.file}`);
-                        await parentAcl.setPermissionsAsync(aclData.data, fso.name);
+                        await parentAcl.setPermissionsAsync(frame.branch(), aclData.data, fso.name);
 
                     }
                 }
@@ -843,24 +1008,30 @@ class AclSecurityManager extends BaseSecurityManager {
         catch (ex) {
             console.log(`Fatal error: Could not read permissions: ${ex.members}`);
         }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Get a credential
-     * @param {ExecutionContext} ecc
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} filename
      * @returns {AclSecurityCredential | AclSecurityGroup}
      */
     getCredential(ecc, filename, reload = false) {
-        let frame = ecc.pushFrameObject({ method: 'getCredential' });
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getCredential', callType: CallOrigin.Driver });
         try {
             if ('~@$'.indexOf(filename.charAt(0)) > -1) {
                 return this.groups[filename];
             }
             /** @type {{ IsUser: boolean, UserId: string, IsWizard: boolean, Groups: string[]}} */
-            let result = filename.indexOf('\\') > -1 ? {
-                UserId: filename
-            } : driver.masterObject[this.getCredentialApply](ecc.branch(), filename);
+            let result;
+
+            if (filename.indexOf('\\') > -1)
+                result = { UserId: filename };
+            else
+                result = driver.masterObject[this.getCredentialApply](ecc.branch(), filename);
 
             if (!result || typeof result !== 'object')
                 throw new Error(`Master object ${driver.filename}.${this.getCredentialApply} did not return valid credentials for ${filename}`);
@@ -872,7 +1043,7 @@ class AclSecurityManager extends BaseSecurityManager {
                 result.Groups = [];
 
             for (const [gid, group] of Object.entries(this.groups)) {
-                if (group.isMember(result.UserId, filename)) {
+                if (group.isMember(frame.branch(), result.UserId, filename)) {
                     result.Groups.push(gid);
                 }
             }
@@ -880,7 +1051,7 @@ class AclSecurityManager extends BaseSecurityManager {
                 result.Groups.push(this.defaultGroupName);
 
             for (let i = 0; i < result.Groups.length; i++) {
-                result.Groups[i] = this.resolveGroup(result.Groups[i]);
+                result.Groups[i] = this.resolveGroup(frame.branch(), result.Groups[i]);
             }
             return (this.credentials[result.UserId] = new AclSecurityCredential(this, result));
         }
@@ -891,45 +1062,85 @@ class AclSecurityManager extends BaseSecurityManager {
 
     /**
      * Get multiple credentials at once
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string[]} names
      * @returns {AclSecurityCredential[] | string[]}
      */
-    getCredentials(names) {
-        return this.initialized ? names.map(n => this.getCredential(n)) : names;
+    getCredentials(ecc, names) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getCredentials', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let frame = ecc.pushFrameObject({ method: 'getCredentials' });
+            try {
+                return this.initialized ? names.map(n => this.getCredential(ecc.branch(), n)) : names;
+            }
+            finally {
+                frame.pop();
+            }
+        }
+        finally {
+            frame.pop();
+        }
     }
 
-    async getGroupName(fo) {
-        let acl = await this.getAcl(fo);
-        return acl && acl.group || '(no group)';
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current call stack
+     * @param {any} fo
+     * @returns
+     */
+    async getGroupName(ecc, fo) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getGroupName', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let acl = await this.getAcl(frame.branch(), fo);
+            return acl && acl.group || '(no group)';
+        }
+        finally {
+            frame.pop();
+        }
     }
 
 
     /**
      * Retrieve the owner name of a particular file
+     * @param {ExecutionContext} ecc The current call stack
      * @param {FileSystemObject} fo The file object to retreve ownership info for
      * @returns {string} Returns the name of the file owner
      */
-    async getOwnerName(fo) {
+    async getOwnerName(ecc, fo) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getOwnerName', isAsync: true, callType: CallOrigin.Driver });
+        try {
+        }
+        finally {
+            frame.pop();
+        }
         let acl = await this.getAcl(fo);
         return acl ? acl.owner : 'unknown';
     }
 
     /**
      * Get a string representing the specified player's access
+     * @param {ExecutionContext} ecc The current call stack
      * @param {object} fo
      * @param {any} tp
      * @returns {string} Returns a string indicating individual permissions
      */
-    async getPermString(fo, tp) {
+    async getPermString(ecc, fo, tp) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getPermString', isAsync: true, callType: CallOrigin.Driver });
+        try {
+        }
+        finally {
+            frame.pop();
+        }
         let acl = await this.getAcl(fo);
         return acl ? acl.getPermString(tp, fo.fullPath) : 'unknown';
     }
 
     /**
      * Parse permission string
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} perms
      */
-    parsePerms(perms) {
+    parsePerms(ecc, perms) {
         if (typeof perms !== 'number' && typeof perms !== 'string')
             return 0;
 
@@ -971,169 +1182,306 @@ class AclSecurityManager extends BaseSecurityManager {
 
     /**
      * Read raw data from the specified ACL file
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} filename
      * @returns {Promise<SecurityAcl>}
      */
-    async readAclData(filename) {
-        let fso = await driver.fileManager.getFileAsync(filename, 0, true);
-        if (fso.exists)
-            return await fso.readJsonAsync();
-        else
-            return {};
+    async readAclData(ecc, filename) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'readAclData', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let fso = await driver.fileManager.getObjectAsync(frame.branch(), filename, 0, true);
+            if (fso.exists)
+                return await fso.readJsonAsync(frame.branch());
+            else
+                return {};
+        }
+        finally {
+            frame.pop();
+        }
     }
 
-    resolveGroup(groupName) {
-        if (groupName in this.groups)
-            return this.groups[groupName];
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current call stack
+     * @param {any} groupName
+     * @returns
+     */
+    resolveGroup(ecc, groupName) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'resolveGroup', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (groupName in this.groups)
+                return this.groups[groupName];
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Save the groups file
+     * @param {ExecutionContext} ecc The current call stack
      * @returns {Promise<boolean>}
      */
-    async saveGroups() {
-        let groupData = {
-            defaultGroupName: this.defaultGroupName,
-            systemGroupName: this.systemGroupName,
-            groups: {}
-        };
-        for (const [id, group] of Object.entries(this.groups)) {
-            groupData.groups[id] = group.createSafeExport();
+    async saveGroups(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'saveGroups', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let groupData = {
+                defaultGroupName: this.defaultGroupName,
+                systemGroupName: this.systemGroupName,
+                groups: {}
+            };
+            for (const [id, group] of Object.entries(this.groups)) {
+                groupData.groups[id] = group.createSafeExport(frame.branch());
+            }
+            let groupsFile = await driver.fileManager.getFileAsync(frame.branch(), this.groupsFile, 0, true);
+            return await groupsFile.writeJsonAsync(frame.branch(), groupData);
         }
-        let groupsFile = await driver.fileManager.getFileAsync(this.groupsFile, 0, true);
-        return await groupsFile.writeJsonAsync(groupData);
+        finally {
+            frame.pop();
+        }
+    }
+
+    /**
+     * Convert bitflags to a permission string
+     * @param {number} flags
+     */
+    toPermString(flags) {
+        return SecurityFlags.permsString(flags);
     }
 
     /**
      * Ensure the master object is compatible with this security manager.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {GameServer} gameDriver
      */
-    async validateAsync(gameDriver) {
-        if (typeof gameDriver.masterObject[this.getCredentialApply] !== 'function')
-            throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.getCredentialApply}'`);
-        if (typeof gameDriver.masterObject[this.createAclApply] !== 'function')
-            throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.createAclApply}'`);
-        await this.loadPermissionsFile();
+    async validateAsync(ecc, gameDriver) {
+        let frame = ecc.pushFrameObject({ method: 'validateAsync', file: __filename, isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (typeof gameDriver.masterObject[this.getCredentialApply] !== 'function')
+                throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.getCredentialApply}'`);
+            if (typeof gameDriver.masterObject[this.createAclApply] !== 'function')
+                throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.createAclApply}'`);
+            await this.loadPermissionsFile(ecc.branch());
+        }
+        finally {
+            frame.pop();
+        }
     }
 
    /**
      * Check to see if the caller may append to file.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {EFUNProxy} efuns
      * @param {FileSystemRequest} req
      */
-    validAppendFile(efuns, req) {
-        return this.validWriteFile(efuns, req);
+    validAppendFile(ecc, efuns, req) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validAppendFile', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return this.validWriteFile(frame.branch(), efuns, req);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Determine whether the caller is allowed to create a directory.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} expr The directory being created.
      */
-    validCreateDirectory(expr) {
-        return this.validWriteFile(expr);
+    validCreateDirectory(ecc, expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validCreateDirectory', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return this.validWriteFile(frame.branch(), expr);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Default security does not distinguish creating a file from writing.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} expr The expression to create
      */
-    validCreateFile(expr) {
-        return this.validWriteFile(expr);
+    validCreateFile(ecc, expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validCreateFile', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return this.validWriteFile(frame.branch(), expr);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Determine if the caller is permitted to remove a particular directory.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} expr The directory to delete
      */
-    validDeleteDirectory(expr) {
-        return this.validWriteFile(expr);
+    validDeleteDirectory(ecc, expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validDeleteDirectory', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return this.validWriteFile(frame.branch(), expr);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Default security does not distinguish deleting a file from writing.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} expr The path to delete
      */
-    validDeleteFile(expr) {
-        return this.validWriteFile(expr);
+    validDeleteFile(ecc, expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validDeleteFile', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return this.validWriteFile(frame.branch(), expr);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Default security does not restrict object destruction.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {FileSystemRequest} expr
      */
-    validDestruct(expr) {
-        return true;
+    validDestruct(ecc, expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validDestruct', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return true;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Determine if the user has access to the specified directory.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {any} expr
      */
-    validGetDirectory(expr) {
-        return true;
+    validGetDirectory(ecc, expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validGetDirectory', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return true;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Default security system does not support granting permissions.
+     * @param {ExecutionContext} ecc The current call stack
      */
-    validGrant(expr) {
-        throw new Error('Security system does not support the use of grant');
+    validGrant(ecc, expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validGrant', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            throw new Error('Security system does not support the use of grant');
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Default security does not enforce object loading or cloning.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} expr The path to load the object from.
      */
-    validLoadObject(expr) {
-        return this.validReadFile(expr);
+    validLoadObject(ecc, expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validLoadObject', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return this.validReadFile(frame.branch(), expr);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Default security does not distinguish between file and directory reads.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {EFUNProxy} efuns The proxy requesting the directory listing.
      * @param {FileSystemRequest} req The path expression to try and read.
      */
-    async validReadDirectory(req) {
-        return await this.validReadFile(req);
+    async validReadDirectory(ecc, req) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validReadDirectory', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return await this.validReadFile(frame.branch(), req);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Perform a security check
+     * @param {ExecutionContext} ecc The current call stack
      * @param {DirectoryObject} stat The stat object to check
      */
-    async validReadDirectoryAsync(stat) {
-        if (!stat.isDirectory)
-            throw new Error(`Bad argument 1 to validReadDirectoryAsync; Expected DirectoryObject got ${stat.constructor.name}`);
-        return true; // BOGUS... but does not work yet
+    async validReadDirectoryAsync(ecc, stat) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validReadDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (!stat.isDirectory)
+                throw new Error(`Bad argument 1 to validReadDirectoryAsync; Expected DirectoryObject got ${stat.constructor.name}`);
+            return true; // BOGUS... but does not work yet
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Determine if the caller has permission to read a particular file.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} filename The file to read from
      * @returns {boolean} True if the operation can proceed.
      */
-    async validReadFile(filename) {
-        return await driver.getExecution()
-            .guarded(async f => await driver.validRead(f, filename));
+    async validReadFile(ecc, filename) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validReadFile', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return frame.context.guarded(async f => await driver.validRead(frame.branch(), f, filename));
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Default security treats filestat as a normal read operation.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} filename The name of the file to stat
      * @returns {boolean} True if the operation can proceed.
      */
-    validStatFile(filename) {
-        return this.validReadFile(filename);
+    validStatFile(ecc, filename) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validStatFile', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return this.validReadFile(frame.branch(), filename);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Determine if the caller has permission to write to the filesystem.
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string} expr The path to write to
      * @returns {boolean} Returns true if the operation is permitted.
      */
-    validWriteFile(expr) {
-        return driver.getExecution()
-            .guarded(f => driver.validWrite(f, expr));
+    validWriteFile(ecc, expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'validWriteFile', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return frame.context.guarded(f => driver.validWrite(frame.branch(), f, expr));
+        }
+        finally {
+            frame.pop();
+        }
     }
 }
 

@@ -65,6 +65,7 @@ const
         //  Reserved for passing the execution context
         '__mec',     // MUD Execution Context
         '__ctx',
+        '__gec',     // Get context
 
         //  Reserved for multiple inheritance logic
         '__callScopedImplementation',
@@ -90,6 +91,7 @@ const
  * @property {string} [functionName] Name of the non-member function being declared/defined
  * @property {boolean} inConstructor Are we defining the constructor method?
  * @property {boolean} isAsync Are we in an async context?
+ * @property {boolean} isMemberExpression Is this a member expression?
  * @property {boolean} isSimulEfun Are we parsing the SimulEfun object?  e.g. inherits EFUNProxy
  * @property {boolean} isStatic Are we in a static context?
  * @property {boolean} isSuperExpression
@@ -143,9 +145,11 @@ class MudScriptAstAssembler {
         /** @type {TranspilerContext[]}*/
         this.contextStack = [];
         this.directory = p.directory;
+        this.ecc = undefined;
         /** @type {SyntaxError[]} */
         this.errors = [];
         this.errorCount = 0;
+        /** @type {ExecutionContext} */
         this.executionContext = ecc;
         this.warningCount = 0;
         this.exportCount = 0;
@@ -153,6 +157,7 @@ class MudScriptAstAssembler {
         this.extension = p.context.extension;
         this.eventCompleteMessages = [];
         this.filename = p.filename;
+        this.fullPath = p.context.fullPath;
         this.filepart = p.filename.slice(p.filename.lastIndexOf('/') + 1);
         this.max = p.source.length;
         this.module = p.context.module;
@@ -175,6 +180,7 @@ class MudScriptAstAssembler {
             functionName: false,
             inConstructor: false,
             isAsync: false,
+            isMemberExpression: false,
             isSimulEfun: false,
             isStatic: false,
             isSuperExpression: false,
@@ -278,9 +284,9 @@ class MudScriptAstAssembler {
      */
     getBaseName(className) {
         if (this.filepart === className)
-            return this.filename;
+            return this.fullPath;
         else
-            return `${this.filename}$${className}`;
+            return `${this.fullPath}$${className}`;
     }
 
     getCallerId() {
@@ -584,17 +590,17 @@ async function parseElement(op, e, depth) {
                     }
                     ret += op.readUntil(e.body.start);
                     if (e.body.type === 'BlockStatement') {
-                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, [${pnames.join(', ')}], { ${pnames.join(', ')} }, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try `;
+                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, [${pnames.join(', ')}], { ${pnames.join(', ')} }, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, false, ${CallOrigin.FunctionPointer}); try `;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += ` finally { __efc(${ctx.mecName}, '${funcName}'); } }`;
                     }
                     else if (e.body.type === 'MemberExpression') {
-                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, [${pnames.join(', ')}], { ${pnames.join(', ')} }, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return `;
+                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, [${pnames.join(', ')}], { ${pnames.join(', ')} }, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, false, ${CallOrigin.FunctionPointer}); try { return `;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += `; } finally { __efc(${ctx.mecName}, '${funcName}'); } }`;
                     }
                     else {
-                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, [${pnames.join(', ')}], { ${pnames.join(', ')} }, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, ${CallOrigin.FunctionPointer}); try { return (`;
+                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, [${pnames.join(', ')}], { ${pnames.join(', ')} }, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, false, ${CallOrigin.FunctionPointer}); try { return (`;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += `); } finally { __efc(${ctx.mecName}, '${funcName}'); } }`;
                     }
@@ -823,7 +829,7 @@ async function parseElement(op, e, depth) {
                         }
                         else if (propName === 'createAsync') {
                             ret += callee;
-                            ret += `('${op.filename}'`;
+                            ret += `('${op.fullPath}'`;
                             if (e.arguments.length) {
                                 ret += ', ';
                                 let foobar = op.readUntil('(');
@@ -866,14 +872,14 @@ async function parseElement(op, e, depth) {
                             for (const _ of e.arguments) {
                                 ret += op.readUntil(_.start);
                                 if (c++ === 0) {
-                                    ret += op.context.mecName + '.branch(), ';
+                                    ret += op.context.mecName + '.branch(__LINE__), ';
                                 }
                                 ret += await parseElement(op, _, depth + 1);
                             }
                             if (c === 0) {
                                 if (op.source.charAt(e.arguments.start) === '(') {
                                     ret += op.readUntil(e.arguments.start + 1);
-                                    ret += op.context.mecName + '.branch()';
+                                    ret += op.context.mecName + '.branch(__LINE__)';
                                 }
                             }
                         }
@@ -946,8 +952,8 @@ async function parseElement(op, e, depth) {
                                 if (classId === 'MUDObject' || classId === 'EFUNProxy' || classId === 'SimpleObject') continue;
                                 op.raise(`Could not inherit unresolved class: '${classId}'`);
                             }
-                            else if (!driver.efuns.isClass(classRef)) {
-                                if (driver.efuns.inherits(classRef, 'MUDObject')) {
+                            else if (!driver.efuns.isClass(op.executionContext.branch(), classRef)) {
+                                if (driver.efuns.inherits(op.executionContext.branch(), classRef, 'MUDObject')) {
                                     classRef = classRef.constructor;
                                 }
                                 else {
@@ -959,7 +965,7 @@ async function parseElement(op, e, depth) {
                                 if ((flags & MemberModifiers.Final) > 0) {
                                     op.raise(`Class '${typeDef.typeName}' cannot extend '${classId}' since it is declared final`, e.loc);
                                 }
-                                typeDef.importTypeInfo(classRef, classId);
+                                typeDef.importTypeInfo(op.executionContext.branch(), classRef, classId);
                             }
                         }
                     }
@@ -988,8 +994,8 @@ async function parseElement(op, e, depth) {
                             ret += injectedSource;
                         }
                     }
-                    ret += `extendType(${typeDef.typeName}, ${parentClassList.join(',')});`;
-                    ret += `__dmt("${op.filename}", ${e.id.name}); `;
+                    ret += `extendType(__mec1.branch(), ${typeDef.typeName}, ${parentClassList.join(',')});`;
+                    ret += `__dmt(__mec1, "${op.fullPath}", ${e.id.name}); `;
                     if (op.context.mustDefineCreate) {
                         if (!typeDef.isMember('create')) {
                             op.raise(`Class '${typeDef.typeName}' inherits ${parentClassList.length} types and requires a 'create' constructor`, e.loc)
@@ -1046,7 +1052,7 @@ async function parseElement(op, e, depth) {
                 else {
                     ret += await parseElement(op, e.declaration, depth + 1);
                     op.defaultExport = e.declaration.id.name;
-                    ret += `await module.setDefaultExport(${op.context.mecName}.branch(), ${op.defaultExport});`;
+                    ret += `await module.setDefaultExport(${op.context.mecName}.branch(__LINE__), ${op.defaultExport});`;
                 }
                 break;
 
@@ -1195,33 +1201,47 @@ async function parseElement(op, e, depth) {
                     ret += await parseElement(op, e.id, depth + 1);
                     for (const _ of e.params) {
                         ret += await parseElement(op, _, depth + 1);
-                        pnames.push(_.name);
+                        if (_.name)
+                            pnames.push(_.name);
+                        else if (_.type === 'AssignmentPattern' && _.left.name)
+                            pnames.push(_.left.name);
+                        else if (_.type === 'RestElement' && _.argument.name)
+                            pnames.push(_.argument.name);
+                        else
+                            throw new Error('Could not determine parameter name');
                     }
                     ret += op.readUntil(e.body.start);
-                    let n = ret.indexOf('(');
-                    if (n > -1) {
-                        if (e.params.length)
-                            ret = ret.slice(0, n + 1) + '__ctx,' + ret.slice(n + 1);
-                        else
-                            ret = ret.slice(0, n + 1) + '__ctx' + ret.slice(n + 1);
-                    }
-                    if (op.typeDef && op.thisMethod) {
-                        if (op.method === 'constructor' && op.typeDef) {
-                            addRuntimeAssert(e,
-                                (op.forcedInheritance && op.wroteConstructorName === false ? 'super();' : '') +
-                                `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${CallOrigin.Constructor}); try { `,
-                                ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, true);
-                            op.wroteConstructorName = true;
+                    if (ctx.callType !== CallOrigin.GetProperty && ctx.callType !== CallOrigin.SetProperty) {
+                        let n = ret.indexOf('(');
+                        if (n > -1) {
+                            if (e.params.length)
+                                ret = ret.slice(0, n + 1) + '__ctx,' + ret.slice(n + 1);
+                            else
+                                ret = ret.slice(0, n + 1) + '__ctx' + ret.slice(n + 1);
                         }
-                        else {
+                        if (op.typeDef && op.thisMethod) {
+                            if (ctx.callType === CallOrigin.Constructor && op.typeDef) {
+                                addRuntimeAssert(e,
+                                    (op.forcedInheritance && op.wroteConstructorName === false ? `super.${ctx.memberName}();` : '') +
+                                    `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${CallOrigin.Constructor}); try { `,
+                                    ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, true);
+                                op.wroteConstructorName = true;
+                            }
+                            else {
+                                addRuntimeAssert(e,
+                                    `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${op.context.callType}); try { `,
+                                    ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false);
+                            }
+                        }
+                        else if (op.context.functionName) {
                             addRuntimeAssert(e,
-                                `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${op.context.callType}); try { `,
+                                `const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.functionName}', __FILE__, false, __LINE__, false, ${op.context.callType}); try { `,
                                 ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false);
                         }
                     }
-                    else if (op.context.functionName) {
+                    else {
                         addRuntimeAssert(e,
-                            `const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.functionName}', __FILE__, false, __LINE__, false, ${op.context.callType}); try { `,
+                            `const [${ctx.mecName}, parameters] = __bfc(__gec, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${(op.context.functionName || op.context.memberName)}', __FILE__, false, __LINE__, false, ${op.context.callType}); try { `,
                             ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false);
                     }
                     ret += await parseElement(op, e.body, depth + 1);
@@ -1232,7 +1252,7 @@ async function parseElement(op, e, depth) {
             case 'Identifier':
                 let identifier = op.source.slice(e.start, e.end);
 
-                if (IllegalIdentifiers.indexOf(identifier) > -1) {
+                if (IllegalIdentifiers.indexOf(identifier) > -1 && !op.context.isMemberExpression) {
                     op.raise(`Illegal identifier: ${identifier}`, e);
                 }
                 else if (identifier.startsWith('__mec')) {
@@ -1243,13 +1263,13 @@ async function parseElement(op, e, depth) {
                     if (typeof symbolValue === 'string') {
                         ret += `'${op.symbols[identifier]}'`;
                     }
-                    else if (driver.efuns.isClass(symbolValue)) {
+                    else if (driver.efuns.isClass(op.executionContext.branch(), symbolValue)) {
                         ret += identifier;
                     }
                     else if (typeof symbolValue === 'function') {
                         ret += symbolValue.toString();
                     }
-                    else if (efuns.isPOO(symbolValue)) {
+                    else if (efuns.isPOO(op.executionContext.branch(), symbolValue)) {
                         ret += JSON.stringify(symbolValue);
                     }
                     else if (Array.isArray(symbolValue)) {
@@ -1324,7 +1344,7 @@ async function parseElement(op, e, depth) {
                                 op.raise(`Unhandled import specifier: ${spec.type}`);
                         }
                     }
-                    ret += `const { ${locals.join(', ')} } = await efuns.importAsync(${op.context.mecName}.branch(), ${source}, ${JSON.stringify(specifiers)}, false, __LINE__);`;
+                    ret += `const { ${locals.join(', ')} } = await efuns.importAsync(${op.context.mecName}.branch(__LINE__), ${source}, ${JSON.stringify(specifiers)}, false, __LINE__);`;
                     op.importSymbols(await efuns.importAsync(op.executionContext, source.replace(/^[\'\"]{1}|[\'\"]{1}$/g, ''), specifiers, op.directory));
                     op.pos = e.end;
                 }
@@ -1423,6 +1443,7 @@ async function parseElement(op, e, depth) {
 
             case 'MemberExpression':
                 {
+                    let ctx = op.pushContext({ isMemberExpression: true });
                     ret += op.readUntil(e.object.start);
                     ret += await parseElement(op, e.object, depth + 1);
                     if (e.usingDerefArrow) {
@@ -1431,6 +1452,7 @@ async function parseElement(op, e, depth) {
                     }
                     ret += op.readUntil(e.property.start);
                     ret += await parseElement(op, e.property, depth + 1);
+                    ctx.pop();
                 }
                 break;
 
@@ -1541,17 +1563,25 @@ async function parseElement(op, e, depth) {
 
             case 'NewExpression':
                 {
-                    let callee = op.source.slice(e.callee.start, e.callee.end);
+                    let callee = op.source.slice(e.callee.start, e.callee.end),
+                        hasArgs = e.arguments.length > 0;
                     op.pos = e.callee.end;
                     ret += `__pcc(${op.thisParameter}, ${callee}, __FILE__, '${op.method}', ct => new ct`;
-                    for (const _ of e.arguments) {
-                        ret += op.readUntil(_.start);
-                        ret += await parseElement(op, _, depth + 1);
+                    if (hasArgs) {
+                        ret += op.readUntil(e.arguments[0].start);
+                        ret += op.context.mecName + ', ';
+                        for (const _ of e.arguments) {
+                            ret += await parseElement(op, _, depth + 1);
+                        }
                     }
                     if (op.pos !== e.end) {
                         if (op.pos > e.end) throw new Error('Oops?');
                         ret += op.source.slice(op.pos, e.end);
                         op.pos = e.end;
+                    }
+                    if (!hasArgs) {
+                        let n = ret.lastIndexOf('(');
+                        ret = ret.slice(0, ++n) + op.context.mecName + ret.slice(n);
                     }
                     ret += ', __LINE__)';
                 }
@@ -1634,7 +1664,7 @@ async function parseElement(op, e, depth) {
                     switch (op.scope) {
                         case ScopeType.CallExpression:
 
-                            ret += `__callScopedImplementation('${scopeId}', '${scopeName}'`;
+                            ret += `__callScopedImplementation(${op.context.mecName}, '${scopeId}', '${scopeName}'`;
                             break;
 
                         case ScopeType.AssignmentExpression:
@@ -1828,7 +1858,7 @@ class MudScriptTranspiler extends PipelineComponent {
                 let source = op.source = 'await (async () => { ' + op.source + ' })()';
 
                 op.ast = this.parser.parse(source, op.acornOptions);
-                op.output += `__rmt("${op.filename}");`
+                op.output += `__rmt(__mec.branch(), "${op.fullPath}");`
                 for (const n of op.ast.body) {
                     op.output += await parseElement(op, n, 0)
                 }
@@ -1859,8 +1889,8 @@ class MudScriptTranspiler extends PipelineComponent {
                     op.errors = op.errors.sort(sorter);
                     if ((op.warningCount + op.errorCount) > 0) {
                         let msgs = op.errorCount > 0 ?
-                            new CompositeError(`Module ${op.filename} failed to compile due to ${op.errorCount} error(s) [${op.warningCount} warning(s)]`, op.errors) :
-                            new CompositeError(`Module ${op.filename} compiled with ${op.warningCount} warning(s)`, op.errors);
+                            new CompositeError(`Module ${op.fullPath} failed to compile due to ${op.errorCount} error(s) [${op.warningCount} warning(s)]`, op.errors) :
+                            new CompositeError(`Module ${op.fullPath} compiled with ${op.warningCount} warning(s)`, op.errors);
 
                         op.eventCompleteMessages = [msgs];
 
@@ -1889,13 +1919,13 @@ class MudScriptTranspiler extends PipelineComponent {
             throw x;
         }
         finally {
-            frame.pop();
             this.emit('compiler', op.eventCompleteMessages);
             if (Array.isArray(op.eventCompleteMessages) && op.eventCompleteMessages.length > 0) {
                 for (const err of op.eventCompleteMessages) {
-                    await driver.callApplyAsync(driver.applyLogError.name, options.file, err);
+                    await driver.callApplyAsync(frame.branch(), driver.applyLogError.name, options.file, err);
                 }
             }
+            frame.pop();
         }
     }
 }

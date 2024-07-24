@@ -83,8 +83,8 @@ class MUDObject extends MUDEventEmitter {
         }
     }
 
-    __callScopedImplementation(methodName, scopeName, ...args) {
-        return MUDVTable.virtualCall(this, methodName, scopeName, args);
+    __callScopedImplementation(ecc, methodName, scopeName, ...args) {
+        return MUDVTable.virtualCall(this, ecc, methodName, scopeName, args);
     }
 
     async __callScopedImplementationAsync(methodName, scopeName, ...args) {
@@ -401,24 +401,38 @@ class MUDVTable {
         return true;
     }
 
-    static virtualCall(instance, methodName, typeName, args) {
+    /**
+     * 
+     * @param {any} instance
+     * @param {ExecutionContext} ecc
+     * @param {any} methodName
+     * @param {any} typeName
+     * @param {any} args
+     * @returns
+     */
+    static virtualCall(instance, ecc, methodName, typeName, args) {
         const vtable = MUDVTable.getVirtualTable(instance.constructor.prototype),
             methodMap = vtable.getMethod(methodName);
-
-        if (!methodMap)
-            throw new Error(`Type ${instance.constructor.name} does not have a method named '${methodName}'`)
-        else if (typeName && !methodMap[typeName])
-            throw new Error(`Type '${typeName}', inherited by ${instance.constructor.name}, does not have a method named '${methodName}'`)
-        else if (typeName) {
-            return methodMap[typeName].implementation.apply(instance, args);
-        }
-        else {
-            let result = {};
-            for (const [scopeName, method] of Object.entries(methodMap)) {
-                if (method.depth === 1)
-                    result[scopeName] = method.implementation.apply(instance, args);
+        let frame = ecc.pushFrameObject({ method: 'virtualCall', callType: 2 });
+        try {
+            if (!methodMap)
+                throw new Error(`Type ${instance.constructor.name} does not have a method named '${methodName}'`)
+            else if (typeName && !methodMap[typeName])
+                throw new Error(`Type '${typeName}', inherited by ${instance.constructor.name}, does not have a method named '${methodName}'`)
+            else if (typeName) {
+                return methodMap[typeName].implementation.call(instance, frame.branch(), ...args);
             }
-            return result;
+            else {
+                let result = {};
+                for (const [scopeName, method] of Object.entries(methodMap)) {
+                    if (method.depth === 1)
+                        result[scopeName] = method.implementation.call(instance, frame.branch(), ...args);
+                }
+                return result;
+            }
+        }
+        finally {
+            frame.pop();
         }
     }
 

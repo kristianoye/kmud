@@ -203,4 +203,9 @@ Array.prototype.where = function (test) {
 
 if (__ivc === true) {
     __igt(Array.prototype);
+    __igt(Array);
+}
+else {
+    driver.instrumentObject(Array.prototype);
+    driver.instrumentObject(Array);
 }

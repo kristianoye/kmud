@@ -41,5 +41,6 @@ Object.mapEach = function (target, callback) {
 };
 
 if (__ivc === true) {
+    __igt(Object);
     __igt(Object.prototype);
 }
