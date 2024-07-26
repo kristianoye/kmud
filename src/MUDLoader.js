@@ -577,15 +577,29 @@ class MUDLoader {
 
     /**
      * Capture the next line of user input
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} type The type of control to create
      * @param {Object.<string,string>} options Additional options used to render the prompt
      * @param {function(string):void} callback A callback that will receive the user's input
      */
-    prompt(type, options = {}, callback = false) {
-        efuns.input.prompt(type, options, callback);
+    prompt(ecc, type, options = {}, callback = false) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'prompt', callType: CallOrigin.DriverEfun });
+        try {
+            efuns.input.prompt(frame.context, type, options, callback);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
-    promptAsync(type, options = {}) {
+    /**
+     * Capture the next line of user input
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} type The type of control to create
+     * @param {Object.<string,string>} options Additional options used to render the prompt
+     * @returns
+     */
+    promptAsync(ecc, type, options = {}) {
         return efuns.input.promptAsync(type, options);
     }
 
