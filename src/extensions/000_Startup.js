@@ -17,4 +17,9 @@ if (!__ivc) {
             return __stack[1].getLineNumber();
         }
     });
+
+}
+else {
+    __igt(global, ['atob', 'parseInt', 'btoa', 'isFinite', 'isNaN', 'parseFloat', 'parseInt']);
+    __igt(NaN);
 }

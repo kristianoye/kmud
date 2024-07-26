@@ -1037,13 +1037,21 @@ class GameServer extends MUDEventEmitter {
         this.efuns = global.efuns = efuns;
     }
 
-    instrumentObject(proto) {
+    /**
+     * 
+     * @param {Object} proto
+     * @param {string[]} specificMethodList
+     * @returns
+     */
+    instrumentObject(proto, specificMethodList = false) {
         if (!proto.__native) {
             proto.__native = {};
             let props = Object.getOwnPropertyDescriptors(proto);
 
             for (const [name, prop] of Object.entries(props)) {
                 if (typeof proto[name] === 'function') {
+                    if (specificMethodList && specificMethodList.indexOf(name) === -1)
+                        continue;
                     (function (name, impl) {
                         /**
                          * 

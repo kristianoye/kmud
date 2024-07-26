@@ -234,8 +234,8 @@ class MUDLoader {
                 enumerable: false
             },
             __igt: {
-                value: function (proto) {
-                    return driver.instrumentObject(proto);
+                value: function (proto, specificMethodList = false) {
+                    return driver.instrumentObject(proto, specificMethodList);
                 },
                 enumerable: false,
                 writable: false,
@@ -291,6 +291,13 @@ class MUDLoader {
                     return result;
                 },
                 writable: false
+            },
+            global: {
+                get: function () {
+                    return this;
+                },
+                enumerable: false,
+                configurable: false
             },
             inherits: {
                 value: function (ob, targetType) {
