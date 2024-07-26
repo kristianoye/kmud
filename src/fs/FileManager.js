@@ -109,12 +109,19 @@ class FileManager extends MUDEventEmitter {
 
     /**
      * Clone an object into existance.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} expr The module to clone
      * @param {any} args Constructor args for clone
      * @returns {MUDWrapper} The wrapped instance.
      */
-    async cloneObjectAsync(expr, args = []) {
-        return await this.loadObjectAsync(expr, args, 2);
+    async cloneObjectAsync(ecc, expr, args = []) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return await this.loadObjectAsync(frame.branch(), expr, args, 2);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**

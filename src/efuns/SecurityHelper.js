@@ -136,7 +136,7 @@ class SecurityHelper {
         /**
          * @type {[ExecutionContext, string, boolean]}
          */
-        let [frame, user, reload] = ExecutionContext.tryPushFrame(arguments, { method: '', file: __filename, isAsync: true, callType: CallOrigin.DriverEfun });
+        let [frame, user, reload] = ExecutionContext.tryPushFrame(arguments, { method: 'getSafeCredentialAsync', file: __filename, isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (typeof user === 'function' && user.isWrapper)
                 user = user.filename;
@@ -147,7 +147,7 @@ class SecurityHelper {
                 return false;
 
             if (user.indexOf('/') === -1) {
-                let [username, isPlayerName] = efuns.normalizeName(user, true),
+                let [username, isPlayerName] = efuns.normalizeName(frame?.branch(), user, true),
                     playerFiles = await driver.efuns.living[isPlayerName ? 'playerExists' : 'userExists'](username, true);
 
                 if (playerFiles.length > 0) {

@@ -420,13 +420,12 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Connect an incoming player to the game.
-     * @param {any} port
-     * @param {any} type
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {number} port
+     * @param {'http' | 'telnet' | 'https' | 'ssl'} type The type of client connection
      */
-    async connect(port, type, credentials = false) {
-        let ecc = this.createNewContext(),
-            frame = ecc.pushFrameObject({ file: __filename, object: this.masterObject, method: 'connect', callType: CallOrigin.Driver, isAsync: true });
-
+    async connect(ecc, port, type, credentials = false) {
+        let frame = ecc.pushFrameObject({ file: __filename, object: this.masterObject, method: 'connect', callType: CallOrigin.Driver, isAsync: true });
         try {
             return await this.applyConnect(ecc.branch(), port, type);
         }

@@ -769,14 +769,38 @@ class MUDLoader {
         return global.wrapper(...args);
     }
 
-    write(...str) {
-        efuns.writeToStream(false, efuns.stdout, ...str);
-        return true;
+    /**
+     * Write to STDOUT
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} str
+     * @returns
+     */
+    write(ecc, ...str) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeLine', callType: CallOrigin.DriverEfun });
+        try {
+            efuns.writeToStream(ecc, false, efuns.stdout, ...str);
+            return true;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
-    writeLine(...str) {
-        efuns.writeToStream(true, efuns.stdout, ...str);
-        return true;
+    /**
+     * Write to STDOUT
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} str
+     * @returns
+     */
+    writeLine(ecc, ...str) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeLine', callType: CallOrigin.DriverEfun });
+        try {
+            efuns.writeToStream(ecc, true, efuns.stdout, ...str);
+            return true;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     writeRaw(str) {

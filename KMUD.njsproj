@@ -534,6 +534,7 @@
     </Content>
     <Content Include="src\extensions\005_Number.extensions.js" />
     <Content Include="src\extensions\007_Regex.extension.js" />
+    <Content Include="src\extensions\008_Console.extensions.js" />
     <Content Include="src\extensions\999_Object.extensions.js">
       <SubType>Code</SubType>
     </Content>

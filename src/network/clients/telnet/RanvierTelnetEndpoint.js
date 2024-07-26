@@ -1,4 +1,4 @@
-﻿const { ExecutionContext, CallOrigin } = require('../../../ExecutionContext');
+﻿const { ExecutionContext, CallOrigin, ExecutionFrame } = require('../../../ExecutionContext');
 
 /**
  * Written by Kris Oye <kristianoye@gmail.com>
@@ -35,14 +35,21 @@ class RanvierTelnetEndpoint extends ClientEndpoint {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'bind', callType: CallOrigin.Driver });
         try {
             let server = new TelnetServer(async socket => {
-                let client = new TelnetSocket(this.options)
-                    .attach(socket);
-                let wrapper = new RanvierTelnetInstance(this, client);
+                /** @type {[ExecutionFrame, ExecutionContext]} */
+                let [newContext, newFrame] = ExecutionContext.startNewContext({ object: driver.masterObject, method: 'bind', callType: CallOrigin.Driver });
+                try {
+                    let client = new TelnetSocket(this.options)
+                        .attach(socket);
+                    let wrapper = new RanvierTelnetInstance(this, client);
 
-                await wrapper.connect();
+                    await wrapper.connect(newContext);
 
-                this.emit('kmud.connection.new', client, 'telnet');
-                this.emit('kmud.connection', wrapper);
+                    this.emit('kmud.connection.new', client, 'telnet');
+                    this.emit('kmud.connection', wrapper);
+                }
+                finally {
+                    newFrame.pop();
+                }
             });
             server.on('error', (error) => {
                 if (error.code === 'EADDRINUSE') {

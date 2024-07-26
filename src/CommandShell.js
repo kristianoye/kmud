@@ -1,6 +1,4 @@
-﻿const { TokenType } = require('../node_modules/acorn/dist/acorn');
-
-/*
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: February 20, 2019
@@ -10,7 +8,7 @@
 const
     IO = require('./StandardIO'),
     StreamPromises = require('stream/promises'),
-    { ExecutionSignaller } = require('./ExecutionContext'),
+    { ExecutionSignaller, ExecutionContext, CallOrigin } = require('./ExecutionContext'),
     { LinkedList } = require('./LinkedList'),
     BaseInput = require('./inputs/BaseInput'),
     { CommandParser, ParsedCommand, TokenTypes, OperatorTypes } = require('./CommandParser'),
@@ -274,13 +272,15 @@ class CommandShell extends events.EventEmitter {
 
     /**
      * Execute commands in a resource file
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} filename
      */
-    async executeResourceFile(filename) {
+    async executeResourceFile(ecc, filename) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'executeResourceFile', isAsync: true, callType: CallOrigin.Driver });
         try {
-            let fso = await driver.efuns.fs.getFileAsync(filename);
+            let fso = await driver.efuns.fs.getFileAsync(frame.branch(), filename);
             if (fso.isFile) {
-                let fullText = await fso.readFileAsync(),
+                let fullText = await fso.readFileAsync(frame.branch()),
                     lines = fullText
                         .split('\n')
                         .map(s => s.trim())
@@ -300,6 +300,9 @@ class CommandShell extends events.EventEmitter {
         }
         catch (err) {
             driver.efuns.errorLine(`-kmsh: Error executing ${filename}: ${err}`);
+        }
+        finally {
+            frame.pop();
         }
     }
 

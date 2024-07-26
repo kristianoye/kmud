@@ -5,6 +5,7 @@
  *
  * Description: This module contains core game functionality.
  */
+const { ExecutionContext, CallOrigin } = require('../ExecutionContext');
 const
     ClientEndpoint = require('./ClientEndpoint'),
     ClientComponent = require('../ClientComponent'),
@@ -201,7 +202,15 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
         return this.echoEnabled;
     }
 
-    static async registerComponent(client, data) {
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} client
+     * @param {any} data
+     * @returns
+     */
+    static async registerComponent(ecc, client, data) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'registerComponent', isAsync: true, callType: CallOrigin.Driver });
         try {
             //  If this is a new client, then it will never find existing components...
             let component = client.getComponentById(data.id)
@@ -212,7 +221,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                 if (data.attachTo === 'newLogin') {
                     try {
                         let shell = component.attachShell(new CommandShell(component, data.shellOptions));
-                        let newLogin = await driver.connect(client.port, client.clientType);
+                        let newLogin = await driver.connect(frame.branch(), client.port, client.clientType);
 
                         if (newLogin) {
                             shell.attachPlayer(newLogin)
@@ -222,7 +231,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                         else
                             throw new Error('Login not available');
 
-                        component.eventSend({ type: 'connected', data: efuns.mudName() });
+                        component.eventSend({ type: 'connected', data: efuns.mudName(frame.context) });
                     }
                     catch (err) {
                         client.writeLine('Sorry, something is very wrong right now; Please try again later.');
@@ -233,7 +242,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
                     let credentials = client.endpoint.decryptAuthToken(data.auth);
                     if (credentials != false) {
                         try {
-                            let result = await driver.connect(client.port, client.clientType, credentials);
+                            let result = await driver.connect(frame.branch(), client.port, client.clientType, credentials);
                             let [user, shellOptions] = Array.isArray(result) ? result : [result, {}];
                             if (user) {
                                 let shell = component.attachShell(new CommandShell(component, shellOptions));
@@ -241,7 +250,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
 
                                 if (driver.connections.indexOf(component) === -1)
                                     driver.connections.push(component);
-                                component.eventSend({ type: 'connected', data: efuns.mudName() });
+                                component.eventSend({ type: 'connected', data: efuns.mudName(frame.context) });
                             }
                         }
                         catch (err) {
@@ -258,6 +267,9 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
         }
         catch (err) {
             console.log(`What just happened? ${ex}`);
+        }
+        finally {
+            frame.pop();
         }
     }
 }

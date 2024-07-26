@@ -20,13 +20,13 @@ class TextHelper {
         /** @type {[ ExecutionFrame, string|string[], { onExit:function(), lines:number, maxLineLength:number, showLineNumbers:boolean, wrapText:boolean, exitAfterLast:boolean } ]} */
         let [frame, content, options] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'more', callType: CallOrigin.DriverEfun });
         try {
-            let tp = efuns.thisPlayer(),
+            let tp = efuns.thisPlayer(frame.context),
                 prompt = false,
                 reg = false,
                 ptr = 0;
 
             let displayText = (pageOffset = 0, linesToShow = 0) => {
-                let caps = efuns.clientCaps(tp),
+                let caps = efuns.clientCaps(frame.branch(), tp),
                     width = caps.clientWidth,
                     linesToDisplay = linesToShow > 0 ? linesToShow : (options.lines || caps.clientHeight) - 2;
 
@@ -56,7 +56,7 @@ class TextHelper {
                 throw new Error(`Bad argument 1 to more(); Expects array of string or string (got ${typeof content})`);
 
             if (displayText()) {
-                efuns.input.addPrompt('text',
+                efuns.input.addPrompt(frame.branch(), 'text',
                     {
                         default: false,
                         text: () => {

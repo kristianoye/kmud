@@ -118,7 +118,7 @@ class MUDObject extends MUDEventEmitter {
     }
 
     get directory() {
-        let parts = efuns.parsePath(this.filename),
+        let parts = efuns.parsePath(undefined, this.filename),
             dir = parts.file.slice(0, parts.file.lastIndexOf('/'));
         return dir;
     }

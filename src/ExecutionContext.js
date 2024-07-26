@@ -319,6 +319,7 @@ class ExecutionContext extends MUDEventEmitter {
         if (parent) {
             /** @type {ExecutionFrame[]} */
             this.stack = parent.stack.slice(0);
+            this.shell = parent.shell || false;
             this.branchedAt = parent.stack.length;
             this.alarmTime = parent.alarmTime;
             this.currentVerb = parent.currentVerb || false;
@@ -464,7 +465,7 @@ class ExecutionContext extends MUDEventEmitter {
             let samePackage = false, sameTypeChain = false;
 
             if ((access & MemberModifiers.Package) > 0) {
-                let parts = driver.efuns.parsePath(this.thisObject.baseName);
+                let parts = driver.efuns.parsePath(this, this.thisObject.baseName);
                 samePackage = parts.file === fileName;
                 if (parts.file !== fileName)
                     throw new Error(`Cannot access ${access} method '${method}' in ${thisObject.filename}`);
@@ -1040,6 +1041,19 @@ class ExecutionContext extends MUDEventEmitter {
         return this;
     }
 
+    /**
+     * Start a new execution context/stack
+     * @param {Partial<ExecutionFrame>} initialFrame
+     */
+    static startNewContext(initialFrame = false) {
+        let ecc = new ExecutionContext();
+        if (initialFrame) {
+            let frame = ecc.pushFrameObject(initialFrame);
+            return [ecc, frame];
+        }
+        return (currentExecution = ecc);
+    }
+
     get state() {
         return this.controller.state;
     }
@@ -1150,6 +1164,22 @@ class ExecutionContext extends MUDEventEmitter {
     whenCompleted(callback) {
         this.onComplete.push(callback);
         return this;
+    }
+
+    /**
+     * Start a new context and pass that context to a callback
+     * @param {Partial<ExecutionFrame>} props The initial stack frame information
+     * @param {function(ExecutionContext): any} callback The callback to execute
+     */
+    static async withNewContext(props, callback) {
+        let [ecc, frame] = ExecutionContext.startNewContext(props);
+        try {
+            let result = await callback(ecc);
+            return result;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**

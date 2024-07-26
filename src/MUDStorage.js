@@ -83,22 +83,22 @@ class MUDStorage extends MUDEventEmitter {
     }
 
     async eventClientCaps(evt) {
-        await driver.driverCallAsync('eventClientCaps', async context => {
-            await context.withPlayerAsync(this, async player => {
+        await ExecutionContext.withNewContext({ file: __filename, method: 'eventClientCaps', isAsync: true, callType: CallOrigin.Driver }, async ecc => {
+            await ecc.withPlayerAsync(this, async player => {
                 if (typeof player.setEnv !== 'function')
                     return;
 
                 switch (evt.type) {
                     case 'terminalType':
-                        player.setEnv('TERM', evt.data);
+                        player.setEnv(ecc.branch(), 'TERM', evt.data);
                         break;
 
                     case 'windowSize':
-                        player.setEnv({ COLUMNS: evt.data.width, LINES: evt.data.height });
+                        player.setEnv(ecc.branch(), { COLUMNS: evt.data.width, LINES: evt.data.height });
                         break;
                 }
             });
-        }, undefined, false, true);
+        });
     }
 
     /**
@@ -262,17 +262,15 @@ class MUDStorage extends MUDEventEmitter {
                 });
 
                 //  Connect to the new body
-                await driver.driverCallAsync('connect', async context => {
-                    return await context.withPlayerAsync(this, async player => {
-                        return await driver.driverCallAsync('connect', async () => {
-                            let shellSettings = typeof player.getShellSettings === 'function' ? await player.getShellSettings(false, {}) : false;
-                            this.shell.update(shellSettings || {});
-                            if (shellSettings.variables && shellSettings.variables.SHELLRC) {
-                                await this.shell.executeResourceFile(shellSettings.variables.SHELLRC);
-                            }
-                            await player.connect(this.connectedPort, this.remoteAddress, ...args);
-                        });
-                    }, false);
+                await ExecutionContext.withNewContext({ object: this.owner.instance, method: 'eventExec', isAsync: true, callType: CallOrigin.Driver }, async ecc => {
+                    return await ecc.withPlayerAsync(this, async (player, ecc) => {
+                        let shellSettings = typeof player.getShellSettings === 'function' ? await player.getShellSettings(ecc.branch(), false, {}) : false;
+                        this.shell.update(shellSettings || {});
+                        if (shellSettings.variables && shellSettings.variables.SHELLRC) {
+                            await this.shell.executeResourceFile(ecc.branch(), shellSettings.variables.SHELLRC);
+                        }
+                        await player.connect(ecc.branch(), this.connectedPort, this.remoteAddress, ...args);
+                    }, false, 'connect');
                 });
                 return true;
             }

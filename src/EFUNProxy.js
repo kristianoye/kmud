@@ -1165,11 +1165,12 @@ class EFUNProxy {
     /**
      * Splits a file/object name into it's components (path, type name, instance ID)
      * @param {ExecutionContext} ecc The current execution context/call stack
-     * @param {string} fileExpr The file expression.
+     * @param {string} fileExprIn The file expression.
      * @returns {{ file: string, type: string, extension?: string, objectId: string, defaultType: boolean }} Information about the path.
      */
-    parsePath(ecc, fileExpr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'parsePath', callType: CallOrigin.DriverEfun });
+    parsePath(ecc, fileExprIn) {
+        /** @type {[ ExecutionFrame, string ]} */
+        let [frame, fileExpr] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'parsePath', callType: CallOrigin.DriverEfun });
         try {
             if (typeof fileExpr !== 'string' || fileExpr.length < 2)
                 throw new Error('Bad argument 1 to parsePath');
@@ -1198,7 +1199,7 @@ class EFUNProxy {
             return result;
         }
         finally {
-            frame.pop();
+            frame?.pop();
         }
     }
 
@@ -2487,98 +2488,159 @@ class EFUNProxy {
         }
     }
 
-    error(...expr) {
-        let ecc = driver.getExecution(),
-            cmd = ecc.command,
-            ec = cmd?.env?.ERRORCOLOR;
+    /**
+     * Write to STDERR
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} expr
+     * @returns
+     */
+    error(ecc, ...expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'error', callType: CallOrigin.DriverEfun });
+        try {
+            let cmd = ecc.command,
+                ec = cmd?.env?.ERRORCOLOR;
 
-        if (ec) {
-            expr = expr.map(s => '%^BOLD%^%^' + ec + '%^' + s + '%^RESET%^');
+            if (ec) {
+                expr = expr.map(s => '%^BOLD%^%^' + ec + '%^' + s + '%^RESET%^');
+            }
+            this.writeToStream(frame.branch(), false, this.err, ...expr);
+            return false;
         }
-        this.writeToStream(false, this.err, ...expr);
-        return false;
-    }
-
-    errorLine(...expr) {
-        let ecc = driver.getExecution(),
-            cmd = ecc.command,
-            ec = cmd?.env?.ERRORCOLOR;
-
-        if (ec) {
-            expr = expr.map(s => '%^BOLD%^%^' + ec + '%^' + s + '%^RESET%^');
+        finally {
+            frame.pop();
         }
-
-        this.writeToStream(true, this.err, ...expr);
-        return false;
     }
 
-    write(...expr) {
-        return this.writeToStream(false, this.out, ...expr);
+    /**
+     * Write to STDERR
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} expr
+     * @returns
+     */
+    errorLine(ecc, ...expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'errorLine', callType: CallOrigin.DriverEfun });
+        try {
+            let cmd = ecc.command,
+                ec = cmd?.env?.ERRORCOLOR;
+
+            if (ec) {
+                expr = expr.map(s => '%^BOLD%^%^' + ec + '%^' + s + '%^RESET%^');
+            }
+
+            this.writeToStream(frame.branch(), true, this.err, ...expr);
+            return false;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
-    writeLine(...expr) {
-        return this.writeToStream(true, this.out, ...expr);
+    /**
+     * Write to STDOUT
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} expr
+     * @returns
+     */
+    write(ecc, ...expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'write', callType: CallOrigin.DriverEfun });
+        try {
+            return this.writeToStream(frame.branch(), false, this.out, ...expr);
+        }
+        finally {
+            frame.pop();
+        }
+    }
+
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} expr
+     * @returns
+     */
+    writeLine(ecc, ...expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'wrapText', callType: CallOrigin.DriverEfun });
+        try {
+            return this.writeToStream(frame.branch(), true, this.out, ...expr);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Write a message to the current player's screen.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {boolean} appendNewline If true then a newline is automatically appended at the end 
      * @param {...any} expr The expression to display.
      * @returns {true} Always returns true.
      */
-    writeToStream(appendNewline = true, stream = false, ...expr) {
-        stream = stream || this.out;
+    writeToStream(ecc, appendNewline = true, stream = false, ...expr) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'wrapText', callType: CallOrigin.DriverEfun });
+        try {
+            stream = stream || this.out;
 
-        if (!stream)
-            return false;
-        else
-            return driver.driverCall('write', ecc => {
-                let expandValue = /** @returns {string[]} */ item => {
-                    let valType = typeof item;
-                    if (valType === 'string')
-                        return [item];
-                    else if (valType === 'function') {
-                        item = item();
-                        if (typeof item !== 'string') item = '';
-                        return [item];
-                    }
-                    else if (valType === 'number')
-                        return [item.toString()];
-                    else if (valType === 'boolean')
-                        return [item ? 'true' : 'false'];
-                    else if (Array.isArray(item)) {
-                        let r = [];
-                        item.forEach(i => r.push(...expandValue(i)));
-                        return r;
-                    }
-                    else
-                        return [valType.toUpperCase()];
-                };
-                /** @type {string[]} */
-                let items = [], content = '';
+            if (!stream)
+                return false;
+            else
+                return driver.driverCall('write', ecc => {
+                    let expandValue = /** @returns {string[]} */ item => {
+                        let valType = typeof item;
 
-                expr.map(item => items.push(...expandValue(item)));
-                items.filter(v => v.length > 0).forEach((v, i) => {
-                    if (i === 0)
-                        content += v;
-                    else if (EndsWithWhitespace.test(v)) {
-                        content += v;
+                        if (valType === 'string')
+                            return [item];
+                        else if (item instanceof Buffer) {
+                            return [item.toString('utf8')];
+                        }
+                        else if (valType === 'function') {
+                            return expandValue(valType());
+                        }
+                        else if (valType === 'number')
+                            return [item.toString()];
+                        else if (valType === 'boolean')
+                            return [item ? 'true' : 'false'];
+                        else if (Array.isArray(item)) {
+                            let r = [];
+                            item.forEach(i => r.push(...expandValue(i)));
+                            return r;
+                        }
+                        else
+                            return [valType.toUpperCase()];
+                    };
+                    /** @type {string[]} */
+                    let items = [], content = '';
+
+                    expr.map(item => items.push(...expandValue(item)));
+                    items.filter(v => v.length > 0).forEach((v, i) => {
+                        if (i === 0)
+                            content += v;
+                        else if (EndsWithWhitespace.test(v)) {
+                            content += v;
+                        }
+                        else
+                            content += ' ' + v;
+                    });
+
+                    if (appendNewline) {
+                        if (!efuns.text.trailingNewline(frame.branch(), content)) content += this.eol;
                     }
-                    else
-                        content += ' ' + v;
+
+                    if (stream)
+                        stream.write(content);
+
+                    return true;
                 });
-
-                if (appendNewline) {
-                    if (!efuns.text.trailingNewline(content)) content += this.eol;
-                }
-
-                if (stream)
-                    stream.write(content);
-
-                return true;
-            });
+        }
+        finally {
+            frame.pop();
+        }
     }
 
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} expr
+     * @returns
+     */
     writeRaw(expr) {
         return driver.driverCall('write', ecc => {
             ecc.stdout.write(expr);
@@ -2589,18 +2651,30 @@ class EFUNProxy {
 
     /**
      * Write text to file.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} filename The file to write to.
      * @param {string} content The content to write.
      * @returns {void}
      */
     writeFile(filename, content, callback) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'wrapText', callType: CallOrigin.DriverEfun });
         return driver.fileManager.writeFileSync(
             this.resolvePath(filename),
             content,
             callback);
     }
 
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} filename
+     * @param {any} data
+     * @param {any} callback
+     * @param {any} replacer
+     * @returns
+     */
     writeJsonFile(filename, data, callback, replacer) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'wrapText', callType: CallOrigin.DriverEfun });
         return this.writeFile(filename, JSON.stringify(data, replacer, 2), callback, true);
     }
 }

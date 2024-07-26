@@ -185,7 +185,7 @@ class ObjectHelper {
     static async moveObjectAsync(ecc, destination) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'moveObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
-            let thisObject = efuns.thisObject(),
+            let thisObject = efuns.thisObject(frame.context),
                 thisStorage = driver.storage.get(thisObject),
                 current = thisStorage.environment,
                 target = destination;
@@ -216,24 +216,24 @@ class ObjectHelper {
 
                     if (targetStorage.addInventory(thisObject)) {
                         let inv = targetStorage.inventory,
-                            isLiving = efuns.living.isAlive(thisObject),
-                            ctx = driver.getExecution();
+                            isLiving = efuns.living.isAlive(frame.context, thisObject),
+                            ctx = frame.context;
 
                         for (let i = 0; i < inv.length; i++) {
                             let item = inv[i];
 
                             //  Call init on all living items in the environment's inventory
-                            if (efuns.living.isAlive(item)) {
-                                await ctx.withPlayerAsync(item, async () => await thisObject.initAsync());
+                            if (efuns.living.isAlive(frame.context, item)) {
+                                await ctx.withPlayerAsync(item, async () => await thisObject.initAsync(frame.branch()));
                             }
                             //  Call init on every object in the environment
                             if (isLiving) {
-                                await ctx.withPlayerAsync(thisObject, async () => await item.initAsync());
+                                await ctx.withPlayerAsync(thisObject, async () => await item.initAsync(frame.branch()));
                             }
                         }
                         //  If this object is living, call init in the new environment
                         if (isLiving) {
-                            await ctx.withPlayerAsync(thisObject, async () => await target.initAsync());
+                            await ctx.withPlayerAsync(thisObject, async () => await target.initAsync(frame.branch()));
                         }
                     }
                     return true;
@@ -305,7 +305,7 @@ class ObjectHelper {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'resolveObject', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let n = -1,
-                tp = driver.efuns.thisPlayer(),
+                tp = driver.efuns.thisPlayer(frame.context),
                 ob = undefined,
                 env = false;
 
@@ -327,9 +327,9 @@ class ObjectHelper {
             }
             switch (spec) {
                 case 'here':
-                    return driver.efuns.thisPlayer().environment;
+                    return driver.efuns.thisPlayer(frame.context).environment;
                 case 'me':
-                    return driver.efuns.thisPlayer();
+                    return driver.efuns.thisPlayer(frame.context);
             }
             let m = /(?<id>[^#]+)#(?<index>\d+)/.exec(spec);
             if (m && m.length === 3) {
@@ -370,7 +370,7 @@ class ObjectHelper {
                         return obs.length < n ? obs[n - 1] : false;
                     }
                     else {
-                        if ((ob = driver.efuns.living.findLiving(spec))) {
+                        if ((ob = driver.efuns.living.findLiving(frame.branch(), spec))) {
                             if (Array.isArray(ob)) {
                                 let obs = ob.filter(o => !driver.efuns.living.isInteractive(frame.branch(), o));
                                 return obs.length < n ? obs[n - 1] : false;
@@ -383,7 +383,7 @@ class ObjectHelper {
 
                 default:
                     if (!env)
-                        env = driver.efuns.thisPlayer();
+                        env = driver.efuns.thisPlayer(frame.context);
                     if (n > 1) {
                         let obs = env.inventory.filter(o => o.id(spec));
                         if (obs.length < n) {
