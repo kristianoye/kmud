@@ -666,41 +666,41 @@ class VirtualObjectFile extends FileSystemObject {
 
     /**
      * Load an object from this file.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {FileSystemRequest} request
      * @param {any[]} args
      */
-    loadObjectAsync(request, args=[]) {
-        return new Promise(async (resolve, reject) => {
-            try {
-                let parts = driver.efuns.parsePath(request.fullPath),
-                    module = driver.cache.get(parts.file),
-                    forceReload = !module || request.hasFlag(1),
-                    cloneOnly = request.hasFlag(2);
+    async loadObjectAsync(ecc, request, args = []) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let parts = driver.efuns.parsePath(frame.context, request.fullPath),
+                module = driver.cache.get(parts.file),
+                forceReload = !module || request.hasFlag(1),
+                cloneOnly = request.hasFlag(2);
 
-                if (forceReload) {
-                    module = await driver.compiler.compileObjectAsync({
-                        args,
-                        file: parts.file,
-                        isVirtual: true,
-                        reload: forceReload
-                    });
-                    if (!module)
-                        return reject(new Error(`Failed to load module ${fullPath}`));
-                }
-                if (cloneOnly) {
-                    let clone = await module.createInstanceAsync(parts.type, false, args);
-
-                    if (!clone)
-                        return reject(`loadObjectAsync(): Failed to clone object '${request.fullPath}'`);
-
-                    return resolve(clone);
-                }
-                return resolve(module.getInstanceWrapper(parts));
+            if (forceReload) {
+                module = await driver.compiler.compileObjectAsync(frame.branch(), {
+                    args,
+                    file: parts.file,
+                    isVirtual: true,
+                    reload: forceReload
+                });
+                if (!module)
+                    throw new Error(`Failed to load module ${parts.file}`);
             }
-            catch (err) {
-                reject(err);
+            if (cloneOnly) {
+                let clone = await module.createInstanceAsync(parts.type, false, args);
+
+                if (!clone)
+                    return reject(`loadObjectAsync(): Failed to clone object '${request.fullPath}'`);
+
+                return clone;
             }
-        });
+            return module.getInstanceWrapper(parts);
+        }
+        finally {
+            frame.pop();
+        }
     }
 }
 

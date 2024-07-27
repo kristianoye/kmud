@@ -20,7 +20,7 @@ class ObjectHelper {
     static async cloneObjectAsync(ecc, expr, ...args) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
-            return await driver.fileManager.cloneObjectAsync(expr, args);
+            return await driver.fileManager.cloneObjectAsync(frame.branch(), expr, args);
         }
         finally {
             frame.pop();

@@ -15,7 +15,7 @@ class UserHelper {
     /**
      * Fetch the user's home directory (if enabled)
      * @param {ExecutionContext} ecc The current callstack
-     * @param {MUDObject | MUDWrapper} user The user to fetch a home directory for.
+     * @param {MUDObject | MUDWrapper | string} user The user to fetch a home directory for.
      */
     static getHomePath(ecc, userIn) {
         let [frame, user] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'getHomePath', callType: CallOrigin.DriverEfun });

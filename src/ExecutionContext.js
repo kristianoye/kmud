@@ -336,6 +336,10 @@ class ExecutionContext extends MUDEventEmitter {
                 parent.children[this.handleId] = this;
                 parent.children.length++;
                 this.parent = parent;
+                if (Array.isArray(parent.creationContexts))
+                    this.creationContexts = parent.creationContexts.slice(0);
+                if (Array.isArray(parent.virtualCreationContexts))
+                    this.virtualCreationContexts = parent.virtualCreationContexts.slice(0);
             }
         }
         else {
@@ -824,9 +828,15 @@ class ExecutionContext extends MUDEventEmitter {
         return this.pop(frame.callString);
     }
 
-    popCreationContext() {
+    popCreationContext(arg=false) {
         if (Array.isArray(this.creationContexts)) {
-            let ctx = this.creationContexts.shift();
+            let ctx = arg ? this.creationContexts.findIndex(c => c === arg) : this.creationContexts.shift();
+            if (typeof ctx === 'number') {
+                ctx = this.creationContexts.splice(ctx, 1);
+            }
+            if (this.parent?.creationContexts !== null) {
+                this.parent.popCreationContext(ctx);
+            }
             if (this.creationContexts.length === 0)
                 delete this.creationContexts;
             return ctx;
@@ -867,9 +877,15 @@ class ExecutionContext extends MUDEventEmitter {
         return frame;
     }
 
-    popVirtualCreationContext() {
+    popVirtualCreationContext(arg=false) {
         if (Array.isArray(this.virtualCreationContexts)) {
-            let ctx = this.virtualCreationContexts.shift();
+            let ctx = arg ? this.virtualCreationContexts.findIndex(c => c === arg) : this.virtualCreationContexts.shift();
+            if (typeof ctx === 'number') {
+                ctx = this.virtualCreationContexts.splice(ctx, 1);
+            }
+            if (this.parent?.virtualCreationContexts !== null) {
+                this.parent.popVirtualCreationContext(ctx);
+            }
             if (this.virtualCreationContexts.length === 0)
                 delete this.virtualCreationContexts;
             return ctx;
@@ -1273,7 +1289,7 @@ class ExecutionContext extends MUDEventEmitter {
         else
             player = storage.owner;
 
-        let ecc = driver.getExecution(),
+        let ecc = this,
             oldPlayer = this.player,
             oldClient = this.client,
             oldStore = this.storage,
@@ -1292,7 +1308,6 @@ class ExecutionContext extends MUDEventEmitter {
             return await callback(player, this);
         }
         catch (err) {
-            await this.logError(err);
             if (catchErrors === false) throw err;
         }
         finally {

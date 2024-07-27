@@ -666,7 +666,7 @@ class MUDModule extends events.EventEmitter {
     async createInstanceAsync(ecc, type, instanceData, args, factory = false, callingFile = false, isReload = false) {
         let frame = ecc.pushFrame(ecc.thisObject, 'createInstanceAsync', this.filename, true);
         try {
-            let instance = false, store = false;
+            let instance = false, store = false, isType = false;
 
             if (typeof type === 'string' && !this.isVirtual) {
                 if (type in this.oldExports === false) {
@@ -685,15 +685,19 @@ class MUDModule extends events.EventEmitter {
                 }
                 else
                     type = this.types[type];
+                    isType = true;
             }
             if (instance === false) {
                 let virtualContext = ecc && ecc.popVirtualCreationContext();
 
                 if (virtualContext) {
+                    if (isType === false) {
+                        type = this.types[type.type];
+                    }
                     virtualContext.module = this;
                     virtualContext.trueName = this.filename + '$' + type.name + '#' + virtualContext.objectId;
                     virtualContext.typeName = type.name;
-                    return await this.createInstanceAsync(ecc.branch(), type, virtualContext, args);
+                    return await this.createInstanceAsync(frame.branch(), type, virtualContext, args);
                 }
 
                 if (!instanceData) {

@@ -355,6 +355,7 @@ class GameServer extends MUDEventEmitter {
     cleanError(e, sdf = true) {
         if (e.clean || !e.stack)
             return e;
+        sdf = true;
         let s = e.stack,
             l = s.split('\n').filter(s => s.length),
             mp = this.fileManager.mudlibAbsolute,
@@ -404,18 +405,25 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Compile a virtual object
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} filename The virtual file to compile
      * @param {any[]} args Arguments to pass to the virtual constructor
      * @returns {Promise<MUDObject>}
      */
-    async compileVirtualObject(filename, args = []) {
-        if (!this.masterObject)
-            throw new Error('FATAL: No master object has been loaded!');
-        else if (!this.applyCompileVirtual)
-            //  Virtual compiling is not enabled
-            return false;
-        else
-            return await this.applyCompileVirtual(filename, args);
+    async compileVirtualObject(ecc, filename, args = []) {
+        let frame = ecc.pushFrameObject({ object: this.masterObject, method: 'compileVirtualObject', callType: CallOrigin.Driver });
+        try {
+            if (!this.masterObject)
+                throw new Error('FATAL: No master object has been loaded!');
+            else if (!this.applyCompileVirtual)
+                //  Virtual compiling is not enabled
+                return false;
+            else
+                return await this.applyCompileVirtual(frame.branch(), filename, args);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -1526,7 +1534,7 @@ class GameServer extends MUDEventEmitter {
         else if (frame.object === driver.masterObject || frame.object === driver)
             return true;
         else
-            return await this.applyValidRead(path, frame.object || frame.file, frame.method);            
+            return await this.applyValidRead(frame.branch(), path, frame.object || frame.file, frame.method);            
     }
 
     validRequire(efuns, moduleName) {
@@ -1544,7 +1552,7 @@ class GameServer extends MUDEventEmitter {
         else if (!this.applyValidShutdown)
             return true;
         else {
-            return this.driverCall('validShutdown', () => this.masterObject.validShutdown(frame));
+            return this.driverCall('validShutdown', () => this.masterObject.validShutdown(frame.context, frame));
         }
     }
 
@@ -1559,7 +1567,7 @@ class GameServer extends MUDEventEmitter {
         else if (frame.object === this || frame.object === this.masterObject)
             return true;
         else
-            return this.applyValidWrite(writePath, frame.object || frame.file, frame.method);
+            return this.applyValidWrite(frame.branch(), writePath, frame.object || frame.file, frame.method);
     }
 }
 

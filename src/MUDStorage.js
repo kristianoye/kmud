@@ -445,7 +445,7 @@ class MUDStorage extends MUDEventEmitter {
                     }
                 }
                 if (typeof this.owner.applyRestore === 'function') {
-                    this.owner.applyRestore();
+                    this.owner.applyRestore(frame.branch());
                 }
                 return owner;
             }

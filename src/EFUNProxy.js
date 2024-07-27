@@ -1853,14 +1853,14 @@ class EFUNProxy {
                     m = re.exec(expr) || [];
 
                 if (m.length === 2) {
-                    let homePath = this.user.getHomePath(m[2]);
+                    let homePath = this.user.getHomePath(frame.context, m[2]);
                     expr = homePath + expr.slice(m[2].length + 1);
                 }
                 else if (expr[1] === '/' || expr === '~') {
                     //  TODO: Call apply
-                    let player = this.thisPlayer();
+                    let player = this.thisPlayer(frame.context);
                     expr = player ?
-                        this.user.getHomePath(player) + expr.slice(1) :
+                        this.user.getHomePath(frame.context, player) + expr.slice(1) :
                         this.directory + expr.slice(1);
                     return expr;
                 }
@@ -1910,7 +1910,7 @@ class EFUNProxy {
     async restoreObjectAsync(ecc, pathOrObject) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'restoreObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
-            if (this.objectType(pathOrObject) === 'object' && '$type' in pathOrObject) {
+            if (this.objectType(frame.context, pathOrObject) === 'object' && '$type' in pathOrObject) {
                 let $type = pathOrObject.$type;
 
                 if (await frame.context.guarded(f => driver.validRead(f, $type))) {

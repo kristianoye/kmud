@@ -412,8 +412,11 @@ class MUDLoader {
 
                 if (module && module.isVirtual === true)
                     return module.defaultExport;
-                else
+                else if (module === false)
                     return await driver.efuns.objects.cloneObjectAsync(frame.branch(), type, ...args);
+                else {
+                    return await module.createInstanceAsync(frame.branch(), parts, undefined, args, callingFile);
+                }
             }
             else if (type.prototype && typeof type.prototype.baseName === 'string' && type.prototype.baseName !== 'MUDObject') {
                 let parts = driver.efuns.parsePath(frame.branch(), type.prototype.baseName),

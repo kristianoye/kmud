@@ -121,7 +121,7 @@ class LivingsHelper {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'findPlayer', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let result = driver.playerObjects
-                .find(efuns.normalizeName(name), allowPartial);
+                .find(efuns.normalizeName(frame.context, name), allowPartial);
 
             return Array.isArray(result) ?
                 result.map(s => s.owner.instance) :
@@ -142,7 +142,7 @@ class LivingsHelper {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'findCreator', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let result = driver.wizardObjects
-                .find(efuns.normalizeName(name), allowPartial);
+                .find(efuns.normalizeName(frame.context, name), allowPartial);
 
             return Array.isArray(result) ?
                 result.map(s => s.owner.instance) :

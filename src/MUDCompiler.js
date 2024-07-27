@@ -7,7 +7,7 @@ const
     fs = require('fs');
 const MUDCompilerOptions = require('./compiler/MUDCompilerOptions');
 const DriverCompiler = require('./config/DriverCompiler');
-const { ExecutionContext } = require('./ExecutionContext');
+const { ExecutionContext, CallOrigin } = require('./ExecutionContext');
 
 const
     PipeContext = require('./compiler/PipelineContext'),
@@ -203,8 +203,7 @@ class MUDCompiler {
                 return module;
 
             if (!context.exists || context.isVirtual) {
-                return await this.compileVirtualAsync(context, options).
-                    catch(err => { throw err; });
+                return await this.compileVirtualAsync(frame.branch(), context, options);
             }
             try {
                 let pipeline = this.getPipeline(context);
@@ -310,58 +309,51 @@ class MUDCompiler {
 
     /**
      * Try and compile a virtual object
+     * @param {ExecutionContext} ecc The current callstack
      * @param {PipelineContext} context
      * @param {MUDCompilerOptions} options Compiler options
      */
-    async compileVirtualAsync(context, options = {}) {
-        //  Try virtual compilation
-        let virtualContext, module;
+    async compileVirtualAsync(ecc, context, options = {}) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'compileVirtualAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            //  Try virtual compilation
+            let virtualContext, virtualResult, module;
 
-        if (!this.driver.masterObject)
-            throw new Error('Could not load in-game master object!');
+            if (!this.driver.masterObject)
+                throw new Error('Could not load in-game master object!');
 
-        //  Attempt to compile a virtual object.
-        let virtualResult = await driver.driverCallAsync('compileVirtual', async ecc => {
+            //  Attempt to compile a virtual object.
             try {
                 //module = this.driver.cache.getOrCreate(context, true, options);
 
-                let args = options.args || [], objectId = driver.efuns.getNewId();
+                let args = options.args || [], objectId = driver.efuns.getNewId(frame.context);
 
-                virtualContext = ecc.addVirtualCreationContext({
+                virtualContext = frame.context.addVirtualCreationContext({
                     objectId,
                     isVirtual: true,
                     filename: context.fullPath
                 });
 
-                let virtualResult = await driver.compileVirtualObject(virtualContext.fullPath, args);
-
-                args.forEach(a => {
-                    if (typeof a === 'object') {
-                        driver.driverCall('setProperty', eccInner => {
-                            Object.keys(a).forEach(k => {
-                                if (k in virtualResult) virtualResult[k] = a[k];
-                            });
-                        });
-                    }
-                });
+                virtualResult = await driver.compileVirtualObject(frame.branch(), virtualContext.filename, args);
 
                 module = virtualContext.module;
-                return virtualResult;
             }
             catch (err) {
                 console.log(`compileVirtual() error: ${err.message}`);
                 driver.cache.delete(context.fullPath);
             }
             finally {
-                ecc.popCreationContext();
+                frame.context.popCreationContext();
             }
-        }, context.fullPath)
-            .catch(err => { throw err; })
 
-        if (!virtualResult)
-            throw new Error(`Could not load ${context.fullPath} [File not found]`);
+            if (!virtualResult)
+                throw new Error(`Could not load ${context.fullPath} [File not found]`);
 
-        return module;
+            return module;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     get supportedExtensions() {

@@ -3,6 +3,7 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
+const { ExecutionContext } = require('./ExecutionContext');
 const
     MUDEventEmitter = require('./MUDEventEmitter');
 
@@ -134,26 +135,33 @@ class MUDObject extends MUDEventEmitter {
 
     async initAsync() { }
 
-    async moveObjectAsync(destination) {
-        return driver.driverCallAsync('moveObjectAsync', async ecc => {
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} destination
+     * @returns
+     */
+    async moveObjectAsync(ecc, destination) {
+        let frame = ecc.pushFrameObject({ file: this.filename, method: 'moveObjectAsync', isAsync: true, callType: 2 });
+        try {
             let myStore = driver.storage.get(this),
                 oldEnvironment = myStore.environment;
 
-            return await ecc.withPlayerAsync(myStore, async player => {
-                let target = destination.instance || await efuns.objects.loadObjectAsync(destination),
+            return await frame.context.withPlayerAsync(myStore, async (player, ecc) => {
+                let target = destination.instance || await efuns.objects.loadObjectAsync(ecc.branch(), destination),
                     newEnvironment = target && target.instance;
 
-                if (!oldEnvironment || oldEnvironment.canReleaseItem(player) && newEnvironment) {
+                if (!oldEnvironment || oldEnvironment.canReleaseItem(ecc.branch(), player) && newEnvironment) {
                     let targetStore = driver.storage.get(newEnvironment);
 
                     //  Can the destination accept this object?
-                    if (targetStore && newEnvironment.canAcceptItem(player)) {
+                    if (targetStore && newEnvironment.canAcceptItem(ecc.branch(), player)) {
 
                         //  Do lazy reset if it's time
                         if (driver && driver.useLazyResets) {
                             if (typeof newEnvironment.reset === 'function') {
                                 if (targetStore.nextReset < efuns.ticks) {
-                                    await targetStore.eventReset();
+                                    await targetStore.eventReset(ecc.branch());
                                 }
                             }
                         }
@@ -165,15 +173,15 @@ class MUDObject extends MUDEventEmitter {
                             if (myStore.living) {
                                 let stats = targetStore.stats;
                                 if (stats) stats.moves++;
-                                await newEnvironment.initAsync();
+                                await newEnvironment.initAsync(ecc.branch());
                             }
                             for (const item of newEnvironment.inventory) {
                                 let itemStore = driver.storage.get(item.instance);
                                 if (itemStore && itemStore !== myStore && itemStore.living) {
-                                    await ecc.withPlayerAsync(itemStore, async () => await newEnvironment.initAsync(), true, 'initAsync');
+                                    await ecc.withPlayerAsync(itemStore, async () => await newEnvironment.initAsync(ecc.branch()), true, 'initAsync');
                                 }
                                 if (myStore.living) {
-                                    await ecc.withPlayerAsync(myStore, async () => await newEnvironment.initAsync(), true, 'initAsync');
+                                    await ecc.withPlayerAsync(myStore, async () => await newEnvironment.initAsync(ecc.branch()), true, 'initAsync');
                                 }
                             }
                             return true;
@@ -182,7 +190,10 @@ class MUDObject extends MUDEventEmitter {
                 }
                 return false;
             }, true, 'moveObjectAsync');
-        });
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     preprocessInput(input, callback) {
