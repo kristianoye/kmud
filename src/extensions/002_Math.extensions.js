@@ -40,4 +40,6 @@ if (!Math.ceil10) {
     };
 }
 
-Object.freeze(Math);
+if (__ivc === true) {
+    __igt(Math);
+}

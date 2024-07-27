@@ -27,3 +27,7 @@ Date.prototype.addDays = function (value = 0) {
     let result = this.addMs(value * 24 * 3600 * 1000);
     return result;
 };
+
+if (__ivc === true) {
+    __igt(Date.prototype);
+}

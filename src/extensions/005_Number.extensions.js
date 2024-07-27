@@ -15,3 +15,7 @@ Number.prototype.setFlag = function (flag) {
     let returnValue = this.valueOf() | flag;
     return returnValue;
 };
+
+if (__ivc === true) {
+    __igt(Number.prototype);
+}

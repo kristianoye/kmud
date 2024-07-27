@@ -6,6 +6,7 @@
 const
     { EventEmitter } = require('events'),
     { NotImplementedError, SecurityError } = require('../ErrorTypes');
+const { ExecutionContext, CallOrigin } = require('../ExecutionContext');
 
 class BaseSecurityManager extends EventEmitter {
     /**
@@ -89,18 +90,18 @@ class BaseSecurityManager extends EventEmitter {
         throw new NotImplementedError('initSecurityAsync');
     }
 
-    isSystemFile(path) {
+    isSystemFile(ecc, path) {
         return false;
     }
 
-    isValidGroupId(id) {
+    isValidGroupId(ecc, id) {
         if (typeof id === 'string') {
             return ['~', '^', '$'].indexOf(id.charAt(0)) > -1;
         }
         return false;
     }
 
-    async getGroupName(fo) {
+    async getGroupName(ecc, fo) {
         throw new NotImplementedError('getGroupName');
     }
 
@@ -109,7 +110,7 @@ class BaseSecurityManager extends EventEmitter {
      * @param {object} fo The file object to retreve ownership info for
      * @returns {string} Returns the name of the file owner
      */
-    async getOwnerName(fo) {
+    async getOwnerName(ecc, fo) {
         throw new NotImplementedError('getOwnerName');
     }
 
@@ -119,7 +120,7 @@ class BaseSecurityManager extends EventEmitter {
      * @param {any} tp
      * @returns {string} Returns a string indicating individual permissions
      */
-    async getPermString(fo, tp) {
+    async getPermString(ecc, fo, tp) {
         throw new NotImplementedError('getPermString');
     }
 
@@ -130,7 +131,7 @@ class BaseSecurityManager extends EventEmitter {
      * @param {EFUNProxy} efuns
      * @param {FileSystemRequest} req
      */
-    validAppendFile(efuns, req) {
+    validAppendFile(ecc, efuns, req) {
         throw new NotImplementedError('validAppendFile');
     }
 
@@ -140,7 +141,7 @@ class BaseSecurityManager extends EventEmitter {
      * @param {EFUNProxy} efuns
      * @param {FileSystemRequest} req
      */
-    validCreateDirectory(efuns, req) {
+    validCreateDirectory(ecc, efuns, req) {
         throw new NotImplementedError('validCreateDirectory');
     }
 
@@ -149,7 +150,7 @@ class BaseSecurityManager extends EventEmitter {
      * @param {EFUNProxy} efuns
      * @param {FileSystemRequest} req
      */
-    validCreateFile(efuns, req) {
+    validCreateFile(ecc, efuns, req) {
         throw new NotImplementedError('validCreateFile');
     }
 
@@ -158,7 +159,7 @@ class BaseSecurityManager extends EventEmitter {
      * @param {EFUNProxy} efuns
      * @param {FileSystemRequest} req
      */
-    validDeleteFile(efuns, req) {
+    validDeleteFile(ecc, efuns, req) {
         throw new NotImplementedError('validDelete');
     }
 
@@ -167,7 +168,7 @@ class BaseSecurityManager extends EventEmitter {
      * @param {EFUNProxy} efuns
      * @param {FileSystemRequest} req
      */
-    validDeleteDirectory(efuns, req) {
+    validDeleteDirectory(ecc, efuns, req) {
         throw new NotImplementedError('validDeleteDirectory');
     }
 
@@ -273,29 +274,47 @@ class BaseSecurityCredential extends EventEmitter {
 
     /**
      * Add a group
+     * @param {ExecutionContext} ecc
      * @param {BaseSecurityGroup} group
      */
-    addGroup(group) {
-        if (group instanceof BaseSecurityGroup) {
-            if (this.#groups.indexOf(group) === -1) {
-                this.#groups.push(group);
-                return true;
+    addGroup(ecc, group) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'addGroup', callType: CallOrigin.Driver });
+        try {
+            if (group instanceof BaseSecurityGroup) {
+                if (this.#groups.indexOf(group) === -1) {
+                    this.#groups.push(group);
+                    return true;
+                }
             }
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
-    createSafeExport() {
-        let safeObject = {
-            userId: this.userId,
-            groups: this.groups.map(g => g.createSafeExport())
-        };
-        if (this.IsUser)
-            safeObject.IsUser = true;
-        if (this.IsWizard)
-            safeObject.IsWizard = true;
+    /**
+     * Create an object that be safely imported into the game runtime
+     * @param {ExecutionContext} ecc
+     * @returns
+     */
+    createSafeExport(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'createSafeExport', callType: CallOrigin.Driver });
+        try {
+            let safeObject = {
+                userId: this.userId,
+                groups: this.groups.map(g => g.createSafeExport())
+            };
+            if (this.IsUser)
+                safeObject.IsUser = true;
+            if (this.IsWizard)
+                safeObject.IsWizard = true;
 
-        return Object.freeze(safeObject);
+            return Object.freeze(safeObject);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /** @type {BaseSecurityGroup[]} */
@@ -318,36 +337,57 @@ class BaseSecurityCredential extends EventEmitter {
 
     /**
      * Check to see if the identifier represents this credential
+     * @param {ExecutionContext} ecc The current call stack
      * @param {string | BaseSecurityCredential} info
      */
     isEqual(info) {
-        if (info instanceof BaseSecurityCredential)
-            return info === this || info.userId === this.userId;
-        else if (typeof info === 'string')
-            return info === this.userId;
-        else
-            return false;
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'isEqual', callType: CallOrigin.Driver });
+        try {
+            if (info instanceof BaseSecurityCredential)
+                return info === this || info.userId === this.userId;
+            else if (typeof info === 'string')
+                return info === this.userId;
+            else
+                return false;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Check to see if this credential exists
+     * @param {ExecutionContext} ecc The current call stack
      * @param {any} groupName
      */
-    inGroup(groupName) {
-        return this.#groups.indexOf(groupName) > -1;
+    inGroup(ecc, groupName) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'inGroup', callType: CallOrigin.Driver });
+        try {
+            return this.#groups.indexOf(groupName) > -1;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Remove the group
+     * @param {ExecutionContext} ecc The current call stack
      * @param {BaseSecurityGroup} group
      */
-    removeFromGroup(group) {
-        let index = this.#groups.findIndex(g => g.gid === group.gid);
-        if (index > -1) {
-            this.#groups.splice(index, 1);
-            return true;
+    removeFromGroup(ecc, group) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'removeFromGroup', callType: CallOrigin.Driver });
+        try {
+            let index = this.#groups.findIndex(g => g.gid === group.gid);
+            if (index > -1) {
+                this.#groups.splice(index, 1);
+                return true;
+            }
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
     get userId() {
@@ -373,22 +413,33 @@ class BaseSecurityGroup extends EventEmitter {
         this.#name = name;
     }
 
-    createSafeExport() {
-        return Object.freeze({
-            id: this.gid,
-            name: this.name,
-            description: this.description,
-            members: this.members.map(m => {
-                if (m instanceof BaseSecurityGroup)
-                    return m.gid !== this.owner.defaultGroupName && m.gid;
-                else if (m instanceof BaseSecurityCredential)
-                    return m.userId;
-                else if (typeof m === 'string')
-                    return m;
-                else
-                    return false;
-            }).filter(m => m !== false)
-        });
+    /**
+     * 
+     * @param {ExecutionContext} ecc
+     * @returns
+     */
+    createSafeExport(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'createSafeExport', callType: CallOrigin.Driver });
+        try {
+            return Object.freeze({
+                id: this.gid,
+                name: this.name,
+                description: this.description,
+                members: this.members.map(m => {
+                    if (m instanceof BaseSecurityGroup)
+                        return m.gid !== this.owner.defaultGroupName && m.gid;
+                    else if (m instanceof BaseSecurityCredential)
+                        return m.userId;
+                    else if (typeof m === 'string')
+                        return m;
+                    else
+                        return false;
+                }).filter(m => m !== false)
+            });
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /** @type {string} */
@@ -409,13 +460,19 @@ class BaseSecurityGroup extends EventEmitter {
         return this.#gid.slice(0);
     }
 
-    isEqual(info) {
-        if (info instanceof BaseSecurityGroup)
-            return info === this || info.name === this.name;
-        else if (typeof info === 'string')
-            return info === this.name;
-        else
-            return false;
+    isEqual(ecc, info) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'isEqual', callType: CallOrigin.Driver });
+        try {
+            if (info instanceof BaseSecurityGroup)
+                return info === this || info.name === this.name;
+            else if (typeof info === 'string')
+                return info === this.name;
+            else
+                return false;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /** @type {(string | BaseSecurityCredential | BaseSecurityGroup)[]} */
@@ -441,91 +498,130 @@ class BaseSecurityGroup extends EventEmitter {
 
     /**
      * Attempt to add the specified object to the security group.
+     * @param {ExecutionContext} ecc The current stack frame
      * @param {string | BaseSecurityCredential | BaseSecurityGroup} member
      */
-    addMember(member) {
-        if (!this.isMember(member)) {
-            if (member instanceof BaseSecurityGroup) {
-                if (member.isMember(this)) {
-                    throw new Error(`Attempted circular group reference: ${this.name} is a member of ${member.name}`);
+    addMember(ecc, member) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: '', callType: CallOrigin.Driver });
+        try {
+            if (!this.isMember(member)) {
+                if (member instanceof BaseSecurityGroup) {
+                    if (member.isMember(this)) {
+                        throw new Error(`Attempted circular group reference: ${this.name} is a member of ${member.name}`);
+                    }
                 }
-            }
-            this.#members.push(member);
-            if (member instanceof BaseSecurityCredential)
-                member.addGroup(this);
-            else if (member instanceof BaseSecurityGroup) {
-                for (const m of member.members) {
-                    if (m instanceof BaseSecurityCredential)
-                        m.addGroup(this);
+                this.#members.push(member);
+                if (member instanceof BaseSecurityCredential)
+                    member.addGroup(this);
+                else if (member instanceof BaseSecurityGroup) {
+                    for (const m of member.members) {
+                        if (m instanceof BaseSecurityCredential)
+                            m.addGroup(this);
+                    }
                 }
+                return true;
             }
-            return true;
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Return the group index of the specified member or -1 if not a member
+     * @param {ExecutionContext} ecc The current stack stack
      * @param {string | BaseSecurityCredential | BaseSecurityGroup} member
      */
-    findIndex(member) {
-        return this.#members.findIndex(m => {
-            if (m instanceof BaseSecurityGroup) {
-                return m.isMember(member);
-            }
-            else if (m instanceof BaseSecurityCredential) {
-                return m === member || m.userId === member;
-            }
-            else if (typeof m === 'string') {
-                let group = this.owner.getGroup(m);
-                if (group)
-                    return group.isMember(member);
-                else if (member instanceof BaseSecurityGroup)
-                    return member.name === m;
-                else if (member instanceof BaseSecurityCredential)
-                    return member.userId === m;
-                else if (typeof member === 'string')
-                    return member === m;
-            }
-            return false;
-        });
+    findIndex(ecc, member) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'findIndex', callType: CallOrigin.Driver });
+        try {
+            return this.#members.findIndex(m => {
+                if (m instanceof BaseSecurityGroup) {
+                    return m.isMember(frame.branch(), member);
+                }
+                else if (m instanceof BaseSecurityCredential) {
+                    return m === member || m.userId === member;
+                }
+                else if (typeof m === 'string') {
+                    let group = this.owner.getGroup(frame.branch(), m);
+                    if (group)
+                        return group.isMember(frame.branch(), member);
+                    else if (member instanceof BaseSecurityGroup)
+                        return member.name === m;
+                    else if (member instanceof BaseSecurityCredential)
+                        return member.userId === m;
+                    else if (typeof member === 'string')
+                        return member === m;
+                }
+                return false;
+            });
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Check if the supplied argument is a member of this group
+     * @param {ExecutionContext} ecc The current stack stack
      * @param {string | BaseSecurityCredential | BaseSecurityGroup} member
      */
-    isMember(member) { 
-        return this.findIndex(member) > -1;
+    isMember(ecc, member) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'isMember', callType: CallOrigin.Driver });
+        try {
+            return this.findIndex(frame.branch(), member) > -1;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Attempt to remove the specified object from the security group.
+     * @param {ExecutionContext} ecc The current stack stack
      * @param {string | BaseSecurityCredential | BaseSecurityGroup} member
      */
-    removeMember(member) {
-        //  Objects cannot be removed from default group
-        if (this.gid === this.owner.defaultGroupName)
-            return false;
+    removeMember(ecc, member) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'removeMember', callType: CallOrigin.Driver });
+        try {
+            return this.findIndex(member) > -1;
+            //  Objects cannot be removed from default group
+            if (this.gid === this.owner.defaultGroupName)
+                return false;
 
-        let index = this.findIndex(member);
-        if (index > -1) {
-            this.#members.splice(index, 1);
-            if (member instanceof BaseSecurityCredential)
-                member.removeFromGroup(this);
-            else if (member instanceof BaseSecurityGroup) {
-                for (const m of member.members) {
-                    m.removeFromGroup(this);
+            let index = this.findIndex(frame.branch(), member);
+            if (index > -1) {
+                this.#members.splice(index, 1);
+                if (member instanceof BaseSecurityCredential)
+                    member.removeFromGroup(frame.branch(), this);
+                else if (member instanceof BaseSecurityGroup) {
+                    for (const m of member.members) {
+                        m.removeFromGroup(frame.branch(), this);
+                    }
                 }
+                return true;
             }
-            return true;
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
-    resolveMembers() {
-        if (this.owner.initialized === true) {
-            this.#members = this.owner.getCredentials(this.members);
+    /**
+     * Resolve members of this group
+     * @param {ExecutionContext} ecc The current stack stack
+     */
+    resolveMembers(ecc) {
+        let frame = ecc.pushFrameObject({ method: 'resolveMembers' });
+        try {
+            if (this.owner.initialized === true) {
+                this.#members = this.owner.getCredentials(ecc.branch(), this.members);
+            }
+        }
+        finally {
+            frame.pop();
         }
     }
 }

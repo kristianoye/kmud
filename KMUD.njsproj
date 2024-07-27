@@ -524,31 +524,33 @@
     <Content Include="src\ErrorTypes.js" />
     <Content Include="src\ExecutionContext.js" />
     <Content Include="src\Extensions.js" />
-    <Content Include="src\extensions\Array.extensions.js">
+    <Content Include="src\extensions\000_Startup.js" />
+    <Content Include="src\extensions\001_Array.extensions.js" />
+    <Content Include="src\extensions\003_Date.extensions.js">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="src\extensions\Date.extensions.js">
+    <Content Include="src\extensions\002_Math.extensions.js">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="src\extensions\Math.extensions.js">
+    <Content Include="src\extensions\005_Number.extensions.js" />
+    <Content Include="src\extensions\007_Regex.extension.js" />
+    <Content Include="src\extensions\008_Console.extensions.js" />
+    <Content Include="src\extensions\999_Object.extensions.js">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="src\extensions\Number.extensions.js" />
-    <Content Include="src\extensions\Object.extensions.js">
+    <Content Include="src\extensions\006_Promise.extensions.js">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="src\extensions\Promise.extensions.js">
+    <Content Include="src\extensions\004_String.extensions.js">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="src\extensions\String.extensions.js">
-      <SubType>Code</SubType>
-    </Content>
-    <Content Include="src\extensions\System.namespace.js" />
     <Content Include="src\features\DomainStats.js" />
     <Content Include="src\features\FeatureBase.js" />
     <Content Include="src\features\MUDEditor.js" />
     <Content Include="src\features\VerbSystem.js" />
     <Content Include="src\fs\FileOperations.js" />
+    <Content Include="src\inputs\InputTypes.js" />
+    <Content Include="src\ModuleLoader.js" />
     <Content Include="src\MUDStorageFlags.js" />
     <Content Include="src\security\AclSecurityManager.js" />
     <Content Include="src\security\BaseSecurityManager.js">

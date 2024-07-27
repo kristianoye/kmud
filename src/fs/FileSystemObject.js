@@ -15,6 +15,7 @@ const
 
 const { NotImplementedError, SecurityError } = require('../ErrorTypes'),
     CompilerFlags = require('../compiler/CompilerFlags');
+const { ExecutionContext, CallOrigin } = require('../ExecutionContext');
 
 /**
  * The interface definition for ALL filesystem types
@@ -307,6 +308,10 @@ class FileSystemObject extends events.EventEmitter {
         return expr;
     }
 
+    /**
+     * 
+     * @param {any} request
+     */
     async copyAsync(request) {
         throw new NotImplementedError('copyAsync', this);
     }
@@ -394,11 +399,18 @@ class FileSystemObject extends events.EventEmitter {
 
     /** 
      * Get the parent of this object.
+     * @param {ExecutionContext} ecc The current call stack
      * @returns {Promise<FileSystemObject>}  Returns the parent object
      */
-    async getParentAsync() {
-        let parentPath = this.path === '/' ? '/' : path.posix.resolve(this.path, '..');
-        return await driver.fileManager.getDirectoryAsync(parentPath);
+    async getParentAsync(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getParentAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let parentPath = this.path === '/' ? '/' : path.posix.resolve(this.path, '..');
+            return await driver.fileManager.getObjectAsync(frame.branch(), parentPath);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -422,30 +434,32 @@ class FileSystemObject extends events.EventEmitter {
 
     /**
      * Load an object from this file.
+     * @param {ExecutionContext} ecc
      * @param {number} flags
      * @param {any[]} args
      */
-    async loadObjectAsync(flags = 0, args = []) {
+    async loadObjectAsync(ecc, flags = 0, args = []) {
+        let frame = ecc.pushFrameObject({ method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
         return new Promise(async (resolve, reject) => {
             try {
                 if (this.isDirectory)
                     throw new Error(`Operation not supported: ${this.fullPath} is a directory.`);
-                let parts = driver.efuns.parsePath(this.fullPath),
+                let parts = driver.efuns.parsePath(frame.context, this.fullPath),
                     module = driver.cache.get(parts.file),
                     forceReload = !module || (flags & 1) > 0,
                     cloneOnly = (flags & 2) > 0;
 
                 if (forceReload) {
-                    module = await driver.compiler.compileObjectAsync({
+                    module = await driver.compiler.compileObjectAsync(frame.branch(), {
                         args,
-                        file: parts.file + (parts.extension || ''),
+                        file: parts.file,
                         reload: forceReload
                     });
                     if (!module)
                         return reject(new Error(`loadObjectAsync(): Failed to load module ${fullPath}`));
                 }
                 if (cloneOnly) {
-                    let clone = await module.createInstanceAsync(parts.type, false, args);
+                    let clone = await module.createInstanceAsync(frame.branch(), parts.type, false, args);
 
                     if (!clone)
                         return reject(`loadObjectAsync(): Failed to clone object '${this.fullPath}'`);
@@ -457,7 +471,7 @@ class FileSystemObject extends events.EventEmitter {
             catch (err) {
                 reject(err);
             }
-        });
+        }).finally(() => frame.pop(true));
     }
 
     /**
@@ -502,21 +516,22 @@ class FileSystemObject extends events.EventEmitter {
 
     /**
      * Additional options
+     * @param {ExecutionContext} ecc
      * @param {FileOptions} options
      */
-    readJsonAsync(options = {}) {
+    readJsonAsync(ecc, options = {}) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'readJsonAsync', isAsync: true, callType: CallOrigin.Driver });
         return new Promise(async (resolve, reject) => {
             try {
                 let localOptions = Object.assign({ encoding: 'utf8', stripBOM: true }, options);
                 if (this.isDirectory) {
                     console.log('Reading json from a directory?');
                 }
-                let content = await this.readAsync();
-                let ecc = driver.getExecution();
+                let content = await this.readAsync(frame.branch());
                 if (content) {
                     content = content.toString(localOptions.encoding);
                     if (localOptions.stripBOM) {
-                        content = driver.efuns.stripBOM(content);
+                        content = driver.efuns.stripBOM(frame.context, content);
                     }
                 }
                 if (typeof content === 'string') {
@@ -531,21 +546,27 @@ class FileSystemObject extends events.EventEmitter {
             catch (ex) {
                 reject(ex);
             }
-        });
+        }).finally(() => frame.pop());
     }
 
-    async readYamlAsync(options = {}) {
+    /**
+     * 
+     * @param {ExecutionContext} ecc
+     * @param {any} options
+     * @returns
+     */
+    async readYamlAsync(ecc, options = {}) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'readYamlAsync', isAsync: true, callType: CallOrigin.Driver });
         return new Promise(async (resolve, reject) => {
             try {
-                let content = await this.readAsync()
-                    .catch(err => reject(err));
+                let content = await this.readFileAsync(frame.branch());
 
                 let localOptions = Object.assign({ encoding: 'utf8', stripBOM: true }, options);
 
                 if (content) {
                     content = content.toString(localOptions.encoding);
                     if (localOptions.stripBOM) {
-                        content = driver.efuns.stripBOM(content);
+                        content = driver.efuns.stripBOM(frame.branch(), content);
                     }
                 }
                 if (typeof content === 'string') {
@@ -560,7 +581,7 @@ class FileSystemObject extends events.EventEmitter {
             catch (ex) {
                 reject(ex);
             }
-        });
+        }).finally(() => frame.pop(true));
     }
 
     /**
@@ -582,18 +603,30 @@ class FileSystemObject extends events.EventEmitter {
 
     }
 
-    async writeJsonAsync(data, options = { indent: true, encoding: 'utf8' }) {
-        let exportText = '';
-        if (options.indent) {
-            if (typeof options.indent === 'number')
-                exportText = JSON.stringify(data, undefined, options.indent);
-            else if (options.indent === true)
-                exportText = JSON.stringify(data, undefined, 3);
-        }
-        else
-            exportText = JSON.stringify(data);
+    /**
+     * 
+     * @param {any} ecc
+     * @param {any} dataIn
+     * @param {any} optionsIn
+     */
+    async writeJsonAsync(ecc, dataIn, optionsIn = { indent: true, encoding: 'utf8' }) {
+        let [frame, data, options] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'writeJsonAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let exportText = '';
+            if (options.indent) {
+                if (typeof options.indent === 'number')
+                    exportText = JSON.stringify(data, undefined, options.indent);
+                else if (options.indent === true)
+                    exportText = JSON.stringify(data, undefined, 3);
+            }
+            else
+                exportText = JSON.stringify(data);
 
-        await this.writeFileAsync(exportText, options);
+            await this.writeFileAsync(exportText, options);
+        }
+        finally {
+            frame?.pop();
+        }
     }
 
     async writeYamlAsync(data) {
@@ -633,41 +666,41 @@ class VirtualObjectFile extends FileSystemObject {
 
     /**
      * Load an object from this file.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {FileSystemRequest} request
      * @param {any[]} args
      */
-    loadObjectAsync(request, args=[]) {
-        return new Promise(async (resolve, reject) => {
-            try {
-                let parts = driver.efuns.parsePath(request.fullPath),
-                    module = driver.cache.get(parts.file),
-                    forceReload = !module || request.hasFlag(1),
-                    cloneOnly = request.hasFlag(2);
+    async loadObjectAsync(ecc, request, args = []) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let parts = driver.efuns.parsePath(frame.context, request.fullPath),
+                module = driver.cache.get(parts.file),
+                forceReload = !module || request.hasFlag(1),
+                cloneOnly = request.hasFlag(2);
 
-                if (forceReload) {
-                    module = await driver.compiler.compileObjectAsync({
-                        args,
-                        file: parts.file,
-                        isVirtual: true,
-                        reload: forceReload
-                    });
-                    if (!module)
-                        return reject(new Error(`Failed to load module ${fullPath}`));
-                }
-                if (cloneOnly) {
-                    let clone = await module.createInstanceAsync(parts.type, false, args);
-
-                    if (!clone)
-                        return reject(`loadObjectAsync(): Failed to clone object '${request.fullPath}'`);
-
-                    return resolve(clone);
-                }
-                return resolve(module.getInstanceWrapper(parts));
+            if (forceReload) {
+                module = await driver.compiler.compileObjectAsync(frame.branch(), {
+                    args,
+                    file: parts.file,
+                    isVirtual: true,
+                    reload: forceReload
+                });
+                if (!module)
+                    throw new Error(`Failed to load module ${parts.file}`);
             }
-            catch (err) {
-                reject(err);
+            if (cloneOnly) {
+                let clone = await module.createInstanceAsync(parts.type, false, args);
+
+                if (!clone)
+                    return reject(`loadObjectAsync(): Failed to clone object '${request.fullPath}'`);
+
+                return clone;
             }
-        });
+            return module.getInstanceWrapper(parts);
+        }
+        finally {
+            frame.pop();
+        }
     }
 }
 
@@ -872,114 +905,269 @@ class FileWrapperObject extends FileSystemObject {
 
     // #region Methods
 
-    async appendFileAsync(content, options = { encoding: 'utf8' }) {
-        if (await this.can(SecurityFlags.P_WRITE)) {
-            return this.#instance.appendFileAsync(content, options);
+    /**
+     * Append text to the end of the file
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} content
+     * @param {any} options
+     * @returns
+     */
+    async appendFileAsync(ecc, content, options = { encoding: 'utf8' }) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'appendFileAsync', isAsync: true });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_WRITE)) {
+                return this.#instance.appendFileAsync(frame.branch(), content, options);
+            }
+        }
+        finally {
+            frame.pop(true);
         }
     }
 
     /**
      * Check to see if the action can be performed
+     * @param {ExecutionContext} ecc The current callstack
      * @param {number} perm
      * @param {string} methodName
      */
-    async can(perm, methodName = 'unknown') {
-        return driver.securityManager.can(this, perm, methodName);
-    }
-
-    async cloneObjectAsync(...args) {
-        if (await this.can(SecurityFlags.P_LOADOBJECT)) {
-            return this.#instance.cloneObjectAsync(...args);
+    async can(ecc, perm, methodName = 'unknown') {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'can', isAsync: true });
+        try {
+            return driver.securityManager.can(frame.branch(), this, perm, methodName);
+        }
+        finally {
+            frame.pop(true);
         }
     }
 
-    async compileAsync(options = {}) {
-        if (await this.can(SecurityFlags.P_LOADOBJECT)) {
-            return this.#instance.compileAsync(FileWrapperObject.createSafeCompilerOptions(options));
+    /**
+     * Clone an existing object
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} args
+     * @returns
+     */
+    async cloneObjectAsync(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'cloneObjectAsync', isAsync: true });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_LOADOBJECT)) {
+                return this.#instance.cloneObjectAsync(...args);
+            }
         }
-        throw new Error(`Permission denied: Could not compile ${this.fullPath}`);
-    }
-
-    configureWrapper(t) {
-        //  Does nothing
-    }
-
-    async copyAsync(dest, flags = 0) {
-        if (await this.can(SecurityFlags.P_READ, 'copyAsync')) {
-            return this.#instance.copyAsync(dest, flags);
-        }
-        throw new SecurityError(`${this.fullPath}: copyAsync(): Permission denied`);
-    }
-
-    async createDirectoryAsync(...args) {
-        if (await this.can(SecurityFlags.P_CREATEDIR)) {
-            return this.#instance.createDirectoryAsync(...args);
+        finally {
+            frame.pop(true);
         }
     }
 
-    async createReadStream(options) {
-        if (await this.can(SecurityFlags.P_READ, 'createReadStream')) {
-            return this.#instance.createReadStream(options);
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} options
+     * @returns
+     */
+    async compileAsync(ecc, options = {}) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'compileAsync', isAsync: true });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_LOADOBJECT)) {
+                return this.#instance.compileAsync(ecc.branch(), FileWrapperObject.createSafeCompilerOptions(options));
+            }
+            throw new Error(`Permission denied: Could not compile ${this.fullPath}`);
         }
-        else
-            throw new SecurityError(`${this.fullPath}: createReadStream(): Permission denied`);
+        finally {
+            frame.pop();
+        }
     }
 
-    static createSafeCompilerOptions(options) {
-        return {
-            file: this.fullPath,
-            flags: (options.flags || 0) & CompilerFlags.SafeFlags,
-            onCompilerStageExecuted: typeof options.onCompilerStageExecuted === 'function' && options.onCompilerStageExecuted,
-            onDebugOutput: typeof options.onDebugOutput === 'function' && options.onDebugOutput,
+    configureWrapper(ecc, t) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'configureWrapper', isAsync: true });
+        frame.pop();
+    }
+
+    /**
+     * Copy this file object to another location
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} dest
+     * @param {any} flags
+     * @returns
+     */
+    async copyAsync(ecc, dest, flags = 0) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'copyAsync', isAsync: true });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_READ, 'copyAsync')) {
+                return this.#instance.copyAsync(dest, flags);
+            }
+            throw new SecurityError(`${this.fullPath}: copyAsync(): Permission denied`);
+        }
+        finally {
+            frame.pop();
         }
     }
 
-    async createWriteStream(options) {
-        if (await this.can(SecurityFlags.P_WRITE, 'createWriteStream')) {
-            return this.#instance.createWriteStream(options); 
+    /**
+     * Create this object as a directory if it does not exist
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} ecc
+     * @param {...any} args
+     * @returns
+     */
+    async createDirectoryAsync(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'createDirectoryAsync', isAsync: true });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_CREATEDIR)) {
+                return this.#instance.createDirectoryAsync(...args);
+            }
         }
-        else
-            throw new SecurityError(`${this.fullPath}: createWriteStream(): Permission denied`);
+        finally {
+            frame.pop();
+        }
+    }
+
+    /**
+     * Creeate a read stream
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} options
+     * @returns
+     */
+    async createReadStream(ecc, options) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'createReadStream', isAsync: true });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_READ, 'createReadStream')) {
+                return this.#instance.createReadStream(options);
+            }
+            else
+                throw new SecurityError(`${this.fullPath}: createReadStream(): Permission denied`);
+        }
+        finally {
+            frame.pop();
+        }
+    }
+
+    /**
+     * Create an configuration object to pass to compiler (TODO: Make an efun for this)
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} options
+     * @returns
+     */
+    static createSafeCompilerOptions(ecc, options) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'createSafeCompilerOptions' });
+        try {
+            return {
+                file: this.fullPath,
+                flags: (options.flags || 0) & CompilerFlags.SafeFlags,
+                onCompilerStageExecuted: typeof options.onCompilerStageExecuted === 'function' && options.onCompilerStageExecuted,
+                onDebugOutput: typeof options.onDebugOutput === 'function' && options.onDebugOutput,
+            }
+        }
+        finally {
+            frame.pop();
+        }
+    }
+
+    /**
+     * Create a writeable stream for methods like pipe()
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} options
+     * @returns
+     */
+    async createWriteStream(ecc, options) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'createWriteStream', isAsync: true });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_WRITE, 'createWriteStream')) {
+                return this.#instance.createWriteStream(options);
+            }
+            else
+                throw new SecurityError(`${this.fullPath}: createWriteStream(): Permission denied`);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Delete the file
+     * @param {ExecutionContext} ecc The current callstack
      */
-    async deleteAsync(...args) {
-        if (this.isDirectory) {
-            return this.deleteDirectoryAsync(...args);
+    async deleteAsync(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'deleteAsync', isAsync: true });
+        try {
+            if (this.isDirectory) {
+                return this.deleteDirectoryAsync(frame.branch(), ...args);
+            }
+            else
+                return this.deleteFileAsync(frame.branch(), ...args);
         }
-        else
-            return this.deleteFileAsync(...args);
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Delete a directory
+     * @param {ExecutionContext} ecc The current callstack
      */
-    async deleteDirectoryAsync(...args) {
-        if (await this.can(SecurityFlags.P_DELETEDIR)) {
-            return this.#instance.deleteDirectoryAsync(...args);
+    async deleteDirectoryAsync(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'deleteDirectoryAsync', isAsync: true });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_DELETEDIR)) {
+                return this.#instance.deleteDirectoryAsync(frame.branch(), ...args);
+            }
+        }
+        finally {
+            frame.pop();
         }
     }
 
-
-    async deleteFileAsync() {
-        if (await this.can(SecurityFlags.P_DELETE)) {
-            return this.#instance.deleteFileAsync();
+    /**
+     * Delete this object if it is a file
+     * @param {ExecutionContext} ecc The current callstack
+     * @returns
+     */
+    async deleteFileAsync(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'deleteFileAsync', isAsync: true });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_DELETE)) {
+                return this.#instance.deleteFileAsync(frame.branch());
+            }
+        }
+        finally {
+            frame.pop();
         }
     }
 
-    async getFileAsync(fileName) {
-        return this.#instance.getObjectAsync(fileName);
+    /**
+     * Get a file object
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} fileName
+     * @returns
+     */
+    async getFileAsync(ecc, fileName) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getFileAsync', isAsync: true });
+        try {
+            return this.#instance.getObjectAsync(frame.branch(), fileName);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
-    async getObjectAsync(fileName) {
-        if (this.isDirectory) {
-            if (await this.can(SecurityFlags.P_LISTDIR))
-                return this.driver.fileManager.wrapFileObject(this.#instance.getObjectAsync(fileName));
+    /**
+     * Get a file object relative to this object
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} fileName
+     * @returns
+     */
+    async getObjectAsync(ecc, fileName) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (this.isDirectory) {
+                if (await this.can(frame.branch(), SecurityFlags.P_LISTDIR))
+                    return this.driver.fileManager.wrapFileObject(this.#instance.getObjectAsync(frame.branch(), fileName));
+            }
+            else {
+                return this;
+            }
         }
-        else {
-            return this;
+        finally {
+            frame.pop();
         }
     }
 
@@ -989,97 +1177,211 @@ class FileWrapperObject extends FileSystemObject {
 
     /**
      * Determine if the file/directory is empty
+     * @param {ExecutionContext} ecc The current callstack
      * @returns
      */
-    async isEmpty() {
-        await this.refreshAsync();
-        if (this.isDirectory) {
-            let files = this.readAsync();
-            return Array.isArray(files) && files.length === 0;
+    async isEmpty(ecc) {
+        let frame = ecc.pushFrameObject({ method: 'isEmpty', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            await this.refreshAsync(frame.branch());
+            if (this.isDirectory) {
+                let files = await this.readAsync(frame.branch());
+                return Array.isArray(files) && files.length === 0;
+            }
+            else if (this.isFile) {
+                return this.size === 0;
+            }
         }
-        else if (this.isFile) {
-            return this.size === 0;
+        finally {
+            frame.pop();
         }
     }
 
-    async readAsync(...args) {
-        if (this.isDirectory)
-            return this.readDirectoryAsync(...args);
-        else
-            return this.readFileAsync(...args);
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} args
+     */
+    async loadObjectAsync(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return this.#instance.loadObjectAsync(frame.branch(), ...args);
+        }
+        finally {
+            frame.pop(true);
+        }
+    }
+
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} args
+     * @returns
+     */
+    async readAsync(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'readAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (this.isDirectory)
+                return this.readDirectoryAsync(frame.branch(), ...args);
+            else
+                return this.readFileAsync(frame.branch(), ...args);
+        }
+        finally {
+            frame.pop(true);
+        }
     }
 
     /**
      * Read information from a directory
+     * @param {ExecutionContext} ecc The current callstack
      * @returns {Promise<FileSystemObject[]>}
      */
-    async readDirectoryAsync(...args) {
-        if (await this.can(SecurityFlags.P_LISTDIR, 'readDirectoryAsync')) {
-            return this.#instance.readDirectoryAsync(...args);
+    async readDirectoryAsync(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'readDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_LISTDIR, 'readDirectoryAsync')) {
+                return this.#instance.readDirectoryAsync(frame.branch(), ...args);
+            }
+        }
+        finally {
+            frame.pop(true);
         }
     }
 
-    async readFileAsync(...args) {
-        if (await this.can(SecurityFlags.P_READ, 'readFileAsync')) {
-            return this.#instance.readFileAsync(...args);
+    /**
+     * Read the file content
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} args
+     * @returns
+     */
+    async readFileAsync(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'readFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_READ, 'readFileAsync')) {
+                return this.#instance.readFileAsync(frame.branch(), ...args);
+            }
+        }
+        finally {
+            frame.pop(true);
         }
     }
 
-    async refreshAsync(stat) {
-        await this.#instance.refreshAsync();
-        return this;
+    /**
+     * Refresh the object information
+     * @param {ExecutionContext} ecc The current callstack
+     * @returns
+     */
+    async refreshAsync(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'refreshAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let stat = await driver.fileManager.getObjectAsync(frame.branch(), this.fullPath, 0, true);
+            this.#instance = stat;
+            return this;
+        }
+        finally {
+            frame.pop(true);
+        }
     }
 
-    async writeAsync(...args) {
-        if (this.isDirectory)
-            return this.writeDirectoryAsync(...args);
-        else
-            return this.writeFileAsync(...args);
+    /**
+     * Refresh the object information
+     * @param {ExecutionContext} ecc The current callstack
+     * @returns {Promise<boolean>}
+     */
+    async writeAsync(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (this.isDirectory)
+                return this.writeDirectoryAsync(frame.branch(), ...args);
+            else
+                return this.writeFileAsync(frame.branch(), ...args);
+        }
+        finally {
+            frame.pop(true);
+        }
     }
 
     /**
      * Write to one or more files in the directory.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string | Object.<string,string|Buffer|(string) => string>} fileNameOrContent
      * @param {any} options
      */
-    async writeDirectoryAsync(fileNameOrContent, content, options = { encoding: 'utf8', flag: 'w' }) {
-        let writes = [];
+    async writeDirectoryAsync(ecc, fileNameOrContent, content, options = { encoding: 'utf8', flag: 'w' }) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let writes = [];
 
-        if (typeof fileNameOrContent === 'object') {
-            for (let [filename, data] of Object.entries(fileNameOrContent)) {
-                if (typeof filename === 'string') {
-                    if (typeof data === 'function')
-                        data = data(filename);
+            if (typeof fileNameOrContent === 'object') {
+                for (let [filename, data] of Object.entries(fileNameOrContent)) {
+                    if (typeof filename === 'string') {
+                        if (typeof data === 'function')
+                            data = data(filename);
 
-                    writes.push(this.writeDirectoryAsync(filename, data, options));
+                        writes.push(this.writeDirectoryAsync(frame.branch(), filename, data, options));
+                    }
                 }
+                await Promise.all(writes);
             }
-            await Promise.all(writes);
+            else if (typeof fileNameOrContent === 'string') {
+                let fso = await this.getFileAsync(frame.branch(), fileNameOrContent);
+                return fso.writeFileAsync(frame.branch(), content);
+            }
         }
-        else if (typeof fileNameOrContent === 'string') {
-            let fso = this.getFileAsync(fileNameOrContent);
-            return fso.writeFileAsync(content);
+        finally {
+            frame.pop(true);
         }
     }
 
     /**
      * Write to a single file
+     * @param {ExecutionContext} ecc The current callstack
      */
-    async writeFileAsync(...args) {
-        if (await this.can(SecurityFlags.P_WRITE, 'writeFileAsync')) {
-            return this.#instance.writeFileAsync(...args);
+    async writeFileAsync(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_WRITE, 'writeFileAsync')) {
+                return this.#instance.writeFileAsync(frame.branch(), ...args);
+            }
+        }
+        finally {
+            frame.pop(true);
         }
     }
 
-    async writeJsonAsync(...args) {
-        if (await this.can(SecurityFlags.P_WRITE, 'writeJsonAsync')) {
-            return this.#instance.writeJsonAsync(...args);
+    /**
+     * Write a JSON-serialized object to file
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} args
+     * @returns
+     */
+    async writeJsonAsync(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeJsonAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_WRITE, 'writeJsonAsync')) {
+                return this.#instance.writeJsonAsync(frame.branch(), ...args);
+            }
+        }
+        finally {
+            frame.pop(true);
         }
     }
 
-    async writeYamlAsync(...args) {
-        if (await this.can(SecurityFlags.P_WRITE)) {
-            return this.#instance.writeYamlAsync(...args);
+    /**
+     * Write a YAML-serialized object to file
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} args
+     * @returns
+     */
+    async writeYamlAsync(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeYamlAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (await this.can(frame.branch(), SecurityFlags.P_WRITE, 'writeYamlAsync')) {
+                return this.#instance.writeYamlAsync(frame.branch(), ...args);
+            }
+        }
+        finally {
+            frame.pop(true);
         }
     }
 

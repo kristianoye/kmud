@@ -93,4 +93,5 @@ class EnglishHelpers {
     }
 }
 
+// module.exports = driver.instrumentObject(EnglishHelpers);
 module.exports = EnglishHelpers;

@@ -134,4 +134,6 @@ if (typeof String.prototype.ucfirst !== 'function') {
     }
 }
 
-Object.seal(String.prototype);
+if (__ivc === true) {
+    __igt(String.prototype);
+}

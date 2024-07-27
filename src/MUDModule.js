@@ -1,12 +1,12 @@
-﻿const SimpleObject = require('./SimpleObject');
-
-/*
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
 const
     MUDObject = require('./MUDObject'),
+    { ExecutionContext, CallOrigin } = require('./ExecutionContext'),
+    SimpleObject = require('./SimpleObject'),
     MUDCompilerOptions = require('./compiler/MUDCompilerOptions'),
     { PipelineContext } = require('./compiler/PipelineContext'),
     events = require('events'),
@@ -320,53 +320,65 @@ class MUDModuleTypeInfo {
         return collection[member.memberName];
     }
 
-    importTypeInfo(typeRef, typeAlias) {
-        let info = driver.efuns.parsePath(typeRef.prototype.baseName),
-            file = info.file,
+    /**
+     * 
+     * @param {ExecutionContext} ecc
+     * @param {any} typeRef
+     * @param {any} typeAlias
+     */
+    importTypeInfo(ecc, typeRef, typeAlias) {
+        let frame = ecc.pushFrameObject({ file: this.filename, method: 'importTypeInfo' });
+        try {
+            let info = driver.efuns.parsePath(frame.branch(), typeRef.prototype.baseName),
+                file = info.file,
             /** @type {MUDModule} */ module = driver.cache.get(file),
-            typeDef = module && module.getTypeDefinition(typeRef.name);
+                typeDef = module && module.getTypeDefinition(typeRef.name);
 
-        if (typeDef) {
-            for (const [memberName, info] of Object.entries(typeDef.inheritedMembers)) {
-                if (memberName in this.inheritedMembers) {
-                    this.inheritedMembers[memberName].addImplementation(info);
-                }
-                else {
-                    this.inheritedMembers[memberName] = new MUDModuleImportedMemberInfo(info);
-                }
+            if (typeDef) {
+                for (const [memberName, info] of Object.entries(typeDef.inheritedMembers)) {
+                    if (memberName in this.inheritedMembers) {
+                        this.inheritedMembers[memberName].addImplementation(info);
+                    }
+                    else {
+                        this.inheritedMembers[memberName] = new MUDModuleImportedMemberInfo(info);
+                    }
 
-                if (info.typeIs(MemberModifiers.Abstract)) {
-                    this.abstractMembers[memberName] = info;
-                }
-            }
-            for (const [memberName, info] of Object.entries(typeDef.members)) {
-                let existingMember = this.inheritedMembers[memberName] || false;
-
-                if (info.isAbstract) {
-                    this.abstractMembers[memberName] = info;
-                }
-                else if (memberName in this.abstractMembers) {
-                    delete this.abstractMembers[memberName];
-                }
-
-                if (existingMember) {
-                    let existingMember = this.inheritedMembers[memberName];
-
-                    //  This member implemented a previously abstract method
-                    if (existingMember.typeIs(MemberModifiers.Abstract) && !info.isAbstract) {
-                        existingMember.modifiers &= ~MemberModifiers.Abstract;
+                    if (info.typeIs(MemberModifiers.Abstract)) {
+                        this.abstractMembers[memberName] = info;
                     }
                 }
-                else {
-                    existingMember = this.inheritedMembers[memberName] = new MUDModuleImportedMemberInfo(memberName, info.modifiers);
-                }
-                existingMember.addImplementation(info, info.depth + 1);
-            }
+                for (const [memberName, info] of Object.entries(typeDef.members)) {
+                    let existingMember = this.inheritedMembers[memberName] || false;
 
-            this.inheritedTypes[typeDef.typeName] = typeDef;
-            if (typeAlias !== typeDef.typeName)
-                this.inheritedTypeAliases[typeAlias] = typeDef;
-            this.hasAsyncConstructor |= typeDef.hasAsyncConstructor;
+                    if (info.isAbstract) {
+                        this.abstractMembers[memberName] = info;
+                    }
+                    else if (memberName in this.abstractMembers) {
+                        delete this.abstractMembers[memberName];
+                    }
+
+                    if (existingMember) {
+                        let existingMember = this.inheritedMembers[memberName];
+
+                        //  This member implemented a previously abstract method
+                        if (existingMember.typeIs(MemberModifiers.Abstract) && !info.isAbstract) {
+                            existingMember.modifiers &= ~MemberModifiers.Abstract;
+                        }
+                    }
+                    else {
+                        existingMember = this.inheritedMembers[memberName] = new MUDModuleImportedMemberInfo(memberName, info.modifiers);
+                    }
+                    existingMember.addImplementation(info, info.depth + 1);
+                }
+
+                this.inheritedTypes[typeDef.typeName] = typeDef;
+                if (typeAlias !== typeDef.typeName)
+                    this.inheritedTypeAliases[typeAlias] = typeDef;
+                this.hasAsyncConstructor |= typeDef.hasAsyncConstructor;
+            }
+        }
+        finally {
+            frame.pop();
         }
     }
 
@@ -466,7 +478,7 @@ class MUDModule extends events.EventEmitter {
          * The file the module source is located in
          * @type {string}
          */
-        this.filename = context.filename;
+        this.filename = context.fullPath;
 
         /**
          * The file part of the MUD path
@@ -526,7 +538,8 @@ class MUDModule extends events.EventEmitter {
     }
 
     set defaultExport(val) {
-        if (driver.efuns.isClass(val)) {
+        let ecc = ExecutionContext.current;
+        if (driver.efuns.isClass(ecc.branch(), val)) {
             let flags = val.prototype.typeModifiers || 0;
 
             if ((flags & MemberModifiers.Singleton) > 0)
@@ -538,24 +551,35 @@ class MUDModule extends events.EventEmitter {
             this.$defaultExport = val;
     }
 
-    async setDefaultExport(val) {
-        if (driver.efuns.isClass(val)) {
-            let flags = val.prototype.typeModifiers;
+    /**
+     * 
+     * @param {ExecutionContext} ecc
+     * @param {any} val
+     */
+    async setDefaultExport(ecc, val) {
+        let frame = ecc.pushFrame(ecc.thisObject, 'setDefaultExport', this.filename, true);
+        try {
+            if (driver.efuns.isClass(frame.branch(), val)) {
+                let flags = val.prototype.typeModifiers;
 
-            if ((flags & MemberModifiers.Singleton) > 0) {
-                let inst = await this.createInstanceAsync(val, false, [], false, this.filename);
-                this.$defaultExport = inst;
+                if ((flags & MemberModifiers.Singleton) > 0) {
+                    let inst = await this.createInstanceAsync(frame.branch(), val, false, [], false, this.filename);
+                    this.$defaultExport = inst;
+                }
+                else
+                    this.$defaultExport = val;
             }
             else
                 this.$defaultExport = val;
         }
-        else
-            this.$defaultExport = val;
+        finally {
+            frame.pop();
+        }
     }
 
     addExportElement(val, key = false, isDefault = false) {
         if (!key) {
-            if (efuns.isClass(val)) key = val.name;
+            if (efuns.isClass(undefined, val)) key = val.name;
             else if (val instanceof MUDObject) key = val.constructor.name;
             else if (val instanceof SimpleObject) key = val.constructor.name;
             else if (typeof val === 'function') key = val.name;
@@ -628,9 +652,21 @@ class MUDModule extends events.EventEmitter {
         return instance;
     }
 
-    async createInstanceAsync(type, instanceData, args, factory = false, callingFile = false, isReload = false) {
+    /**
+     * 
+     * @param {ExecutionContext} ecc
+     * @param {any} type
+     * @param {any} instanceData
+     * @param {any[]} args
+     * @param {any} factory
+     * @param {any} callingFile
+     * @param {any} isReload
+     * @returns
+     */
+    async createInstanceAsync(ecc, type, instanceData, args, factory = false, callingFile = false, isReload = false) {
+        let frame = ecc.pushFrame(ecc.thisObject, 'createInstanceAsync', this.filename, true);
         try {
-            let instance = false, store = false;
+            let instance = false, store = false, isType = false;
 
             if (typeof type === 'string' && !this.isVirtual) {
                 if (type in this.oldExports === false) {
@@ -649,16 +685,19 @@ class MUDModule extends events.EventEmitter {
                 }
                 else
                     type = this.types[type];
+                    isType = true;
             }
             if (instance === false) {
-                let ecc = driver.getExecution();
                 let virtualContext = ecc && ecc.popVirtualCreationContext();
 
                 if (virtualContext) {
+                    if (isType === false) {
+                        type = this.types[type.type];
+                    }
                     virtualContext.module = this;
                     virtualContext.trueName = this.filename + '$' + type.name + '#' + virtualContext.objectId;
                     virtualContext.typeName = type.name;
-                    return await this.createInstanceAsync(type, virtualContext, args);
+                    return await this.createInstanceAsync(frame.branch(), type, virtualContext, args);
                 }
 
                 if (!instanceData) {
@@ -669,34 +708,39 @@ class MUDModule extends events.EventEmitter {
                     instanceData.wrapper = this.getWrapperForContext(instanceData);
 
                 // Storage needs to be set before starting...
-                store = driver.storage.createForId(instanceData.objectId, instanceData.filename);
+                store = driver.storage.createForId(frame.branch(), instanceData.objectId, instanceData.filename);
 
-                ecc.addCreationContext(instanceData);
-                ecc.storage = store;
+                let constructorFrame = frame
+                    .branch()
+                    .pushFrameObject({ object: instance, method: 'constructor', file: this.filename, callType: CallOrigin.Constructor });
 
-                instance = factory ? factory(type, ...args) : new type(...args);
-                this.addInstance(instance, type, instanceData);
+                try {
+                    let constructorArgs = args.slice(0);
+
+                    constructorFrame.context.addCreationContext(instanceData);
+                    constructorFrame.context.storage = store;
+
+                    //  Having the context as the first argument is an edge case
+                    constructorArgs.unshift(constructorFrame.context, constructorFrame.context);
+                    instance = factory ? factory(type, ...constructorArgs) : new type(...constructorArgs);
+                    this.addInstance(instance, type, instanceData);
+                }
+                finally {
+                    constructorFrame.pop();
+                }
 
                 if (typeof this.compilerOptions.onInstanceCreated === 'function') {
                     this.compilerOptions.onInstanceCreated(instance);
                 }
 
                 if (typeof instance.create === 'function') {
-                    await ecc.withObject(instance, 'create', async () => {
-                        let result = await instance.create(...args);
-                        if (typeof instance.postCreate === 'function') {
-                            try {
-                                await instance.postCreate();
-                            }
-                            catch (err) {
-
-                            }
-                        }
-                        return result;
-                    }, true, true);
+                    await instance.create(frame.branch(), ...args);
+                }
+                if (typeof instance.setup === 'function') {
+                    await instance.setup(frame.branch());
                 }
                 if (store !== false && instance !== false)
-                    await driver.driverCallAsync('initStorage', async () => await store.eventInitialize(instance));
+                    await store.eventInitialize(ecc.branch(), instance);
             }
 
             return instance;
@@ -705,6 +749,9 @@ class MUDModule extends events.EventEmitter {
             /* rollback object creation */
             driver.storage.delete(instanceData.filename);
             throw err;
+        }
+        finally {
+            frame.pop();
         }
     }
 
@@ -795,6 +842,11 @@ class MUDModule extends events.EventEmitter {
                 if (true === this.defaultExport instanceof MUDObject) {
                     objectId = this.defaultExport.objectId;
                 }
+                else if (type in this.instancesByType) {
+                    let instances = this.instancesByType[type];
+                    if (Array.isArray(instances) && instances.length)
+                        objectId = instances[0];
+                }
             }
             else if (type in this.instancesByType) {
                 objectId = this.instancesByType[0];
@@ -869,6 +921,10 @@ class MUDModule extends events.EventEmitter {
      * @returns {function} Returns the constructor for the specified type.
      */
     getType(name) {
+        if (!name) {
+            if (driver.efuns.isClass(undefined, this.defaultExport))
+                return this.defaultExport;
+        }
         return name && this.types[name] || this.types[this.name] || false;
     }
 
@@ -967,22 +1023,29 @@ class MUDModule extends events.EventEmitter {
 
     /**
      * Define a new type within the module
+     * @param {ExecutionContext} ecc The current callstack
      * @param {any} type
      */
-    eventDefineType(type) {
-        this.types[type.name] = type;
-        this.typeNames.push(type.name);
+    eventDefineType(ecc, type) {
+        let frame = ecc.pushFrameObject({ file: this.filename, method: 'eventDefineType' });
+        try {
+            this.types[type.name] = type;
+            this.typeNames.push(type.name);
 
-        if (type.name in this.instanceMap == false)
-            this.instanceMap[type.name] = [];
+            if (type.name in this.instanceMap == false)
+                this.instanceMap[type.name] = [];
 
-        let parentType = Object.getPrototypeOf(type);
-        if (parentType && typeof parentType.prototype.baseName === 'string' && parentType.prototype.baseName !== 'MUDObject') {
-            let { file } = driver.efuns.parsePath(parentType.prototype.baseName),
-                parentModule = driver.cache.get(file);
+            let parentType = Object.getPrototypeOf(type);
+            if (parentType && typeof parentType.prototype.baseName === 'string' && parentType.prototype.baseName !== 'MUDObject') {
+                let { file } = driver.efuns.parsePath(frame.branch(), parentType.prototype.baseName),
+                    parentModule = driver.cache.get(file);
 
-            parentModule.eventAddDependent(this);
-            this.eventAddDependency(parentModule);
+                parentModule.eventAddDependent(this);
+                this.eventAddDependency(parentModule);
+            }
+        }
+        finally {
+            frame.pop();
         }
     }
 
@@ -1038,22 +1101,32 @@ class MUDModule extends events.EventEmitter {
         }
     }
 
-    eventResetModule() {
-        this.oldExports = { length: 0 };
-        this.singletons = {};
-        this.typeNames = [];
-        this.types = { length: 0 };
-        this.defaultExport = false;
-        this.explicitDefault = false;
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     */
+    eventResetModule(ecc) {
+        let frame = ecc.pushFrameObject({ file: this.filename, method: 'eventResetModule' });
+        try {
+            this.oldExports = { length: 0 };
+            this.singletons = {};
+            this.typeNames = [];
+            this.types = { };
+            this.defaultExport = false;
+            this.explicitDefault = false;
 
-        for (const dep of this.dependencies) {
-            /** @type {MUDModule} */
-            let parentModule = driver.cache.get(dep.fullPath);
-            if (parentModule) {
-                parentModule.eventRemoveDependent(this);
+            for (const dep of this.dependencies) {
+                /** @type {MUDModule} */
+                let parentModule = driver.cache.get(dep.fullPath);
+                if (parentModule) {
+                    parentModule.eventRemoveDependent(this);
+                }
             }
+            this.dependencies = [];
         }
-        this.dependencies = [];
+        finally {
+            frame.pop();
+        }
     }
 
     /**

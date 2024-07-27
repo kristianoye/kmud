@@ -87,9 +87,16 @@ class MUDLoader {
             },
             __bfc: {
                 //  Begin Function Call
-                value: function (ob, access, method, fileName, isAsync, lineNumber, type, callType) {
-                    let ecc = driver.getExecution(),
-                        newContext = false;
+                value: function (ecc, parameters, namedParameters, ob, access, method, fileName, isAsync, lineNumber, type, callType) {
+                    let args = Array.prototype.slice(parameters);
+                    let newContext = false;
+
+                    if (ecc instanceof ExecutionContext === false) {
+                        throw new Error('Illegal function call');
+                    }
+
+                    //  Don't allow access to the execution context via arguments object
+                    parameters[0] = undefined;
 
                     if (method.length === 0) {
                         method = '(MAIN)';
@@ -103,7 +110,7 @@ class MUDLoader {
                     if (isAsync === false && method.startsWith('async '))
                         isAsync = true;
 
-                    if (driver.efuns.isClass(type) && typeof ob === 'object' && MUDVTable.doesInherit(ob, type) === false) {
+                    if (driver.efuns.isClass(ecc, type) && typeof ob === 'object' && MUDVTable.doesInherit(ob, type) === false) {
                         throw new SecurityError(`Illegal invocation of '${method}' in ${fileName} [Line ${lineNumber}]; Callee type mismatch`)
                     }
 
@@ -126,12 +133,11 @@ class MUDLoader {
 
                     //  Check access prior to pushing the new frame to the stack
                     if (access && !newContext)
-                        return ecc
-                            .alarm()
+                        ecc = ecc.alarm()
                             //  Previously only allowed objects inheriting from MUDObject to be allowed on stack
                             .push(/* ob instanceof MUDObject && */ ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, callType);
 
-                    return ecc;
+                    return [ecc, args];
                 },
                 configurable: false,
                 enumerable: false,
@@ -168,30 +174,78 @@ class MUDLoader {
                 enumerable: false
             },
             __rmt: {
-                //  Reset Module Types
-                value: function (fileName) {
-                    let module = driver.cache.get(fileName);
-                    if (module) {
-                        module.eventResetModule();
+                /**
+                 * Reset Module Types
+                 * @param {ExecutionContext} ecc The current callstack
+                 * @param {string} fileName
+                 */
+                value: function (ecc, fileName) {
+                    let frame = ecc.pushFrameObject({ file: fileName, method: '__rmt' });
+                    try {
+                        let module = driver.cache.get(fileName);
+                        if (module) {
+                            module.eventResetModule(frame.branch());
+                        }
+                        // You would THINK we could clear exports here, but no.
+                        // module.exports = {};
                     }
-                    // You would THINK we could clear exports here, but no.
-                    // module.exports = {};
+                    finally {
+                        frame.pop();
+                    }
                 },
                 configurable: false,
                 writable: false,
                 enumerable: false
             },
+            __cef: {
+                //  Create efuns
+                value: function(handleId, filename) {
+                    let ctx = ExecutionContext.getContextByHandleID(handleId),
+                        newEfuns = driver.createEfunInstance(filename);
+                    return [newEfuns, ctx];
+                },
+                configurable: false,
+                enumerable: false,
+                writable: false
+            },
             __dmt: {
-                //  Define Module Type
-                value: function (fileName, type) {
+                /**
+                 * Define Module Type
+                 * @param {ExecutionContext} ecc
+                 * @param {string} fileName
+                 * @param {function} type
+                 */
+                value: function (ecc, fileName, type) {
                     let module = driver.cache.get(fileName);
                     if (module) {
-                        module.eventDefineType(type);
+                        module.eventDefineType(ecc.branch(), type);
                     }
                 },
                 configurable: false,
                 writable: false,
                 enumerable: false
+            },
+            __gec: {
+                get: function () {
+                    let current = ExecutionContext.current;
+                    return current;
+                },
+                configurable: false,
+                enumerable: false
+            },
+            __igt: {
+                value: function (proto, specificMethodList = false) {
+                    return driver.instrumentObject(proto, specificMethodList);
+                },
+                enumerable: false,
+                writable: false,
+                configurable: false
+            },
+            __ivc: {
+                value: true,
+                enumerable: false,
+                writable: false,
+                configurable: false
             },
             Buffer: {
                 value: global.Buffer,
@@ -237,6 +291,13 @@ class MUDLoader {
                     return result;
                 },
                 writable: false
+            },
+            global: {
+                get: function () {
+                    return this;
+                },
+                enumerable: false,
+                configurable: false
             },
             inherits: {
                 value: function (ob, targetType) {
@@ -310,63 +371,68 @@ class MUDLoader {
 
     /**
      * Extends a class using functionality from another type (pseudo-mixin)
+     * @param {ExecutionContext} ecc The current callstack
      * @param {function} target The target type to extend.
      * @param {...string} moduleList The module that contains the extension
      * 
      */
-    extendType(target, ...moduleList) {
+    extendType(ecc, target, ...moduleList) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'extendType' });
         try {
             for (const exp of moduleList) {
-                if (driver.efuns.isClass(exp)) {
+                if (driver.efuns.isClass(frame.branch(), exp)) {
                     global.MUDVTable.extendType(target, exp);
                 }
                 else
                     throw new Error(`Bad argument to extendType: ${exp}`)
             }
         }
-        catch (err) {
-            console.log(err);
-            throw err;
+        finally {
+            frame.pop();
         }
     }
 
+    /**
+     * Create an instance of an object
+     * @param {string} callingFile The file 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} type
+     * @param {...any} args
+     * @returns
+     */
+    async createAsync(callingFile, ecc, type, ...args) {
+        let frame = ecc.pushFrameObject({ file: callingFile, method: 'createAsync', isAsync: true, callType: CallOrigin.Constructor });
+        try {
+            if (typeof type === 'string') {
+                let parts = driver.efuns.parsePath(frame.branch(), type),
+                    module = driver.cache.get(parts.file);
 
-    async createAsync(callingFile, type, ...args) {
-        if (typeof type === 'string') {
-            let parts = driver.efuns.parsePath(type),
-                module = driver.cache.get(parts.file);
+                if (!module)
+                    module = await driver.compiler.compileObjectAsync(frame.branch(), { file, args });
 
-            if (!module)
-                module = await driver.compiler.compileObjectAsync({ file, args });
+                if (module && module.isVirtual === true)
+                    return module.defaultExport;
+                else if (module === false)
+                    return await driver.efuns.objects.cloneObjectAsync(frame.branch(), type, ...args);
+                else {
+                    return await module.createInstanceAsync(frame.branch(), parts, undefined, args, callingFile);
+                }
+            }
+            else if (type.prototype && typeof type.prototype.baseName === 'string' && type.prototype.baseName !== 'MUDObject') {
+                let parts = driver.efuns.parsePath(frame.branch(), type.prototype.baseName),
+                    module = driver.cache.get(parts.file);
 
-            if (module && module.isVirtual === true)
-                return module.defaultExport;
+                return await module.createInstanceAsync(frame.branch(), parts.type, false, args, false, callingFile);
+            }
+            else if (typeof type === 'function') {
+                return new type(...args);
+            }
             else
-                return await driver.efuns.objects.cloneObjectAsync(type, ...args);
+                throw new Error(`Bad argument 1 to createAsync(); Expected string or type but got ${typeof type}`);
         }
-        else if (type.prototype && typeof type.prototype.baseName === 'string' && type.prototype.baseName !== 'MUDObject') {
-            let parts = driver.efuns.parsePath(type.prototype.baseName),
-                ecc = driver.getExecution(callingFile, 'createAsync', parts.file, false),
-                module = driver.cache.get(parts.file);
-
-            try {
-                return await module.createInstanceAsync(parts.type, false, args, false, callingFile);
-            }
-            finally {
-                ecc && ecc.pop('createAsync');
-            }
+        finally {
+            frame.pop();
         }
-        else if (typeof type === 'function') {
-            return new type(...args);
-        }
-        else
-            throw new Error(`Bad argument 1 to createAsync(); Expected string or type but got ${typeof type}`);
-    }
-
-    createEfuns() {
-        let ctx = driver.getExecution(),
-            fn = ctx.currentFileName;
-        return driver.createEfunInstance(fn);
     }
 
     /**
@@ -521,15 +587,29 @@ class MUDLoader {
 
     /**
      * Capture the next line of user input
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} type The type of control to create
      * @param {Object.<string,string>} options Additional options used to render the prompt
      * @param {function(string):void} callback A callback that will receive the user's input
      */
-    prompt(type, options = {}, callback = false) {
-        efuns.input.prompt(type, options, callback);
+    prompt(ecc, type, options = {}, callback = false) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'prompt', callType: CallOrigin.DriverEfun });
+        try {
+            efuns.input.prompt(frame.context, type, options, callback);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
-    promptAsync(type, options = {}) {
+    /**
+     * Capture the next line of user input
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} type The type of control to create
+     * @param {Object.<string,string>} options Additional options used to render the prompt
+     * @returns
+     */
+    promptAsync(ecc, type, options = {}) {
         return efuns.input.promptAsync(type, options);
     }
 
@@ -555,23 +635,24 @@ class MUDLoader {
 
     /**
      * Allows us to unwind the Javascript stack without unwinding the MUD stack
+     * @param {ExecutionContext} ecc
      * @param {any} callback
      */
-    setImmediate(callback) {
-        let ecc = driver.getExecution(),
-            child = ecc.fork(),
+    setImmediate(ecc, callback) {
+        let child = ecc.fork(),
             isAsync = efuns.isAsync(callback);
 
         global.setImmediate(async () => {
-            child.restore();
-
-            let frame = child.pushFrameObject({ method: 'setImmediate', isAsync });
+            let frame = child
+                .branch()
+                .restore()
+                .pushFrameObject({ method: 'setImmediate', isAsync });
             try
             {
-                if (isAsync)
-                    await callback();
+                if (efuns.isAsync(callback))
+                    await callback.call(thisObject, frame.context);
                 else
-                    callback();
+                    callback.call(thisObject, frame.context);
             }
             finally {
                 frame.pop();
@@ -581,44 +662,48 @@ class MUDLoader {
 
     /**
      * Periodically call a function
+     * @param {ExecutionContext} ecc
      * @param {function} callback The function to execute after the timer has expired
      * @param {number} timer The amount of time to delay execution (in ms)
      * @param {...any} args Additional parameters to pass to callback
      * @returns {number} Returns the unique ID/handle for the timer
      */
-    setInterval(callback, timer, ...args) {
+    setInterval(ecc, callback, timer, ...args) {
         //  TODO: Make this configurable
         if (timer < 50)
             throw new Error('Interval cannot be less than 50ms');
 
         //  Fork execution
-        let /** @type {ExecutionContext} */ ecc = driver.getExecution(),
-            childContext = ecc.fork(),
+        let childContext = ecc.fork(),
             thisObject = ecc.thisObject;
-
-        //  Push this frame onto the stack as a placeholder
-        let frame = childContext.pushFrameObject({ object: thisObject, method: 'setInterval', callType: CallOrigin.Callout });
 
         let ident = global.setInterval(async () => {
             //  Make this context the active one
-            childContext.restore();
+            let frame = childContext
+                .branch()
+                .restore()
+                .pushFrameObject({ object: thisObject, method: 'setInterval', callType: CallOrigin.Callout });
 
             //  Check for the health of this timer
             let hasError = false;
 
             try {
+                //  Insert branched execution context
+                args.unshift(frame.context);
+
                 if (efuns.isAsync(callback))
                     await callback.apply(thisObject, args);
                 else
                     callback.apply(thisObject, args);
             }
             catch (err) {
-                await efuns.logError(err);
+                await efuns.logError(frame.branch(), err);
                 hasError = true;
             }
             finally {
                 if (hasError === true)
                     this.clearInterval(typeof ident === 'number' ? ident : ident[Symbol.toPrimitive]());
+                frame.pop();
             }
         }, timer);
 
@@ -629,36 +714,38 @@ class MUDLoader {
 
     /**
      * Call a function after the specified time has past
+     * @param {ExecutionContext} ecc
      * @param {function} callback The function to execute after the timer has expired
      * @param {number} timer The amount of time to delay execution (in ms)
      * @param {...any} args Additional parameters to pass to callback
      * @returns {number} Returns the unique ID/handle for the timer
      */
-    setTimeout(callback, timer, ...args) {
+    setTimeout(ecc, callback, timer, ...args) {
         //  TODO: Make this configurable
         if (timer < 50)
             throw new Error('Interval cannot be less than 50ms');
 
         //  Fork execution
-        let /** @type {ExecutionContext} */ ecc = driver.getExecution(),
-            childContext = ecc.fork(),
+        let childContext = ecc.fork(),
             thisObject = ecc.thisObject;
 
-        //  Push this frame onto the stack as a placeholder
-        let frame = childContext.pushFrameObject({ object: thisObject, method: 'setTimeout', callType: CallOrigin.Callout });
-
         let ident = global.setTimeout(async () => {
-            //  Make this context the active one
-            childContext.restore();
+            let frame = childContext
+                .branch()
+                .restore()
+                .pushFrameObject({ object: thisObject, method: 'setTimeout', callType: CallOrigin.Callout });
 
             try {
+                //  Insert branched execution context
+                args.unshift(frame.context);
+
                 if (efuns.isAsync(callback))
                     await callback.apply(thisObject, args);
                 else
                     callback.apply(thisObject, args);
             }
             catch (err) {
-                await efuns.logError(err);
+                await efuns.logError(frame.branch(), err);
             }
             finally {
                 frame.pop();
@@ -706,14 +793,38 @@ class MUDLoader {
         return global.wrapper(...args);
     }
 
-    write(...str) {
-        efuns.writeToStream(false, efuns.stdout, ...str);
-        return true;
+    /**
+     * Write to STDOUT
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} str
+     * @returns
+     */
+    write(ecc, ...str) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeLine', callType: CallOrigin.DriverEfun });
+        try {
+            efuns.writeToStream(ecc, false, efuns.stdout, ...str);
+            return true;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
-    writeLine(...str) {
-        efuns.writeToStream(true, efuns.stdout, ...str);
-        return true;
+    /**
+     * Write to STDOUT
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} str
+     * @returns
+     */
+    writeLine(ecc, ...str) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeLine', callType: CallOrigin.DriverEfun });
+        try {
+            efuns.writeToStream(ecc, true, efuns.stdout, ...str);
+            return true;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     writeRaw(str) {

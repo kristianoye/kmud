@@ -6,213 +6,275 @@
  * Various object-related efuns
  */
 
+const { ExecutionContext, CallOrigin } = require("../ExecutionContext");
 const MUDObject = require("../MUDObject"),
     CompilerFlags = require("../compiler/CompilerFlags");
 
 class ObjectHelper {
     /**
-     * Determine if one or more values are the same object reference.
-     * @param {...any} args
-     */
-    static areEqual(...args) {
-        let result = false;
-
-        for (let i = 0; i < args.length; i++) {
-            let a = args[i], fn;
-
-            if (typeof a === 'string') fn = a;
-            else if (typeof a === 'function') fn = a.filename;
-            else if (typeof a === 'object') fn = a.filename;
-
-            if (result && result !== fn) return false;
-            else result = fn;
-        }
-        return true;
-    }
-
-    /**
      * Clone an object asyncronously 
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string | MUDObject | MUDWrapper} expr The item to clone
      * @param {...any[]} args Arguments to pass to the constructor
      */
-    static cloneObjectAsync(expr, ...args) {
-        return driver.fileManager.cloneObjectAsync(expr, args);
-    }
-
-    static compileObject(options) {
-        return driver.fileManager.loadObjectAsync();
+    static async cloneObjectAsync(ecc, expr, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            return await driver.fileManager.cloneObjectAsync(frame.branch(), expr, args);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     static get compilerFlags() {
         return CompilerFlags;
     }
 
-    static async findObject(filename, flag = 0) {
-        let module = driver.cache.get(filename);
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} filename The file spec to locate
+     * @param {any} flag
+     * @returns
+     */
+    static async findObject(ecc, filename, flag = 0) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'findObject', isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            let module = driver.cache.get(filename);
 
-        if (!module && flag === 1) {
-            return await ObjectHelper.loadObjectAsync(filename);
+            if (!module && flag === 1) {
+                return await ObjectHelper.loadObjectAsync(frame.branch(), filename);
+            }
+            if (!module)
+                return false;
+            let parts = driver.efuns.parsePath(frame.branch(), filename);
+            return module.getInstanceWrapper(parts);
         }
-        if (!module)
-            return false;
-        let parts = driver.efuns.parsePath(filename);
-        return module.getInstanceWrapper(parts);
+        finally {
+            frame.pop();
+        }
     }
 
-    static getLoadededModules(filter = undefined) {
-        let result = driver.cache.moduleNames.slice(0);
-        if (typeof filter === 'function')
-            return result.filter(s => filter(s) !== false);
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {function(string): boolean} filter
+     * @returns
+     */
+    static getLoadededModules(ecc, filter = undefined) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getLoadededModules', callType: CallOrigin.DriverEfun });
+        try {
+            let result = driver.cache.moduleNames.slice(0);
+            if (typeof filter === 'function')
+                return result.filter(s => filter(s) !== false);
 
-        return result;
+            return result;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
-    static getLoadedTypes(filter = undefined) {
-        let result = [];
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {function(string): boolean} filter
+     * @returns
+     */
+    static getLoadedTypes(ecc, filter = undefined) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'resolveObject', callType: CallOrigin.DriverEfun });
+        try {
+            let result = [];
 
-        driver.cache.moduleNames.forEach(filename => {
-            let module = driver.cache.get(filename),
-                typeList = module.getTypes();
-            result.push(...typeList);
-        });
+            driver.cache.moduleNames.forEach(filename => {
+                let module = driver.cache.get(filename),
+                    typeList = module.getTypes();
+                result.push(...typeList);
+            });
 
-        if (typeof filter === 'function')
-            return result.filter(s => filter(s) !== false);
+            if (typeof filter === 'function')
+                return result.filter(s => filter(s) !== false);
 
-        return result;
+            return result;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Get objects currently loaded in the MUD.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {function(MUDObject):boolean} filter A method used to filter the results
      * @returns {MUDObject[]} Matching objects
      */
-    static getObjects(filter = undefined) {
-        let result = [];
+    static getObjects(ecc, filter = undefined) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'resolveObject', callType: CallOrigin.DriverEfun });
+        try {
+            let result = [];
 
-        driver.cache.forEach(module => {
-            let instances = module.getInstances();
+            driver.cache.forEach(module => {
+                let instances = module.getInstances();
 
-            if (instances.length)
-                result.push(...instances);
-        });
-        if (typeof filter === 'function')
-            return result.filter(s => filter(s) !== false);
+                if (instances.length)
+                    result.push(...instances);
+            });
+            if (typeof filter === 'function')
+                return result.filter(s => filter(s) !== false);
 
-        return result;
+            return result;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Which groups does the user belong to
+     * @param {ExecutionContext} ecc The current callstack
      * @param {MUDObject|MUDWrapper} target
      * @returns {string[]} Returns a list of groups
      */
-    static getGroups(target = false) {
-        let ecc = driver.getExecution(),
-            ob = unwrap(target || ecc.thisObject),
-            storage = ob && driver.storage.get(ob);
+    static getGroups(ecc, target = false) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getGroups', callType: CallOrigin.DriverEfun });
+        try {
+            let ob = target?.instance ?? frame.context.thisObject,
+                storage = ob && driver.storage.get(ob);
 
-        return storage && storage.groups || [];
+            return storage && storage.groups || [];
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Load an object asyncronously
+     * @param {ExecutionContext} ecc The current callstack
      * @param {any} expr
      * @param {...any} args
      * @returns {Promise<MUDObject>}
      */
-    static async loadObjectAsync(expr, ...args) {
-        if (expr instanceof MUDObject)
-            return expr;
-
-        if (typeof expr !== 'string') {
-            if (typeof expr === 'function' && expr.isWrapper)
+    static async loadObjectAsync(ecc, expr, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            if (expr instanceof MUDObject)
                 return expr;
-            else if (expr instanceof MUDObject)
-                return expr.wrapper;
+
+            if (typeof expr !== 'string') {
+                if (typeof expr === 'function' && expr.isWrapper)
+                    return expr;
+                else if (expr instanceof MUDObject)
+                    return expr.wrapper;
+            }
+            let result = await driver.fileManager.loadObjectAsync(frame.branch(), driver.efuns.resolvePath(undefined, expr), args);
+            return result;
         }
-        let result = await driver.fileManager.loadObjectAsync(driver.efuns.resolvePath(expr), args);
-        return result;
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Moves the current object to another location.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string|MUDObject} destination
      * @returns {boolean} True if the move was succcessful.
      */
-    static async moveObjectAsync(destination) {
-        let thisObject = efuns.thisObject(),
-            thisStorage = driver.storage.get(thisObject),
-            current = thisStorage.environment,
-            target = destination;
+    static async moveObjectAsync(ecc, destination) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'moveObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            let thisObject = efuns.thisObject(frame.context),
+                thisStorage = driver.storage.get(thisObject),
+                current = thisStorage.environment,
+                target = destination;
 
-        if (target instanceof MUDObject === false) {
-            if (typeof target === 'function' && target.isWrapper) {
-                target = unwrap(target);
+            if (target instanceof MUDObject === false) {
+                if (typeof target === 'function' && target.isWrapper) {
+                    target = unwrap(target);
+                }
+                else {
+                    target = await ObjectHelper.loadObjectAsync(destination);
+                    target = unwrap(target);
+                }
             }
-            else {
-                target = await ObjectHelper.loadObjectAsync(destination);
-                target = unwrap(target);
-            }
-        }
 
-        if (target && target.canAcceptItem(thisObject)) {
-            if (!current || current.canReleaseItem(thisObject)) {
-                let targetStorage = driver.storage.get(target);
+            if (target && target.canAcceptItem(thisObject)) {
+                if (!current || current.canReleaseItem(thisObject)) {
+                    let targetStorage = driver.storage.get(target);
 
-                if (driver.config.driver.useLazyResets === true) {
-                    if (typeof target.reset === 'function') {
-                        if (targetStorage.nextReset < efuns.ticks) {
-                            await driver.driverCallAsync('reset',
-                                async () => await target.reset(),
-                                target.filename);
+                    if (driver.config.driver.useLazyResets === true) {
+                        if (typeof target.reset === 'function') {
+                            if (targetStorage.nextReset < efuns.ticks) {
+                                await driver.driverCallAsync('reset',
+                                    async () => await target.reset(),
+                                    target.filename);
+                            }
                         }
                     }
-                }
 
-                if (targetStorage.addInventory(thisObject)) {
-                    let inv = targetStorage.inventory,
-                        isLiving = efuns.living.isAlive(thisObject),
-                        ctx = driver.getExecution();
+                    if (targetStorage.addInventory(thisObject)) {
+                        let inv = targetStorage.inventory,
+                            isLiving = efuns.living.isAlive(frame.context, thisObject),
+                            ctx = frame.context;
 
-                    for (let i = 0; i < inv.length; i++) {
-                        let item = inv[i];
+                        for (let i = 0; i < inv.length; i++) {
+                            let item = inv[i];
 
-                        //  Call init on all living items in the environment's inventory
-                        if (efuns.living.isAlive(item)) {
-                            await ctx.withPlayerAsync(item, async () => await thisObject.initAsync());
+                            //  Call init on all living items in the environment's inventory
+                            if (efuns.living.isAlive(frame.context, item)) {
+                                await ctx.withPlayerAsync(item, async () => await thisObject.initAsync(frame.branch()));
+                            }
+                            //  Call init on every object in the environment
+                            if (isLiving) {
+                                await ctx.withPlayerAsync(thisObject, async () => await item.initAsync(frame.branch()));
+                            }
                         }
-                        //  Call init on every object in the environment
+                        //  If this object is living, call init in the new environment
                         if (isLiving) {
-                            await ctx.withPlayerAsync(thisObject, async () => await item.initAsync());
+                            await ctx.withPlayerAsync(thisObject, async () => await target.initAsync(frame.branch()));
                         }
                     }
-                    //  If this object is living, call init in the new environment
-                    if (isLiving) {
-                        await ctx.withPlayerAsync(thisObject, async () => await target.initAsync());
-                    }
+                    return true;
                 }
-                return true;
             }
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Query the security system for an objects privs
+     * @param {ExecutionContext} ecc The current callstack
      * @param {MUDObject} target
      */
-    static async queryPrivs(target) {
-        return await driver.securityManager.queryPrivs(target);
+    static async queryPrivs(ecc, target) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'queryPrivs', isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            return await driver.securityManager.queryPrivs(target);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Load or reload an object.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} expr The path expression to load
      * @param {number} flags Additional flags to control the operation
      */
-    static async reloadObjectAsync(expr, ...args) {
-        return await driver.fileManager.loadObjectAsync(driver.efuns.resolvePath(expr), args, 1);
+    static async reloadObjectAsync(ecc, expr, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'reloadObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            return await driver.fileManager.loadObjectAsync(frame.branch(), driver.efuns.resolvePath(expr), args, 1);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -235,134 +297,137 @@ class ObjectHelper {
      *     tokens: me, here, sefun
      * ```
      *
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} spec The object to find
      * @returns The matching object or false if nothing matches
      */
-    static async resolveObject(spec) {
-        let n = -1,
-            tp = driver.efuns.thisPlayer(),
-            ob = undefined,
-            env = false;
+    static async resolveObject(ecc, spec) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'resolveObject', isAsync: true, callType: CallOrigin.DriverEfun });
+        try {
+            let n = -1,
+                tp = driver.efuns.thisPlayer(frame.context),
+                ob = undefined,
+                env = false;
 
-        if (typeof spec === 'object' && spec instanceof MUDObject)
-            return spec;
-        else if (typeof spec === 'function' && spec.isWrapper)
-            return spec.instance;
-        else if (typeof spec !== 'string' || spec.length === 0)
-            return false;
-        else if ((n = spec.indexOf('@')) > 0) {
-            let where = spec.slice(n + 1);
-
-            spec = spec.slice(0, n);
-
-            if (!(env = ObjectHelper.resolveObject(where)))
+            if (typeof spec === 'object' && spec instanceof MUDObject)
+                return spec;
+            else if (typeof spec === 'function' && spec.isWrapper)
+                return spec.instance;
+            else if (typeof spec !== 'string' || spec.length === 0)
                 return false;
-            if (id.length === 0)
-                return env.environment.instance;
-        }
-        switch (spec) {
-            case 'here':
-                return driver.efuns.thisPlayer().environment;
-            case 'me':
-                return driver.efuns.thisPlayer();
-        }
-        let m = /(?<id>[^#]+)#(?<index>\d+)/.exec(spec);
-        if (m && m.length === 3) {
-            if ((ob = await ObjectHelper.findObject(spec)))
-                return ob.instance;
-            n = m.groups.index;
-            spec = m.groups.id;
-        }
-        else n = 1;
-        if (n < 1)
-            return false;
-        let c = spec.slice(0, 1);
-        if (['/', '$', '%'].indexOf(c) > -1) {
-            spec = spec.slice(1);
-        }
-        switch (c) {
-            case '/':
-                if ((ob = await ObjectHelper.loadObjectAsync(spec)))
-                    return ob.instance;
-                else
-                    return false;
+            else if ((n = spec.indexOf('@')) > 0) {
+                let where = spec.slice(n + 1);
 
-            case '%':
-                if ((ob = driver.efuns.living.findPlayer(spec)))
-                    return ob.instance;
-                else
-                    return false;
+                spec = spec.slice(0, n);
 
-            case '$':
-                if (ob) {
-                    let obs = ob.inventory.filter(o => {
-                        if (!driver.efuns.living.isAlive(o))
-                            return false;
-                        else if (driver.efuns.living.isInteractive(o))
-                            return false;
-                        else return o.id(spec);
-                    });
-                    return obs.length < n ? obs[n - 1] : false;
-                }
-                else {
-                    if ((ob = driver.efuns.living.findLiving(spec))) {
-                        if (Array.isArray(ob)) {
-                            let obs = ob.filter(o => !driver.efuns.living.isInteractive(o));
-                            return obs.length < n ? obs[n - 1] : false;
+                if (!(env = ObjectHelper.resolveObject(frame.branch(), where)))
+                    return false;
+                if (id.length === 0)
+                    return env.environment.instance;
+            }
+            switch (spec) {
+                case 'here':
+                    return driver.efuns.thisPlayer(frame.context).environment;
+                case 'me':
+                    return driver.efuns.thisPlayer(frame.context);
+            }
+            let m = /(?<id>[^#]+)#(?<index>\d+)/.exec(spec);
+            if (m && m.length === 3) {
+                if ((ob = await ObjectHelper.findObject(frame.branch(), spec)))
+                    return ob.instance;
+                n = m.groups.index;
+                spec = m.groups.id;
+            }
+            else n = 1;
+            if (n < 1)
+                return false;
+            let c = spec.slice(0, 1);
+            if (['/', '$', '%'].indexOf(c) > -1) {
+                spec = spec.slice(1);
+            }
+            switch (c) {
+                case '/':
+                    if ((ob = await ObjectHelper.loadObjectAsync(frame.branch(), spec)))
+                        return ob.instance;
+                    else
+                        return false;
+
+                case '%':
+                    if ((ob = driver.efuns.living.findPlayer(frame.branch(), spec)))
+                        return ob.instance;
+                    else
+                        return false;
+
+                case '$':
+                    if (ob) {
+                        let obs = ob.inventory.filter(o => {
+                            if (!driver.efuns.living.isAlive(frame.branch(), o))
+                                return false;
+                            else if (driver.efuns.living.isInteractive(frame.branch(), o))
+                                return false;
+                            else return o.id(spec);
+                        });
+                        return obs.length < n ? obs[n - 1] : false;
+                    }
+                    else {
+                        if ((ob = driver.efuns.living.findLiving(frame.branch(), spec))) {
+                            if (Array.isArray(ob)) {
+                                let obs = ob.filter(o => !driver.efuns.living.isInteractive(frame.branch(), o));
+                                return obs.length < n ? obs[n - 1] : false;
+                            }
+                            else
+                                return driver.efuns.living.isInteractive(frame.branch(), ob) ? false : ob;
+                        }
+                        return false;
+                    }
+
+                default:
+                    if (!env)
+                        env = driver.efuns.thisPlayer(frame.context);
+                    if (n > 1) {
+                        let obs = env.inventory.filter(o => o.id(spec));
+                        if (obs.length < n) {
+                            if (!(env = env.environment))
+                                ob = false;
+                            else {
+                                obs = env.inventory.filter(o => o.id(spec));
+                                if (obs.length < n)
+                                    ob = false;
+                                else
+                                    ob = obs[n - 1];
+                            }
                         }
                         else
-                            return driver.efuns.living.isInteractive(ob) ? false : ob;
-                    }
-                    return false;
-                }
-
-            default:
-                if (!env)
-                    env = driver.efuns.thisPlayer();
-                if (n > 1) {
-                    let obs = env.inventory.filter(o => o.id(spec));
-                    if (obs.length < n) {
-                        if (!(env = env.environment))
-                            ob = false;
-                        else {
-                            obs = env.inventory.filter(o => o.id(spec));
-                            if (obs.length < n)
-                                ob = false;
-                            else
-                                ob = obs[n - 1];
-                        }
-                    }
-                    else
-                        ob = obs[n - 1];
-                    return ob;
-                }
-                else {
-                    if ((ob = driver.efuns.present(spec, env)))
+                            ob = obs[n - 1];
                         return ob;
-                    else if ((env = env.environment)) {
-                        if ((ob = driver.efuns.present(spec, env)))
+                    }
+                    else {
+                        if ((ob = driver.efuns.present(frame.branch(), spec, env)))
                             return ob;
+                        else if ((env = env.environment)) {
+                            if ((ob = driver.efuns.present(frame.branch(), spec, env)))
+                                return ob;
+                        }
+                        if ((ob = driver.efuns.living.findPlayer(frame.branch(), spec)))
+                            return ob;
+                        if ((ob = driver.efuns.living.findLiving(frame.branch(), spec)))
+                            return ob;
+                        if (!tp)
+                            return false;
+                        spec = driver.efuns.resolvePath(frame.branch(), tp.workingDirectory, spec);
+                        if ((ob = await ObjectHelper.loadObjectAsync(frame.branch(), spec)))
+                            return ob;
+                        else
+                            return false;
                     }
-                    if ((ob = driver.efuns.living.findPlayer(spec)))
-                        return ob;
-                    if ((ob = driver.efuns.living.findLiving(spec)))
-                        return ob;
-                    if (!tp)
-                        return false;
-                    spec = driver.efuns.resolvePath(tp.workingDirectory, spec);
-                    if ((ob = await ObjectHelper.loadObjectAsync(spec)))
-                        return ob;
-                    else
-                        return false;
-                }
-                break;
+                    break;
+            }
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 }
-
-Object.defineProperties(ObjectHelper, {
-    OB_RELOAD: { value: 1, writable: false }
-});
 
 module.exports = ObjectHelper;

@@ -40,4 +40,7 @@ Object.mapEach = function (target, callback) {
     return ac > 0 ? arr : obj;
 };
 
-Object.seal(Object.prototype);
+if (__ivc === true) {
+    __igt(Object);
+    __igt(Object.prototype);
+}

@@ -1,4 +1,6 @@
-﻿const
+﻿const { ExecutionContext } = require("./ExecutionContext");
+
+const
     LOGGER_ALL = 100,
     LOGGER_VERBOSE = 75,
     LOGGER_DEBUG = 50,
@@ -10,6 +12,9 @@ class MUDLogger {
     }
 
     log(...args) {
+        if (args[0] instanceof ExecutionContext) {
+            args.shift();
+        }
         console.log(...args);
     }
 

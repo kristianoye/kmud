@@ -6,18 +6,27 @@
  * Provides user-related routines.
  */
 
+const { ExecutionContext } = require("../ExecutionContext");
+
 /**
  * Various helper methods for user objects
  */
 class UserHelper {
     /**
      * Fetch the user's home directory (if enabled)
-     * @param {MUDObject | MUDWrapper} user The user to fetch a home directory for.
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {MUDObject | MUDWrapper | string} user The user to fetch a home directory for.
      */
-    static getHomePath(user) {
-        return unwrap(user, u => {
-            return driver.getHomePath(u);
-        });
+    static getHomePath(ecc, userIn) {
+        let [frame, user] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'getHomePath', callType: CallOrigin.DriverEfun });
+        try {
+            return unwrap(user, u => {
+                return driver.getHomePath(u);
+            });
+        }
+        finally {
+            frame?.pop();
+        }
     }
 }
 

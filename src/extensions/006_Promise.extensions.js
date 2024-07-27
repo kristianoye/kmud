@@ -55,3 +55,7 @@ Promise.allWithLimit = async (taskList, limit = 5) => {
     await Promise.all(workerThreads);
     return results;
 };
+
+if (__ivc === true) {
+    __igt(Promise.prototype);
+}
