@@ -1,7 +1,0 @@
-
-/base:
-%^GREEN%^%^BOLD%^Armor.js%^RESET%^        %^GREEN%^%^BOLD%^Body.js%^RESET%^         %^BLUE%^%^BOLD%^Combat%^RESET%^/         %^GREEN%^%^BOLD%^Command.js%^RESET%^
-%^GREEN%^%^BOLD%^Container.js%^RESET%^    %^GREEN%^%^BOLD%^Creator.js%^RESET%^      %^GREEN%^%^BOLD%^GameObject.js%^RESET%^   %^BLUE%^%^BOLD%^include%^RESET%^/
-%^GREEN%^%^BOLD%^Interactive.js%^RESET%^  %^GREEN%^Limb.js%^RESET%^         %^GREEN%^%^BOLD%^Living.js%^RESET%^       %^BLUE%^%^BOLD%^mixins%^RESET%^/
-%^GREEN%^Monster.js%^RESET%^      %^GREEN%^NPC.js%^RESET%^          %^GREEN%^%^BOLD%^Player.js%^RESET%^       %^GREEN%^%^BOLD%^Room.js%^RESET%^
-%^GREEN%^%^BOLD%^ShellCommand.js%^RESET%^ %^GREEN%^Sign.js%^RESET%^         %^GREEN%^%^BOLD%^Verb.js%^RESET%^         %^GREEN%^%^BOLD%^Weapon.js%^RESET%^

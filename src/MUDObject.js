@@ -3,6 +3,7 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
+const { ExecutionContext } = require('./ExecutionContext');
 const
     MUDEventEmitter = require('./MUDEventEmitter');
 
@@ -10,13 +11,12 @@ const
  * Base type for all MUD objects.
  */
 class MUDObject extends MUDEventEmitter {
-    constructor() {
+    constructor(ecc) {
         super();
 
         if (!new.target)
             throw new Error('Illegal constructor call');
 
-        let ecc = driver.getExecution(this, 'constructor', this.__proto__.fileName, this.constructor);
         try {
             if (ecc && ecc.newContext) {
                 let ctx = ecc.newContext;
@@ -80,13 +80,12 @@ class MUDObject extends MUDEventEmitter {
         }
         finally {
             ecc.popCreationContext();
-            ecc.pop('constructor');
             Object.freeze(this);
         }
     }
 
-    __callScopedImplementation(methodName, scopeName, ...args) {
-        return MUDVTable.virtualCall(this, methodName, scopeName, args);
+    __callScopedImplementation(ecc, methodName, scopeName, ...args) {
+        return MUDVTable.virtualCall(this, ecc, methodName, scopeName, args);
     }
 
     async __callScopedImplementationAsync(methodName, scopeName, ...args) {
@@ -99,7 +98,7 @@ class MUDObject extends MUDEventEmitter {
 
     create(...args) { }
 
-    async createAsync(...args) { }
+    setup(...args) { }
 
     get environment() {
         let store = driver.storage.get(this);
@@ -120,7 +119,7 @@ class MUDObject extends MUDEventEmitter {
     }
 
     get directory() {
-        let parts = efuns.parsePath(this.filename),
+        let parts = efuns.parsePath(undefined, this.filename),
             dir = parts.file.slice(0, parts.file.lastIndexOf('/'));
         return dir;
     }
@@ -136,28 +135,33 @@ class MUDObject extends MUDEventEmitter {
 
     async initAsync() { }
 
-    async moveObjectAsync(destination) {
-        return driver.driverCallAsync('moveObjectAsync', async ecc => {
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} destination
+     * @returns
+     */
+    async moveObjectAsync(ecc, destination) {
+        let frame = ecc.pushFrameObject({ file: this.filename, method: 'moveObjectAsync', isAsync: true, callType: 2 });
+        try {
             let myStore = driver.storage.get(this),
                 oldEnvironment = myStore.environment;
 
-            return await ecc.withPlayerAsync(myStore, async player => {
-                let target = destination.instance || await efuns.objects.loadObjectAsync(destination),
+            return await frame.context.withPlayerAsync(myStore, async (player, ecc) => {
+                let target = destination.instance || await efuns.objects.loadObjectAsync(ecc.branch(), destination),
                     newEnvironment = target && target.instance;
 
-                if (!oldEnvironment || oldEnvironment.canReleaseItem(player) && newEnvironment) {
+                if (!oldEnvironment || oldEnvironment.canReleaseItem(ecc.branch(), player) && newEnvironment) {
                     let targetStore = driver.storage.get(newEnvironment);
 
                     //  Can the destination accept this object?
-                    if (targetStore && newEnvironment.canAcceptItem(player)) {
+                    if (targetStore && newEnvironment.canAcceptItem(ecc.branch(), player)) {
 
                         //  Do lazy reset if it's time
                         if (driver && driver.useLazyResets) {
                             if (typeof newEnvironment.reset === 'function') {
                                 if (targetStore.nextReset < efuns.ticks) {
-                                    driver.driverCall('reset',
-                                        () => newEnvironment.reset(),
-                                        newEnvironment.filename);
+                                    await targetStore.eventReset(ecc.branch());
                                 }
                             }
                         }
@@ -169,15 +173,15 @@ class MUDObject extends MUDEventEmitter {
                             if (myStore.living) {
                                 let stats = targetStore.stats;
                                 if (stats) stats.moves++;
-                                await newEnvironment.initAsync();
+                                await newEnvironment.initAsync(ecc.branch());
                             }
                             for (const item of newEnvironment.inventory) {
                                 let itemStore = driver.storage.get(item.instance);
                                 if (itemStore && itemStore !== myStore && itemStore.living) {
-                                    await ecc.withPlayerAsync(itemStore, async () => await newEnvironment.initAsync(), true, 'initAsync');
+                                    await ecc.withPlayerAsync(itemStore, async () => await newEnvironment.initAsync(ecc.branch()), true, 'initAsync');
                                 }
                                 if (myStore.living) {
-                                    await ecc.withPlayerAsync(myStore, async () => await newEnvironment.initAsync(), true, 'initAsync');
+                                    await ecc.withPlayerAsync(myStore, async () => await newEnvironment.initAsync(ecc.branch()), true, 'initAsync');
                                 }
                             }
                             return true;
@@ -186,7 +190,10 @@ class MUDObject extends MUDEventEmitter {
                 }
                 return false;
             }, true, 'moveObjectAsync');
-        });
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     preprocessInput(input, callback) {
@@ -405,24 +412,38 @@ class MUDVTable {
         return true;
     }
 
-    static virtualCall(instance, methodName, typeName, args) {
+    /**
+     * 
+     * @param {any} instance
+     * @param {ExecutionContext} ecc
+     * @param {any} methodName
+     * @param {any} typeName
+     * @param {any} args
+     * @returns
+     */
+    static virtualCall(instance, ecc, methodName, typeName, args) {
         const vtable = MUDVTable.getVirtualTable(instance.constructor.prototype),
             methodMap = vtable.getMethod(methodName);
-
-        if (!methodMap)
-            throw new Error(`Type ${instance.constructor.name} does not have a method named '${methodName}'`)
-        else if (typeName && !methodMap[typeName])
-            throw new Error(`Type '${typeName}', inherited by ${instance.constructor.name}, does not have a method named '${methodName}'`)
-        else if (typeName) {
-            return methodMap[typeName].implementation.apply(instance, args);
-        }
-        else {
-            let result = {};
-            for (const [scopeName, method] of Object.entries(methodMap)) {
-                if (method.depth === 1)
-                    result[scopeName] = method.implementation.apply(instance, args);
+        let frame = ecc.pushFrameObject({ method: 'virtualCall', callType: 2 });
+        try {
+            if (!methodMap)
+                throw new Error(`Type ${instance.constructor.name} does not have a method named '${methodName}'`)
+            else if (typeName && !methodMap[typeName])
+                throw new Error(`Type '${typeName}', inherited by ${instance.constructor.name}, does not have a method named '${methodName}'`)
+            else if (typeName) {
+                return methodMap[typeName].implementation.call(instance, frame.branch(), ...args);
             }
-            return result;
+            else {
+                let result = {};
+                for (const [scopeName, method] of Object.entries(methodMap)) {
+                    if (method.depth === 1)
+                        result[scopeName] = method.implementation.call(instance, frame.branch(), ...args);
+                }
+                return result;
+            }
+        }
+        finally {
+            frame.pop();
         }
     }
 

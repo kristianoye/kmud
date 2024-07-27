@@ -5,16 +5,14 @@
  */
 
 
-import { PLAYER_D } from 'Daemon';
+import { PLAYER_D } from '@Daemon';
+import { InputTypes as Inputs } from '@InputTypes';
 
 const
-    Daemon = await requireAsync('Daemon'),
-    Inputs = await requireAsync('InputTypes'),
     validEmail = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
-    PlayerDaemon = await efuns.objects.loadObjectAsync(Daemon.Player),
     LoginTimeout = efuns.time.timespan('10 minutes');
 
-class HtmlLogin extends MUDObject {
+class HtmlLogin {
     private applyInputError(error) {
         let countDown = 10,
             timerId = setInterval(() => {

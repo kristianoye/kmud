@@ -108,9 +108,9 @@ class DomainStatsFeature extends FeatureBase {
             if (typeof driver.applyAuthorFile !== 'function') {
                 throw new Error(`In-Game Master does not contain applyNameAuthorStats apply: ${this.applyNameAuthorFile}`);
             }
-            driverProto.getAuthorStats = function (filename) {
+            driverProto.getAuthorStats = function (ecc, filename) {
                 if (this.applyAuthorFile) {
-                    let author = this.applyAuthorFile.call(this.masterObject, filename);
+                    let author = this.applyAuthorFile.call(this.masterObject, ecc, filename);
                     return author && DomainStatsContainer.getAuthor(author, true);
                 }
             };
@@ -124,9 +124,9 @@ class DomainStatsFeature extends FeatureBase {
             if (typeof driver.applyDomainFile !== 'function') {
                 throw new Error(`In-Game Master does not contain applyDomainFile apply: ${this.applyNameDomainFile}`);
             }
-            driverProto.getDomainStats = function (filename) {
+            driverProto.getDomainStats = function (ecc, filename) {
                 if (this.applyDomainFile) {
-                    let domain = this.applyDomainFile.call(this.masterObject, filename);
+                    let domain = this.applyDomainFile.call(this.masterObject, ecc, filename);
                     return domain && DomainStatsContainer.getDomain(domain, true);
                 }
             };
@@ -139,7 +139,7 @@ class DomainStatsFeature extends FeatureBase {
     createExternalFunctions(efunProto) {
         if (this.efunNameAuthorStats) {
             if (this.applyNameAuthorFile) {
-                efunProto[this.efunNameAuthorStats] = function (author) {
+                efunProto[this.efunNameAuthorStats] = function (ecc, author) {
                     return DomainStatsContainer.getAuthor(author, false);
                 };
             }
@@ -150,7 +150,7 @@ class DomainStatsFeature extends FeatureBase {
 
         if (this.efunNameDomainStats) {
             if (this.applyNameDomainFile) {
-                efunProto[this.efunNameDomainStats] = function (domain) {
+                efunProto[this.efunNameDomainStats] = function (ecc, domain) {
                     return DomainStatsContainer.getDomain(domain, false);
                 };
             }
@@ -160,8 +160,14 @@ class DomainStatsFeature extends FeatureBase {
         }
     }
 
-    preCompile(module) {
-        module.stats = this.driver.getDomainStats(module.filename) || this.driver.getAuthorStats(module.filename) || false;
+    preCompile(ecc, module) {
+        let frame = ecc.pushFrameObject({ method: 'preCompile', file: __filename });
+        try {
+            module.stats = this.driver.getDomainStats(ecc, module.filename) || this.driver.getAuthorStats(ecc, module.filename) || false;
+        }
+        finally {
+            frame.pop();
+        }
     }
 }
 

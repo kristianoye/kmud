@@ -7,6 +7,7 @@
  */
 
 const CommandShellOptions = require("./CommandShellOptions");
+const { StandardBufferStream } = require("./StandardIO");
 
 const
     /*
@@ -36,6 +37,7 @@ const
     OP_BACKGROUND = '&',
     OP_COMPOUND = ';',
     OP_OR = '||',
+    OP_JOINSTREAM = '>&',
     OP_PIPEBOTH = '|&',
     OP_PIPELINE = '|',
     OP_READSTDIN = '<',
@@ -43,14 +45,15 @@ const
     OP_WRITEOUT = '>',
     OperatorTypes = {
         OP_AND,
+        OP_APPENDOUT,
         OP_ASSIGNMENT,
         OP_BACKGROUND,
         OP_COMPOUND,
+        OP_JOINSTREAM,
         OP_OR,
         OP_PIPEBOTH,
         OP_PIPELINE,
         OP_READSTDIN,
-        OP_APPENDOUT,
         OP_WRITEOUT
     };
 
@@ -120,6 +123,12 @@ class ParsedCommand {
          * @type {ParsedCommand}
          */
         this.nextCommand;
+
+        /**
+         * OBJOUT stream
+         * @type {any[]}
+         */
+        this.objout = [];
 
         this.operator = '';
 
@@ -379,10 +388,18 @@ class CommandParser {
                             {
                                 cmd.addToken(token);
                                 let filename = await this.nextCompleteWord(cmd);
+
                                 if (!filename)
                                     throw new Error(`-kmsh: Syntax error while searching for expected output file`);
                                 token.fileToken = filename.index;
                                 token.fileName = filename.source;
+                                token.stream = token.stream || 'stdout';
+                            }
+                            break;
+
+                        case OP_JOINSTREAM:
+                            {
+                                cmd.addToken(token);
                             }
                             break;
 
@@ -708,6 +725,53 @@ class CommandParser {
                     case !!mt.groups.number:
                         {
                             token.tokenValue = mt.groups.number;
+                            if (token.tokenValue.length === 1 && options.allowFileIO && text.charAt(1) === '>') {
+                                switch (token.tokenValue) {
+                                    case '1': // redir STDOUT
+                                        if (text.charAt(2) === '>') {
+                                            token.tokenType = TOKEN_OPERATOR;
+                                            token.tokenValue = OP_APPENDOUT;
+                                            token.start = i;
+                                            token.source = text.slice(0, (i += 3));
+                                            return token.done(this.index = i);
+                                        }
+                                        else {
+                                            token.tokenType = TOKEN_OPERATOR;
+                                            token.tokenValue = OP_WRITEOUT;
+                                            token.start = i;
+                                            token.source = text.slice(0, (i += 2));
+                                            return token.done(this.index = i);
+                                        }
+                                    case '2': // redir STDERR
+                                        if (text.charAt(2) === '>') {
+                                            token.tokenType = TOKEN_OPERATOR;
+                                            token.tokenValue = OP_APPENDOUT;
+                                            token.start = i;
+                                            token.stream = 'stderr';
+                                            token.source = text.slice(0, (i += 3));
+                                            return token.done(this.index = i);
+                                        }
+                                        else if (text.charAt(2) === '&') {
+                                            if (text.charAt(3) !== '1')
+                                                throw new Error(`-kmsh: Unexpected file descriptor at '${text.slice(0, 3)}'`);
+                                            token.tokenType = TOKEN_OPERATOR;
+                                            token.tokenValue = OP_JOINSTREAM;
+                                            token.start = i;
+                                            token.stream = 'stderr';
+                                            token.targetStream = 'stdout';
+                                            token.source = text.slice(0, (i += 3));
+                                            return token.done(this.index = i);
+                                        }
+                                        else {
+                                            token.tokenType = TOKEN_OPERATOR;
+                                            token.tokenValue = OP_WRITEOUT;
+                                            token.start = i;
+                                            token.stream = 'stderr';
+                                            token.source = text.slice(0, (i += 2));
+                                            return token.done(this.index = i);
+                                        }
+                                }
+                            }
                             token.tokenType = TOKEN_NUMERIC;
                             token.source = text.slice(0, token.tokenValue.length);
 
@@ -1017,16 +1081,20 @@ class CommandParser {
                     break;
 
                 case OP_PIPELINE:
-                    command.nextCommand = nextCmd;
-                    command.stdout = {}; // TODO: Create stdout here
-                    nextCmd.stdin = {}; //  TODO: Create reader for command.stdout
+                    command.objout = [];
+                    command.pipeTarget = nextCmd;
+                    command.stdout = new StandardBufferStream();
+                    nextCmd.stdin = command.stdout;
+                    nextCmd.objin = command.objout;
                     break;
 
                 case OP_PIPEBOTH:
+                    command.objout = [];
                     command.nextCommand = nextCmd;
-                    command.stdout = {}; // TODO: Create stdout here
+                    command.stdout = new StandardBufferStream();
                     command.stderr = command.stdout;
-                    nextCmd.stdin = {}; //  TODO: Create reader for command.stdout
+                    nextCmd.stdin = command.stdout;
+                    nextCmd.objin = command.objout;
                     break;
 
                 default:

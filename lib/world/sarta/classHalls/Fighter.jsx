@@ -3,7 +3,7 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-import { LIB_ROOM } from 'Base';
+import { LIB_ROOM } from '@Base';
 import Room from LIB_ROOM;
 
 export default singleton class FighterHall extends Room {

@@ -3,7 +3,7 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-import { LIB_COMMAND } from 'Base';
+import { LIB_COMMAND } from '@Base';
 import Command from LIB_COMMAND;
 
 
@@ -22,7 +22,7 @@ export default final singleton class EditFileCommand extends Command {
         if (await efuns.fs.isDirectoryAsync(fullPath) === true)
             return 'You cannot edit a directory!';
 
-        if (!efuns.driverFeature('editor')) {
+        if (!efuns.featureEnabled('editor')) {
             return 'Sorry, the in-game editor is not enabled!';
         }
         else if (efuns.queryEditorMode() !== -1) {

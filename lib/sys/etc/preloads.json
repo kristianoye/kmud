@@ -7,6 +7,7 @@
   "/base/Interactive.js",
   "/base/Player.js",
   "/base/Creator.js",
+  "/base/ArgParser.js",
   "/base/Command.js",
   "/base/Verb.js",
   "/daemon/ChatDaemon.js",
@@ -16,5 +17,7 @@
   "/daemon/HelpSystem.js",
   "/sys/daemon/PlayerDaemon.js",
   "/sys/daemon/CommandResolver.js",
-  "/sys/lib/HtmlLogin.jsx"
+  "/sys/lib/HtmlLogin.jsx",
+  "/sys/daemon/ClassDaemon.js",
+  "/sys/daemon/RaceDaemon.js"
 ]

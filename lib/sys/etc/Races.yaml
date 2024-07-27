@@ -1,0 +1,143 @@
+    -
+        name: DEFAULTS
+        bodyType: humanoid
+        heightModifier: 1.0
+        massModifier: 1.0
+        stats:
+            strength:
+                max: 18
+                initial: 10
+                maxProgression: 0.2
+            dexterity:
+                max: 18
+                initial: 10
+                maxProgression: 0.2
+            constitution:
+                max: 18
+                initial: 10
+                maxProgression: 0.2
+            intelligence:
+                max: 18
+                initial: 10
+                maxProgression: 0.2
+            wisdom:
+                max: 18
+                initial: 10
+                maxProgression: 0.2
+            charisma:
+                max: 18
+                initial: 10
+                maxProgression: 0.2
+        playable: false
+        statPoints: 10
+        visionRange: 
+            max: 5
+            min: 0 # Cannot see in the dark
+        languages:
+            common: 100
+
+    -
+        name: human
+        bodyType: humanoid
+        start location: /v/origin/home
+        description: >
+            The human race is by far the most plorific in all the worlds.
+            The human total population of any given world exceeds that of
+            all other races combined.  As such, they are the baseline for
+            all measurable stats.  Humans have no great strengths nor 
+            weaknesses and they come in all manor of shape, size, and colors.
+            Humans can join nearly all major classes.
+        playable: true
+
+    -
+        name: elf
+        bodyType: humanoid
+        languages:
+            common: 100
+            quenya: 100
+        stats:
+            wisdom:
+                max: 19
+            intelligence:
+                max: 20
+                initial: 11
+            constitution:
+                max: 17
+                initial: 9
+            strength:
+                max: 17
+                initial: 9
+            charisma:
+                max: 17
+                initial: 9
+        heightModifier: 1.2
+        massModifier: 0.9
+        visionRange:
+            max: 4
+            min: -2
+        playable: true
+
+    -
+        name: half-elf
+        bodyType: humanoid
+        languages:
+            common: 100
+            quenya: 50
+        visionRange:
+            max: 5
+            min: -1
+        heightModifier: 1.1
+        stats:
+            intelligence:
+                max: 19
+        playable: true
+
+    -
+        name: orc
+        bodyType: humanoid
+        languages:
+            common: 100
+            orcish: 100
+        vision range:
+            max: 3
+            min: -3
+        massModifier: 1.2
+        stats:
+            constituion:
+                max: 20
+                initial: 12
+            intelligence:
+                max: 16
+                initial: 8
+            strength:
+                max: 20
+                initial: 12
+            charisma:
+                max: 16
+                initial: 8
+        playable: true
+
+    -
+        name: half-orc
+        bodyType: humanoid
+        languages:
+            common: 100
+            orcish: 50
+        vision range:
+            max: 4
+            min: -2
+        massModifier: 1.2
+        stats:
+            constituion:
+                max: 19
+                initial: 11
+            intelligence:
+                max: 17
+                initial: 9
+            strength:
+                max: 19
+                initial: 11
+            charisma:
+                max: 17
+                initial: 9
+        playable: true

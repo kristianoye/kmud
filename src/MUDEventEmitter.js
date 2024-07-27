@@ -1,29 +1,35 @@
 ﻿
 class MUDEventEmitter {
     constructor() {
-        /** @type {Object.<string,Function>} */
+        /** @type {Object.<string,{ handleId: number, listener: function(string, ...args): number, onlyOnce: boolean}[]>} */
         this.events = {};
+        this.#nextHandlerId = 1;
     }
+
+    /**
+     * Each handler receives a unique ID to allow easier removal
+     * @type {number}
+     */
+    #nextHandlerId;
 
     addListener(eventName, listener, prepend = false, onlyOnce = false) {
         let eventListeners = this.events[eventName],
-            listenerFunc = listener, self = this;
+            listenerFunc = listener;
 
         if (!eventListeners) {
             eventListeners = this.events[eventName] = [];
         }
-        if (onlyOnce === true) {
-            listenerFunc = () => {
-                let index = eventListeners.indexOf(listener),
-                    args = [].slice.call(arguments);
-                eventListeners[index] = null;
-                return listener(...args);
-            };
-        }
+
+        if (this.isListening(eventName, listener))
+            return true;
+
+        let handleId = this.#getHandleId();
+
         prepend === true ?
-            eventListeners.unshift(listenerFunc) :
-            eventListeners.push(listenerFunc);
-        return this;
+            eventListeners.unshift({ handleId, listener: listenerFunc, onlyOnce }) :
+            eventListeners.push({ handleId, listener: listenerFunc, onlyOnce });
+
+        return handleId;
     }
 
     /**
@@ -32,10 +38,13 @@ class MUDEventEmitter {
      * @param {...any[]} args Arguments related to the event.
      */
     async emit(eventName, ...args) {
-        let event = this.events[eventName];
+        let event = this.events[eventName],
+            handlesToRemove = [];
+
         if (event) {
+            event = event.slice(0);
             for (let i = 0, max = event.length; i < max; i++) {
-                let listener = event[i],
+                let listener = event[i].listener,
                     isAsync = driver.efuns.isAsync(listener),
                     result = undefined;
 
@@ -43,7 +52,10 @@ class MUDEventEmitter {
                     result = await listener(...args);
                 }
                 else
-                    result = listener(...args); // listener.apply(this, args);
+                    result = listener(...args);
+
+                if (event[i].onlyOnce)
+                    handlesToRemove.push(event[i].handleId);
 
                 // Check event state
                 if (typeof result === 'number') {
@@ -54,8 +66,7 @@ class MUDEventEmitter {
                         break;
                 }
             }
-            event = this.events[eventName] = event.filter(l => l !== null);
-            if (event.length === 0) delete this.events[eventName];
+            handlesToRemove.forEach(id => this.removeListener(id));
             return true;
         }
         return false;
@@ -63,6 +74,27 @@ class MUDEventEmitter {
 
     eventNames() {
         return Object.keys(this.events);
+    }
+
+    #getHandleId() {
+        return this.#nextHandlerId++;
+    }
+
+    #getListenerIndex(eventName, listener) {
+        let event = this.events[eventName];
+        if (typeof listener === 'function') {
+            let index = event.findIndex(e => e.listener === listener);
+            return index;
+        }
+        if (typeof listener === 'number') {
+            let index = event.findIndex(e => e.handleId === listener);
+            return index;
+        }
+        return -1;
+    }
+
+    isListening(eventName, listener) {
+        return this.#getListenerIndex(eventName, listener) > -1;
     }
 
     listeners(eventName) {
@@ -101,7 +133,7 @@ class MUDEventEmitter {
     removeListener(eventName, listener) {
         let event = this.events[eventName];
         if (event) {
-            let index = event.indexOf(listener);
+            let index = this.#getListenerIndex(eventName, listener);
             if (index > -1) {
                 event.splice(index, 1);
                 if (event.length === 0) {

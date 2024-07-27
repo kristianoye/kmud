@@ -843,7 +843,7 @@ class VerbContainer {
             return false;
 
         result[direct.index] = result[direct.index].filter(_d => {
-            if (direct.living && !_d.isLiving()) {
+            if (direct.living && !efuns.living.isAlive (_d)) {
                 errors.push(`${_d.displayName} is not alive.`);
                 return false;
             }
@@ -872,7 +872,7 @@ class VerbContainer {
 
         if (objTokenCount > 1) {
             result[indirect.index] = result[indirect.index].filter(_d => {
-                if (indirect.living && !_d.isLiving()) {
+                if (indirect.living && !efuns.living.isAlive(_d)) {
                     errors.push(`${_d.displayName} is not alive.`);
                     return false;
                 }
@@ -1003,16 +1003,16 @@ class VerbSystemFeature extends FeatureBase {
     createExternalFunctions(efunPrototype) {
         let feature = this, container = this.container;
         if (this.efunNameParseAddRule) {
-            efunPrototype[this.efunNameParseAddRule] = function (verb, rule, target) {
+            efunPrototype[this.efunNameParseAddRule] = function (ecc, verb, rule, target) {
                 let handler = feature.allowHandlerParameter ?
-                    target || this.thisObject() : this.thisObject();
+                    target || this.thisObject(ecc) : this.thisObject(ecc);
                 let scope = feature.useVerbRuleScope ?
                     unwrap(handler, (o) => o.verbScope || o.directory) : false;
                 return container.addRule(verb, rule, handler, scope);
             };
         }
         if (this.efunNameParseAddSynonym) {
-            efunPrototype[this.efunNameParseAddSynonym] = function (synonym, verb) {
+            efunPrototype[this.efunNameParseAddSynonym] = function (ecc, synonym, verb) {
                 return container.addSynonym(synonym, verb);
             };
         }
@@ -1027,7 +1027,7 @@ class VerbSystemFeature extends FeatureBase {
             };
         }
         if (this.efunNameParseSentence) {
-            efunPrototype[this.efunNameParseSentence] = async function (/** @type {string} */ rawInput, /** @type {string[]} */ scopeList) {
+            efunPrototype[this.efunNameParseSentence] = async function (ecc, /** @type {string} */ rawInput, /** @type {string[]} */ scopeList) {
                 let input = rawInput.trim(),
                     scopes = feature.useVerbRuleScope ?
                         Array.isArray(scopeList) && scopeList.length ?
@@ -1038,7 +1038,7 @@ class VerbSystemFeature extends FeatureBase {
             };
         }
         if (this.efunNameParseVerb) {
-            efunPrototype[this.efunNameParseVerb] = async function (/** @type {string} */ verb, /** @type {string|string[]} */ input, /** @type {string[]} */ scopeList) {
+            efunPrototype[this.efunNameParseVerb] = async function (ecc, /** @type {string} */ verb, /** @type {string|string[]} */ input, /** @type {string[]} */ scopeList) {
                 let scopes = feature.useVerbRuleScope ?
                     Array.isArray(scopeList) && scopeList.length ?
                         scopeList : false : false,

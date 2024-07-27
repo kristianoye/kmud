@@ -12,7 +12,9 @@ const
     ClientCaps = require('./network/ClientCaps'),
     MUDStorageFlags = require('./MUDStorageFlags'),
     CommandShellOptions = require('./CommandShellOptions'),
-    maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime;
+    { ExecutionContext, CallOrigin } = require('./ExecutionContext'),
+    maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime,
+    defaultResetInterval = driver.config.mudlib.objectResetInterval;
 
 /**
  * Storage for MUD Objects.  In-game objects do not hold their data directly.
@@ -25,14 +27,13 @@ class MUDStorage extends MUDEventEmitter {
      * Construct a storage object.
      * @param {MUDObject} owner The owner of the storage object.
      */
-    constructor(owner) {
+    constructor(owner, $credential) {
         super();
 
         this.component = false;
         this.clientCaps = ClientCaps.DefaultCaps;
 
-        if (driver.masterObject)
-            this.$credential = driver.securityManager.getCredential(owner);
+        this.$credential = $credential;
 
         /** @type {MUDObject} The current environment */
         this.$environment = null;
@@ -63,6 +64,8 @@ class MUDStorage extends MUDEventEmitter {
 
         /** @type {Object.<string,any>} */
         this.properties = {};
+
+        this.resetInterval = defaultResetInterval;
     }
 
     /** 
@@ -79,6 +82,25 @@ class MUDStorage extends MUDEventEmitter {
         return false;
     }
 
+    async eventClientCaps(evt) {
+        await ExecutionContext.withNewContext({ file: __filename, method: 'eventClientCaps', isAsync: true, callType: CallOrigin.Driver }, async ecc => {
+            await ecc.withPlayerAsync(this, async player => {
+                if (typeof player.setEnv !== 'function')
+                    return;
+
+                switch (evt.type) {
+                    case 'terminalType':
+                        player.setEnv(ecc.branch(), 'TERM', evt.data);
+                        break;
+
+                    case 'windowSize':
+                        player.setEnv(ecc.branch(), { COLUMNS: evt.data.width, LINES: evt.data.height });
+                        break;
+                }
+            });
+        });
+    }
+
     /**
      * Execute a command from the shell.
      * @param {ParsedCommand} clientCommand
@@ -92,6 +114,8 @@ class MUDStorage extends MUDEventEmitter {
                 stdout: clientCommand.stdout || this.shell.console,
                 stderr: clientCommand.stderr || this.shell.console,
                 stdin: clientCommand.stdin || false,
+                objin: clientCommand.objin || false,
+                objout: clientCommand.objout || false,
                 env: Object.assign({},
                     clientCommand.options.environment || {},
                     clientCommand.options.variables || {})
@@ -190,6 +214,9 @@ class MUDStorage extends MUDEventEmitter {
                         await driver.driverCallAsync('disconnect', async context => {
                             await context.withPlayerAsync(store, async player => {
                                 await driver.driverCallAsync('disconnect', async () => {
+                                    if (typeof store.clientCaps.off === 'function' && store.clientCapEventHandlerId) {
+                                        store.clientCaps.off('kmud', store.clientCapEventHandlerId);
+                                    }
                                     store.connected = false;
                                     store.interactive = false;
                                     store.connected = false;
@@ -221,6 +248,10 @@ class MUDStorage extends MUDEventEmitter {
 
                 this.clientCaps = component.caps || ClientCaps.DefaultCaps;
 
+                if (typeof this.clientCaps.on === 'function') {
+                    this.clientCapEventHandlerId = this.clientCaps.on('kmud', async (...args) => await this.eventClientCaps(...args));
+                }
+
                 //  Linkdeath
                 component.once('disconnected', () => {
                     driver.driverCallAsync('disconnect', async ecc => {
@@ -231,17 +262,15 @@ class MUDStorage extends MUDEventEmitter {
                 });
 
                 //  Connect to the new body
-                await driver.driverCallAsync('connect', async context => {
-                    return await context.withPlayerAsync(this, async player => {
-                        return await driver.driverCallAsync('connect', async () => {
-                            let shellSettings = typeof player.getShellSettings === 'function' ? await player.getShellSettings(false, {}) : false;
-                            this.shell.update(shellSettings || {});
-                            if (shellSettings.variables && shellSettings.variables.SHELLRC) {
-                                await this.shell.executeResourceFile(shellSettings.variables.SHELLRC);
-                            }
-                            await player.connect(...args);
-                        });
-                    }, false);
+                await ExecutionContext.withNewContext({ object: this.owner.instance, method: 'eventExec', isAsync: true, callType: CallOrigin.Driver }, async ecc => {
+                    return await ecc.withPlayerAsync(this, async (player, ecc) => {
+                        let shellSettings = typeof player.getShellSettings === 'function' ? await player.getShellSettings(ecc.branch(), false, {}) : false;
+                        this.shell.update(shellSettings || {});
+                        if (shellSettings.variables && shellSettings.variables.SHELLRC) {
+                            await this.shell.executeResourceFile(ecc.branch(), shellSettings.variables.SHELLRC);
+                        }
+                        await player.connect(ecc.branch(), this.connectedPort, this.remoteAddress, ...args);
+                    }, false, 'connect');
                 });
                 return true;
             }
@@ -292,55 +321,72 @@ class MUDStorage extends MUDEventEmitter {
      * @param {number} total
      * @param {number} ticks
      */
-    eventHeartbeat(total, ticks) {
+    async eventHeartbeat(total, ticks) {
         if (this.lastActivity) {
             if (this.idleTime > this.maxIdleTime) {
                 this.heartbeat = false;
                 return this.eventExec(false, 'You have been idle for too long.');
             }
         }
-        this.owner.heartbeat(total, ticks);
+        let ecc = driver.getExecution();
+        await ecc.withPlayerAsync(this, async player => {
+            await player.eventHeartbeat(total, ticks);
+        }, true, 'eventHeartbeat');
+        
     }
 
     /**
      * Initialize the storage object.
+     * @param {ExecutionContext} ecc
      * @param {MUDObject} ownerObject
      */
-    async eventInitialize(ownerObject) {
-        if (ownerObject instanceof MUDObject) {
-            this.owner = ownerObject;
+    async eventInitialize(ecc, ownerObject) {
+        let frame = ecc.pushFrameObject({ object: ownerObject, method: 'eventInitialize', file: ownerObject.fullPath, isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (ownerObject instanceof MUDObject) {
+                this.owner = ownerObject;
 
-            //  Special case
-            if (driver.masterObject != null) {
-                this.$credential = await driver.securityManager.getCredential(ownerObject.filename);
+                //  Special case
+                if (driver.masterObject != null) {
+                    this.$credential = await driver.securityManager.getCredential(ecc.branch(), ownerObject.filename);
+                }
+                else
+                    throw new Error('CRASH: Master object has not been created!');
+                return true;
             }
-            else
-                throw new Error('CRASH: Master object has not been created!');
-            return true;
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
+    }
+
+    async eventReset() {
+        this.nextReset = driver.efuns.ticks + this.resetInterval;
+        return await driver.driverCallAsync('reset', async (ecc) => {
+            return await ecc.withObject(this.owner, 'reset', async () => {
+                await this.owner.reset();
+            }, true);
+        });
     }
 
     /**
      * Restore the storage object.  Is this used?
+     * @param {ExecutionContext} ecc The current callstack
      * @param {any} data
      */
-    async eventRestore(data) {
-        if (data) {
-            let owner = this.owner.instance;
+    async eventRestore(ecc, data) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'eventRestore', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (data) {
+                let owner = this.owner.instance;
 
-            if (typeof owner.migrateData === 'function') {
-                owner.migrateData(data);
-                return owner;
-            }
-
-            return await driver.driverCallAsync('eventRestore', async () => {
                 //  Restore inventory
                 data.inventory = data.inventory || [];
                 for (let i = 0; i < data.inventory.length; i++) {
                     try {
-                        let item = await driver.efuns.restoreObjectAsync(data.inventory[i]);
-                        await item.moveObjectAsync(owner);
+                        let item = await driver.efuns.restoreObjectAsync(frame.branch(), data.inventory[i]);
+                        await item.moveObjectAsync(frame.branch(), owner);
                     }
                     catch (e) {
                         this.shell.stderr.writeLine(`* Failed to load object ${data.inventory[i].$type}`);
@@ -349,7 +395,7 @@ class MUDStorage extends MUDEventEmitter {
 
                 let restoreData = async (hive, key, value) => {
                     try {
-                        let type = driver.efuns.objectType(value);
+                        let type = driver.efuns.objectType(frame.branch(), value);
 
                         if (['string', 'boolean', 'number'].indexOf(type) > -1) {
                             return hive ? hive[key] = value : value;
@@ -399,12 +445,15 @@ class MUDStorage extends MUDEventEmitter {
                     }
                 }
                 if (typeof this.owner.applyRestore === 'function') {
-                    this.owner.applyRestore();
+                    this.owner.applyRestore(frame.branch());
                 }
                 return owner;
-            });
+            }
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -426,6 +475,13 @@ class MUDStorage extends MUDEventEmitter {
 
     set connected(flag) {
         return this.flag(MUDStorageFlags.PROP_CONNECTED, flag);
+    }
+
+    get connectedPort() {
+        if (this.shell) {
+            return this.shell.connectedPort || -1;
+        }
+        return -1;
     }
 
     get destroyed() {
@@ -512,6 +568,13 @@ class MUDStorage extends MUDEventEmitter {
             this.playerName = flag;
         }
         this.flag(MUDStorageFlags.PROP_ISPLAYER, flag !== false);
+    }
+
+    get remoteAddress() {
+        if (this.connected && this.shell) {
+            return this.shell.remoteAddress;
+        }
+        return false;
     }
 
     getSafeCredential() {
@@ -614,7 +677,7 @@ class MUDStorage extends MUDEventEmitter {
                     break;
 
                 case MUDStorageFlags.PROP_HEARTBEAT:
-                    if (this.owner && typeof this.owner.heartbeat === 'function') {
+                    if (this.owner && typeof this.owner.eventHeartbeat === 'function') {
                         driver.setHeartbeat(this, setFlag);
                     }
                     break;
@@ -649,7 +712,7 @@ class MUDStorage extends MUDEventEmitter {
      * @returns {ClientCaps} Returns the client capabilities.
      */
     getClientCaps() {
-        return this.protected['$clientCaps'] || false;
+        return this.clientCaps;
     }
 
     /**
@@ -661,11 +724,14 @@ class MUDStorage extends MUDEventEmitter {
     async getShellSettings(verb, opts) {
         return await driver.driverCallAsync('getShellSettings', async context => {
             return await context.withPlayerAsync(this, async player => {
-                if (player && typeof player.getShellSettings === 'function')
-                    return await player.getShellSettings(verb, opts);
+                if (player && typeof player.getShellSettings === 'function') {
+                    let result = await player.getShellSettings(verb, opts);
+                    context.restore();
+                    return result;
+                }
                 else
                     return {};
-            }, false);
+            }, false, 'getShellSettings');
         });
     }
 
@@ -748,12 +814,29 @@ class MUDStorageContainer {
         return this.storage[ob.filename] = new MUDStorage(ob);
     }
 
-    createForId(objectId, filename) {
-        //  If this is a reload, then the storage should already exist
-        if (objectId in this.storage) {
-            return this.storage[objectId];
+    /**
+     * Create a new storage object if needed
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} objectId
+     * @param {any} filename
+     * @returns
+     */
+    createForId(ecc, objectId, filename) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'createForId', callType: CallOrigin.Driver });
+        try {
+            //  If this is a reload, then the storage should already exist
+            if (objectId in this.storage) {
+                return this.storage[objectId];
+            }
+            let $credential;
+
+            if (driver.masterObject)
+                $credential = driver.securityManager.getCredential(frame.branch(), filename);
+            return this.storage[objectId] = new MUDStorage(filename, $credential);
         }
-        return this.storage[objectId] = new MUDStorage(filename);
+        finally {
+            frame.pop();
+        }
     }
 
     /**

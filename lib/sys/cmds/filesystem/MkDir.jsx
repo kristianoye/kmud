@@ -3,82 +3,38 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-import { LIB_SHELLCMD } from 'Base';
+import { LIB_SHELLCMD } from '@Base';
 import Command from LIB_SHELLCMD;
-
-const
-    DirFlags = system.flags.fs.DirFlags;
 
 const
     MkdirVerbose = 1 << 0,
     MkdirParents = 1 << 1;
 
 export default singleton class MkDirCommand extends Command {
+    protected override create() {
+        super.create();
+        this.verbs = ['mkdir', 'md'];
+        this.command
+            .setVerb(...this.verbs)
+            .setBitflagBucketName('mkdirFlags')
+            .setDescription('Create directories')
+            .addOption('-p, --parents', 'No error if existing, make parent directories as needed', { name: 'createParents', sets: 1 })
+            .addOption('-v, --verbose', ' print a message for each created directory', { name: 'showNonPrinting', sets: MkdirVerbose })
+            .addArgument('<DIRECTORY...>');
+    }
+
     /**
      * Create a directory
      * @param {string} cmdText The raw text for the command
      * @param {MUDInputEvent} cmdline The input event from the client
      */
     override async cmd(cmdText, cmdline) {
-        let player = thisPlayer(),
-            args = cmdline.args,
-            dirList = [],
-            options = 0,
-            flags = 0;
+        try {
 
-        for (let i = 0; i < args.length; i++) {
-            let opt = args[i];
-
-            if (opt.startsWith('-')) {
-                let opts = opt.charAt(1) === '-' ? [opt] : opt.slice(1).split('');
-
-                for (let j = 0, max = opts.length; j < max; j++) {
-                    switch (opts[j]) {
-                        case 'p': case '--parents':
-                            flags |= DirFlags.EnsurePathExists;
-                            break;
-
-                        case 'v': case '--verbose':
-                            options = options.setFlag(MkdirVerbose);
-                            break;
-
-                        case '--help':
-                            return writeLine(
-                                'Usage: mkdir[OPTION]...DIRECTORY...\n' +
-                                'Create the DIRECTORY(ies), if they do not already exist.\n\n' +
-                                'Mandatory arguments to long options are mandatory for short options too.\n' +
-                                '   -m, --mode=MODE   set file mode (as in chmod), not a=rwx - umask\n' +
-                                '   -p, --parents     no error if existing, make parent directories as needed\n' +
-                                '   -v, --verbose     print a message for each created directory\n' +
-                                '      --help     display this help and exit\n' +
-                                '      --version  output version information and exit');
-                            break;
-
-                        case '--version':
-                            return writeLine('mkdir (KMUD CoreUtil) v2.1; Written by Kristian Oye.');
-
-                        default:
-                            return `Mkdir: Unknown option: ${opts[j]}`;
-                    }
-                }
-            }
-            else {
-                if (flags & MUDFS.MkdirFlags.EnsurePath) {
-                    let parts = opt.split('/'), dir = [];
-                    while (parts.length) {
-                        dir.push(parts.shift());
-                        dirList.push(efuns.resolvePath(dir.join('/'), player.workingDirectory));
-                    }
-                }
-                else
-                    dirList.push(efuns.resolvePath(opt, player.workingDirectory));
-            }
         }
-        if (dirList.length === 0)
-            return 'Mkdir: Missing parameter';
+        catch (err) {
 
-        await this.createDirectories(dirList, flags, options, cmdline);
-        return true;
+        }
     }
 
     /**
@@ -108,9 +64,5 @@ export default singleton class MkDirCommand extends Command {
             writeLine(`MkDir error: ${err.message}`);
             return false;
         }
-    }
-
-    help() {
-        return 'No help yet';
     }
 }

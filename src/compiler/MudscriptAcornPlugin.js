@@ -136,6 +136,15 @@ function plugin(options, Parser) {
             this.keywords = wordsRegexp(existingWords.join(' '));
         }
 
+        checkKeyName(node, name) {
+            let computed = node.computed;
+            let key = node.key;
+            return !computed && (
+                key.type === "Identifier" && key.name === name ||
+                key.type === "Literal" && key.value === name
+            )
+        }
+
         /**
          * Eat whitespace
          * @returns {[ number, number ]} Returns previous location and number of spaces skipped
@@ -469,7 +478,8 @@ function plugin(options, Parser) {
             if (method.kind === "constructor") {
                 if (isGenerator) { this.raise(key.start, "Constructor can't be a generator"); }
                 if (isAsync && options.allowAsyncConstructors === false) { this.raise(key.start, "Constructor can't be an async method"); }
-            } else if (method.static && checkKeyName(method, "prototype")) {
+            }
+            else if (method.static && this.checkKeyName(method, "prototype")) {
                 this.raise(key.start, "Classes may not have a static property named prototype");
             }
 
@@ -728,6 +738,37 @@ function plugin(options, Parser) {
                 false,
                 null
             );
+        }
+
+        parseExprList(close, allowTrailingComma, allowEmpty, refDestructuringErrors) {
+            var elts = [], first = true;
+            if (close === types$1.parenR) {
+                let n = this.pos;
+                if (this.type === types$1.parenR) {
+                    while (this.input.charAt(n) !== '(') n--;
+                }
+                else {
+                    while (this.input.charAt(n) !== '(') n++;
+                }
+                elts.start = n;
+            }
+            while (!this.eat(close)) {
+                if (!first) {
+                    this.expect(types$1.comma);
+                    if (allowTrailingComma && this.afterTrailingComma(close)) { break }
+                } else { first = false; }
+
+                var elt = (void 0);
+                if (allowEmpty && this.type === types$1.comma) { elt = null; }
+                else if (this.type === types$1.ellipsis) {
+                    elt = this.parseSpread(refDestructuringErrors);
+                    if (refDestructuringErrors && this.type === types$1.comma && refDestructuringErrors.trailingComma < 0) { refDestructuringErrors.trailingComma = this.start; }
+                } else {
+                    elt = this.parseMaybeAssign(false, refDestructuringErrors);
+                }
+                elts.push(elt);
+            }
+            return elts
         }
 
         shouldParseExportStatement() {

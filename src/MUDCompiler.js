@@ -7,6 +7,7 @@ const
     fs = require('fs');
 const MUDCompilerOptions = require('./compiler/MUDCompilerOptions');
 const DriverCompiler = require('./config/DriverCompiler');
+const { ExecutionContext, CallOrigin } = require('./ExecutionContext');
 
 const
     PipeContext = require('./compiler/PipelineContext'),
@@ -122,20 +123,20 @@ class MUDCompiler {
 
         if (context.state === PipeContext.CTX_FINISHED) {
             if (!context.content)
-                throw new Error(`Could not load ${context.filename} [empty file?]`);
+                throw new Error(`Could not load ${context.fullPath} [empty file?]`);
             return context.content;
         }
         else {
             switch (context.state) {
                 case PipeContext.CTX_ERRORED:
-                    throw new Error(`Could not load ${context.filename} [${context.errors[0].message}]`);
+                    throw new Error(`Could not load ${context.fullPath} [${context.errors[0].message}]`);
 
                 case PipeContext.CTX_RUNNING:
                 case PipeContext.CTX_STOPPED:
-                    throw new Error(`Could not load ${context.filename} [Incomplete Pipeline]`);
+                    throw new Error(`Could not load ${context.fullPath} [Incomplete Pipeline]`);
 
                 case PipeContext.CTX_INIT:
-                    throw new Error(`Could not load ${context.filename} [Pipeline Failure]`);
+                    throw new Error(`Could not load ${context.fullPath} [Pipeline Failure]`);
             }
         }
     }
@@ -169,20 +170,11 @@ class MUDCompiler {
 
     /**
      * Attempts to compile the requested file into a usable MUD object.
-     * @param {MUDCompilerOptions|string} options Hints for the compiler.
-     * @param {MUDCompilerOptions} moreOptions Hints for the compiler.
-     * @returns {MUDModule} The compiled module
-     */
-    compileObject(options, moreOptions) {
-        throw new Error('compileObject(): Syncronous compiling is no longer supported.');
-    }
-
-    /**
-     * Attempts to compile the requested file into a usable MUD object.
+     * @param {ExecutionContext} ecc
      * @param {Partial<MUDCompilerOptions>} options Hints for the compiler.
      * @returns {MUDModule} The compiled module
      */
-    async compileObjectAsync(options) {
+    async compileObjectAsync(ecc, options) {
         if (!options)
             throw new Error('compileObject() called with invalid parameter(s)');
         else if (typeof options === 'string') {
@@ -197,181 +189,171 @@ class MUDCompiler {
         if (false === options instanceof MUDCompilerOptions) {
             options = new MUDCompilerOptions(options);
         }
-        let context = await PipeContext.PipelineContext.create(options, this.extensionPattern),
-            module = context.module,
-            t0 = efuns.ticks,
-            cleanError = false;
-
-        if (options.source)
-            context.setContent(options);
-
-        if (module && !options.reload && module.loaded === true)
-            return module;
-
-        if (!context.exists || context.isVirtual) {
-            return await this.compileVirtualAsync(context, options).
-                catch(err => { throw err; });
-        }
+        let frame = ecc.pushFrame(driver.masterObject || driver, 'compileObjectAsync', options.file, true, 0);
         try {
-            let pipeline = this.getPipeline(context);
+            let context = await PipeContext.PipelineContext.create(frame.branch(), options, this.extensionPattern),
+                module = context.module,
+                t0 = efuns.ticks,
+                cleanError = false;
 
-            if (pipeline === false)
-                throw new Error(`Could not load ${context.filename} [unknown extension]`);
-            else if (!pipeline.enabled)
-                throw new Error(`Could not load ${context.filename} [${pipeline.name} - not enabled]`);
+            if (options.source)
+                context.setContent(options);
 
-            module = this.driver.cache.getOrCreate(context, false, options);
-
-            await driver.driverCallAsync('compileObjectAsync', async () => {
-                await pipeline.executeAsync(context, options);
-            }, context.filename, true);
-
-            if (context.state === PipeContext.CTX_FINISHED) {
-                if (!context.content)
-                    throw new Error(`Could not load ${context.filename} [empty file?]`);
-
-                //module = this.driver.cache.getOrCreate(
-                //    context.filename,
-                //    context.resolvedName,
-                //    context.directory,
-                //    false,
-                //    options);
-
-                if (!driver.preCompile(module))
-                    throw new Error(`Module ${context.filename} was rejected by driver in pre-compiler stage`);
-
-                module.loader = this.getLoader(pipeline, options);
-                if (options.altParent) {
-                    module.loader[options.altParent.name] = options.altParent;
-                }
-                module.isCompiling = true;
-                let result = await driver.driverCallAsync(
-                    'runInContext',
-                    async ecc => {
-                        if (typeof options.onPipelineComplete === 'function') {
-                            options.onPipelineComplete(context.content);
-                        }
-                        //  Clear previous exports in case they've changed
-                        module.exports = false;
-                        let inner = await VM.runAsync(context, module);
-                        return inner;
-                    },
-                    context.filename,
-                    true);
-
-                delete module.isCompiling;
-                if (result instanceof Error)
-                    throw result;
-
-                if (this.sealTypesAfterCompile && !options.noSeal) {
-                    module.eventSealTypes();
-                }
-                let isReload = module.loaded === true;
-
-                if (isReload)
-                    await module.eventRecompiled(options);
-                else
-                {
-                    module.loaded = true;
-                    driver.cache.store(module);
-                }
-
+            if (module && !options.reload && module.loaded === true)
                 return module;
+
+            if (!context.exists || context.isVirtual) {
+                return await this.compileVirtualAsync(frame.branch(), context, options);
             }
-            else {
-                switch (context.state) {
-                    case PipeContext.CTX_ERRORED:
-                        throw new Error(`Could not load ${context.filename} [${context.errors[0].message}]`);
+            try {
+                let pipeline = this.getPipeline(context);
 
-                    case PipeContext.CTX_RUNNING:
-                    case PipeContext.CTX_STOPPED:
-                        throw new Error(`Could not load ${context.filename} [Incomplete Pipeline]`);
+                if (pipeline === false)
+                    throw new Error(`Could not load ${context.fullPath} [unknown extension]`);
+                else if (!pipeline.enabled)
+                    throw new Error(`Could not load ${context.fullPath} [${pipeline.name} - not enabled]`);
 
-                    case PipeContext.CTX_INIT:
-                        throw new Error(`Could not load ${context.filename} [Pipeline Failure]`);
+                module = this.driver.cache.getOrCreate(context, false, options);
+
+                await pipeline.executeAsync(ecc.branch(), context, options);
+
+                if (context.state === PipeContext.CTX_FINISHED) {
+                    if (!context.content)
+                        throw new Error(`Could not load ${context.fullPath} [empty file?]`);
+
+                    //module = this.driver.cache.getOrCreate(
+                    //    context.filename,
+                    //    context.resolvedName,
+                    //    context.directory,
+                    //    false,
+                    //    options);
+
+                    if (!driver.preCompile(ecc.fork(), module))
+                        throw new Error(`Module ${context.fullPath} was rejected by driver in pre-compiler stage`);
+
+                    module.loader = this.getLoader(pipeline, options);
+                    if (options.altParent) {
+                        module.loader[options.altParent.name] = options.altParent;
+                    }
+                    module.isCompiling = true;
+                    if (typeof options.onPipelineComplete === 'function') {
+                        options.onPipelineComplete(context.content);
+                    }
+                    module.exports = false;
+                    let result = await VM.runAsync(ecc.branch(), context, module);
+
+                    delete module.isCompiling;
+                    if (result instanceof Error)
+                        throw result;
+
+                    if (this.sealTypesAfterCompile && !options.noSeal) {
+                        module.eventSealTypes();
+                    }
+                    let isReload = module.loaded === true;
+
+                    if (isReload)
+                        await module.eventRecompiled(options);
+                    else {
+                        module.loaded = true;
+                        driver.cache.store(module);
+                    }
+
+                    return module;
+                }
+                else {
+                    switch (context.state) {
+                        case PipeContext.CTX_ERRORED:
+                            throw new Error(`Could not load ${context.fullPath} [${context.errors[0].message}]`);
+
+                        case PipeContext.CTX_RUNNING:
+                        case PipeContext.CTX_STOPPED:
+                            throw new Error(`Could not load ${context.fullPath} [Incomplete Pipeline]`);
+
+                        case PipeContext.CTX_INIT:
+                            throw new Error(`Could not load ${context.fullPath} [Pipeline Failure]`);
+                    }
                 }
             }
-        }
-        catch (err) {
-            let t1 = efuns.ticks;
-            if (module && module.stats) {
-                module.stats.errors++;
+            catch (err) {
+                let t1 = efuns.ticks;
+                if (module && module.stats) {
+                    module.stats.errors++;
+                }
+                if (module && !module.loaded) {
+                    driver.cache.delete(context.fullPath);
+                }
+                this.driver.cleanError(cleanError = err);
+                await this.driver.logError(frame.branch(), context.fullPath, err);
+                logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ERROR: ${cleanError.message}]}`);
+                logger.log(cleanError.stack || cleanError.trace);
+                throw err;
             }
-            if (module && !module.loaded) {
-                driver.cache.delete(context.filename);
+            finally {
+                if (options.altParent && module) {
+                    delete module.loader[options.altParent.name];
+                }
+                let t1 = efuns.ticks, ecc = driver.getExecution();
+                if (!cleanError) {
+                    if (ecc)
+                        logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
+                    else
+                        logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
+                }
             }
-            this.driver.cleanError(cleanError = err);
-            await this.driver.logError(context.filename, err);
-            logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ERROR: ${cleanError.message}]}`);
-            logger.log(cleanError.stack || cleanError.trace);
-            throw err;
+            return false;
         }
         finally {
-            let t1 = efuns.ticks, ecc = driver.getExecution();
-            if (!cleanError) {
-                if (ecc)
-                    logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms; ${ecc.stack.length}]`);
-                else
-                    logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
-            }
+            frame.pop(true);
         }
-        return false;
     }
 
     /**
      * Try and compile a virtual object
+     * @param {ExecutionContext} ecc The current callstack
      * @param {PipelineContext} context
      * @param {MUDCompilerOptions} options Compiler options
      */
-    async compileVirtualAsync(context, options = {}) {
-        //  Try virtual compilation
-        let virtualContext, module;
+    async compileVirtualAsync(ecc, context, options = {}) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'compileVirtualAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            //  Try virtual compilation
+            let virtualContext, virtualResult, module;
 
-        if (!this.driver.masterObject)
-            throw new Error('Could not load in-game master object!');
+            if (!this.driver.masterObject)
+                throw new Error('Could not load in-game master object!');
 
-        //  Attempt to compile a virtual object.
-        let virtualResult = await driver.driverCallAsync('compileVirtual', async ecc => {
+            //  Attempt to compile a virtual object.
             try {
                 //module = this.driver.cache.getOrCreate(context, true, options);
 
-                let args = options.args || [], objectId = driver.efuns.getNewId();
+                let args = options.args || [], objectId = driver.efuns.getNewId(frame.context);
 
-                virtualContext = ecc.addVirtualCreationContext({
+                virtualContext = frame.context.addVirtualCreationContext({
                     objectId,
                     isVirtual: true,
-                    filename: context.filename
+                    filename: context.fullPath
                 });
 
-                let virtualResult = await driver.compileVirtualObject(virtualContext.filename, args);
-
-                args.forEach(a => {
-                    if (typeof a === 'object') {
-                        driver.driverCall('setProperty', eccInner => {
-                            Object.keys(a).forEach(k => {
-                                if (k in virtualResult) virtualResult[k] = a[k];
-                            });
-                        });
-                    }
-                });
+                virtualResult = await driver.compileVirtualObject(frame.branch(), virtualContext.filename, args);
 
                 module = virtualContext.module;
-                return virtualResult;
             }
             catch (err) {
                 console.log(`compileVirtual() error: ${err.message}`);
-                driver.cache.delete(context.filename);
+                driver.cache.delete(context.fullPath);
             }
             finally {
-                ecc.popCreationContext();
+                frame.context.popCreationContext();
             }
-        }, context.filename)
-            .catch(err => { throw err; })
 
-        if (!virtualResult)
-            throw new Error(`Could not load ${context.filename} [File not found]`);
+            if (!virtualResult)
+                throw new Error(`Could not load ${context.fullPath} [File not found]`);
 
-        return module;
+            return module;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     get supportedExtensions() {

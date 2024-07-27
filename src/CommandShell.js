@@ -1,6 +1,4 @@
-﻿const { TokenType } = require('../node_modules/acorn/dist/acorn');
-
-/*
+﻿/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: February 20, 2019
@@ -10,7 +8,7 @@
 const
     IO = require('./StandardIO'),
     StreamPromises = require('stream/promises'),
-    { ExecutionSignaller } = require('./ExecutionContext'),
+    { ExecutionSignaller, ExecutionContext, CallOrigin } = require('./ExecutionContext'),
     { LinkedList } = require('./LinkedList'),
     BaseInput = require('./inputs/BaseInput'),
     { CommandParser, ParsedCommand, TokenTypes, OperatorTypes } = require('./CommandParser'),
@@ -78,7 +76,7 @@ class CommandShell extends events.EventEmitter {
 
         this.client = component.client;
 
-        this.stdin = new IO.StandardInputStream({ encoding: 'utf8' }, component, this);
+        this.stdin =  new IO.StandardInputStream({ encoding: 'utf8' }, component, this);
         this.stdout = new IO.StandardOutputStream({ encoding: 'utf8' }, component, this);
         this.stderr = new IO.StandardOutputStream({ encoding: 'utf8' }, component, this);
         this.console = new IO.StandardPassthruStream({ encoding: 'utf8' }, component, this);
@@ -120,10 +118,14 @@ class CommandShell extends events.EventEmitter {
 
         this.on('addPrompt', async prompt => {
             if (prompt.isAsync) {
-                this.inputTo = prompt;
-                await this.drawPrompt();
-                let userInput = await this.getUserInput();
-                await this.processInput(userInput);
+                let result = false;
+                do {
+                    this.inputTo = prompt;
+                    await this.drawPrompt();
+                    let userInput = await this.getUserInput();
+                    result = await this.processInput(userInput);
+                }
+                while (result instanceof Error);
         }
             else if (!this.inputController)
                 this.startInputLoop();
@@ -173,6 +175,14 @@ class CommandShell extends events.EventEmitter {
         return false;
     }
 
+    get connectedPort() {
+        let ep = this.component.client;
+        if (ep) {
+            return ep.port || -1;
+        }
+        return -1;
+    }
+
     /**
      * Destroy the shell and free its contents.
      */
@@ -194,18 +204,18 @@ class CommandShell extends events.EventEmitter {
      * @param {ParsedCommand} cmd
      */
     async executeCommand(cmd) {
-        let result = '';
+        let result = '',
+            isPipeline = false,
+            previousCmd;
 
         while (cmd) {
-            let previousCmd = cmd;
-
             await this.prepareCommand(cmd);
 
             if (cmd.redirectStdoutTo) {
                 cmd.stdout = cmd.redirectStdoutTo;
             }
 
-            result = await this.storage.eventCommand(cmd);
+            result = await this.storage.eventCommand(previousCmd = cmd);
             let success = result === true || result === 0;
 
             if (cmd.conditional) {
@@ -262,13 +272,15 @@ class CommandShell extends events.EventEmitter {
 
     /**
      * Execute commands in a resource file
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} filename
      */
-    async executeResourceFile(filename) {
+    async executeResourceFile(ecc, filename) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'executeResourceFile', isAsync: true, callType: CallOrigin.Driver });
         try {
-            let fso = await driver.efuns.fs.getFileAsync(filename);
+            let fso = await driver.efuns.fs.getFileAsync(frame.branch(), filename);
             if (fso.isFile) {
-                let fullText = await fso.readFileAsync(),
+                let fullText = await fso.readFileAsync(frame.branch()),
                     lines = fullText
                         .split('\n')
                         .map(s => s.trim())
@@ -289,6 +301,9 @@ class CommandShell extends events.EventEmitter {
         catch (err) {
             driver.efuns.errorLine(`-kmsh: Error executing ${filename}: ${err}`);
         }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -299,140 +314,161 @@ class CommandShell extends events.EventEmitter {
         let ecc = driver.getExecution();
 
         return await ecc.withPlayerAsync(this.storage, async player => {
-            let finalArgs = [],
-                finalText = [],
-                options = cmd.options;
+            try {
+                let finalArgs = [],
+                    finalText = [],
+                    options = cmd.options || {};
 
-            for (const token of cmd.tokens) {
-                switch (token.tokenType) {
-                    case TokenTypes.TOKEN_BACKTICK:
-                        if (options.expandBackticks) {
-                            let cp = new CommandParser(token.tokenValue, this),
-                                btcmd = await cp.parse();
+                for (const token of cmd.tokens) {
+                    switch (token.tokenType) {
+                        case TokenTypes.TOKEN_BACKTICK:
+                            if (options.expandBackticks) {
+                                let cp = new CommandParser(token.tokenValue, this),
+                                    btcmd = await cp.parse();
 
-                            let s = new IO.StandardBufferStream();
-                            btcmd.redirectStdoutTo = s;
+                                let s = new IO.StandardBufferStream();
+                                btcmd.redirectStdoutTo = s;
 
-                            await this.executeCommand(btcmd);
+                                await this.executeCommand(btcmd);
 
-                            let line = s.readLine();
-                            while (line) {
-                                finalArgs.push(line);
-                                line = s.readLine();
-                            }
-                            continue;
-                        }
-                        break;
-
-                    case TokenTypes.TOKEN_NUMERIC:
-                        finalText.push(token.tokenValue.toString());
-                        break;
-
-                    case TokenTypes.TOKEN_OPERATOR:
-                        {
-                            switch (token.tokenValue) {
-                                case OperatorTypes.OP_APPENDOUT:
-                                case OperatorTypes.OP_WRITEOUT:
-                                    {
-                                        let filename = driver.efuns.resolvePath(token.fileName, cmd.options.cwd),
-                                            fso = await driver.efuns.fs.getObjectAsync(filename);
-
-                                        cmd.stdout = await fso.createWriteStream({ flags: token.tokenValue === OperatorTypes.OP_APPENDOUT ? 'a' : 'w' });
-
-                                        for (let i = token.index; i <= token.fileToken; i++) {
-                                            cmd.tokens[i].tokenType = TokenTypes.TOKEN_WHITESPACE;
-                                            cmd.tokens[i].source = '';
-                                            cmd.tokens[i].tokenValue = '';
-                                        }
-                                    }
-                                    continue;
-
-                                case OperatorTypes.OP_READSTDIN:
-                                    {
-                                        let filename = driver.efuns.resolvePath(token.fileName, cmd.options.cwd),
-                                            fso = await driver.efuns.fs.getObjectAsync(filename),
-                                            s = await fso.createReadStream();
-
-                                        if (!cmd.stdin) {
-                                            cmd.stdin = new IO.StandardBufferStream();
-                                        }
-
-                                        await StreamPromises.pipeline(s, cmd.stdin, { end: false });
-                                        await StreamPromises.finished(s);
-
-                                        for (let i = token.index; i <= token.fileToken; i++) {
-                                            cmd.tokens[i].tokenType = TokenTypes.TOKEN_WHITESPACE;
-                                            cmd.tokens[i].source = '';
-                                            cmd.tokens[i].tokenValue = '';
-                                        }
-                                    }
-                                    continue;
-                            }
-                        }
-                        break;
-
-                    case TokenTypes.TOKEN_WHITESPACE:
-                        finalText.push(token.tokenValue);
-                        continue;
-                        break;
-
-                    case TokenTypes.TOKEN_STRING:
-                    case TokenTypes.TOKEN_WORD:
-                        //  Expand variables
-                        if (options.expandVariables && !token.isLiteral) {
-                            const re = /\$(?<name>[a-zA-Z\_]+[a-zA-Z0-9\_]*)/g;
-                            let m = re.exec(token.tokenValue), finalValue = '';
-
-                            while (m) {
-                                if (token.tokenValue.charAt(m.index - 1) !== '\\') {
-                                    if (m.groups.name && m.groups.name in cmd.options.variables) {
-                                        let val = cmd.expandVariable(m.groups.name);
-                                        if (val) {
-                                            token.tokenValue = token.tokenValue.slice(0, m.index) + val + token.tokenValue.slice(m.index + m[0].length);
-                                            re.lastIndex = m.index + (val.length || val.toString().length);
-                                        }
-                                    }
+                                let line = s.readLine();
+                                while (line) {
+                                    finalArgs.push(line);
+                                    line = s.readLine();
                                 }
-                                m = re.exec(token.tokenValue);
-                            }
-                        }
-                        finalText.push(token.tokenValue);
-                        if (options.expandFileExpressions && token.tokenType !== TokenTypes.TOKEN_STRING) {
-                            let resolvedPath = path.posix.resolve(options.cwd, token.tokenValue);
-                            //  Does it look like a globular expression?
-                            if (/[\*\?\[\]]+/.test(token.tokenValue)) {
-                                let files = await driver.fileManager.queryFileSystemAsync({
-                                    cwd: options.cwd,
-                                    expression: resolvedPath,
-                                    isGlobstar: token.tokenValue.indexOf('**') > -1
-                                });
-                                let fileNames = files.map(fo => {
-                                    if (token.tokenValue.charAt(0) === '/')
-                                        return fo.fullPath;
-                                    else
-                                        return path.posix.relative(options.cwd.slice(1), fo.fullPath.slice(1));
-                                });
-                                if (fileNames.length)
-                                    finalArgs.push(...fileNames);
                                 continue;
                             }
-                        }
-                        break;
+                            break;
+
+                        case TokenTypes.TOKEN_NUMERIC:
+                            finalText.push(token.tokenValue.toString());
+                            break;
+
+                        case TokenTypes.TOKEN_OPERATOR:
+                            {
+                                switch (token.tokenValue) {
+                                    case OperatorTypes.OP_APPENDOUT:
+                                    case OperatorTypes.OP_WRITEOUT:
+                                        {
+                                            let filename = driver.efuns.resolvePath(token.fileName, cmd.options.cwd),
+                                                fso = await driver.efuns.fs.getObjectAsync(filename);
+
+                                            if (token.stream)
+                                                cmd[token.stream] = await fso.createWriteStream({ flags: token.tokenValue === OperatorTypes.OP_APPENDOUT ? 'a' : 'w' });
+                                            else
+                                                cmd.stdout = await fso.createWriteStream({ flags: token.tokenValue === OperatorTypes.OP_APPENDOUT ? 'a' : 'w' });
+
+                                            for (let i = token.index; i <= token.fileToken; i++) {
+                                                cmd.tokens[i].tokenType = TokenTypes.TOKEN_WHITESPACE;
+                                                cmd.tokens[i].source = '';
+                                                cmd.tokens[i].tokenValue = '';
+                                            }
+                                        }
+                                        continue;
+
+                                    case OperatorTypes.OP_JOINSTREAM:
+                                        {
+                                            if (!cmd[token.targetStream])
+                                                throw new Error(`-kmsh: Target stream '${token.targetStream}' is not set`);
+                                            cmd[token.stream] = cmd[token.targetStream];
+                                            for (let i = token.index; i <= token.index + 1; i++) {
+                                                cmd.tokens[i].tokenType = TokenTypes.TOKEN_WHITESPACE;
+                                                cmd.tokens[i].source = '';
+                                                cmd.tokens[i].tokenValue = '';
+                                            }
+                                        }
+                                        continue;
+
+                                    case OperatorTypes.OP_READSTDIN:
+                                        {
+                                            let filename = driver.efuns.resolvePath(token.fileName, cmd.options.cwd),
+                                                fso = await driver.efuns.fs.getObjectAsync(filename),
+                                                s = await fso.createReadStream();
+
+                                            if (!cmd.stdin) {
+                                                cmd.stdin = new IO.StandardBufferStream();
+                                            }
+
+                                            await StreamPromises.pipeline(s, cmd.stdin, { end: false });
+                                            await StreamPromises.finished(s);
+
+                                            for (let i = token.index; i <= token.fileToken; i++) {
+                                                cmd.tokens[i].tokenType = TokenTypes.TOKEN_WHITESPACE;
+                                                cmd.tokens[i].source = '';
+                                                cmd.tokens[i].tokenValue = '';
+                                            }
+                                        }
+                                        continue;
+                                }
+                            }
+                            break;
+
+                        case TokenTypes.TOKEN_WHITESPACE:
+                            finalText.push(token.tokenValue);
+                            continue;
+                            break;
+
+                        case TokenTypes.TOKEN_STRING:
+                        case TokenTypes.TOKEN_WORD:
+                            //  Expand variables
+                            if (options.expandVariables && !token.isLiteral) {
+                                const re = /\$(?<name>[a-zA-Z\_]+[a-zA-Z0-9\_]*)/g;
+                                let m = re.exec(token.tokenValue), finalValue = '';
+
+                                while (m) {
+                                    if (token.tokenValue.charAt(m.index - 1) !== '\\') {
+                                        if (m.groups.name && m.groups.name in cmd.options.variables) {
+                                            let val = cmd.expandVariable(m.groups.name);
+                                            if (val) {
+                                                token.tokenValue = token.tokenValue.slice(0, m.index) + val + token.tokenValue.slice(m.index + m[0].length);
+                                                re.lastIndex = m.index + (val.length || val.toString().length);
+                                            }
+                                        }
+                                    }
+                                    m = re.exec(token.tokenValue);
+                                }
+                            }
+                            finalText.push(token.tokenValue);
+                            if (options.expandFileExpressions && token.tokenType !== TokenTypes.TOKEN_STRING) {
+                                let resolvedPath = path.posix.resolve(options.cwd, token.tokenValue);
+                                //  Does it look like a globular expression?
+                                if (/[\*\?\[\]]+/.test(token.tokenValue)) {
+                                    let files = await driver.fileManager.queryFileSystemAsync({
+                                        cwd: options.cwd,
+                                        expression: resolvedPath,
+                                        isGlobstar: token.tokenValue.indexOf('**') > -1
+                                    });
+                                    let fileNames = files.map(fo => {
+                                        if (token.tokenValue.charAt(0) === '/')
+                                            return fo.fullPath;
+                                        else
+                                            return path.posix.relative(options.cwd.slice(1), fo.fullPath.slice(1));
+                                    });
+                                    if (fileNames.length)
+                                        finalArgs.push(...fileNames);
+                                    continue;
+                                }
+                            }
+                            break;
+                    }
+                    finalArgs.push(token.tokenValue);
                 }
-                finalArgs.push(token.tokenValue);
+
+                cmd.args = finalArgs.slice(0);
+
+                if (cmd.pipeTarget) {
+                    cmd.stdout = cmd.pipeTarget.stdin = new IO.StandardBufferStream();
+                }
+
+                if (!cmd.text)
+                    cmd.text = finalText.join('').trim();
+
+                if (typeof cmd.verb !== 'string') {
+                    throw new Error('-kmsh: Invalid verb');
+                }
             }
-
-            cmd.args = finalArgs.slice(0);
-
-            if (cmd.pipeTarget) {
-                cmd.stdout = cmd.pipeTarget.stdin = new IO.StandardBufferStream();
-            }
-
-            if (!cmd.text)
-                cmd.text = finalText.join('').trim();
-
-            if (typeof cmd.verb !== 'string') {
-                throw new Error('-kmsh: Invalid verb');
+            catch (err) {
+                throw err;
             }
         }, undefined, 'prepareCommand', false);
     }
@@ -597,8 +633,9 @@ class CommandShell extends events.EventEmitter {
 
                 }
                 else if (input instanceof Error) {
-                    driver.efuns.errorLine(efuns.eol + `${input.message}` + efuns.eol + efuns.eol);
+                    driver.efuns.errorLine(`${input.message}\n`);
                     inputTo.error = input.message;
+                    return input;
                 }
                 return true;
             }
@@ -688,6 +725,14 @@ class CommandShell extends events.EventEmitter {
         return result;
     }
 
+    get remoteAddress() {
+        let client = this.component.client;
+        if (client) {
+            return client.remoteAddress;
+        }
+        return false;
+    }
+
     drawPrompt() {
         return new Promise(async (resolve, reject) => {
             let inputTo = this.inputStack.length > 0 && this.inputStack[0],
@@ -774,7 +819,7 @@ class CommandShell extends events.EventEmitter {
                         await ecc.withPlayerAsync(this.storage, async () => {
                             await this.processInput(input);
                         });
-                    });
+                    }, undefined, true, true);
                 }
                 while (true);
             }

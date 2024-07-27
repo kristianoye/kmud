@@ -217,9 +217,6 @@
     <Compile Include="lib\sys\include\InputTypes.js">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="lib\sys\include\Lib.js">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="lib\cmds\items\Drop.js">
       <SubType>Code</SubType>
     </Compile>
@@ -402,6 +399,9 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="libman.json" />
+    <Content Include="lib\base\ArgParser.js" />
+    <Content Include="lib\base\CharacterClass.js" />
+    <Content Include="lib\base\CharacterRace.js" />
     <Content Include="lib\base\mixins\Drop.js" />
     <Content Include="lib\base\mixins\Get.js" />
     <Content Include="lib\base\mixins\Listen.js" />
@@ -423,9 +423,13 @@
     <Content Include="lib\sys\cmds\creator\Clone.js" />
     <Content Include="lib\sys\cmds\creator\Echo.js" />
     <Content Include="lib\sys\cmds\creator\Groups.js" />
+    <Content Include="lib\sys\cmds\creator\Reset.js" />
     <Content Include="lib\sys\cmds\creator\Which.js" />
     <Content Include="lib\sys\cmds\filesystem\Cat.js" />
     <Content Include="lib\sys\cmds\filesystem\Rehash.js" />
+    <Content Include="lib\sys\daemon\AccountDaemon.js" />
+    <Content Include="lib\sys\daemon\ClassDaemon.js" />
+    <Content Include="lib\sys\daemon\RaceDaemon.js" />
     <Content Include="lib\sys\etc\accessEx.json">
       <SubType>Code</SubType>
     </Content>
@@ -439,8 +443,11 @@
     <Content Include="lib\sys\etc\acls.json">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="lib\sys\include\DataFiles.js" />
+    <Content Include="lib\sys\include\ValidStats.js" />
     <Content Include="lib\sys\include\VerbMixins.js" />
-    <Content Include="lib\sys\shell\FileSystem.js" />
+    <Content Include="lib\sys\lib\classes\Mage.js" />
+    <Content Include="lib\sys\etc\Races.yaml" />
     <Content Include="lib\sys\skeleton\creator\cmds\HelloWorld.js">
       <SubType>Code</SubType>
     </Content>
@@ -517,30 +524,33 @@
     <Content Include="src\ErrorTypes.js" />
     <Content Include="src\ExecutionContext.js" />
     <Content Include="src\Extensions.js" />
-    <Content Include="src\extensions\Array.extensions.js">
+    <Content Include="src\extensions\000_Startup.js" />
+    <Content Include="src\extensions\001_Array.extensions.js" />
+    <Content Include="src\extensions\003_Date.extensions.js">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="src\extensions\Date.extensions.js">
+    <Content Include="src\extensions\002_Math.extensions.js">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="src\extensions\Math.extensions.js">
+    <Content Include="src\extensions\005_Number.extensions.js" />
+    <Content Include="src\extensions\007_Regex.extension.js" />
+    <Content Include="src\extensions\008_Console.extensions.js" />
+    <Content Include="src\extensions\999_Object.extensions.js">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="src\extensions\Number.extensions.js" />
-    <Content Include="src\extensions\Object.extensions.js">
+    <Content Include="src\extensions\006_Promise.extensions.js">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="src\extensions\Promise.extensions.js">
+    <Content Include="src\extensions\004_String.extensions.js">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="src\extensions\String.extensions.js">
-      <SubType>Code</SubType>
-    </Content>
-    <Content Include="src\extensions\System.namespace.js" />
     <Content Include="src\features\DomainStats.js" />
     <Content Include="src\features\FeatureBase.js" />
     <Content Include="src\features\MUDEditor.js" />
     <Content Include="src\features\VerbSystem.js" />
+    <Content Include="src\fs\FileOperations.js" />
+    <Content Include="src\inputs\InputTypes.js" />
+    <Content Include="src\ModuleLoader.js" />
     <Content Include="src\MUDStorageFlags.js" />
     <Content Include="src\security\AclSecurityManager.js" />
     <Content Include="src\security\BaseSecurityManager.js">
@@ -664,6 +674,7 @@
     <Content Include="src\setup\general\NetBindingSetup.js" />
     <Content Include="src\setup\MudSetupTypes.js" />
     <Content Include="src\setup\SectionSetup.js" />
+    <Content Include="src\SimpleObject.js" />
     <Content Include="src\StandardIO.js" />
     <Content Include="TODO.md">
       <SubType>Code</SubType>
@@ -857,6 +868,7 @@
     <Folder Include="lib\base\include\" />
     <Folder Include="lib\base\Combat\" />
     <Folder Include="lib\base\mixins\" />
+    <Folder Include="lib\base\events\" />
     <Folder Include="lib\base\Verbs\" />
     <Folder Include="lib\cmds\creator\" />
     <Folder Include="lib\cmds\admin\" />
@@ -878,6 +890,7 @@
     <Folder Include="lib\sys\cmds\player\" />
     <Folder Include="lib\sys\data\creators\" />
     <Folder Include="lib\sys\" />
+    <Folder Include="lib\sys\data\accounts\" />
     <Folder Include="lib\sys\data\players\" />
     <Folder Include="lib\sys\lib\" />
     <Folder Include="lib\sys\daemon\" />
@@ -885,7 +898,7 @@
     <Folder Include="lib\sys\include\" />
     <Folder Include="lib\sys\etc\" />
     <Folder Include="lib\sys\cmds\" />
-    <Folder Include="lib\sys\shell\" />
+    <Folder Include="lib\sys\lib\classes\" />
     <Folder Include="lib\sys\skeleton\creator\cmds\" />
     <Folder Include="lib\sys\test\" />
     <Folder Include="lib\sys\skeleton\" />

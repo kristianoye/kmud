@@ -40,8 +40,17 @@ const MudColorImplementation = require('../MudColorImplementation'),
         'YELLOW': ANSI(1) + ANSI(33),
         'GREEN': ANSI(32),
         'WHITE': ANSI(37),
-        'INITTERM': ESC("[H") + ESC("[2J")
-    };
+        'INITTERM': ESC("[H") + ESC("[2J"),
+        'BLINK': ANSI(5),
+        'UNDERLINE': ANSI(7),
+        'PURPLE': ANSI(35),
+        'LPURPLE': ANSI(95),
+        'LBLUE': ANSI(94),
+        'LRED': ANSI(91),
+        'DARK': ANSI(90),
+        'LGREEN': ANSI(92),
+        'TORQUOISE': ANSI(96),
+     };
 
 class TerminalColorXterm extends MudColorImplementation {
     colorMap() {

@@ -1,4 +1,6 @@
-﻿/*
+﻿const SimpleObject = require('../SimpleObject');
+
+/*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
@@ -80,7 +82,7 @@ class DefaultLoader {
                         //  to be incremented prior to checking method access
                         ecc
                             .alarm()
-                            .push(ob instanceof MUDObject && ob, method || '(undefined)', fileName, isAsync);
+                            .push((ob instanceof MUDObject || ob instanceof SimpleObject) && ob, method || '(undefined)', fileName, isAsync);
                     }
                     access && access !== "public" && ecc.assertAccess(ob, access, method, fileName);
                     //  Check access prior to pushing the new frame to the stack

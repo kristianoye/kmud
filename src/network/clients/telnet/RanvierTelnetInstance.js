@@ -6,6 +6,7 @@
  * Description: This module contains core game functionality.
  */
 
+const { ExecutionContext, CallOrigin } = require('../../../ExecutionContext');
 const
     ClientInstance = require('../../ClientInstance'),
     ClientCaps = require('../../ClientCaps'),
@@ -14,7 +15,6 @@ const
 class RanvierTelnetInstance extends ClientInstance {
     constructor(endpoint, client) {
         super(endpoint, client, client.remoteAddress);
-        var mainWindow;
 
         this.caps = new ClientCaps(this);
 
@@ -77,16 +77,27 @@ class RanvierTelnetInstance extends ClientInstance {
         this.client.end();
     }
 
-    async connect() {
-        if (!this.mainWindow) {
-            this.mainWindow = await ClientInstance.registerComponent(this, {
-                type: 'MainWindow',
-                attachTo: 'newLogin',
-                id: uuidv1(),
-                requiresShell: true
-            });
+    /**
+     * Connect the client to the game
+     * @param {ExecutionContext} ecc
+     * @returns
+     */
+    async connect(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'connect', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (!this.mainWindow) {
+                this.mainWindow = await ClientInstance.registerComponent(ecc, this, {
+                    type: 'MainWindow',
+                    attachTo: 'newLogin',
+                    id: uuidv1(),
+                    requiresShell: true
+                });
+            }
+            return this.mainWindow;
         }
-        return this.mainWindow;
+        finally {
+            frame.pop();
+        }
     }
 
     displayPrompt(evt) {

@@ -3,7 +3,7 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-import { LIB_ROOM } from 'Base';
+import { LIB_ROOM } from '@Base';
 import Room from LIB_ROOM;
 
 function formatName() {
@@ -47,10 +47,10 @@ export default final singleton class Square extends Room {
         </div>;
     }
 
-    async resetAsync() {
+    async reset() {
         if (!efuns.present('harry')) {
             let harry = await efuns.cloneObjectAsync('mob/Harry');
-            await harry().moveObjectAsync(this);
+            await harry.instance.moveObjectAsync(this);
         }
     }
 }

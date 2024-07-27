@@ -62,8 +62,11 @@ class PickOneInput extends BaseInput {
      * @param {MUDClient} client The client to render for
      */
     renderText(client) {
-        let prompt = efuns.eol + `${this.text || 'Please choose from the following:'}:` + efuns.eol + efuns.eol;
+        let prompt =  efuns.eol + `${this.text || 'Please choose from the following:'}:` + efuns.eol + efuns.eol;
         let list = [];
+
+        if (this.compact === true)
+            prompt = '';
 
         if (Array.isArray(this.options)) {
             this.options.forEach((o, i) => {
@@ -73,31 +76,43 @@ class PickOneInput extends BaseInput {
             if (list.length > 9) list = [];
         }
         else if (typeof this.options === 'object') {
-            Object.keys(this.options).forEach(key => {
-                let val = this.options[key],
-                    pos = val.indexOf(key);
+            for (let [key, val] of Object.entries(this.options)) {
+                let pos = val.indexOf(key),
+                    displayVal = val;
                 if (pos > -1) {
-                    val = val.slice(0, pos) + '[' + key.toUpperCase() + ']' + val.slice(pos + key.length);
+                    displayVal = displayVal.slice(0, pos) + '[' + key + ']' + displayVal.slice(pos + key.length);
                     list.push(key);
                 }
-                prompt += `\t${val}` + efuns.eol;
-            });
+                if (this.compact === true) {
+                    if (list.length > 1)
+                        prompt += ', ';
+                    prompt += displayVal;
+                }
+                else
+                    prompt += `\t${displayVal}` + efuns.eol;
+            }
         }
         else {
             throw new Error(`Bad argument for input type pickOne; Requires options to be object or array`);
         }
-        prompt += efuns.eol + `${this.prompt || 'Your choice'} `;
-        if ('summary' in this && list.length > 0) {
-            switch (this.summary) {
-                case '':
-                    prompt += '[' + list.join('') + ']';
-                    break;
-                case ',':
-                    prompt += '[' + list.slice(0, -1).join(',') + ' or ' + list.pop() + ']';
-                    break;
+        if (this.compact !== true) {
+            prompt += efuns.eol + `${this.prompt || 'Your choice'} `;
+
+            if ('summary' in this && list.length > 0) {
+                switch (this.summary) {
+                    case '':
+                        prompt += '[' + list.join('') + ']';
+                        break;
+                    case ',':
+                        prompt += '[' + list.slice(0, -1).join(',') + ' or ' + list.pop() + ']';
+                        break;
+                }
             }
+            prompt += ': ';
         }
-        prompt += ': ';
+        else {
+            prompt = this.text + '[' + prompt + ']: ';
+        }
         client.write(prompt);
     }
 

@@ -1,6 +1,7 @@
 /*
  *
  */
+const { ExecutionContext, CallOrigin, ExecutionFrame } = require('../ExecutionContext');
 const
     MUDEventEmitter = require('../MUDEventEmitter'),
     { FileSystemObject, ObjectNotFound, VirtualObjectFile, FileWrapperObject } = require('./FileSystemObject'),
@@ -9,8 +10,10 @@ const
     Cache = require('../Cache'),
     crypto = require('crypto'),
     yaml = require('js-yaml'),
-    path = require('path');
-const { FileSystemQueryFlags } = require('./FileSystemFlags');
+    path = require('path'),
+    { FileSystemQueryFlags, CopyFlags, DeleteFlags } = require('./FileSystemFlags'),
+    { FileCopyOperation, FileDeleteOperation } = require('./FileOperations');
+
 
 /**
  * The file manager object receives external requests, creates internal requests,
@@ -60,13 +63,13 @@ class FileManager extends MUDEventEmitter {
             let moduleImport = require(options.managerModule.startsWith('.') ?
                 path.join(__dirname, '..', options.managerModule) : options.managerModule);
 
-            if (driver.efuns.isClass(moduleImport)) {
+            if (driver.efuns.isClass(driver.getExecution().branch(), moduleImport)) {
                 securityManager = new moduleImport(this, fsconfig.securityManagerOptions);
             }
             else if (!options.managerTypeName) {
                 throw new Error('Config for securityManager is missing required parameter managerTypeName');
             }
-            else if (typeof moduleImport === 'object' && driver.efuns.isClass(moduleImport[options.managerTypeName])) {
+            else if (typeof moduleImport === 'object' && driver.efuns.isClass(driver.getExecution().branch(), moduleImport[options.managerTypeName])) {
                 let managerType = moduleImport[options.managerTypeName];
                 securityManager = new managerType(this, fsconfig.securityManagerOptions);
             }
@@ -106,12 +109,19 @@ class FileManager extends MUDEventEmitter {
 
     /**
      * Clone an object into existance.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} expr The module to clone
      * @param {any} args Constructor args for clone
      * @returns {MUDWrapper} The wrapped instance.
      */
-    async cloneObjectAsync(expr, args = []) {
-        return await this.loadObjectAsync(expr, args, 2);
+    async cloneObjectAsync(ecc, expr, args = []) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return await this.loadObjectAsync(frame.branch(), expr, args, 2);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -134,6 +144,157 @@ class FileManager extends MUDEventEmitter {
         expr = expr.replace(/\/\/+/g, '\/');
 
         return expr;
+    }
+
+    /**
+     * Copy file objects
+     * @param {FileCopyOperation} opts
+     */
+    async copyAsync(opts, isSystemRequest = false) {
+        let options = opts instanceof FileCopyOperation ? opts : new FileCopyOperation(opts),
+            source = await this.getObjectAsync(options.resolvedSource, 0, isSystemRequest === true),
+            dest = await this.getObjectAsync(options.resolvedDestination, 0, isSystemRequest === true);
+
+        if (!source.exists)
+            throw new Error(`${options.verb}: Source '${options.source}' does not exist`);
+        else if (source.isDirectory && !options.hasFlag(CopyFlags.Recursive))
+            throw new Error(`${options.verb}: Recursive flag not specified; omitting directory '${options.source}'`);
+
+        if (source.isDirectory) {
+            if (dest.isFile) {
+                throw new Error(`${options.verb}: Cannot overwrite non-directory '${options.destination} with directory '${options.source}'`);
+            }
+            else if (!dest.exists) {
+                await dest.createDirectoryAsync(true);
+                if (options.hasFlag(CopyFlags.Verbose))
+                    options.onCopyComplete(options.verb, options.source, options.destination);
+            }
+            let sourceFiles = await source.readDirectoryAsync(),
+                targetPath = path.posix.join(options.destination, source.name),
+                targetPathFull = path.posix.join(options.resolvedDestination, source.name),
+                targetDir = await this.getObjectAsync(targetPathFull);
+
+            if (!targetDir.exists)
+                await targetDir.createDirectoryAsync(true);
+
+            for (const file of sourceFiles) {
+                try {
+                    let sourcePath = path.posix.join(options.source, file.name);
+
+                    if (file.isDirectory) {
+                        if (file.fileSystemId !== source.fileSystemId && options.hasFlag(CopyFlags.SingleFilesystem)) {
+                            options.onCopyInformation(options.verb, `Omitting directory '${sourcePath}' since it is on a different filesystem`);
+                        }
+                        let child = options.createChild({
+                            source: sourcePath,
+                            destination: targetPath
+                        });
+                        await this.copyAsync(child, isSystemRequest === true);
+                    }
+                    else if (file.isFile) {
+                        let destPath = path.posix.join(targetPath, file.name);
+                        let child = options.createChild({
+                            source: sourcePath,
+                            destination: destPath
+                        });
+                        await this.copyAsync(child, isSystemRequest === true);
+                    }
+                }
+                catch (err) {
+                    if (options.onCopyError) {
+                        options.onCopyError(options.verb, err);
+                    }
+                    else
+                        throw err;
+                }
+            }
+        }
+        else if (dest.isDirectory) {
+            let destFullPath = path.posix.join(dest.fullPath, source.name),
+                destPath = path.posix.join(options.destination, source.name),
+                fo = await this.getObjectAsync(destFullPath, 0, isSystemRequest === true),
+                backup = '';
+
+            if (fo.exists) {
+                if (options.hasFlag(CopyFlags.RemoveDestination) && fo.exists) {
+                    await fo.deleteFileAsync();
+                }
+                if (options.hasFlag(CopyFlags.NonClobber)) {
+                    options.onCopyInformation(options.verb, `NoClobber: Omitting file '${options.source}' since it already exists as '${options.destination}'`);
+                    return true;
+                }
+                if (options.hasFlag(CopyFlags.Update) && fo.mtime >= source.mtime) {
+                    options.onCopyInformation(options.verb, `Omitting file '${options.source}' since it is not newer than '${destPath}'`);
+                    return true;
+                }
+                if (options.hasFlag(CopyFlags.Interactive)) {
+                    if (!await options.onOverwritePrompt(options.verb, destPath))
+                        return true;
+                }
+                if (options.hasFlag(CopyFlags.Backup)) {
+                    let backupFile = await driver.efuns.fs.createBackupAsync(dest, options.backupControl, options.backupSuffix),
+                        backupName = backupFile && backupFile.name,
+                        backupExtension = backupName && backupName.slice(dest.name.length);
+                    if (backupName) {
+                        backup = options.destination + backupExtension;
+                    }
+                }
+            }
+            if (await source.copyAsync(fo, options.flags)) {
+                if (options.hasFlag(CopyFlags.Verbose))
+                    options.onCopyComplete(options.verb, options.source, destPath, backup);
+                driver.efuns.addOutputObject(dest);
+                return true;
+            }
+            return false;
+        }
+        else if (dest.isFile || !dest.exists) {
+            let destPath = options.destination,
+                backup = '';
+
+            if (dest.exists) {
+                if (options.hasFlag(CopyFlags.RemoveDestination) && dest.exists) {
+                    await dest.deleteAsync();
+                }
+                if (options.hasFlag(CopyFlags.NonClobber))
+                {
+                    options.onCopyInformation(options.verb, `NoClobber: Omitting file '${options.source}' since it already exists as '${options.destination}'`);
+                    return true;
+                }
+                if (options.hasFlag(CopyFlags.Update) && dest.mtime >= source.mtime) {
+                    options.onCopyInformation(options.verb, `Omitting file '${options.source}' since it is not newer than '${options.destination}'`);
+                    return true;
+                }
+                if (options.hasFlag(CopyFlags.Interactive)) {
+                    if (!await options.onOverwritePrompt(options.verb, options.destination))
+                        return true;
+                }
+                if (options.hasFlag(CopyFlags.Backup)) {
+                    let backupFile = await driver.efuns.fs.createBackupAsync(dest, options.backupControl, options.backupSuffix),
+                        backupName = backupFile && backupFile.name,
+                        backupExtension = backupName && backupName.slice(dest.name.length);
+
+                    if (backupName) {
+                        backup = options.destination + backupExtension;
+                    }
+                }
+            }
+            else if (options.hasFlag(CopyFlags.NoTargetDir)) {
+                if (await source.copyAsync(dest, options.flags)) {
+                    if (options.hasFlag(CopyFlags.Verbose))
+                        options.onCopyComplete(options.verb, options.source, destPath, backup);
+                    driver.efuns.addOutputObject(dest);
+                    return true;
+                }
+            }
+            if (await source.copyAsync(dest, options.flags)) {
+                if (options.hasFlag(CopyFlags.Verbose))
+                    options.onCopyComplete(options.verb, options.source, destPath, backup);
+                driver.efuns.addOutputObject(dest);
+                return true;
+            }
+            return false;
+        }
     }
 
     /**
@@ -214,6 +375,149 @@ class FileManager extends MUDEventEmitter {
             isSystemRequest
         });
         return result;
+    }
+
+    /**
+     * Delete files and directories
+     * @param {FileDeleteOperation} opts
+     * @param {boolean} isSystemRequest
+     */
+    async deleteAsync(opts, isSystemRequest = false) {
+        let options = opts instanceof FileDeleteOperation ? opts : new FileDeleteOperation(opts);
+
+        for (const [displayPath, resolvedPath] of Object.entries(options.filesResolved)) {
+            if (options.aborted)
+                return false;
+            try {
+                let target = await this.getObjectAsync(resolvedPath, isSystemRequest === true);
+
+                if (!target.exists) {
+                    if (options.onDeleteFailure)
+                        options.onDeleteFailure(options.verb, displayPath, `Cannot remove '${displayPath}': Does not exist`);
+                    continue;
+                }
+                else if (target.isDirectory) {
+                    if (!options.hasFlag(DeleteFlags.Recursive)) {
+                        if (options.onDeleteFailure)
+                            options.onDeleteFailure(options.verb, displayPath, `Cannot remove '${displayPath}': It is a directory`);
+                        continue;
+                    }
+                    if (options.hasFlag(DeleteFlags.RemoveEmpty) && !await target.isEmpty()) {
+                        if (options.onDeleteFailure)
+                            options.onDeleteFailure(options.verb, displayPath, `Cannot remove '${displayPath}': Directory is not empty`);
+                        continue;
+                    }
+                    let files = await target.readDirectoryAsync();
+                    for (const file of files) {
+                        let displayChild = path.posix.join(displayPath, file.name);
+                        try {
+
+                            if (file.isDirectory) {
+                                if (options.hasFlag(DeleteFlags.SingleFilesystem) && file.fileSystemId !== target.fileSystemId) {
+                                    if (options.hasFlag(DeleteFlags.Verbose)) {
+                                        options.onDeleteInformation(options.verb, `Skipping '${displayChild}': Different filesystem`);
+                                    }
+                                    continue;
+                                }
+                                if (options.hasFlag(DeleteFlags.Interactive)) {
+                                    try {
+                                        if (!await options.onConfirmDelete(options.verb, displayChild, true)) {
+                                            options.onDeleteInformation(options.verb, `Skipping directory '${displayChild}'`);
+                                            continue;
+                                        }
+                                    }
+                                    catch (err) {
+                                        options.abort();
+                                        return false;
+                                    }
+                                }
+                                let childRequest = options.createChild({ files: [displayChild] });
+                                await this.deleteAsync(childRequest, isSystemRequest === true);
+                                if (childRequest.aborted)
+                                    return false;
+                            }
+                            else if (file.isFile) {
+                                if (options.hasFlag(DeleteFlags.Interactive)) {
+                                    try {
+                                        if (!await options.onConfirmDelete(options.verb, displayChild)) {
+                                            options.onDeleteInformation(options.verb, `Skipping file '${displayChild}'`);
+                                            continue;
+                                        }
+                                    }
+                                    catch (err) {
+                                        options.abort();
+                                        return false;
+                                    }
+                                    if (await file.deleteAsync()) {
+                                        await options.onDeleteComplete(options.verb, displayChild, file);
+                                    }
+                                }
+                            }
+                            else if (!file.exists)
+                                continue;
+                            else {
+                                options.onDeleteFailure(options.verb, `Unable to delete ${displayChild}: Unhandled file type`);
+                            }
+                        }
+                        catch (err) {
+                            if (options.onDeleteFailure)
+                                options.onDeleteFailure(options.verb, `Unable to delete ${displayChild}: ${err}`);
+                            else
+                                throw err;
+                        }
+                    }
+                    files = await target.readDirectoryAsync();
+                    if (files.length === 0) {
+                        if (options.hasFlag(DeleteFlags.Interactive)) {
+                            try {
+                                if (!await options.onConfirmDelete(options.verb, displayPath, true)) {
+                                    options.onDeleteInformation(options.verb, `Skipping directory '${displayPath}'`);
+                                    continue;
+                                }
+                            }
+                            catch (err) {
+                                options.aborted = true;
+                                return false;
+                            }
+                        }
+                        if (!target.deleteAsync()) {
+                            options.onDeleteFailure(options.verb, displayPath, `Unable to delete directory '${displayPath}'`);
+                        }
+                        else {
+                            await options.onDeleteComplete(options.verb, displayPath, target);
+                        }
+                    }
+                    else {
+                        options.onDeleteFailure(options.verb, displayPath, `Cannot remove '${displayPath}': Directory is not empty`);
+                    }
+                }
+                else if (target.isFile) {
+                    if (options.hasFlag(DeleteFlags.Interactive)) {
+                        try {
+                            if (!await options.onConfirmDelete(options.verb, displayPath)) {
+                                options.onDeleteInformation(options.verb, `Skipping file '${displayPath}'`);
+                                continue;
+                            }
+                        }
+                        catch (err) {
+                            options.aborted = true;
+                            return false;
+                        }
+                    }
+                    if (await target.deleteAsync()) {
+                        await options.onDeleteComplete(options.verb, displayPath, target);
+                    }
+                }
+                else
+                    throw new Error(`${options.verb}: Unexpected file type: ${displayPath}`);
+            }
+            catch (err) {
+                if (options.onDeleteFailure)
+                    options.onDeleteFailure(options.verb, displayPath, err);
+                else
+                    throw err;
+            }
+        }
     }
 
     /**
@@ -468,10 +772,9 @@ class FileManager extends MUDEventEmitter {
                 if (!result) {
                     await req.fileSystem.getFileAsync(req)
                         .then(fso => {
-                            if (!fso.isDirectory)
-                                return reject(`getDirectoryAsync: ${expr} is not a directory`);
-                            this.cache.store(fso);
-                            return resolve(fso);
+                            if (fso.isDirectory)
+                                this.cache.store(fso);
+                            resolve(fso);
                         })
                 }
                 else
@@ -485,14 +788,21 @@ class FileManager extends MUDEventEmitter {
 
     /**
      * Get a file object
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} expr The file path to get
      * @param {number} flags Flags associated with the request
      * @returns {Promise<FileObject>}
      */
-    async getFileAsync(expr, flags = 0, isSystemRequest = false) {
-        let request = this.createFileRequest('getFileAsync', expr, flags);
-        let fso = await request.fileSystem.getFileAsync(request);
-        return isSystemRequest ? fso : new FileWrapperObject(fso);
+    async getFileAsync(ecc, expr, flags = 0, isSystemRequest = false) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let request = this.createFileRequest('getFileAsync', expr, flags);
+            let fso = await request.fileSystem.getFileAsync(frame.branch(), request);
+            return isSystemRequest ? fso : new FileWrapperObject(fso);
+        }
+        finally {
+            frame.pop(true);
+        }
     }
 
     /**
@@ -545,32 +855,41 @@ class FileManager extends MUDEventEmitter {
      * This method MUST ALWAYS return a filesystem object.  If the object does
      * not exist or an error occurs this method should return a ObjectNotFound
      * FileSystem object.
+     * @param {ExecutionContext} ecc
      * @param {string} expr The path expression to fetch
      * @param {number} flags Filesystem flags to control the operation
      * @param {boolean} [isSystemRequest] THIS SHOULD ONLY BE USED BY DRIVER INTERNALS
      * @returns {Promise<FileSystemObject>}
      */
-    getObjectAsync(expr, flags = 0, isSystemRequest = false) {
+    getObjectAsync(ecc, expr, flags = 0, isSystemRequest = false) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+
         if (typeof flags === 'boolean') {
             isSystemRequest = flags;
             flags = 0;
         }
         let request = this.createFileRequest('getObjectAsync', expr, flags, isSystemRequest);
 
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async resolve => {
             try {
-                await request.fileSystem.getObjectAsync(request)
+                await request.fileSystem.getObjectAsync(frame.branch(), request)
                     .then(stat => {
                         if (isSystemRequest === true)
                             resolve(stat);
                         else
                             resolve(new FileWrapperObject(stat));
-                    }, reason => reject(reason));
+                    })
+                    .catch(reason => {
+                        let result = new ObjectNotFound(FileSystemObject.createDummyStats(request), reason);
+                        resolve(result);
+                    });
             }
             catch (ex) {
                 let result = new ObjectNotFound(FileSystemObject.createDummyStats(request), ex);
-                reject(result);
+                resolve(result);
             }
+        }).finally(() => {
+            frame.pop(true);
         });
     }
 
@@ -686,55 +1005,61 @@ class FileManager extends MUDEventEmitter {
 
     /**
      * Load an object from disk.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} expr Information about what is being requested.
      * @param {any} args Data to pass to the constructor.
      * @param {number} flags Flags to control the operation
      * @returns {MUDObject} The loaded object... hopefully
      */
-    async loadObjectAsync(expr, args, flags = 0) {
-        let request = this.createFileRequest('loadObjectAsync', expr, flags);
+    async loadObjectAsync(ecc, expr, args, flags = 0) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let request = this.createFileRequest('loadObjectAsync', expr, flags);
+            let exts = driver.compiler.supportedExtensions,
+                pattern = new RegExp(driver.compiler.extensionPattern),
+                result = false;
+            let fileParts = driver.efuns.parsePath(frame.branch(), request.fullPath),
+                { file, extension, type, objectId, defaultType } = fileParts,
+                module = driver.cache.get(file);
 
-        return new Promise(async (resolve, reject) => {
-            try {
-                let exts = driver.compiler.supportedExtensions,
-                    pattern = new RegExp(driver.compiler.extensionPattern),
-                    result = false;
-                let { file, extension } = driver.efuns.parsePath(request.fullPath),
-                    targetFile = extension && await this.getFileAsync(file + extension);
-
-                if (extension && pattern.test(targetFile.fullPath)) {
-                    result = await targetFile.loadObjectAsync(request.flags, args);
-                }
-                else if (extension) {
-                    return reject(`loadObjectAsync(): Invalid file extension: ${extension}`);
-                }
-                else {
-                    //  Extension was not specified... try them all
-                    for (let i = 0; i < exts.length; i++) {
-                        let fileWithExtension = await this.getFileAsync(file + exts[i], flags);
-
-                        if (fileWithExtension.exists) {
-                            result = await fileWithExtension.loadObjectAsync(request.flags, args)
-                                .catch(err => reject(err));
-                            break;
-                        }
-                    }
-                    if (!result) {
-                        //  Try virtual
-                        targetFile = new VirtualObjectFile(FileSystemObject.createDummyStats(request), request);
-                        result = await targetFile.loadObjectAsync(request, args)
-                            .catch(err => reject(err));
-                    }
-                }
-
-                if (!result)
-                    return reject(new Error(`loadObjectAsync(): Could not find suitable file to load: ${request.fullPath}`));
-                resolve(result);
+            if (module) {
+                let instance = module.getInstanceWrapper(fileParts);
+                if (instance)
+                    return instance;
             }
-            catch (ex) {
-                reject(ex);
+
+            let targetFile = extension && await this.getObjectAsync(frame.branch(), file);
+
+            if (extension && pattern.test(targetFile.fullPath)) {
+                result = await targetFile.loadObjectAsync(frame.branch(), request.flags, args);
             }
-        });
+            else if (extension) {
+                throw new Error(`loadObjectAsync(): Invalid file extension: ${extension}`);
+            }
+            else {
+                //  Extension was not specified... try them all
+                for (let i = 0; i < exts.length; i++) {
+                    let fileWithExtension = await this.getFileAsync(frame.branch(), file + exts[i], flags);
+
+                    if (fileWithExtension.exists) {
+                        result = await fileWithExtension.loadObjectAsync(frame.branch(), request.flags, args);
+                        break;
+                    }
+                }
+                if (!result) {
+                    //  Try virtual
+                    targetFile = new VirtualObjectFile(FileSystemObject.createDummyStats(request), request);
+                    result = await targetFile.loadObjectAsync(frame.branch(), request, args);
+                }
+            }
+
+            if (!result)
+                throw new Error(`loadObjectAsync(): Could not find suitable file to load: ${request.fullPath}`);
+            return result;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -884,12 +1209,20 @@ class FileManager extends MUDEventEmitter {
 
     /**
      * Translates a virtual path into an absolute path (if filesystem supported)
-     * @param {string} expr The virtual directory to translate.
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {string} exprIn The virtual directory to translate.
      * @returns {string} The absolute path.
      */
-    toRealPath(expr) {
-        let req = this.createFileRequest('toRealPath', expr);
-        return req.fileSystem.getRealPath(req.relativePath);
+    toRealPath(ecc, exprIn) {
+        /** @type {[ExecutionFrame, string]} */
+        let [frame, expr] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'toRealPath', callType: CallOrigin.Driver });
+        try {
+            let req = this.createFileRequest('toRealPath', expr);
+            return req.fileSystem.getRealPath(frame?.branch(), req.relativePath);
+        }
+        finally {
+            frame?.pop();
+        }
     }
 
     /**
