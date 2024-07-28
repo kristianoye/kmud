@@ -1,4 +1,4 @@
-﻿const { ExecutionContext } = require("./ExecutionContext");
+﻿const { ExecutionContext, CallOrigin } = require("./ExecutionContext");
 
 const
     LOGGER_ALL = 100,
@@ -11,11 +11,14 @@ class MUDLogger {
         this.level = typeof level === 'number' ? level : LOGGER_PRODUCTION;
     }
 
-    log(...args) {
-        if (args[0] instanceof ExecutionContext) {
-            args.shift();
+    log() {
+        let [frame, ...args] = ExecutionContext.tryPushFrame(arguments, { method: 'log', callType: CallOrigin.Driver });
+        try {
+            console.log(...args);
         }
-        console.log(...args);
+        finally {
+            frame?.pop();
+        }
     }
 
     /**

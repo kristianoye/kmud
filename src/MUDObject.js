@@ -96,9 +96,15 @@ class MUDObject extends MUDEventEmitter {
         return MUDVTable.exportScopedProperty(this, propName, scopeId);
     }
 
-    create(...args) { }
+    create(ecc, ...args) {
+        let frame = ecc && ecc.pushFrameObject({ method: 'create' });
+        frame?.pop();
+    }
 
-    setup(...args) { }
+    setup(ecc, ...args) {
+        let frame = ecc && ecc.pushFrameObject({ method: 'setup' });
+        frame?.pop();
+    }
 
     get environment() {
         let store = driver.storage.get(this);

@@ -877,9 +877,11 @@ async function parseElement(op, e, depth) {
                                 ret += await parseElement(op, _, depth + 1);
                             }
                             if (c === 0) {
-                                if (op.source.charAt(e.arguments.start) === '(') {
-                                    ret += op.readUntil(e.arguments.start + 1);
-                                    ret += op.context.mecName + '.branch(__LINE__)';
+                                if (op.context.mecDepth > 0) {
+                                    if (op.source.charAt(e.arguments.start) === '(') {
+                                        ret += op.readUntil(e.arguments.start + 1);
+                                        ret += op.context.mecName + '.branch(__LINE__)';
+                                    }
                                 }
                             }
                         }
@@ -1855,7 +1857,8 @@ class MudScriptTranspiler extends PipelineComponent {
             if (this.enabled) {
                 options.onDebugOutput(`\t\tRunning pipeline stage ${(step + 1)} of ${maxStep}: ${this.name}`, 3);
 
-                let source = op.source = 'await (async () => { ' + op.source + ' })()';
+                let source = op.source = 'await (async (__gar) => {  ' + op.source + ' })()';
+                // let source = op.source;
 
                 op.ast = this.parser.parse(source, op.acornOptions);
                 op.output += `__rmt(__mec.branch(), "${op.fullPath}");`

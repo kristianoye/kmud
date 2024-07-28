@@ -600,21 +600,18 @@ class AclSecurityManager extends BaseSecurityManager {
      */
     async can(ecc, fo, flags, methodName = 'unknonwn') {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'can', isAsync: true });
-        return new Promise(async (resolve, reject) => {
-            try {
-                //  Everything is read-write until the master object is loaded
-                if (!driver.masterObject)
-                    return resolve(true);
+        try {
+            //  Everything is read-write until the master object is loaded
+            if (!driver.masterObject)
+                return true;
 
-                let acl = await this.getAcl(ecc.branch(), fo);
-
-                let result = await acl.can(frame.branch(), flags, fo.fullPath, methodName);
-                resolve(result);
-            }
-            catch (err) {
-                reject(err);
-            }
-        }).finally(() => frame.pop());
+            let acl = await this.getAcl(frame.branch(), fo);
+            let result = await acl.can(frame.branch(), flags, fo.fullPath, methodName);
+            return result;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -676,61 +673,65 @@ class AclSecurityManager extends BaseSecurityManager {
         }
         else
             return new Promise(async (resolve, reject) => {
-                if (fo.isFile) {
-                    let parent = await fo.getParentAsync(frame.branch()),
-                        parentAcl = await this.getAcl(frame.branch(), parent);
+                try {
+                    if (fo.isFile) {
+                        let parent = await fo.getParentAsync(frame.branch()),
+                            parentAcl = await this.getAcl(frame.branch(), parent);
 
-                    return resolve(await parentAcl.getChildAsync(frame.branch(), fo.name));
-                }
-                else if (fo.isDirectory) {
-                    try {
-                        if (fo.path in this.aclCache)
-                            return resolve(this.aclCache[fo.path]);
-                        let aclFilename = await this.getAclFilename(frame.branch(), fo);
-                        let aclFile = await driver.fileManager.getObjectAsync(frame.branch(), aclFilename, 0, true);
-                        let existingData = aclFile.exists ? await this.readAclData(frame.branch(), aclFilename) : false;
-                        let parentAcl = fo.parent ? await this.getAcl(frame.branch(), fo.parent) : false;
-                        let requireSave = !aclFile.exists;
+                        return resolve(await parentAcl.getChildAsync(frame.branch(), fo.name));
+                    }
+                    else if (fo.isDirectory) {
+                        try {
+                            if (fo.path in this.aclCache)
+                                return resolve(this.aclCache[fo.path]);
+                            let aclFilename = await this.getAclFilename(frame.branch(), fo);
+                            let aclFile = await driver.fileManager.getObjectAsync(frame.branch(), aclFilename, 0, true);
+                            let existingData = aclFile.exists ? await this.readAclData(frame.branch(), aclFilename) : false;
+                            let parentAcl = fo.parent ? await this.getAcl(frame.branch(), fo.parent) : false;
+                            let requireSave = !aclFile.exists;
 
-                        //  There was no data for this directory; Ask the master
-                        if (existingData === false) {
-                            existingData = await driver.callApplyAsync(frame.branch(), this.createAclApply, fo.fullPath);
+                            //  There was no data for this directory; Ask the master
+                            if (existingData === false) {
+                                existingData = await driver.callApplyAsync(frame.branch(), this.createAclApply, fo.fullPath);
+                            }
+
+                            if (!existingData.owner)
+                                existingData.owner = await driver.callApplySync(frame.branch(), this.getFileOwnerApply, fo.fullPath, fo.isDirectory);
+
+                            /** @type {SecurityAcl} */
+                            let acl = new SecurityAcl(parentAcl, true, aclFile.fullPath, existingData);
+
+                            if (requireSave)
+                                await acl.saveAsync(frame.branch());
+
+                            return resolve(this.aclCache[fo.path] = acl);
+                        }
+                        catch (err) {
+                            reject(err);
+                        }
+                    }
+                    else if (!fo.exists && ignoreParent === false) {
+                        //  Look for the first parent that does exist
+                        let parent = await fo.getParentAsync(frame.branch());
+
+                        if (!parent.exists) {
+                            do {
+                                parent = await parent.getParentAsync(frame.branch());
+                            }
+                            while (!parent.exists);
                         }
 
-                        if (!existingData.owner)
-                            existingData.owner = await driver.callApplySync(frame.branch(), this.getFileOwnerApply, fo.fullPath, fo.isDirectory);
+                        let parentAcl = await this.getAcl(parent);
 
-                        /** @type {SecurityAcl} */
-                        let acl = new SecurityAcl(parentAcl, true, aclFile.fullPath, existingData);
-
-                        if (requireSave)
-                            await acl.saveAsync(frame.branch());
-
-                        return resolve(this.aclCache[fo.path] = acl);
+                        return resolve(await parentAcl.getChildAsync(frame.branch(), fo.name));
                     }
-                    catch (err) {
-                        reject(err);
-                    }
+                    else
+                        reject(`Invalid request:`)
                 }
-                else if (!fo.exists && ignoreParent === false) {
-                    //  Look for the first parent that does exist
-                    let parent = await fo.getParentAsync(frame.branch());
-
-                    if (!parent.exists) {
-                        do {
-                            parent = await parent.getParentAsync(frame.branch());
-                        }
-                        while (!parent.exists);
-                    }
-
-                    let parentAcl = await this.getAcl(parent);
-
-                    return resolve(await parentAcl.getChildAsync(frame.branch(), fo.name));
+                finally {
+                    frame.pop();
                 }
-                else
-                    reject(`Invalid request:`)
-            })
-                .finally(() => frame.pop());
+            });
     }
 
     /**

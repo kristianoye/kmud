@@ -305,12 +305,19 @@ class DiskFileObject extends FileSystemObject {
                 if (this.isDirectory)
                     return reject(`deleteFileAsync: Invalid operation: ${this.path} is a directory`);
                 else
-                    fs.unlink(this.#physicalLocation, err => err ? reject(err) : resolve(true));
+                    fs.unlink(this.#physicalLocation, err => {
+                        if (err)
+                            reject(err);
+                        else resolve(true);
+                    });
             }
             catch (ex) {
                 reject(ex);
             }
-        }).finally(() => frame.pop());
+            finally {
+                frame.pop();
+            }
+        });
     }
 
     /**
@@ -322,7 +329,7 @@ class DiskFileObject extends FileSystemObject {
     async getFileAsync(ecc, fileName) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
-            return this.getObjectAsync(fileName);
+            return await this.getObjectAsync(fileName);
         }
         finally {
             frame.pop();
@@ -351,7 +358,10 @@ class DiskFileObject extends FileSystemObject {
             catch (err) {
                 reject(err);
             }
-        }).finally(() => frame.pop());
+            finally {
+                frame.pop();
+            }
+        });
     }
 
     async isEmpty() {
@@ -394,9 +404,9 @@ class DiskFileObject extends FileSystemObject {
         let frame = ecc.pushFrameObject({ object: this, file: __filename, method: 'readAsync', isAsync: true });
         try {
             if (this.isDirectory)
-                return this.readDirectoryAsync(frame.branch(), ...args);
+                return await this.readDirectoryAsync(frame.branch(), ...args);
             else
-                return this.readFileAsync(frame.branch(), ...args);
+                return await this.readFileAsync(frame.branch(), ...args);
         }
         finally {
             frame.pop();
@@ -411,12 +421,18 @@ class DiskFileObject extends FileSystemObject {
      * @returns {Promise<FileSystemObject[]>}
      */
     async readDirectoryAsync(ecc, pattern = '', flags = 0) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'readDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
+
         let isSystemRequest = this.hasWrapper === false;
 
         if (pattern.indexOf('/') > -1) {
-            return driver.fileManager.queryFileSystemAsync(pattern, isSystemRequest);
+            try {
+                return driver.fileManager.queryFileSystemAsync(frame.branch(), pattern, isSystemRequest);
+            }
+            finally {
+                frame.pop();
+            }
         }
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'readDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
         return new Promise(async (resolve, reject) => {
             let returnResults = async (err = undefined, objectList = []) => {
                 let directoriesOnly = false,
@@ -488,17 +504,20 @@ class DiskFileObject extends FileSystemObject {
                 else
                     return resolve(results);
             };
-
             fs.readdir(this.#physicalLocation, { withFileTypes: true }, async (err, files) => {
-                if (err) return reject(err);
-                let promiseList = files.map(stat => driver.fileManager
-                    .getObjectAsync(frame.branch(), path.posix.join(this.path, stat.name), undefined, this.isSystemRequest));
+                try {
+                    if (err) return reject(err);
+                    let promiseList = files.map(stat => driver.fileManager
+                        .getObjectAsync(frame.branch(), path.posix.join(this.path, stat.name), undefined, this.isSystemRequest));
 
-                let results = await Promise.allWithLimit(promiseList);
-                return await returnResults(undefined, results);
+                    let results = await Promise.allWithLimit(promiseList);
+                    return await returnResults(undefined, results);
+                }
+                finally {
+                    frame.pop();
+                }
             });
         })
-            .finally(() => frame.pop(true));
     }
 
     /**
@@ -531,12 +550,15 @@ class DiskFileObject extends FileSystemObject {
                     catch (err) {
                         reject(err);
                     }
+                    finally {
+                        frame.pop();
+                    }
                 });
             }
             catch (err) {
                 reject(err);
             }
-        }).finally(() => frame.pop());
+        });
     }
 
     /**
@@ -553,12 +575,14 @@ class DiskFileObject extends FileSystemObject {
                     stat = this.#manager.createNormalizedStats(this.#physicalLocation, stat || {}, err);
                     super.refreshAsync(stat);
                     resolve(true);
+                    frame.pop();
                 });
             }
             catch (err) {
+                frame.pop();
                 reject(err);
             }
-        }).finally(() => frame.pop());
+        });
     }
 
     /**
@@ -656,7 +680,10 @@ class DiskFileObject extends FileSystemObject {
             catch (ex) {
                 reject(ex);
             }
-        }).finally(() => frame.pop());
+            finally {
+                frame.pop();
+            }
+        });
     }
 }
 
@@ -782,13 +809,14 @@ class DiskFileSystem extends BaseFileSystem {
                         });
                     }
                     resolve({ directories, files });
+                    frame.pop();
                 });
             }
             catch (e) {
+                frame.pop();
                 reject(e);
             }
-        })
-            .finally(() => frame.pop());
+        });
     }
 
     /**
@@ -896,7 +924,7 @@ class DiskFileSystem extends BaseFileSystem {
     async cloneObjectAsync(ecc, request, args) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
-            let { file, type, instance } = driver.efuns.parsePath(frame.branch(), request.fullPath),
+            let { file, type, instance } = driver.efuns.parsePath(ecc, request.fullPath),
                 module = driver.cache.get(file);
 
             if (instance > 0)
@@ -1001,7 +1029,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {FileSystemObject}} A basic stat object
      */
     createNormalizedStats(ecc, fullPath, baseStat = {}, err = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'createNormalizedStats', isAsync: true, callType: CallOrigin.Driver });
         try {
             let getStatValue = (val, def = false) => {
                 try {
@@ -1019,7 +1047,7 @@ class DiskFileSystem extends BaseFileSystem {
 
             let dt = new Date(0);
 
-            let pathInfo = this.getPathInfo(frame.branch(), fullPath);
+            let pathInfo = this.getPathInfo(frame.context, fullPath);
             let result = {
                 atime: getStatValue(baseStat.atime, dt),
                 atimeMs: getStatValue(baseStat.atime, dt.getTime()),
@@ -1069,7 +1097,7 @@ class DiskFileSystem extends BaseFileSystem {
             return result;
         }
         finally {
-            frame.branch();
+            frame.pop();
         }
     }
 
@@ -1513,7 +1541,7 @@ class DiskFileSystem extends BaseFileSystem {
             let myp = new Promise((resolve, reject) => {
                 try {
                     fs.stat(fullPath, (err, data) => {
-                        let stat = this.createNormalizedStats(ecc.branch(), fullPath, data, err);
+                        let stat = this.createNormalizedStats(frame.branch(), fullPath, data, err);
                         resolve(stat);
                     });
                 }

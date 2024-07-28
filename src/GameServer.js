@@ -641,6 +641,10 @@ class GameServer extends MUDEventEmitter {
                 this.simulEfunType = EFUNProxy;
             }
         }
+        catch (err) {
+            //  Fatal
+            throw err;
+        }
         finally {
             frame.pop();
             Object.seal(this.simulEfunType);
@@ -1111,7 +1115,7 @@ class GameServer extends MUDEventEmitter {
                 logger.log(error.stack);
             }
             else {
-                await this.applyLogError(frame.branch(), path, error);
+                await this.applyLogError(frame.branch(1118), path, error);
             }
         }
         finally {

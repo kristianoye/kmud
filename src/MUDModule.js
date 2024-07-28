@@ -697,7 +697,7 @@ class MUDModule extends events.EventEmitter {
                     virtualContext.module = this;
                     virtualContext.trueName = this.filename + '$' + type.name + '#' + virtualContext.objectId;
                     virtualContext.typeName = type.name;
-                    return await this.createInstanceAsync(frame.branch(), type, virtualContext, args);
+                    return await this.createInstanceAsync(frame.branch(700), type, virtualContext, args);
                 }
 
                 if (!instanceData) {
@@ -708,10 +708,10 @@ class MUDModule extends events.EventEmitter {
                     instanceData.wrapper = this.getWrapperForContext(instanceData);
 
                 // Storage needs to be set before starting...
-                store = driver.storage.createForId(frame.branch(), instanceData.objectId, instanceData.filename);
+                store = driver.storage.createForId(frame.branch(711), instanceData.objectId, instanceData.filename);
 
                 let constructorFrame = frame
-                    .branch()
+                    .branch(714)
                     .pushFrameObject({ object: instance, method: 'constructor', file: this.filename, callType: CallOrigin.Constructor });
 
                 try {
@@ -734,13 +734,13 @@ class MUDModule extends events.EventEmitter {
                 }
 
                 if (typeof instance.create === 'function') {
-                    await instance.create(frame.branch(), ...args);
+                    await instance.create(frame.branch(737), ...args);
                 }
                 if (typeof instance.setup === 'function') {
-                    await instance.setup(frame.branch());
+                    await instance.setup(frame.branch(740));
                 }
                 if (store !== false && instance !== false)
-                    await store.eventInitialize(ecc.branch(), instance);
+                    await store.eventInitialize(ecc.branch(743), instance);
             }
 
             return instance;
@@ -939,17 +939,24 @@ class MUDModule extends events.EventEmitter {
         let { objectId, filename } = ctx;
 
         let wrapper = (() => {
-            return () => {
+            /** @param {ExecutionContext} ecc */
+            return (ecc) => {
                 let instance = this.instancesById[objectId];
-                if (instance) {
-                    if (instance === -1 || instance.destructed) {
-                        instance = -1;
-                        throw new Error(`Object ${objectId} has been destructed [Invalid Wrapper]`);
+                let frame = ecc && ecc.pushFrameObject({ object: instance, method: 'wrapper', file: filename, callType: CallOrigin.LocalCall });
+                try {
+                    if (instance) {
+                        if (instance === -1 || instance.destructed) {
+                            instance = -1;
+                            throw new Error(`Object ${objectId} has been destructed [Invalid Wrapper]`);
+                        }
+                        return instance;
                     }
-                    return instance;
+                    else
+                        throw new Error(`Object ${objectId} has been destructed [Invalid Wrapper]`);
                 }
-                else
-                    throw new Error(`Object ${objectId} has been destructed [Invalid Wrapper]`);
+                finally {
+                    frame?.pop();
+                }
             };
         })();
 

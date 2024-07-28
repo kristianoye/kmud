@@ -471,7 +471,10 @@ class FileSystemObject extends events.EventEmitter {
             catch (err) {
                 reject(err);
             }
-        }).finally(() => frame.pop(true));
+            finally {
+                frame.pop();
+            }
+        });
     }
 
     /**
@@ -546,7 +549,10 @@ class FileSystemObject extends events.EventEmitter {
             catch (ex) {
                 reject(ex);
             }
-        }).finally(() => frame.pop());
+            finally {
+                frame.pop();
+            }
+        });
     }
 
     /**
@@ -581,7 +587,10 @@ class FileSystemObject extends events.EventEmitter {
             catch (ex) {
                 reject(ex);
             }
-        }).finally(() => frame.pop(true));
+            finally {
+                frame.pop();
+            }
+        });
     }
 
     /**
@@ -933,7 +942,7 @@ class FileWrapperObject extends FileSystemObject {
     async can(ecc, perm, methodName = 'unknown') {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'can', isAsync: true });
         try {
-            return driver.securityManager.can(frame.branch(), this, perm, methodName);
+            return await driver.securityManager.can(frame.branch(), this, perm, methodName);
         }
         finally {
             frame.pop(true);
@@ -1222,9 +1231,9 @@ class FileWrapperObject extends FileSystemObject {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'readAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (this.isDirectory)
-                return this.readDirectoryAsync(frame.branch(), ...args);
+                return await this.readDirectoryAsync(frame.branch(), ...args);
             else
-                return this.readFileAsync(frame.branch(), ...args);
+                return await this.readFileAsync(frame.branch(), ...args);
         }
         finally {
             frame.pop(true);
@@ -1240,7 +1249,7 @@ class FileWrapperObject extends FileSystemObject {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'readDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (await this.can(frame.branch(), SecurityFlags.P_LISTDIR, 'readDirectoryAsync')) {
-                return this.#instance.readDirectoryAsync(frame.branch(), ...args);
+                return await this.#instance.readDirectoryAsync(frame.branch(), ...args);
             }
         }
         finally {

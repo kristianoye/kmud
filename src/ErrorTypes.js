@@ -29,13 +29,14 @@ class CompositeError extends MUDError {
             return undefined;
     }
 
-    /**
-     * Get iterator to traverse errors
-     * @returns {Generator<MUDError>}
-     */
-    *getItems() {
-        for (const error of this.errors)
-            yield error;
+    getItems(ecc) {
+        let frame = ecc.pushFrameObject({ method: 'getItems' });
+        try {
+            return this.errors.slice(0);
+        }
+        finally {
+            frame.pop();
+        }
     }
 }
 

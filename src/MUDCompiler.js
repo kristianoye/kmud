@@ -175,22 +175,22 @@ class MUDCompiler {
      * @returns {MUDModule} The compiled module
      */
     async compileObjectAsync(ecc, options) {
-        if (!options)
-            throw new Error('compileObject() called with invalid parameter(s)');
-        else if (typeof options === 'string') {
-            options = {
-                file: options,
-                reload: false
-            };
-        }
-        else if (typeof options !== 'object') {
-            throw new Error('compileObject() called with invalid parameter(s)');
-        }
-        if (false === options instanceof MUDCompilerOptions) {
-            options = new MUDCompilerOptions(options);
-        }
-        let frame = ecc.pushFrame(driver.masterObject || driver, 'compileObjectAsync', options.file, true, 0);
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'compileObjectAsync', lineNumber: 178, isAsync: true, callType: CallOrigin.Driver });
         try {
+            if (!options)
+                throw new Error('compileObject() called with invalid parameter(s)');
+            else if (typeof options === 'string') {
+                options = {
+                    file: options,
+                    reload: false
+                };
+            }
+            else if (typeof options !== 'object') {
+                throw new Error('compileObject() called with invalid parameter(s)');
+            }
+            if (false === options instanceof MUDCompilerOptions) {
+                options = new MUDCompilerOptions(options);
+            }
             let context = await PipeContext.PipelineContext.create(frame.branch(), options, this.extensionPattern),
                 module = context.module,
                 t0 = efuns.ticks,

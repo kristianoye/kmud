@@ -37,6 +37,7 @@ const
     parseErrorLine = /\s*at (?<callType>new|async)?\s*(?<callee>[^\b]+) \((?<loc>[^\)]+)\)/;
 
 var
+    contextCount = 0,
     /** @type {Object.<string,ExecutionContext>} */ contexts = {},
     /** @type {Object.<number,ExecutionContext>} */ contextsByPID = {},
     nextPID = 1,
@@ -316,6 +317,11 @@ class ExecutionContext extends MUDEventEmitter {
         /** @type {ExecutionContext} */
         this.parent = undefined;
 
+        /** Was this context ever used? */
+        this.used = false;
+        /** @type {ExecutionContext[]} */
+        this.unusedChildren = [];
+
         if (parent) {
             /** @type {ExecutionFrame[]} */
             this.stack = parent.stack.slice(0);
@@ -329,13 +335,14 @@ class ExecutionContext extends MUDEventEmitter {
             this.cmdStack = parent.cmdStack;
 
             if (createDetached !== true) {
+                this.parent = parent;
+                this.parentFrame = parent.stack[0];
+                parent.unusedChildren = [this, ...parent.unusedChildren];
+
                 /** @type {ExecutionContext} */
                 this.master = parent.master;
                 this.pid = parent.pid;
 
-                parent.children[this.handleId] = this;
-                parent.children.length++;
-                this.parent = parent;
                 if (Array.isArray(parent.creationContexts))
                     this.creationContexts = parent.creationContexts.slice(0);
                 if (Array.isArray(parent.virtualCreationContexts))
@@ -353,6 +360,7 @@ class ExecutionContext extends MUDEventEmitter {
             contextsByPID[this.pid] = this;
         }
         contexts[this.handleId] = this;
+        contextCount++;
         ExecutionContext.current = this;
     }
 
@@ -608,7 +616,15 @@ class ExecutionContext extends MUDEventEmitter {
      */
     complete(forceCompletion = false) {
         try {
-            if ((this.stack.length === this.branchedAt && this.children.length === 0) || true === forceCompletion) {
+            if (this.stack.length === this.branchedAt || true === forceCompletion) {
+                if (this.children.length > 0) {
+                }
+                if (this.unusedChildren.length > 0) {
+                    for (const child of this.unusedChildren) {
+                        ExecutionContext.deleteContext(child);
+                    }
+                    this.unusedChildren = [];
+                }
                 this.completed = true;
                 for (let i = 0; i < this.onComplete; i++) {
                     try {
@@ -623,13 +639,11 @@ class ExecutionContext extends MUDEventEmitter {
         }
         finally {
             if (this.completed) {
-                if (!this.parent) {
-                    delete contextsByPID[this.pid];
-                }
-                else {
+                ExecutionContext.deleteContext(this);
+
+                if (this.parent) {
                     this.parent.childCompleted(this);
                 }
-                delete contexts[this.handleId];
                 process.nextTick(async () => {
                     await this.emit('complete', 'complete', forceCompletion ? 1 : 0);
                 });
@@ -657,6 +671,20 @@ class ExecutionContext extends MUDEventEmitter {
     get currentFileName() {
         let frame = this.stack[0];
         return frame.file || false;
+    }
+
+    /**
+     * Delete an active context
+     * @param {ExecutionContext} ecc
+     */
+    static deleteContext(ecc) {
+        if (ecc.handleId in contexts) {
+            delete contexts[ecc.handleId];
+            contextCount--;
+            if (!ecc.parent && ecc.pid > 0) {
+                delete contextsByPID[ecc.pid];
+            }
+        }
     }
 
     /**
@@ -926,8 +954,29 @@ class ExecutionContext extends MUDEventEmitter {
      */
     push(object, method, file, isAsync, lineNumber, callString, isUnguarded, callType = 0) {
         let newFrame = new ExecutionFrame(this, object, file, method, lineNumber, callString, isAsync, isUnguarded, callType);
-        this.stack.unshift(newFrame);
-        return this;
+        return this.pushActual(newFrame).context;
+    }
+
+    /**
+     * Actually push the frame to the stack
+     * @param {ExecutionFrame} frame
+     */
+    pushActual(frame) {
+        this.stack.unshift(frame);
+        if (!this.used) {
+            this.used = true;
+
+            //  Once a frame is used, only then is it registered with the parent
+            if (this.parent) {
+                let index = this.parent.unusedChildren.findIndex(this, c => c === this);
+
+                this.parent.children[this.handleId] = this;
+                this.parent.children.length++;
+
+                this.parent.unusedChildren.splice(index, 1);
+            }
+        }
+        return frame;
     }
 
     /**
@@ -973,7 +1022,7 @@ class ExecutionContext extends MUDEventEmitter {
             frameInfo.isAsync === true,
             frameInfo.isUnguarded === true,
             frameInfo.callType || 0);
-        this.stack.unshift(newFrame);
+        this.pushActual(newFrame);
         return newFrame;
     }
 
@@ -1011,7 +1060,7 @@ class ExecutionContext extends MUDEventEmitter {
                 info.isAsync === true,
                 info.isUnguarded === true,
                 info.callType);
-            this.stack.unshift(newFrame);
+            this.pushActual(newFrame);
             return newFrame;
         }
         throw new Error('Could not determine frame information from stack');

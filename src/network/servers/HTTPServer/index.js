@@ -12,6 +12,7 @@ const
     path = require('path'),
     io = require('socket.io'),
     fs = require('fs');
+const { ExecutionContext } = require('../../../ExecutionContext');
 
 const
     AuthManager = require('./AuthManager'),
@@ -154,16 +155,23 @@ class HTTPServer extends events.EventEmitter {
 
     /**
      * Add one or more index filenames (e.g. index.htm, index.html, etc)
+     * @param {ExecutionContext} ecc The current callstack
      * @param {...string} spec
      */
-    addIndexFile(...spec) {
-        spec.forEach(fn => {
-            if (this.indexFiles.indexOf(fn) === -1)
-                this.indexFiles.push(fn);
-        });
-        if (this.fileSystem)
-            this.fileSystem.addIndexFile(...spec);
-        return this;
+    addIndexFile(ecc, ...spec) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'addIndexFile' });
+        try {
+            spec.forEach(fn => {
+                if (this.indexFiles.indexOf(fn) === -1)
+                    this.indexFiles.push(fn);
+            });
+            if (this.fileSystem)
+                this.fileSystem.addIndexFile(...spec);
+            return this;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -474,11 +482,18 @@ class HTTPServer extends events.EventEmitter {
 
     /**
      * Set the static root
+     * @param {ExecutionContext} ecc The current callstack
      * @param {any} siteRoot
      */
-    setContentRoot(siteRoot) {
-        this.contentRoot = siteRoot;
-        return this;
+    setContentRoot(ecc, siteRoot) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'setContentRoot' });
+        try {
+            this.contentRoot = siteRoot;
+            return this;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -571,17 +586,25 @@ class HTTPServer extends events.EventEmitter {
 
     /**
      * Do stuff with the routing table (helper callback)
+     * @param {ExecutionContext} ecc The current callstack
      * @param {any} doAction
      */
-    withRoutes(doAction = false) {
-        if (typeof doAction === 'function')
-            try {
-                doAction(this.routeTable);
-            }
-            catch (err) {
-                throw err;
-            }
-        return this;
+    withRoutes(ecc, doAction = false) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'withRoutes' });
+
+        try {
+            if (typeof doAction === 'function')
+                try {
+                    doAction(this.routeTable);
+                }
+                catch (err) {
+                    throw err;
+                }
+            return this;
+        }
+        finally {
+            frame.pop();
+        }
     }
 }
 

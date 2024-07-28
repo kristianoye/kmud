@@ -1809,7 +1809,7 @@ class EFUNProxy {
                 for (let i = 0, max = includePath.length; i < max; i++) {
                     try {
                         let dir = await this.fs.getDirectoryAsync(frame.branch(), includePath[i]),
-                            files = await dir.readAsync(frame.branch(), file + '.*');
+                            files = await dir.readDirectoryAsync(frame.branch(), file + '.*');
                         if (files.length === 1) {
                             return IncludeCache[file] = files[0].path;
                         }
