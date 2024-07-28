@@ -303,7 +303,8 @@ class ExecutionContext extends MUDEventEmitter {
         this.completed = false;
 
         /** @type {Object.<string,ExecutionContext> & { length: number }} */
-        this.children = { length: 0 };
+        this.children = {};
+        this.childCount = 0;
 
         /** @type {ExecutionSignaller} */
         this.controller = new ExecutionSignaller();
@@ -599,7 +600,7 @@ class ExecutionContext extends MUDEventEmitter {
     childCompleted(child) {
         if (child.handleId in this.children) {
             delete this.children[child.handleId];
-            if ((--this.children.length) === 0) {
+            if (--this.childCount === 0) {
                 this.complete();
             }
         }
@@ -617,7 +618,10 @@ class ExecutionContext extends MUDEventEmitter {
     complete(forceCompletion = false) {
         try {
             if (this.stack.length === this.branchedAt || true === forceCompletion) {
-                if (this.children.length > 0) {
+                if (this.childCount > 0) {
+                    for (const [id, child] of Object.entries(this.children)) {
+                        console.log(`Child ${id} has not completedl`);
+                    }
                 }
                 if (this.unusedChildren.length > 0) {
                     for (const child of this.unusedChildren) {
@@ -971,7 +975,7 @@ class ExecutionContext extends MUDEventEmitter {
                 let index = this.parent.unusedChildren.findIndex(this, c => c === this);
 
                 this.parent.children[this.handleId] = this;
-                this.parent.children.length++;
+                this.parent.childCount++;
 
                 this.parent.unusedChildren.splice(index, 1);
             }

@@ -173,10 +173,10 @@ class MUDConfig {
         if (!this.setupMode) {
             this.assertValid();
             let gameDriverType = require('./GameServer');
-            let gameMaster = new gameDriverType(this);
+            let gameServer = new gameDriverType(this);
 
-            gameMaster.enableGlobalErrorHandler(true);
-            await gameMaster
+            gameServer.enableGlobalErrorHandler(true);
+            await gameServer
                 .run(() => {
                     logger.log('Done with startup');
                     if (this.runTests === true) {

@@ -1301,7 +1301,7 @@ class GameServer extends MUDEventEmitter {
             await this.runStarting(ecc);
 
             if (this.masterObject && this.applyStartup)
-                await this.applyStartup();
+                await this.applyStartup(frame.branch());
             if (callback)
                 callback.call(this);
             return await this.runMain();
@@ -1336,7 +1336,7 @@ class GameServer extends MUDEventEmitter {
             }
         }
         for (let i = 0; i < this.endpoints.length; i++) {
-            let frame = ecc.pushFrameObject({ object: this.masterObject, method: 'runStarting', callType: CallOrigin.Driver });
+            let frame = ecc.pushFrameObject({ object: this.masterObject, method: 'bindEndpoints', callType: CallOrigin.Driver });
             try {
                 this.endpoints[i]
                     .bind(frame.branch())

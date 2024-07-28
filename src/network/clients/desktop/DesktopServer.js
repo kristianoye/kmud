@@ -40,57 +40,62 @@ class DesktopServer extends ClientEndpoint {
      */
     bind(ecc) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'bind', callType: CallOrigin.Driver });
-        this.server = new HTTPServer(
-            {
-                enableWebSocket: true,
-                port: this.port,
-                portOptions: {
-                    host: this.address
-                },
-                websocketOptions: Object.assign({}, this.websocketOptions)
-            })
-            .createFileAbstraction(DesktopFileAbstraction)
-            .addMapping('/index.html', path.join(__dirname, 'client/index.html'))
-            .addMapping('/desktop/', path.join(__dirname, 'client/desktop/'))
-            .on('upgrade', () => {
-                console.log('Client has requested to upgrade to websocket');
-            })
-            .on('connection', client => {
-                let { existing, client: instance } = this.#getOrCreateClient(client);
+        try {
+            this.server = new HTTPServer(
+                {
+                    enableWebSocket: true,
+                    port: this.port,
+                    portOptions: {
+                        host: this.address
+                    },
+                    websocketOptions: Object.assign({}, this.websocketOptions)
+                })
+                .createFileAbstraction(DesktopFileAbstraction)
+                .addMapping('/index.html', path.join(__dirname, 'client/index.html'))
+                .addMapping('/desktop/', path.join(__dirname, 'client/desktop/'))
+                .on('upgrade', () => {
+                    console.log('Client has requested to upgrade to websocket');
+                })
+                .on('connection', client => {
+                    let { existing, client: instance } = this.#getOrCreateClient(client);
 
-                this.emit('kmud.connection', instance);
+                    this.emit('kmud.connection', instance);
 
-                if (false === existing)
-                    this.emit('kmud.connection.new', instance, 'http');
-                else
-                    instance.bindClient(client);
-            })
-            .start();
+                    if (false === existing)
+                        this.emit('kmud.connection.new', instance, 'http');
+                    else
+                        instance.bindClient(client);
+                })
+                .start();
 
-        if (typeof driver.applyRegisterServer === 'function') {
-            if (this.port > 0) {
-                driver.driverCall('applyRegisterServer', () => {
-                    driver.applyRegisterServer(frame.branch(), {
-                        address: this.address,
-                        protocol: 'http',
-                        port: this.port,
-                        server: this.server
+            if (typeof driver.applyRegisterServer === 'function') {
+                if (this.port > 0) {
+                    driver.driverCall('applyRegisterServer', () => {
+                        driver.applyRegisterServer(frame.branch(), {
+                            address: this.address,
+                            protocol: 'http',
+                            port: this.port,
+                            server: this.server
+                        });
                     });
-                });
-            }
+                }
 
-            if (this.securePort > 0) {
-                driver.driverCall('applyRegisterServer', () => {
-                    driver.registerServer(frame.branch(), {
-                        address: this.address,
-                        protocol: 'https',
-                        port: this.securePort,
-                        server: this.server
+                if (this.securePort > 0) {
+                    driver.driverCall('applyRegisterServer', () => {
+                        driver.registerServer(frame.branch(), {
+                            address: this.address,
+                            protocol: 'https',
+                            port: this.securePort,
+                            server: this.server
+                        });
                     });
-                });
+                }
             }
+            return this;
         }
-        return this;
+        finally {
+            frame.pop();
+        }
     }
 
     /**

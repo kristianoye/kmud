@@ -316,10 +316,10 @@ class FileSystemHelper {
      * @param {string} expr The path expression to get
      * @param {number} [flags] Optional flags to control the operation
      */
-    getObjectAsync(ecc, expr, flags = 0) {
+    async getObjectAsync(ecc, expr, flags = 0) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
-            return driver.fileManager.getObjectAsync(frame.branch(), expr, flags);
+            return await driver.fileManager.getObjectAsync(frame.branch(), expr, flags);
         }
         finally {
             frame.pop();

@@ -439,7 +439,7 @@ class FileSystemObject extends events.EventEmitter {
      * @param {any[]} args
      */
     async loadObjectAsync(ecc, flags = 0, args = []) {
-        let frame = ecc.pushFrameObject({ method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
         return new Promise(async (resolve, reject) => {
             try {
                 if (this.isDirectory)
@@ -925,7 +925,7 @@ class FileWrapperObject extends FileSystemObject {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'appendFileAsync', isAsync: true });
         try {
             if (await this.can(frame.branch(), SecurityFlags.P_WRITE)) {
-                return this.#instance.appendFileAsync(frame.branch(), content, options);
+                return await this.#instance.appendFileAsync(frame.branch(), content, options);
             }
         }
         finally {
@@ -1212,9 +1212,9 @@ class FileWrapperObject extends FileSystemObject {
      * @param {...any} args
      */
     async loadObjectAsync(ecc, ...args) {
-        let frame = ecc.pushFrameObject({ method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
-            return this.#instance.loadObjectAsync(frame.branch(), ...args);
+            return await this.#instance.loadObjectAsync(frame.branch(), ...args);
         }
         finally {
             frame.pop(true);
@@ -1267,7 +1267,7 @@ class FileWrapperObject extends FileSystemObject {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'readFileAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (await this.can(frame.branch(), SecurityFlags.P_READ, 'readFileAsync')) {
-                return this.#instance.readFileAsync(frame.branch(), ...args);
+                return await this.#instance.readFileAsync(frame.branch(), ...args);
             }
         }
         finally {
