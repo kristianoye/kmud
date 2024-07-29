@@ -885,11 +885,12 @@ class DiskFileSystem extends BaseFileSystem {
     /**
      * Translate an absolute path back into a virtual path.
      * @param {ExecutionContext} ecc The current callstack
-     * @param {string} expr The absolute path to translate.
+     * @param {string} exprIn The absolute path to translate.
      * @returns {string|false} The virtual path if the expression exists in this filesystem or false if not.
      */
-    getVirtualPath(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getVirtualPath', isAsync: false, callType: CallOrigin.Driver });
+    getVirtualPath(ecc, exprIn) {
+        /** @type {[ExecutionFrame, string ]} */
+        let [frame, expr] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'getVirtualPath', isAsync: false, callType: CallOrigin.Driver });
         try {
             if (path.sep !== path.posix.sep) {
                 if (expr.toLowerCase().startsWith(this.root.toLowerCase())) {
@@ -910,7 +911,7 @@ class DiskFileSystem extends BaseFileSystem {
             return false;
         }
         finally {
-            frame.pop();
+            frame?.pop();
         }
     }
 

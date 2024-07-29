@@ -683,49 +683,55 @@ class GameServer extends MUDEventEmitter {
             this.cache = new MUDCache();
             this.compiler = new MUDCompiler(this, this.config.driver.compiler);
 
-            global.unwrap = function (target, success, hasDefault) {
-                let result = false,
-                    defaultValue = hasDefault || false,
-                    onSuccess = typeof success === 'function' && success || (s => s);
+            global.unwrap = function (...args) {
+                let [frame, target, success, hasDefault] = ExecutionContext.tryPushFrame(arguments, { method: 'unwrap' });
+                try {
+                    let result = false,
+                        defaultValue = hasDefault || false,
+                        onSuccess = typeof success === 'function' && success || (s => s);
 
-                if (typeof target === 'function' && target.isWrapper === true) {
-                    result = target();
-                    if (!result || typeof result !== 'object' || result.constructor.name === 'Object')
-                        result = defaultValue;
-                }
-                else if (target instanceof MUDObject) { // if (typeof target === 'object' && result.constructor.name !== 'Object') {
-                    result = target;
-                }
-                else if (target instanceof SimpleObject) {
-                    result = target;
-                }
-                else if (typeof target === 'function') {
-                    result = target();
-                }
-                else if (typeof target === 'string') {
-                    let parts = driver.efuns.parsePath(target),
-                        module = driver.cache.get(parts.file);
-
-                    if (parts.defaultType && module) {
-                        result = module.defaultExport instanceof MUDObject ? module.defaultExport : false;
+                    if (typeof target === 'function' && target.isWrapper === true) {
+                        result = target();
+                        if (!result || typeof result !== 'object' || result.constructor.name === 'Object')
+                            result = defaultValue;
                     }
+                    else if (target instanceof MUDObject) { // if (typeof target === 'object' && result.constructor.name !== 'Object') {
+                        result = target;
+                    }
+                    else if (target instanceof SimpleObject) {
+                        result = target;
+                    }
+                    else if (typeof target === 'function') {
+                        result = target();
+                    }
+                    else if (typeof target === 'string') {
+                        let parts = driver.efuns.parsePath(target),
+                            module = driver.cache.get(parts.file);
+
+                        if (parts.defaultType && module) {
+                            result = module.defaultExport instanceof MUDObject ? module.defaultExport : false;
+                        }
+                    }
+                    else if (Array.isArray(target)) {
+                        let items = target.map(t => global.unwrap(t))
+                            .filter(o => o instanceof MUDObject);
+
+                        if (items.length !== target.length)
+                            return onSuccess ? onSuccess() : undefined;
+
+                        if (onSuccess)
+                            return onSuccess(items);
+
+                        return items;
+                    }
+                    else if (typeof defaultValue === 'function')
+                        return defaultValue();
+
+                    return result && onSuccess(result);
                 }
-                else if (Array.isArray(target)) {
-                    let items = target.map(t => global.unwrap(t))
-                        .filter(o => o instanceof MUDObject);
-
-                    if (items.length !== target.length)
-                        return onSuccess ? onSuccess() : undefined;
-
-                    if (onSuccess)
-                        return onSuccess(items);
-
-                    return items;
+                finally {
+                    frame?.pop();
                 }
-                else if (typeof defaultValue === 'function')
-                    return defaultValue();
-
-                return result && onSuccess(result);
             };
 
             global.unwrapAsync = async function (target, success, hasDefault) {
@@ -955,20 +961,21 @@ class GameServer extends MUDEventEmitter {
                 failed = [];
 
             await async.forEachOfLimit(beatingHearts, this.heartbeatLimit || 10,
-                async (obj, index, itr) => {
-                    return this.driverCallAsync('heartbeat', async ecc => {
+                async (store, index, itr) => {
+                    return ExecutionContext.withNewContext({ object: this.masterObject, method: 'executeHeartbeat', isAsync: true, callType: CallOrigin.Driver }, async ecc => {
                         try {
                             ecc.alarmTime = efuns.ticks + heartbeatInterval;
-                            ecc.truePlayer = ecc.player = obj.owner;
-                            await obj.eventHeartbeat(this.heartbeatInterval, this.heartbeatCounter);
+                            ecc.truePlayer = ecc.player = store.owner;
+
+                            await store.eventHeartbeat(ecc, this.heartbeatInterval, this.heartbeatCounter);
                         }
                         catch (err) {
-                            failed.push(obj);
+                            failed.push(store);
                         }
                         finally {
                             typeof itr === 'function' && itr();
                         }
-                    }, undefined, false, true);
+                    });
                 },
                 () => {
                     let timing = efuns.ticks - heartbeatStart.getTime();
@@ -1089,7 +1096,7 @@ class GameServer extends MUDEventEmitter {
                                     return result;
                                 }
                                 catch (err) {
-                                    console.log(`Error in ${name}: ${err}`);
+                                    console.log(`Error in ${name}: ${err}\n${err.stack}`);
                                 }
                             }
                         };

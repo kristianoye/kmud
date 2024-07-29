@@ -308,7 +308,7 @@ class EFUNProxy {
         try {
             return await driver
                 .fileManager
-                .cloneObjectAsync(frame.branch(), this.resolvePath(file), args);
+                .cloneObjectAsync(frame.branch(), this.resolvePath(frame.branch(), file), args);
         }
         finally {
             frame.pop();
@@ -1874,6 +1874,9 @@ class EFUNProxy {
                 expr = '/world/' + expr.slice(1);
             }
             return path.posix.resolve(relativeToPath, expr);
+        }
+        catch (err) {
+            throw err;
         }
         finally {
             frame?.pop();

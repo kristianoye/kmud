@@ -1026,6 +1026,10 @@ class FileManager extends MUDEventEmitter {
                 let instance = module.getInstanceWrapper(fileParts);
                 if (instance)
                     return instance;
+                else if ((flags & 2) === 2 && !objectId) {
+                    instance = await module.createInstanceAsync(frame.branch(), type, undefined, args);
+                    return instance || false;
+                }
             }
 
             let targetFile = extension && await this.getObjectAsync(frame.branch(), file);

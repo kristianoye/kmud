@@ -664,9 +664,11 @@ class MUDModule extends events.EventEmitter {
      * @returns
      */
     async createInstanceAsync(ecc, type, instanceData, args, factory = false, callingFile = false, isReload = false) {
-        let frame = ecc.pushFrame(ecc.thisObject, 'createInstanceAsync', this.filename, true);
+        let frame = ecc.pushFrameObject({  file: __filename, method: 'createInstanceAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
-            let instance = false, store = false, isType = false;
+            let instance = false,
+                store = false,
+                isType = false;
 
             if (typeof type === 'string' && !this.isVirtual) {
                 if (type in this.oldExports === false) {
@@ -677,6 +679,10 @@ class MUDModule extends events.EventEmitter {
                     else if (type in this.types === false) {
                         if (this.oldExports.length === 1 && this.$defaultExport)
                             type = this.$defaultExport;
+                        else if (type in this.typeDefinitions) {
+                            type = this.typeDefinitions[type];
+                            isType = true;
+                        }
                         else
                             throw new Error(`Unable to find type ${type}`);
                     }

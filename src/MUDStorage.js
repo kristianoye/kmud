@@ -30,6 +30,7 @@ class MUDStorage extends MUDEventEmitter {
     constructor(owner, $credential) {
         super();
 
+        this.canHeartbeat = true;
         this.component = false;
         this.clientCaps = ClientCaps.DefaultCaps;
 
@@ -211,21 +212,19 @@ class MUDStorage extends MUDEventEmitter {
                     let store = driver.storage.get(component.body);
 
                     if (store) {
-                        await driver.driverCallAsync('disconnect', async context => {
-                            await context.withPlayerAsync(store, async player => {
-                                await driver.driverCallAsync('disconnect', async () => {
-                                    if (typeof store.clientCaps.off === 'function' && store.clientCapEventHandlerId) {
-                                        store.clientCaps.off('kmud', store.clientCapEventHandlerId);
-                                    }
-                                    store.connected = false;
-                                    store.interactive = false;
-                                    store.connected = false;
-                                    store.lastActivity = 0;
-                                    store.shell = false;
-                                    await player.disconnect();
-                                    store.component = false;
-                                    store.clientCaps = ClientCaps.DefaultCaps;
-                                });
+                        await driver.driverCallAsync('disconnect', /** @param {ExecutionContext} context */ async context => {
+                            await context.withPlayerAsync(store, async (player, ecc) => {
+                                if (typeof store.clientCaps.off === 'function' && store.clientCapEventHandlerId) {
+                                    store.clientCaps.off('kmud', store.clientCapEventHandlerId);
+                                }
+                                store.connected = false;
+                                store.interactive = false;
+                                store.connected = false;
+                                store.lastActivity = 0;
+                                store.shell = false;
+                                await player.disconnect(context.branch());
+                                store.component = false;
+                                store.clientCaps = ClientCaps.DefaultCaps;
                             });
                         });
 
@@ -255,8 +254,8 @@ class MUDStorage extends MUDEventEmitter {
                 //  Linkdeath
                 component.once('disconnected', () => {
                     driver.driverCallAsync('disconnect', async ecc => {
-                        await ecc.withPlayerAsync(this, async player => {
-                            await player.disconnect()
+                        await ecc.withPlayerAsync(this, async (player, ctx) => {
+                            await player.disconnect(ctx.branch());
                         });
                     });
                 });
@@ -266,6 +265,9 @@ class MUDStorage extends MUDEventEmitter {
                     return await ecc.withPlayerAsync(this, async (player, ecc) => {
                         let shellSettings = typeof player.getShellSettings === 'function' ? await player.getShellSettings(ecc.branch(), false, {}) : false;
                         this.shell.update(shellSettings || {});
+
+                        this.canHeartbeat = typeof player.eventHeartbeat === 'function';
+
                         if (shellSettings.variables && shellSettings.variables.SHELLRC) {
                             await this.shell.executeResourceFile(ecc.branch(), shellSettings.variables.SHELLRC);
                         }
@@ -318,21 +320,33 @@ class MUDStorage extends MUDEventEmitter {
 
     /**
      * Pass the heartbeat on to the in-game object.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {number} total
      * @param {number} ticks
      */
-    async eventHeartbeat(total, ticks) {
-        if (this.lastActivity) {
-            if (this.idleTime > this.maxIdleTime) {
-                this.heartbeat = false;
-                return this.eventExec(false, 'You have been idle for too long.');
+    async eventHeartbeat(ecc, total, ticks) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'eventHeartbeat', callType: CallOrigin.Driver });
+        try {
+            if (this.lastActivity) {
+                if (this.idleTime > this.maxIdleTime) {
+                    this.heartbeat = false;
+                    return this.eventExec(false, 'You have been idle for too long.');
+                }
+            }
+            else if (this.canHeartbeat) {
+                try {
+                    //  Do not attempt any heartbeats until this one is complete.
+                    this.canHeartbeat = false;
+                    await player.eventHeartbeat(frame.branch(), total, ticks);
+                }
+                finally {
+                    this.canHeartbeat = true;
+                }
             }
         }
-        let ecc = driver.getExecution();
-        await ecc.withPlayerAsync(this, async player => {
-            await player.eventHeartbeat(total, ticks);
-        }, true, 'eventHeartbeat');
-        
+        finally {
+            frame.pop();
+        }
     }
 
     /**
