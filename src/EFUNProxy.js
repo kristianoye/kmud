@@ -2435,7 +2435,7 @@ class EFUNProxy {
     wizardp(ecc, target) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'wizardp', callType: CallOrigin.DriverEfun });
         try {
-            return this.living.isWizard(target);
+            return this.living.isWizard(frame.context, target);
         }
         finally {
             frame.pop();

@@ -125,7 +125,7 @@ class MUDLoader {
                         //  to be incremented prior to checking method access
                         ecc
                             .alarm()
-                            .push((ob instanceof MUDObject || ob instanceof SimpleObject) && ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, callType);
+                            .push((ob instanceof MUDObject || ob instanceof SimpleObject) && ob, method || '(anonymous)', fileName, isAsync, lineNumber, undefined, false, callType);
                     }
 
                     if ((access & MemberModifiers.Public) !== MemberModifiers.Public)

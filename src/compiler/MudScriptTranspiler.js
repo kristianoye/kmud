@@ -1193,6 +1193,7 @@ async function parseElement(op, e, depth) {
                         addRuntimeAssert(e,
                             `const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, arguments, { ${pnames.join(', ')} }, this, ${MemberModifiers.Public}, '${e.id.name}', __FILE__,  ${ctx.isAsync}, __LINE__); try { `,
                             ` } finally { __efc(${ctx.mecName}, '${e.id.name}'); }`);
+                    ret += op.readUntil(e.body.start);
                     ret += await parseElement(op, e.body, depth + 1, { name: functionName });
                     ctx.pop();
                 }
@@ -1230,9 +1231,14 @@ async function parseElement(op, e, depth) {
                                     ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, true);
                                 op.wroteConstructorName = true;
                             }
-                            else {
+                            else if (op.context.memberName) {
                                 addRuntimeAssert(e,
                                     `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${op.context.callType}); try { `,
+                                    ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false);
+                            }
+                            else {
+                                addRuntimeAssert(e,
+                                    `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, 1 /* public */, '(anonymous)', __FILE__, false, __LINE__, undefined, ${op.context.callType}); try { `,
                                     ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false);
                             }
                         }
@@ -1247,8 +1253,11 @@ async function parseElement(op, e, depth) {
                             `const [${ctx.mecName}, parameters] = __bfc(__gec, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${(op.context.functionName || op.context.memberName)}', __FILE__, false, __LINE__, false, ${op.context.callType}); try { `,
                             ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false);
                     }
+                    ret += op.readUntil(e.body.start);
+                    let innerCtx = op.pushContext({ memberName: undefined, className: undefined, callType: 0, memberModifiers: 1 });
                     ret += await parseElement(op, e.body, depth + 1);
-                    op.popContext();
+                    innerCtx.pop();
+                    ctx.pop();
                 }
                 break;
 

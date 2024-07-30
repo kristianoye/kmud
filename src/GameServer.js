@@ -750,8 +750,9 @@ class GameServer extends MUDEventEmitter {
                             module = driver.cache.get(parts.file);
 
                         if (!module) {
-                            let result = global.unwrap(await driver.efuns.loadObjectAsync(target));
-                            return global.unwrap(result, success, hasDefault);
+                            let result = await driver.efuns.loadObjectAsync(frame.branch(), target);
+                            if (result)
+                                return global.unwrap(result, success, hasDefault);
                         }
                     }
                     return global.unwrap(frame.context, target, success, hasDefault);
