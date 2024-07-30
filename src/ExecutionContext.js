@@ -445,7 +445,7 @@ class ExecutionContext extends MUDEventEmitter {
      * @param {string} method The name of the method being accssed
      * @param {string} fileName The file this 
      */
-    assertAccess(thisObject, access, method, fileName) {
+    assertAccess(thisObject, method, access, fileName) {
         let to = this.thisObject || thisObject;
         let friendTypes = []; // TODO: Replace this: thisObject instanceof MUDObject && thisObject.constructor.friendTypes;
         let areFriends = false;
@@ -620,11 +620,12 @@ class ExecutionContext extends MUDEventEmitter {
             if (this.stack.length === this.branchedAt || true === forceCompletion) {
                 if (this.childCount > 0) {
                     for (const [id, child] of Object.entries(this.children)) {
-                        console.log(`Child ${id} has not completedl`);
+                        console.log(`\tExecutionContext: Child context ${id} has not completedl`);
                     }
                 }
                 if (this.unusedChildren.length > 0) {
                     for (const child of this.unusedChildren) {
+                        console.log(`\tExecutionContext: Child context ${child.handleId} was never usedl`);
                         ExecutionContext.deleteContext(child);
                     }
                     this.unusedChildren = [];
@@ -830,11 +831,11 @@ class ExecutionContext extends MUDEventEmitter {
         let lastFrame = this.stack.shift();
 
         if (!lastFrame || lastFrame.callString !== method) {
-            if (lastFrame) {
-                console.log(`ExecutionContext out of sync; Expected ${method} but found ${lastFrame.callString}`);
+            if (lastFrame && lastFrame !== method) {
+                console.log(`\tExecutionContext: Out of sync; Expected ${method} but found ${lastFrame.callString}`);
             }
             else
-                console.log(`ExecutionContext out of sync... no frames left!`);
+                console.log(`\tExecutionContext: Out of sync... no frames left!`);
         }
 
         if (true === yieldBack) {
@@ -887,11 +888,11 @@ class ExecutionContext extends MUDEventEmitter {
                 this.alarmTime += lastFrame.ellapsed;
         }
         if (frame !== this.stack[0]) {
-            console.log(`ExecutionContext out of sync; Expected ${frame.method} but found ${this.stack[0].method}`);
+            console.log(`\tExecutionContext: Out of sync; Expected ${frame.method} but found ${this.stack[0].method}`);
             let index = this.stack.findIndex(f => f === frame);
             if (index === -1) {
                 //  Crash?
-                console.log(`CRITICAL ERROR: FRAME NOT FOUND IN STACK: ${frame.method}`);
+                console.log(`\tExecutionContext: CRITICAL ERROR: FRAME NOT FOUND IN STACK: ${frame.method}`);
             }
             else {
                 this.stack = this.stack.slice(0, index);

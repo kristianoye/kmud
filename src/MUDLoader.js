@@ -380,7 +380,7 @@ class MUDLoader {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'extendType' });
         try {
             for (const exp of moduleList) {
-                if (driver.efuns.isClass(frame.branch(), exp)) {
+                if (driver.efuns.isClass(frame.context, exp)) {
                     global.MUDVTable.extendType(target, exp);
                 }
                 else
@@ -437,69 +437,95 @@ class MUDLoader {
 
     /**
      * Remove an interval
+     * @param {ExecutionContext} ecc The current callstack
      * @param {number} timer
      * @returns {boolean}
      */
-    clearInterval(ident) {
-        if (typeof ident === 'number' && ident > 0) {
-            if (ident in Intervals) {
-                let ctx = Intervals[ident],
-                    varId = `setInterval-${ident}`,
-                    frameId = ctx.getCustomVariable(varId);
-                    
-                ctx.removeFrameById(frameId);
-                ctx.removeCustomVariable(varId);
+    clearInterval(ecc, ident) {
+        let frame = ecc.pushFrameObject({ method: 'clearInterval', callType: CallOrigin.Driver });
+        try {
+            if (typeof ident === 'number' && ident > 0) {
+                if (ident in Intervals) {
+                    let ctx = Intervals[ident],
+                        varId = `setInterval-${ident}`,
+                        frameId = ctx.getCustomVariable(varId);
+
+                    ctx.removeFrameById(frameId);
+                    ctx.removeCustomVariable(varId);
+                }
+                global.clearInterval(ident);
+                return true;
             }
-            global.clearInterval(ident);
-            return true;
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Remove an timeout/callout
+     * @param {ExecutionContext} ecc The current callstack
      * @param {number} timer The unique timer ID
      * @returns {boolean}
      */
-    clearTimeout(ident) {
-        if (typeof ident === 'number' && ident > 0) {
-            if (ident in Callouts) {
-                let ctx = Callouts[ident],
-                    varId = `setTimeout-${ident}`,
-                    frameId = ctx.getCustomVariable(varId);
+    clearTimeout(ecc, ident) {
+        let frame = ecc.pushFrameObject({ method: 'clearTimeout', callType: CallOrigin.Driver });
+        try {
+            if (typeof ident === 'number' && ident > 0) {
+                if (ident in Callouts) {
+                    let ctx = Callouts[ident],
+                        varId = `setTimeout-${ident}`,
+                        frameId = ctx.getCustomVariable(varId);
 
-                ctx.removeFrameById(frameId);
-                ctx.removeCustomVariable(varId);
+                    ctx.removeFrameById(frameId);
+                    ctx.removeCustomVariable(varId);
+                }
+                global.clearTimeout(ident);
+                return true;
             }
-            global.clearTimeout(ident);
-            return true;
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
-    createElement() {
-        let children = [].slice.call(arguments),
-            type = children.shift(),
-            props = children.shift();
-        if (typeof type === 'string') {
-            return new MUDHtml.MUDHtmlElement(type, props, children);
+    /**
+     * Create an element (JSX)
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {...any} children
+     * @returns
+     */
+    createElement(ecc, ...children) {
+        let frame = ecc.pushFrameObject({ method: 'createElement' });
+        try {
+            let type = children.shift(),
+                props = children.shift();
+            if (typeof type === 'string') {
+                return new MUDHtml.MUDHtmlElement(type, props, children);
+            }
+            else if (typeof type === 'function' && type.toString().match(/^class /)) {
+                return new type(type, props, children);
+            }
+            else if (typeof type === 'function') {
+                return new MUDHtml.MUDHtmlComponent(type, props, children);
+            }
         }
-        else if (typeof type === 'function' && type.toString().match(/^class /)) {
-            return new type(type, props, children);
-        }
-        else if (typeof type === 'function') {
-            return new MUDHtml.MUDHtmlComponent(type, props, children);
+        finally {
+            frame.pop();
         }
     }
 
     /**
      * Attempt to destruct an object
+     * @param {ExecutionContext} ecc The current callstack
      * @param {any} target
      * @param {...any} args
      * @returns
      */
-    destruct(target, ...args) {
-        return efuns.destruct(target, ...args);
+    destruct(...args) {
+        return driver.efuns.destruct(...args);
     }
 
     get ENV() { return driver.efuns.env; }
@@ -516,15 +542,27 @@ class MUDLoader {
         return efuns.errorLine(...args);
     }
 
-    eventSend(event, target = false) {
-        let ecc = driver.getExecution(),
-            thisObject = target || ecc.player,
-            store = !!thisObject && driver.storage.get(thisObject);
+    /**
+     * 
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {any} event
+     * @param {any} target
+     * @returns
+     */
+    eventSend(ecc, event, target = false) {
+        let frame = ecc.pushFrameObject({ method: 'eventSend', callType: CallOrigin.DriverEfun });
+        try {
+            let thisObject = target || ecc.player,
+                store = !!thisObject && driver.storage.get(thisObject);
 
-        if (store && store.component) {
-            return store.eventSend(Object.assign({ target: store.component.id }, event));
+            if (store && store.component) {
+                return store.eventSend(Object.assign({ target: store.component.id }, event));
+            }
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -550,23 +588,25 @@ class MUDLoader {
 
     /**
      * Check to see if the current call has been awaited
+     * @param {ExecutionContext} ecc The current callstack
      * @param {boolean} assertIfNotAwaited If true and the call is not awaited then a runtime exception is thrown
      * @param {string} methodName The name of the async method being called
      * @returns {boolean}
      */
-    isAwaited(assertIfNotAwaited = false, methodName = 'unknown') {
-        return efuns.isAwaited(assertIfNotAwaited, methodName);
+    isAwaited(ecc, assertIfNotAwaited = false, methodName = 'unknown') {
+        return efuns.isAwaited(ecc, assertIfNotAwaited, methodName);
     }
 
     /**
      * Send a message to one or more objects.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {any} messageType
      * @param {any} expr
      * @param {any} audience
      * @param {any} excluded
      */
-    message(messageType='', expr='', audience=[], excluded=[]) {
-        return efuns.message(messageType, expr, audience, excluded);
+    message(ecc, messageType='', expr='', audience=[], excluded=[]) {
+        return efuns.message(ecc, messageType, expr, audience, excluded);
     }
 
     get MUDFS() {
@@ -581,8 +621,8 @@ class MUDLoader {
         return efuns.origin(...args);
     }
 
-    previousObject(n) {
-        return efuns.previousObject(n);
+    previousObject(...args) {
+        return efuns.previousObject(...args);
     }
 
     /**
@@ -593,13 +633,7 @@ class MUDLoader {
      * @param {function(string):void} callback A callback that will receive the user's input
      */
     prompt(ecc, type, options = {}, callback = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'prompt', callType: CallOrigin.DriverEfun });
-        try {
-            efuns.input.prompt(frame.context, type, options, callback);
-        }
-        finally {
-            frame.pop();
-        }
+        efuns.input.prompt(ecc, type, options, callback);
     }
 
     /**
@@ -610,7 +644,7 @@ class MUDLoader {
      * @returns
      */
     promptAsync(ecc, type, options = {}) {
-        return efuns.input.promptAsync(type, options);
+        return efuns.input.promptAsync(ecc, type, options);
     }
 
     /**
@@ -769,12 +803,14 @@ class MUDLoader {
         return driver.efuns.out;
     }
 
-    thisPlayer(flag) {
-        let ecc = driver.getExecution();
-
-        return ecc ?
-            flag ? ecc.truePlayer : ecc.player :
-            false;
+    /**
+     * Get the current player from the callstack
+     * @param {ExecutionContext} ecc
+     * @param {any} flag If set then the "true player" is returned (e.g. person who forced action)
+     * @returns
+     */
+    thisPlayer(...args) {
+        return driver.efuns.thisPlayer(...args);
     }
 
     unwrap(...args) {
@@ -827,8 +863,9 @@ class MUDLoader {
         }
     }
 
-    writeRaw(str) {
-        return efuns.efuns.writeRaw(str);
+
+    writeRaw(...args) {
+        return efuns.efuns.writeRaw(...args);
     }
 
     get UOM() {
@@ -836,20 +873,6 @@ class MUDLoader {
     }
 }
 
-MUDLoader.getInitialization = function () {
-    return `
-    Promise.prototype.always = function (onResolveOrReject) {
-        return this.then(onResolveOrReject, reason => {
-            onResolveOrReject(reason);
-            throw reason;
-        });
-    };
-
-    String.notEmpty = function(s) {
-        return typeof s === 'string' && /\\w+/.test(s);
-    };
-    `.trim();
-}
 /**
  * Configure the loader for runtime.
  * @param {GameServer} driver A reference to the game driver.

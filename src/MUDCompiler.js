@@ -339,7 +339,7 @@ class MUDCompiler {
                 module = virtualContext.module;
             }
             catch (err) {
-                console.log(`compileVirtual() error: ${err.message}`);
+                console.log(`compileVirtual() error: ${err.message}\n${err.stack}`);
                 driver.cache.delete(context.fullPath);
             }
             finally {

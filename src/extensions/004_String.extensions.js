@@ -134,6 +134,16 @@ if (typeof String.prototype.ucfirst !== 'function') {
     }
 }
 
+String.notEmpty = function (ecc, s) {
+    let frame = ecc.pushFrameObject({ method: 'notEmpty' });
+    try {
+        return typeof s === 'string' && /\\w+/.test(s);
+    }
+    finally {
+        frame.pop();
+    }
+}
+
 if (__ivc === true) {
     __igt(String.prototype);
 }

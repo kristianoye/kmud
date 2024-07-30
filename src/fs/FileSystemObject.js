@@ -438,13 +438,13 @@ class FileSystemObject extends events.EventEmitter {
      * @param {number} flags
      * @param {any[]} args
      */
-    async loadObjectAsync(ecc, flags = 0, args = []) {
+    async loadObjectAsync(ecc, flags = 0, args = [], fileParts = false) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
         return new Promise(async (resolve, reject) => {
             try {
                 if (this.isDirectory)
                     throw new Error(`Operation not supported: ${this.fullPath} is a directory.`);
-                let parts = driver.efuns.parsePath(frame.context, this.fullPath),
+                let parts = fileParts || driver.efuns.parsePath(frame.context, this.fullPath),
                     module = driver.cache.get(parts.file),
                     forceReload = !module || (flags & 1) > 0,
                     cloneOnly = (flags & 2) > 0;

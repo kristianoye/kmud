@@ -1239,7 +1239,7 @@ async function parseElement(op, e, depth) {
                             else {
                                 addRuntimeAssert(e,
                                     `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, 1 /* public */, '(anonymous)', __FILE__, false, __LINE__, undefined, ${op.context.callType}); try { `,
-                                    ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false);
+                                    ` } finally { __efc(${ctx.mecName}, '(anonymous)'); }`, false);
                             }
                         }
                         else if (op.context.functionName) {
@@ -1382,7 +1382,7 @@ async function parseElement(op, e, depth) {
             case 'JSXElement':
                 if (!op.options.allowJsx)
                     op.raise(`JSX is not enabled for ${op.extension} files`, e);
-                ret += 'createElement(';
+                ret += `createElement(${op.context.mecName}, `;
                 op.pos = e.start;
                 ret += await parseElement(op, e.openingElement, depth + 1);
                 if (e.children.length > 0) {

@@ -592,6 +592,16 @@ class AclSecurityManager extends BaseSecurityManager {
     }
 
     /**
+     * Cache an ACL
+     * @param {string} path
+     * @param {SecurityAcl} acl
+     */
+    cacheAcl(path, acl) {
+        this.aclCache[path] = acl;
+        return acl;
+    }
+
+    /**
      * Check to see if the type of action is allowed in the current context.
      * @param {ExecutionContext} ecc The current call stack
      * @param {FileSystemObject} fo
@@ -704,7 +714,7 @@ class AclSecurityManager extends BaseSecurityManager {
                             if (requireSave)
                                 await acl.saveAsync(frame.branch());
 
-                            return resolve(this.aclCache[fo.path] = acl);
+                            return resolve(this.cacheAcl(fo.path, acl));
                         }
                         catch (err) {
                             reject(err);
@@ -987,7 +997,7 @@ class AclSecurityManager extends BaseSecurityManager {
                                 data.owner = await driver.callApplyAsync(frame.branch(), this.getFileOwnerApply, fso.fullPath);
 
                             /** @type {SecurityAcl} */
-                            let acl = this.aclCache[fso.fullPath] = new SecurityAcl(parentAcl, true, aclFile.fullPath, data);
+                            let acl = this.cacheAcl(fso.fullPath, new SecurityAcl(parentAcl, true, aclFile.fullPath, data));
 
                             await acl.saveAsync(frame.branch());
                         }
@@ -1141,44 +1151,51 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {ExecutionContext} ecc The current call stack
      * @param {string} perms
      */
-    parsePerms(ecc, perms) {
-        if (typeof perms !== 'number' && typeof perms !== 'string')
-            return 0;
+    parsePerms() {
+        /** @type {[ ExecutionContext, string ]} */
+        let [frame, perms] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'parsePerms' });
+        try {
+            if (typeof perms !== 'number' && typeof perms !== 'string')
+                return 0;
 
-        let result = 0,
-            parts = typeof perms === 'string' ? perms.split('').sort() : [];
+            let result = 0,
+                parts = typeof perms === 'string' ? perms.split('').sort() : [];
 
-        if (typeof perms === 'number') {
-            return perms;
-        }
-        else if (perms in this.permSets) {
-            return this.permSets[perms];
-        }
-
-        parts.forEach(p => {
-            switch (p) {
-                case 'c': result |= SecurityFlags.P_CREATEFILE; break;
-                case 'C': result |= SecurityFlags.P_CREATEFILE | SecurityFlags.P_CREATEDIR; break;
-                case 'd': result |= SecurityFlags.P_DELETE; break;
-                case 'D': result |= SecurityFlags.P_DELETEDIR | SecurityFlags.P_DELETE; break;
-                case 'm': result |= SecurityFlags.P_READMETADATA; break;
-                case 'M': result |= SecurityFlags.P_READMETADATA | SecurityFlags.P_WRITEMETADATA; break;
-                case 'O': result |= SecurityFlags.P_TAKEOWNERSHIP; break;
-                case 'P': result |= SecurityFlags.P_CHANGEPERMS; break;
-                case 'p': result |= SecurityFlags.P_READPERMS; break;
-                case 'r': result |= SecurityFlags.P_READ | SecurityFlags.P_READPERMS; break;
-                case 'R': result |= SecurityFlags.P_LISTDIR | SecurityFlags.P_READ | SecurityFlags.P_READPERMS; break;
-                case 'w': result |= SecurityFlags.P_WRITE; break;
-                case 'x': result |= SecurityFlags.P_EXECUTE; break;
-                case 'L': result |= SecurityFlags.P_LOADOBJECT; break;
-                case 'U': result |= SecurityFlags.P_DESTRUCTOBJECT; break;
+            if (typeof perms === 'number') {
+                return perms;
             }
-        });
+            else if (perms in this.permSets) {
+                return this.permSets[perms];
+            }
 
-        //  Infinitely small performance gain
-        this.permSets[parts.join('')] = result;
+            parts.forEach(p => {
+                switch (p) {
+                    case 'c': result |= SecurityFlags.P_CREATEFILE; break;
+                    case 'C': result |= SecurityFlags.P_CREATEFILE | SecurityFlags.P_CREATEDIR; break;
+                    case 'd': result |= SecurityFlags.P_DELETE; break;
+                    case 'D': result |= SecurityFlags.P_DELETEDIR | SecurityFlags.P_DELETE; break;
+                    case 'm': result |= SecurityFlags.P_READMETADATA; break;
+                    case 'M': result |= SecurityFlags.P_READMETADATA | SecurityFlags.P_WRITEMETADATA; break;
+                    case 'O': result |= SecurityFlags.P_TAKEOWNERSHIP; break;
+                    case 'P': result |= SecurityFlags.P_CHANGEPERMS; break;
+                    case 'p': result |= SecurityFlags.P_READPERMS; break;
+                    case 'r': result |= SecurityFlags.P_READ | SecurityFlags.P_READPERMS; break;
+                    case 'R': result |= SecurityFlags.P_LISTDIR | SecurityFlags.P_READ | SecurityFlags.P_READPERMS; break;
+                    case 'w': result |= SecurityFlags.P_WRITE; break;
+                    case 'x': result |= SecurityFlags.P_EXECUTE; break;
+                    case 'L': result |= SecurityFlags.P_LOADOBJECT; break;
+                    case 'U': result |= SecurityFlags.P_DESTRUCTOBJECT; break;
+                }
+            });
 
-        return result;
+            //  Infinitely small performance gain
+            this.permSets[parts.join('')] = result;
+
+            return result;
+        }
+        finally {
+            frame?.pop();
+        }
     }
 
     /**

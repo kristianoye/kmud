@@ -383,7 +383,7 @@ class MUDStorage extends MUDEventEmitter {
         this.nextReset = driver.efuns.ticks + this.resetInterval;
         return await driver.driverCallAsync('reset', async (ecc) => {
             return await ecc.withObject(this.owner, 'reset', async () => {
-                await this.owner.reset();
+                await this.owner.reset(ecc.branch());
             }, true);
         });
     }

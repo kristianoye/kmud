@@ -111,7 +111,7 @@ class VMWrapper extends VMAbstraction {
                         });
                     }
                     catch (err) {
-                        console.log(`Failed to load extension: ${file}: ${err.message}`);
+                        console.log(`\t\t\tFailed to load extension: ${file}: ${err.message}`);
                     }
                 });
             }

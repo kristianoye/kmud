@@ -1155,7 +1155,7 @@ class EFUNProxy {
     playerp(ecc, target) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'playerp', callType: CallOrigin.DriverEfun });
         try {
-            return this.living.isPlayer(target);
+            return this.living.isPlayer(ecc, target);
         }
         finally {
             frame.pop();
@@ -1810,6 +1810,11 @@ class EFUNProxy {
                     try {
                         let dir = await this.fs.getDirectoryAsync(frame.branch(), includePath[i]),
                             files = await dir.readDirectoryAsync(frame.branch(), file + '.*');
+
+                        if (!Array.isArray(files)) {
+                            files = await dir.readDirectoryAsync(frame.branch(), file + '.*');
+                        }
+
                         if (files.length === 1) {
                             return IncludeCache[file] = files[0].path;
                         }
