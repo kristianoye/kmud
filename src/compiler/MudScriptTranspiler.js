@@ -1186,14 +1186,21 @@ async function parseElement(op, e, depth) {
                     }
                     if (op.typeDef) {
                         addRuntimeAssert(e,
-                            `const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${MemberModifiers.Public}, '${e.id.name}', __FILE__, ${ctx.isAsync}, __LINE__); try { `,
+                            `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${MemberModifiers.Public}, '${e.id.name}', __FILE__, ${ctx.isAsync}, __LINE__); try { `,
                             ` } finally { __efc(${ctx.mecName}, '${e.id.name}'); }`);
                     }
                     else
                         addRuntimeAssert(e,
-                            `const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, arguments, { ${pnames.join(', ')} }, this, ${MemberModifiers.Public}, '${e.id.name}', __FILE__,  ${ctx.isAsync}, __LINE__); try { `,
+                            `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, this, ${MemberModifiers.Public}, '${e.id.name}', __FILE__,  ${ctx.isAsync}, __LINE__); try { `,
                             ` } finally { __efc(${ctx.mecName}, '${e.id.name}'); }`);
                     ret += op.readUntil(e.body.start);
+                    let n = ret.lastIndexOf('(');
+                    if (n > -1) {
+                        if (e.params.length)
+                            ret = ret.slice(0, n + 1) + '__ctx,' + ret.slice(n + 1);
+                        else
+                            ret = ret.slice(0, n + 1) + '__ctx' + ret.slice(n + 1);
+                    }
                     ret += await parseElement(op, e.body, depth + 1, { name: functionName });
                     ctx.pop();
                 }

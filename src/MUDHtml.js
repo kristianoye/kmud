@@ -47,7 +47,7 @@ class MUDHtmlComponent {
                     result += c.render();
                 }
                 else {
-                    result += c.toString();
+                    result += c?.toString();
                 }
             });
         }

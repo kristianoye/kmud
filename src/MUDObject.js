@@ -139,7 +139,10 @@ class MUDObject extends MUDEventEmitter {
         return !!store && store.inventory;
     }
 
-    async initAsync() { }
+    async initAsync(ecc) {
+        let frame = ecc && ecc.pushFrameObject({ method: 'initAsync' });
+        frame?.pop();
+    }
 
     /**
      * 
