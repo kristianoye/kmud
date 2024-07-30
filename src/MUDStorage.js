@@ -104,10 +104,12 @@ class MUDStorage extends MUDEventEmitter {
 
     /**
      * Execute a command from the shell.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {ParsedCommand} clientCommand
      */
-    async eventCommand(clientCommand) {
-        return await driver.driverCallAsync('executeCommand', async (context) => {
+    async eventCommand(ecc, clientCommand) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'eventCommand', isAsync: true, callType: CallOrigin.Driver });
+        try {
             let cmd = {
                 verb: clientCommand.verb,
                 args: clientCommand.args.map(a => a.hasOwnProperty('value') ? a.value : a),
@@ -122,32 +124,33 @@ class MUDStorage extends MUDEventEmitter {
                     clientCommand.options.variables || {})
             };
 
-            let originalContextSettings = context.changeSettings({ alarmTime: Number.MAX_SAFE_INTEGER /* efuns.ticks + maxCommandExecutionTime */ });
+            let originalContextSettings = ecc.changeSettings({ alarmTime: Number.MAX_SAFE_INTEGER /* efuns.ticks + maxCommandExecutionTime */ });
+            let result = false;
+            try {
+                ecc.pushCommand(cmd);
+                result = await this.owner.executeCommand(ecc, cmd);
+                if (result !== true && this.actions) {
 
-            return await context.withPlayerAsync(this, async (player) => {
-                let result = false;
-                try {
-                    context.pushCommand(cmd);
-                    result = await player.executeCommand(cmd);
-                    if (result !== true && this.actions) {
-                        let actionResult = await this.actions.tryAction(cmd);
-                        if (typeof actionResult === 'boolean' || typeof actionResult === 'string')
-                            result = actionResult;
-                    }
-                    if (typeof result === 'string')
-                        driver.efuns.errorLine(result);
-                    return result;
+                    let actionResult = await this.actions.tryAction(cmd);
+                    if (typeof actionResult === 'boolean' || typeof actionResult === 'string')
+                        result = actionResult;
                 }
-                catch (err) {
-                    result = err;
-                }
-                finally {
-                    context.popCommand();
-                    context.changeSettings(originalContextSettings);
-                }
+                if (typeof result === 'string')
+                    driver.efuns.errorLine(ecc, result);
                 return result;
-            }, false, 'eventCommand');
-        }, this.filename, true);
+            }
+            catch (err) {
+                result = err;
+            }
+            finally {
+                ecc.popCommand();
+                ecc.changeSettings(originalContextSettings);
+            }
+            return result;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -225,7 +228,7 @@ class MUDStorage extends MUDEventEmitter {
                                 await player.disconnect(context.branch());
                                 store.component = false;
                                 store.clientCaps = ClientCaps.DefaultCaps;
-                            });
+                            }, false);
                         });
 
                         component.shell.abortInputs();
@@ -266,12 +269,13 @@ class MUDStorage extends MUDEventEmitter {
                         let shellSettings = typeof player.getShellSettings === 'function' ? await player.getShellSettings(ecc.branch(), false, {}) : false;
                         this.shell.update(shellSettings || {});
 
-                        this.canHeartbeat = typeof player.eventHeartbeat === 'function';
+                        await player.connect(ecc.branch(), this.connectedPort, this.remoteAddress, ...args);
 
                         if (shellSettings.variables && shellSettings.variables.SHELLRC) {
                             await this.shell.executeResourceFile(ecc.branch(), shellSettings.variables.SHELLRC);
                         }
-                        await player.connect(ecc.branch(), this.connectedPort, this.remoteAddress, ...args);
+
+                        this.canHeartbeat = typeof player.eventHeartbeat === 'function';
                     }, false, 'connect');
                 });
                 return true;
@@ -403,7 +407,7 @@ class MUDStorage extends MUDEventEmitter {
                         await item.moveObjectAsync(frame.branch(), owner);
                     }
                     catch (e) {
-                        this.shell.stderr.writeLine(`* Failed to load object ${data.inventory[i].$type}`);
+                        this.shell?.stderr?.writeLine(`* Failed to load object ${data.inventory[i].$type}`);
                     }
                 }
 
@@ -731,22 +735,26 @@ class MUDStorage extends MUDEventEmitter {
 
     /**
      * 
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} verb
      * @param {CommandShellOptions} opts
      * @returns {CommandShellOptions}
      */
-    async getShellSettings(verb, opts) {
-        return await driver.driverCallAsync('getShellSettings', async context => {
-            return await context.withPlayerAsync(this, async player => {
+    async getShellSettings(ecc, verb, opts) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getShellSettings', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            return await frame.context.withPlayerAsync(this, async player => {
                 if (player && typeof player.getShellSettings === 'function') {
-                    let result = await player.getShellSettings(verb, opts);
-                    context.restore();
+                    let result = await player.getShellSettings(frame.branch(), verb, opts);
                     return result;
                 }
                 else
                     return {};
-            }, false, 'getShellSettings');
-        });
+            }, false);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**

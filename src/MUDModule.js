@@ -449,7 +449,8 @@ class MUDModule extends events.EventEmitter {
         /** @type {Object.<string,function>} */
         this.types = {};
 
-        this.oldExports = { length: 0 };
+        /** @type {Object.<string,any>} */
+        this.$exports = { length: 0 };
 
         /** @type {Object.<string,MUDObject[]> */
         this.instanceMap = {};
@@ -585,23 +586,19 @@ class MUDModule extends events.EventEmitter {
             else if (typeof val === 'function') key = val.name;
         }
 
-        this.oldExports.length++;
+        this.$exports.length++;
         this.singletons[key] = val instanceof MUDObject || val instanceof SimpleObject;
 
         if (isDefault === false && this.explicitDefault === false) {
-            if (this.oldExports.length === 1)
+            if (key === this.name)
                 this.defaultExport = val;
-            else if (key === this.name)
-                this.defaultExport = val;
-            else
-                this.defaultExport = false;
         }
         else if (isDefault === true) {
             this.defaultExport = val;
             this.explicitDefault = true;
         }
 
-        this.oldExports[key] = val;
+        this.$exports[key] = val;
     }
 
     /**
@@ -671,13 +668,13 @@ class MUDModule extends events.EventEmitter {
                 isType = false;
 
             if (typeof type === 'string' && !this.isVirtual) {
-                if (type in this.oldExports === false) {
+                if (type in this.$exports === false) {
                     //  Always allow module to create its own types
                     if (callingFile === this.filename) {
                         type = this.types[type];
                     }
                     else if (type in this.types === false) {
-                        if (this.oldExports.length === 1 && this.$defaultExport)
+                        if (this.$exports.length === 1 && this.$defaultExport)
                             type = this.$defaultExport;
                         else if (type in this.typeDefinitions) {
                             type = this.typeDefinitions[type];
@@ -791,15 +788,15 @@ class MUDModule extends events.EventEmitter {
     }
 
     get exports() {
-        return typeof this.oldExports === 'object' ? Object.assign({}, this.oldExports) : {};
+        return typeof this.$exports === 'object' ? Object.assign({}, this.$exports) : {};
     }
 
     set exports(spec) {
         if (spec === false)
-            this.oldExports = {};
+            this.$exports = {};
         else if (typeof spec === 'object') {
             for (const [key, val] of Object.entries(spec)) {
-                this.oldExports[key] = val;
+                this.$exports[key] = val;
             }
         }
         else
@@ -858,7 +855,7 @@ class MUDModule extends events.EventEmitter {
                 objectId = this.instancesByType[0];
             }
             else
-                throw new Error(`getInstanceWrapper(): Unable to find suitable object instance`);
+                return false;
         }
 
         if (objectId in this.instancesById) {
@@ -1121,7 +1118,7 @@ class MUDModule extends events.EventEmitter {
     eventResetModule(ecc) {
         let frame = ecc.pushFrameObject({ file: this.filename, method: 'eventResetModule' });
         try {
-            this.oldExports = { length: 0 };
+            this.$exports = { length: 0 };
             this.singletons = {};
             this.typeNames = [];
             this.types = { };

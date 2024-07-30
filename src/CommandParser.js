@@ -7,6 +7,7 @@
  */
 
 const CommandShellOptions = require("./CommandShellOptions");
+const { ExecutionContext, CallOrigin } = require("./ExecutionContext");
 const { StandardBufferStream } = require("./StandardIO");
 
 const
@@ -295,136 +296,142 @@ class CommandParser {
 
     /**
      * Return the next command
+     * @param {ExecutionContext} ecc The current callstack
      * @returns {{ operator: ParsedToken, command: ParsedCommand }} 
      */
-    async nextCommand() {
-        /** @type {ParsedCommand} */
-        let cmd;
+    async nextCommand(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'nextCommand', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            /** @type {ParsedCommand} */
+            let cmd;
 
-        /** @type {ParsedToken} */
-        let token;
+            /** @type {ParsedToken} */
+            let token;
 
-        while (token = await this.nextToken(cmd)) {
-            if (!cmd) {
-                let verbLookup = false;
+            while (token = await this.nextToken(cmd)) {
+                if (!cmd) {
+                    let verbLookup = false;
 
-                switch (token.tokenType) {
-                    case TOKEN_ALIAS:
-                        //  Defer additional processing until the command is completely parsed.
-                        cmd = new ParsedCommand();
-                        verbLookup = token.tokenValue.slice(0, token.tokenValue.search(/[^a-zA-Z0-9_-]/));
-                        cmd.verb = token;
-                        break;
-
-                    case TOKEN_HISTORY:
-                        this.source = this.source.slice(0, token.start) + token.tokenValue + this.source.slice(token.end);
-                        this.index = token.start;
-                        continue;
-
-                    case TOKEN_NUMERIC:
-                    case TOKEN_WORD:
-                        {
+                    switch (token.tokenType) {
+                        case TOKEN_ALIAS:
+                            //  Defer additional processing until the command is completely parsed.
                             cmd = new ParsedCommand();
-                            let nextToken = await this.nextToken(cmd);
-                            while (nextToken) {
-                                if (nextToken.tokenType === TOKEN_WHITESPACE) {
-                                    this.tokenStack.unshift(nextToken);
-                                    break;
-                                }
-                                else {
-                                    token.appendToken(this, nextToken);
-                                    nextToken = await this.nextToken(cmd);
-                                }
-                            }
-                            cmd.verb = token.tokenValue;
-                            verbLookup = token.tokenValue;
-                        }
-                        break;
+                            verbLookup = token.tokenValue.slice(0, token.tokenValue.search(/[^a-zA-Z0-9_-]/));
+                            cmd.verb = token;
+                            break;
 
-                    case TOKEN_VARIABLE:
-                        cmd = new ParsedCommand();
-                        cmd.verb = token;
-                        cmd.cmdType = CMD_EXPR;
-                        break;
+                        case TOKEN_HISTORY:
+                            this.source = this.source.slice(0, token.start) + token.tokenValue + this.source.slice(token.end);
+                            this.index = token.start;
+                            continue;
 
-                    case TOKEN_WHITESPACE:
-                        //  Ignore leading whitespace
-                        this.leadingWhitespace = token;
-                        break;
-
-                    default:
-                        if (token.tokenType !== TOKEN_WORD && token.tokenType !== TOKEN_ALIAS)
-                            throw new Error(`-kmsh: Unexpected token ${token.tokenType} '${token.tokenValue}' found at position ${token.start}; Expected verb.`);
-                }
-
-                if (cmd && this.leadingWhitespace) {
-                    cmd.leadingWhitespace = this.leadingWhitespace;
-                    delete this.leadingWhitespace;
-                }
-
-                if (verbLookup && this.shell) {
-                    let options = await this.shell.getShellSettings(verbLookup, new CommandShellOptions());
-                    cmd.options = options;
-                }
-            }
-            else {
-                let lastToken = cmd.lastToken;
-
-                if (token.tokenType === TOKEN_OPERATOR) {
-                    switch (token.tokenValue) {
-                        case OP_READSTDIN:
+                        case TOKEN_NUMERIC:
+                        case TOKEN_WORD:
                             {
-                                cmd.addToken(token);
-                                let filename = await this.nextCompleteWord(cmd);
-                                if (!filename)
-                                    throw new Error(`-kmsh: Syntax error while searching for expected input file`);
-                                token.fileToken = filename.index;
-                                token.fileName = filename.source;
+                                cmd = new ParsedCommand();
+                                let nextToken = await this.nextToken(cmd);
+                                while (nextToken) {
+                                    if (nextToken.tokenType === TOKEN_WHITESPACE) {
+                                        this.tokenStack.unshift(nextToken);
+                                        break;
+                                    }
+                                    else {
+                                        token.appendToken(this, nextToken);
+                                        nextToken = await this.nextToken(cmd);
+                                    }
+                                }
+                                cmd.verb = token.tokenValue;
+                                verbLookup = token.tokenValue;
                             }
                             break;
 
-                        case OP_APPENDOUT:
-                        case OP_WRITEOUT:
-                            {
-                                cmd.addToken(token);
-                                let filename = await this.nextCompleteWord(cmd);
-
-                                if (!filename)
-                                    throw new Error(`-kmsh: Syntax error while searching for expected output file`);
-                                token.fileToken = filename.index;
-                                token.fileName = filename.source;
-                                token.stream = token.stream || 'stdout';
-                            }
+                        case TOKEN_VARIABLE:
+                            cmd = new ParsedCommand();
+                            cmd.verb = token;
+                            cmd.cmdType = CMD_EXPR;
                             break;
 
-                        case OP_JOINSTREAM:
-                            {
-                                cmd.addToken(token);
-                            }
+                        case TOKEN_WHITESPACE:
+                            //  Ignore leading whitespace
+                            this.leadingWhitespace = token;
                             break;
 
                         default:
-                            return { operator: token, command: cmd };
+                            if (token.tokenType !== TOKEN_WORD && token.tokenType !== TOKEN_ALIAS)
+                                throw new Error(`-kmsh: Unexpected token ${token.tokenType} '${token.tokenValue}' found at position ${token.start}; Expected verb.`);
+                    }
+
+                    if (cmd && this.leadingWhitespace) {
+                        cmd.leadingWhitespace = this.leadingWhitespace;
+                        delete this.leadingWhitespace;
+                    }
+
+                    if (verbLookup && this.shell) {
+                        let options = await this.shell.getShellSettings(frame.branch(), verbLookup, new CommandShellOptions());
+                        cmd.options = options;
                     }
                 }
-                else if (token.tokenType === TOKEN_WORD && lastToken.tokenType === TOKEN_WORD) {
-                    lastToken.appendToken(this, token);
-                }
-                else if (lastToken.tokenType === TOKEN_WORD) {
-                    //switch (lastToken.tokenValue) {
-                    //}
-                    cmd.addToken(token);
-                }
                 else {
-                    cmd.addToken(token);
+                    let lastToken = cmd.lastToken;
+
+                    if (token.tokenType === TOKEN_OPERATOR) {
+                        switch (token.tokenValue) {
+                            case OP_READSTDIN:
+                                {
+                                    cmd.addToken(token);
+                                    let filename = await this.nextCompleteWord(cmd);
+                                    if (!filename)
+                                        throw new Error(`-kmsh: Syntax error while searching for expected input file`);
+                                    token.fileToken = filename.index;
+                                    token.fileName = filename.source;
+                                }
+                                break;
+
+                            case OP_APPENDOUT:
+                            case OP_WRITEOUT:
+                                {
+                                    cmd.addToken(token);
+                                    let filename = await this.nextCompleteWord(cmd);
+
+                                    if (!filename)
+                                        throw new Error(`-kmsh: Syntax error while searching for expected output file`);
+                                    token.fileToken = filename.index;
+                                    token.fileName = filename.source;
+                                    token.stream = token.stream || 'stdout';
+                                }
+                                break;
+
+                            case OP_JOINSTREAM:
+                                {
+                                    cmd.addToken(token);
+                                }
+                                break;
+
+                            default:
+                                return { operator: token, command: cmd };
+                        }
+                    }
+                    else if (token.tokenType === TOKEN_WORD && lastToken.tokenType === TOKEN_WORD) {
+                        lastToken.appendToken(this, token);
+                    }
+                    else if (lastToken.tokenType === TOKEN_WORD) {
+                        //switch (lastToken.tokenValue) {
+                        //}
+                        cmd.addToken(token);
+                    }
+                    else {
+                        cmd.addToken(token);
+                    }
                 }
             }
+            return cmd && {
+                command: cmd.compile(),
+                operator: null
+            } || { cmd: false, operator: null };
         }
-        return cmd && {
-            command: cmd.compile(),
-            operator: null
-        } || { cmd: false, operator: null };
-;
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -1051,60 +1058,67 @@ class CommandParser {
 
     /**
      * Parse some text
+     * @param {ExecutionContext} ecc The current callstack
      */
-    async parse() {
-        let { operator, command } = await this.nextCommand(),
-            firstCommand = command;
-
-        if (!operator)
-            return command;
-
-        while (operator) {
-            let { operator: nextOp, command: nextCmd } = await this.nextCommand();
+    async parse(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'parse', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let { operator, command } = await this.nextCommand(frame.context),
+                firstCommand = command;
 
             if (!operator)
-                throw new Error(`-kmsh: Operator not followed by command`);
+                return command;
 
-            command.operator = operator.tokenValue;
+            while (operator) {
+                let { operator: nextOp, command: nextCmd } = await this.nextCommand(frame.context);
 
-            switch (operator.tokenValue) {
-                case OP_AND:
-                    command.conditional = nextCmd;
-                    break;
+                if (!operator)
+                    throw new Error(`-kmsh: Operator not followed by command`);
 
-                case OP_COMPOUND:
-                    command.nextCommand = nextCmd;
-                    break;
+                command.operator = operator.tokenValue;
 
-                case OP_OR:
-                    command.alternate = nextCmd;
-                    break;
+                switch (operator.tokenValue) {
+                    case OP_AND:
+                        command.conditional = nextCmd;
+                        break;
 
-                case OP_PIPELINE:
-                    command.objout = [];
-                    command.pipeTarget = nextCmd;
-                    command.stdout = new StandardBufferStream();
-                    nextCmd.stdin = command.stdout;
-                    nextCmd.objin = command.objout;
-                    break;
+                    case OP_COMPOUND:
+                        command.nextCommand = nextCmd;
+                        break;
 
-                case OP_PIPEBOTH:
-                    command.objout = [];
-                    command.nextCommand = nextCmd;
-                    command.stdout = new StandardBufferStream();
-                    command.stderr = command.stdout;
-                    nextCmd.stdin = command.stdout;
-                    nextCmd.objin = command.objout;
-                    break;
+                    case OP_OR:
+                        command.alternate = nextCmd;
+                        break;
 
-                default:
-                    throw new Error(`-kmsh: Unsupported operator: ${operator}`);
+                    case OP_PIPELINE:
+                        command.objout = [];
+                        command.pipeTarget = nextCmd;
+                        command.stdout = new StandardBufferStream();
+                        nextCmd.stdin = command.stdout;
+                        nextCmd.objin = command.objout;
+                        break;
+
+                    case OP_PIPEBOTH:
+                        command.objout = [];
+                        command.nextCommand = nextCmd;
+                        command.stdout = new StandardBufferStream();
+                        command.stderr = command.stdout;
+                        nextCmd.stdin = command.stdout;
+                        nextCmd.objin = command.objout;
+                        break;
+
+                    default:
+                        throw new Error(`-kmsh: Unsupported operator: ${operator}`);
+                }
+
+                operator = nextOp;
+                command = nextCmd;
             }
-
-            operator = nextOp;
-            command = nextCmd;
+            return firstCommand;
         }
-        return firstCommand;
+        finally {
+            frame.pop();
+        }
     }
 
     get remainder() {

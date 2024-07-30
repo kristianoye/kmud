@@ -828,14 +828,14 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {string} groupName
      */
     isGroupMember(ecc, userId, groupName) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'isGroupMember', isAsync: false, callType: CallOrigin.Driver });
         try {
+            let group = this.getGroup(frame.context, groupName);
+            return group && group.isMember(frame.context, userId);
         }
         finally {
             frame.pop();
         }
-        let group = this.getGroup(groupName);
-        return group && group.isMember(userId);
     }
 
     /**

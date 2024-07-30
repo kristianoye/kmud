@@ -1061,6 +1061,9 @@ class FileManager extends MUDEventEmitter {
                 throw new Error(`loadObjectAsync(): Could not find suitable file to load: ${request.fullPath}`);
             return result;
         }
+        catch (err) {
+            throw err;
+        }
         finally {
             frame.pop();
         }

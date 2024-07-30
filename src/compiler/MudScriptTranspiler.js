@@ -682,14 +682,15 @@ async function parseElement(op, e, depth) {
                                     op.defaultExport = localName;
                                     definedDefault = true;
                                 }
+                                else if (exportName === localName)
+                                    chunks.push(exportName);
                                 else
                                     chunks.push(`${exportName}: ${localName}`);
                             }
                             ret += chunks.join(', ');
                             ret += ' };'
-                            if (definedDefault) {
-                                ret += ` module.defaultExport = ${op.defaultExport};`
-                            }
+                            if (op.defaultExport)
+                                ret += ` await module.setDefaultExport(${op.context.mecName}.branch(__LINE__), ${op.defaultExport});`;
                         }
                     }
                     op.awaitDepth = prevDepth;
@@ -738,13 +739,13 @@ async function parseElement(op, e, depth) {
 
                             if (!ctx.isSuperExpression && !ctx.isThisExpression) {
                                 if (op.context.isAsync)
-                                    object = '(await unwrapAsync(' + object + '))';
+                                    object = `(await unwrapAsync(${op.context.mecName}.branch(), ` + object + '))';
                                 else {
                                     if (isLiteralString(object)) {
                                         if (op.context.memberName)
                                             op.warn(`Using identifier '${orgObject}' for call in non-async context may result in an object not found error at runtime`, e.callee);
                                     }
-                                    object = 'unwrap(' + object + ')';
+                                    object = `unwrap(${op.context.mecName}, ` + object + ')';
                                 }
                             }
                         }
@@ -1054,7 +1055,7 @@ async function parseElement(op, e, depth) {
                 else {
                     ret += await parseElement(op, e.declaration, depth + 1);
                     op.defaultExport = e.declaration.id.name;
-                    ret += `await module.setDefaultExport(${op.context.mecName}.branch(__LINE__), ${op.defaultExport});`;
+                    op.exportCount++;
                 }
                 break;
 

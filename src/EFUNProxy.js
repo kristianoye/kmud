@@ -105,7 +105,7 @@ class EFUNProxy {
     adminp(ecc, target) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'adminp', callType: CallOrigin.DriverEfun });
         try {
-            return driver.callApplySync('isAdmin', target);
+            return driver.callApplySync(frame.context, 'isAdmin', target);
         }
         finally {
             frame.pop();
@@ -121,7 +121,7 @@ class EFUNProxy {
     archp(ecc, target) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'archp', callType: CallOrigin.DriverEfun });
         try {
-            return driver.callApplySync('isArch', target);
+            return driver.callApplySync(frame.context, 'isArch', target);
         }
         finally {
             frame.pop();
@@ -2334,7 +2334,7 @@ class EFUNProxy {
     thisObject(ecc) {
         let [frame] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'thisObject', callType: CallOrigin.DriverEfun, isAsync: false }, true);
         try {
-            return ecc && ecc.previousObjects[0];
+            return frame.context && frame.context.previousObjects[0];
         }
         finally {
             frame?.pop();
@@ -2350,7 +2350,7 @@ class EFUNProxy {
     thisPlayer(ecc, flagIn = false) {
         let [frame, flag] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'thisPlayer', callType: CallOrigin.DriverEfun, isAsync: false }, true);
         try {
-            return flag === true || flag === 1 && ecc.truePlayer ? ecc.truePlayer : ecc.player;
+            return flag === true || flag === 1 && frame.context.truePlayer ? frame.context.truePlayer : frame.context.player;
         }
         finally {
             frame?.pop();

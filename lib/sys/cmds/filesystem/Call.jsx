@@ -14,7 +14,7 @@ export default singleton class CallCommand extends Command {
                 target = endOfTarget > 0 ? input.slice(0, endOfTarget) : false,
                 methodOrProperty = endOfTarget > 0 ? input.slice(endOfTarget + 1) : false,
                 resolved = this.resolveTarget(target),
-                source = `await (async () { let o = await efuns.loadObjectAsync("${resolved}"); return unwrap(o, ob => ob.${methodOrProperty}); })()`;
+                source = `await (async () { let o = await efuns.loadObjectAsync("${resolved}"); return o.instance.${methodOrProperty}; })()`;
             writeLine(source);
 
             let
@@ -37,7 +37,8 @@ export default singleton class CallCommand extends Command {
             return thisPlayer().filename;
 
         let player = efuns.living.findPlayer(spec);
-        if (player) return unwrap(player).filename;
+        if (player)
+            return player.filename;
         let fn = efuns.resolvePath(spec, thisPlayer().workingDirectory);
         writeLine('Trying to call ' + fn);
         return fn;

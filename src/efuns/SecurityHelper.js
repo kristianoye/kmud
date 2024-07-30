@@ -1,4 +1,4 @@
-const { ExecutionContext, CallOrigin } = require("../ExecutionContext");
+const { ExecutionContext, CallOrigin, ExecutionFrame } = require("../ExecutionContext");
 
 class SecurityHelper {
     /**
@@ -164,35 +164,32 @@ class SecurityHelper {
     /**
      * Check to see if the specified user is in a particular group
      * @param {ExecutionContext} ecc The current callstack
-     * @param {string} usernameIn
-     * @param {string} groupNameIn
+     * @param {string} username
+     * @param {string} groupName
      */
-    static isGroupMember(ecc, usernameIn, groupNameIn) {
-        /**
-         * @type {[ExecutionContext, string, string]}
-         */
-        let [frame, username, groupName] = ExecutionContext.tryPushFrame(arguments, { method: 'isGroupMember', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
+    static isGroupMember(ecc, username, groupName) {
+        let frame = ecc.pushFrameObject({ method: 'isGroupMember', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
         try {
-            return driver.securityManager.isGroupMember(username, groupName);
+            return driver.securityManager.isGroupMember(frame.context, username, groupName);
         }
         finally {
-            frame?.pop();
+            frame.pop();
         }
     }
 
     /**
      * Get a list of defined security groups
      * @param {ExecutionContext} ecc The current callstack
-     * @param {any} exprIn
+     * @param {string} expr A filter expression
      * @returns
      */
-    static listSecurityGroups(ecc, exprIn) {
-        let [frame, expr] = ExecutionContext.tryPushFrame(arguments, { method: 'listSecurityGroups', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
+    static listSecurityGroups(ecc, expr) {
+        let frame = ecc.pushFrameObject({ method: 'listSecurityGroups', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
         try {
-            return driver.securityManager.listGroups(expr);
+            return driver.securityManager.listGroups(frame.context, expr);
         }
         finally {
-            frame?.pop();
+            frame.pop();
         }
     }
 
@@ -203,12 +200,12 @@ class SecurityHelper {
      * @returns {number} The bitflag array
      */
     static parsePerms(ecc, exprIn) {
-        let [frame, expr] = ExecutionContext.tryPushFrame(arguments, { method: 'parsePerms', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.pushFrameObject({ method: 'parsePerms', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
         try {
-            return driver.securityManager.parsePerms(frame?.branch(), expr);
+            return driver.securityManager.parsePerms(frame.context, expr);
         }
         finally {
-            frame?.pop();
+            frame.pop();
         }
     }
     

@@ -702,7 +702,6 @@ class GameServer extends MUDEventEmitter {
                         result = target;
                     }
                     else if (typeof target === 'function') {
-                        result = target();
                     }
                     else if (typeof target === 'string') {
                         let parts = driver.efuns.parsePath(target),
@@ -734,17 +733,32 @@ class GameServer extends MUDEventEmitter {
                 }
             };
 
-            global.unwrapAsync = async function (target, success, hasDefault) {
-                if (typeof target === 'string') {
-                    let parts = driver.efuns.parsePath(target),
-                        module = driver.cache.get(parts.file);
+            /**
+             * 
+             * @param {ExecutionContext} ecc
+             * @param {any} target
+             * @param {any} success
+             * @param {any} hasDefault
+             * @returns
+             */
+            global.unwrapAsync = async function (ecc, target, success, hasDefault) {
+                let frame = ecc.pushFrameObject({ method: 'unwrapAsync', isAsync: true });
 
-                    if (!module) {
-                        let result = global.unwrap(await driver.efuns.loadObjectAsync(target));
-                        return global.unwrap(result, success, hasDefault);
+                try {
+                    if (typeof target === 'string') {
+                        let parts = driver.efuns.parsePath(target),
+                            module = driver.cache.get(parts.file);
+
+                        if (!module) {
+                            let result = global.unwrap(await driver.efuns.loadObjectAsync(target));
+                            return global.unwrap(result, success, hasDefault);
+                        }
                     }
+                    return global.unwrap(frame.context, target, success, hasDefault);
                 }
-                return global.unwrap(target, success, hasDefault);
+                finally {
+                    frame.pop();
+                }
             };
 
             global.wrapper = function (o) {
