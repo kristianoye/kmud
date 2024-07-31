@@ -112,7 +112,14 @@ class CommandShell extends events.EventEmitter {
 
         component.on('remoteDisconnect', () => {
             if (this.storage) {
-                this.storage.eventExec(false);
+                let ecc = ExecutionContext.startNewContext(),
+                    frame = ecc.pushFrameObject({ method: 'remoteDisconnect' });
+                try {
+                    this.storage.eventExec(ecc, false);
+                }
+                finally {
+                    frame.pop();
+                }
             }
         });
 
@@ -146,33 +153,40 @@ class CommandShell extends events.EventEmitter {
 
     /**
      * Attaches this shell to a player.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {MUDObject} player The in-game object to attach I/O to .
      * @param {number} shellLevel Shell level determines default behavior for command processing.
      * @param {number} snoopLevel Snoop level 0 [actual player], level 1 [observe], level 2 [control], level 3 [lockout]
      * @returns {boolean} True on success.
      */
-    attachPlayer(player, shellLevel = 1, snoopLevel = 0) {
-        let storage = driver.storage.get(player);
+    async attachPlayer(ecc, player, shellLevel = 1, snoopLevel = 0) {
+        let frame = ecc.pushFrameObject({ method: 'attachPlayer', callType: CallOrigin.Driver });
+        try {
+            let storage = driver.storage.get(player);
 
-        if (storage) {
-            this.shellLevel = shellLevel;
-            this.storage = storage;
+            if (storage) {
+                this.shellLevel = shellLevel;
+                this.storage = storage;
 
-            switch (snoopLevel) {
-                case 0:
-                    storage.shell = this;
-                    storage.eventExec(this.component);
-                    break;
+                switch (snoopLevel) {
+                    case 0:
+                        storage.shell = this;
+                        await storage.eventExec(frame.context.branch(), this.component);
+                        break;
 
-                case 1:
-                case 2:
-                case 3:
-                    throw new Error('Not implemented');
+                    case 1:
+                    case 2:
+                    case 3:
+                        throw new Error('Not implemented');
+                }
+
+                return true;
             }
-
-            return true;
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
     get connectedPort() {

@@ -7,6 +7,7 @@
  */
 const
     DriverFeature = require('../config/DriverFeature'),
+    { ExecutionContext, ExecutionFrame, CallOrigin } = require('../ExecutionContext'),
     ConfigUtil = require('../ConfigUtil'),
     FeatureBase = require('./FeatureBase'),
     ParseEditorCommand = /^([0-9,]*)([a-zA-Z\/=\?]{0,1})([0-9,]*)(.*)/,
@@ -719,7 +720,8 @@ class MUDEditorFeature extends FeatureBase {
     }
 
     createExternalFunctions(efunPrototype) {
-        let feature = this;
+        let feature = this,
+            { efunNameEdStart, efunNameEdCommand, efunNameQueryEdMode } = this;
 
         if (this.enableOldEditor) {
             efunPrototype[this.efunNameEd] = function (filename) {
@@ -727,55 +729,93 @@ class MUDEditorFeature extends FeatureBase {
             };
         }
         else {
-            efunPrototype[this.efunNameEdCommand] = function (cmd) {
-                let thisObject = this.thisObject(),
-                    $editor = EditorInstance.get(thisObject);
+            /**
+             * Execute an editor command
+             * @param {ExecutionContext} ecc The current callstack
+             * @param {string} cmd
+             * @returns
+             */
+            efunPrototype[this.efunNameEdCommand] = function (ecc, cmd) {
+                let frame = ecc.pushFrameObject({ file: __filename, method: efunNameEdCommand, callType: CallOrigin.Driver });
+                try {
+                    let thisObject = this.thisObject(ecc),
+                        $editor = EditorInstance.get(thisObject);
 
-                return $editor ? $editor.executeCommand(cmd) : false;
-            };
-
-            efunPrototype[this.efunNameEdStart] = function (/** @type {string=} */ file, /** @type {boolean=} */ restricted, /** @type {Object.<string,any>} */ optionsIn) {
-                let editorState = this[feature.efunNameQueryEdMode].call(this);
-                if (editorState === -1) {
-                    let thisEditor = this.thisPlayer(),
-                        store = driver.storage.get(thisEditor),
-                        caps = store.getClientCaps(),
-                        options = optionsIn || {};
-
-                    options.caps = caps;
-                    options.efuns = this;
-                    options.filename = file && file.length > 0 ? file : false;
-                    options.owner = thisEditor;
-                    options.height = caps && caps.clientHeight || 24;
-                    options.width = caps && caps.clientWidth || 80;
-                    options.restricted = restricted || options.restricted || false;
-
-                    let $editor = new EditorInstance(options);
-
-                    if (options.filename) {
-                        $editor.loadFile(options.filename);
-                        options.mode = MODE_COMMAND;
-                    }
-                    else if (options.content) {
-                        if (!Array.isArray(options.content)) {
-                            $editor.appendBuffer(options.content.split('\n'));
-                        }
-                        else 
-                            $editor.append(options.content);
-                    }
-                    store.$editor = $editor;
-                    $editor.start(() => {
-                        store.$editor = false;
-                    });
+                    return $editor ? $editor.executeCommand(cmd) : false;
                 }
-                return false;
+                finally {
+                    frame.pop();
+                }
             };
 
-            efunPrototype[this.efunNameQueryEdMode] = function (state) {
-                let thisEditor = this.thisPlayer(),
-                    $editor = EditorInstance.get(thisEditor);
+            /**
+             * Start an editor session
+             * @param {ExecutionContext} ecc The current callstack
+             * @param {string} file
+             * @param {boolean} restricted
+             * @param {any} optionsIn
+             * @returns
+             */
+            efunPrototype[this.efunNameEdStart] = function (ecc, file, restricted, optionsIn) {
+                let frame = ecc.pushFrameObject({ file: __filename, method: efunNameEdStart, callType: CallOrigin.Driver });
+                try {
+                    let editorState = this[feature.efunNameQueryEdMode].call(this);
+                    if (editorState === -1) {
+                        let thisEditor = this.thisPlayer(),
+                            store = driver.storage.get(thisEditor),
+                            caps = store.getClientCaps(),
+                            options = optionsIn || {};
 
-                return $editor ? $editor.queryState(state) : -1;
+                        options.caps = caps;
+                        options.efuns = this;
+                        options.filename = file && file.length > 0 ? file : false;
+                        options.owner = thisEditor;
+                        options.height = caps && caps.clientHeight || 24;
+                        options.width = caps && caps.clientWidth || 80;
+                        options.restricted = restricted || options.restricted || false;
+
+                        let $editor = new EditorInstance(options);
+
+                        if (options.filename) {
+                            $editor.loadFile(options.filename);
+                            options.mode = MODE_COMMAND;
+                        }
+                        else if (options.content) {
+                            if (!Array.isArray(options.content)) {
+                                $editor.appendBuffer(options.content.split('\n'));
+                            }
+                            else
+                                $editor.append(options.content);
+                        }
+                        store.$editor = $editor;
+                        $editor.start(() => {
+                            store.$editor = false;
+                        });
+                    }
+                    return false;
+                }
+                finally {
+                    frame.pop();
+                }
+            };
+
+            /**
+             * Get the state of a text editor
+             * @param {ExecutionContext} ecc The current callstack
+             * @param {any} state
+             * @returns
+             */
+            efunPrototype[this.efunNameQueryEdMode] = function (ecc, state) {
+                let frame = ecc.pushFrameObject({ file: __filename, method: efunNameQueryEdMode, callType: CallOrigin.Driver });
+                try {
+                    let thisEditor = this.thisPlayer(ecc),
+                        $editor = EditorInstance.get(thisEditor);
+
+                    return $editor ? $editor.queryState(state) : -1;
+                }
+                finally {
+                    frame.pop();
+                }
             };
         }
     }

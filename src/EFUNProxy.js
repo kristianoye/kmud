@@ -272,7 +272,7 @@ class EFUNProxy {
 
             if (!target) {
                 let ecc = driver.getExecution();
-                store = driver.storage.get(ecc.player);
+                store = driver.storage.get(frame.context.getThisPlayer());
             }
             else {
                 store = unwrap(target, ob => driver.storage.get(ob));
@@ -537,39 +537,37 @@ class EFUNProxy {
             if (!frame.context.guarded(f => driver.validExec(f, oldBody, newBody)))
                 throw new Error('Permission denied to efuns.exec()');
 
-            return await driver.driverCallAsync('exec', async ctx => {
-                let oldStorage = driver.storage.get(oldBody),
-                    component = oldStorage.component;
+            let oldStorage = driver.storage.get(oldBody),
+                component = oldStorage.component;
 
-                //  The old storage has no client?!
-                if (!component)
-                    return false;
+            //  The old storage has no client?!
+            if (!component)
+                return false;
 
-                let newStorage = driver.storage.get(newBody);
+            let newStorage = driver.storage.get(newBody);
 
-                //  New body is invalid due to storage
-                if (!newStorage)
-                    return false;
+            //  New body is invalid due to storage
+            if (!newStorage)
+                return false;
 
+            try {
+                await newStorage.eventExec(frame.context, component);
+                let result = await callback(oldBody, newBody) || true;
+                return result;
+            }
+            catch (e) {
+                /* ack... try and roll back */
+                console.log(`Error during exec(): ${e.message}; Rolling back.`);
                 try {
-                    await newStorage.eventExec(component);
-                    let result = await callback(oldBody, newBody) || true;
-                    return result;
+                    component.body = oldBody;
                 }
-                catch (e) {
-                    /* ack... try and roll back */
-                    console.log(`Error during exec(): ${e.message}; Rolling back.`);
-                    try {
-                        component.body = oldBody;
-                    }
-                    catch (ee) {
-                        /* rollback failed, too... destroy them all */
-                        this.writeLine('Sorry things did not work out.');
-                        await component.disconnect();
-                    }
-                    throw e;
+                catch (ee) {
+                    /* rollback failed, too... destroy them all */
+                    this.writeLine('Sorry things did not work out.');
+                    await component.disconnect();
                 }
-            }, this.fileName, true);
+                throw e;
+            }
         }
         finally {
             frame.pop();
@@ -2352,10 +2350,13 @@ class EFUNProxy {
      * @param {boolean} flagIn Show true player
      * @returns
      */
-    thisPlayer(ecc, flagIn = false) {
+    thisPlayer(ecc, flagIn = false, getBoth = false) {
         let [frame, flag] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'thisPlayer', callType: CallOrigin.DriverEfun, isAsync: false }, true);
         try {
-            return flag === true || flag === 1 && frame.context.truePlayer ? frame.context.truePlayer : frame.context.player;
+            if (!ecc) {
+                console.log('\t\t\tefuns.thisPlayer() did not receive a context');
+            }
+            return frame.context.getThisPlayer(!!flag, getBoth)
         }
         finally {
             frame?.pop();

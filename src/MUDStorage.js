@@ -166,7 +166,7 @@ class MUDStorage extends MUDEventEmitter {
             this.heartbeat = false;
 
             if (this.component)
-                this.eventExec(false, ...args);
+                this.eventExec(ExecutionContext.startNewContext(), false, ...args);
 
             if (this.environment) {
                 let store = driver.storage.get(this.environment);
@@ -205,9 +205,11 @@ class MUDStorage extends MUDEventEmitter {
 
     /**
      * Associate a component with this store and its related object.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {ClientComponent} component The client bound to this store and in-game object.
      */
-    async eventExec(component, ...args) {
+    async eventExec(ecc, component, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'eventExec', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (component instanceof ClientComponent) {
                 //  If the client has an old body, the client needs to be dissassociated with it
@@ -247,6 +249,7 @@ class MUDStorage extends MUDEventEmitter {
                 component.shell.playerRef = component.body = this.owner.wrapper;
                 component.shell.storage = component.storage = this;
 
+                ecc.setThisPlayer(this.owner.instance, true);
 
                 this.clientCaps = component.caps || ClientCaps.DefaultCaps;
 
@@ -301,23 +304,18 @@ class MUDStorage extends MUDEventEmitter {
                             });
                         });
                     });
-                if (this.component) this.component.body = false;
+                if (this.component)
+                    this.component.body = false;
                 this.component = false;
                 this.clientCaps = ClientCaps.DefaultCaps;
             }
             return true;
         }
         catch (err) {
-            logger.log('Error in setClient: ', err);
+            logger.log('Error in eventExec: ', err);
         }
         finally {
-            setTimeout(() => {
-                driver.driverCall('setClient', ecc => {
-                    ecc.whenCompleted(() => {
-                        // if (this.shell) this.shell.renderPrompt(false);
-                    });
-                });
-            }, 100);
+            frame.pop();
         }
         return false;
     }
@@ -334,7 +332,7 @@ class MUDStorage extends MUDEventEmitter {
             if (this.lastActivity) {
                 if (this.idleTime > this.maxIdleTime) {
                     this.heartbeat = false;
-                    return this.eventExec(false, 'You have been idle for too long.');
+                    return this.eventExec(frame.context, 'You have been idle for too long.');
                 }
             }
             else if (this.canHeartbeat) {
