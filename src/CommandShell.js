@@ -49,10 +49,11 @@ const
 class CommandShell extends events.EventEmitter {
     /**
      * Construct a new command shell object.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {ClientComponent} component The component that is bound to this shell.
      * @param {CommandShellOptions} options The options used when parsing commands.
      */
-    constructor(component, options) {
+    constructor(ecc, component, options) {
         super();
 
         this.component = component;
@@ -76,7 +77,7 @@ class CommandShell extends events.EventEmitter {
 
         this.client = component.client;
 
-        this.stdin =  new IO.StandardInputStream({ encoding: 'utf8' }, component, this);
+        this.stdin = new IO.StandardInputStream({ encoding: 'utf8' }, component, this);
         this.stdout = new IO.StandardOutputStream({ encoding: 'utf8' }, component, this);
         this.stderr = new IO.StandardOutputStream({ encoding: 'utf8' }, component, this);
         this.console = new IO.StandardPassthruStream({ encoding: 'utf8' }, component, this);
@@ -112,67 +113,99 @@ class CommandShell extends events.EventEmitter {
 
         component.on('remoteDisconnect', () => {
             if (this.storage) {
-                this.storage.eventExec(false);
+                let ecc = ExecutionContext.startNewContext(),
+                    frame = ecc.pushFrameObject({ method: 'remoteDisconnect' });
+                try {
+                    this.storage.eventExec(ecc, false);
+                }
+                finally {
+                    frame.pop();
+                }
             }
         });
 
-        this.on('addPrompt', async prompt => {
-            if (prompt.isAsync) {
-                let result = false;
-                do {
-                    this.inputTo = prompt;
-                    await this.drawPrompt();
-                    let userInput = await this.getUserInput();
-                    result = await this.processInput(userInput);
+        this.on('addPrompt',
+            /**
+             * 
+             * @param {{ prompt: object, context: ExecutionContext }} param0
+             */
+            async ({ prompt, context } = eventData) => {
+                let frame = context.pushFrameObject({ file: __filename, method: 'onAddPrompt', isAsync: true, callType: CallOrigin.Callout });
+                try {
+                    if (prompt.isAsync) {
+                        let result = false;
+                        do {
+                            this.inputTo = prompt;
+                            await this.drawPrompt(frame.context);
+                            let userInput = await this.getUserInput();
+                            result = await this.processInput(frame.context, userInput);
+                        }
+                        while (result instanceof Error);
+                    }
+                    else if (!this.inputController)
+                        await this.startInputLoop();
                 }
-                while (result instanceof Error);
-        }
-            else if (!this.inputController)
-                this.startInputLoop();
-        });
+                finally {
+                    frame.pop();
+                }
+            });
     }
 
     /**
      * Adds a prompt to the user's input stack.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {BaseInput} prompt Info on how to render the prompt.
      * @param {function(string): void} callback A callback to execute once the user enters text.
      */
-    addPrompt(prompt) {
-        if (prompt instanceof BaseInput === false)
-            throw new Error('Illegal call to addPrompt(); Must be a valid input type');
-        this.inputStack.unshift(prompt);
-        this.emit('addPrompt', prompt);
+    addPrompt(ecc, prompt) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'addPrompt', callType: CallOrigin.Driver });
+        try {
+            if (prompt instanceof BaseInput === false)
+                throw new Error('Illegal call to addPrompt(); Must be a valid input type');
+            this.inputStack.unshift(prompt);
+            this.emit('addPrompt', { prompt, context: frame.context.fork() });
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Attaches this shell to a player.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {MUDObject} player The in-game object to attach I/O to .
      * @param {number} shellLevel Shell level determines default behavior for command processing.
      * @param {number} snoopLevel Snoop level 0 [actual player], level 1 [observe], level 2 [control], level 3 [lockout]
      * @returns {boolean} True on success.
      */
-    attachPlayer(player, shellLevel = 1, snoopLevel = 0) {
-        let storage = driver.storage.get(player);
+    async attachPlayer(ecc, player, shellLevel = 1, snoopLevel = 0) {
+        let frame = ecc.pushFrameObject({ method: 'attachPlayer', callType: CallOrigin.Driver });
+        try {
+            let storage = driver.storage.get(player);
 
-        if (storage) {
-            this.shellLevel = shellLevel;
-            this.storage = storage;
+            if (storage) {
+                this.shellLevel = shellLevel;
+                this.storage = storage;
 
-            switch (snoopLevel) {
-                case 0:
-                    storage.shell = this;
-                    storage.eventExec(this.component);
-                    break;
+                switch (snoopLevel) {
+                    case 0:
+                        storage.shell = this;
+                        await storage.eventExec(frame.context.branch(), this.component);
+                        break;
 
-                case 1:
-                case 2:
-                case 3:
-                    throw new Error('Not implemented');
+                    case 1:
+                    case 2:
+                    case 3:
+                        throw new Error('Not implemented');
+                }
+
+                return true;
             }
-
-            return true;
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
     get connectedPort() {
@@ -596,91 +629,93 @@ class CommandShell extends events.EventEmitter {
 
     /**
      * Process a single line of user input.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} input The user's line of input.
      */
-    async processInput(input) {
-        if (this.inputTo) {
-            let inputTo = this.inputTo;
-            //  This should not happen, but just in case the current input dissappears...
-            if (!inputTo) {
-                this.stderr.writeLine(`-kmsh: WARNING: Input frame dissappeared unexpectedly!`);
-                return false;
-            }
-            if (this.options.allowEscaping && input.charAt(0) === '!') {
-                input = input.slice(1);
-                return false;
-            }
-            else {
-                //  Allow input control to alter the content per internal logic
-                input = inputTo.normalize(input, this.client);
-                if (typeof input === 'string') {
-                    let ecc = driver.getExecution();
+    async processInput(ecc, input) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'processInput', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (this.inputTo) {
+                let inputTo = this.inputTo;
+                //  This should not happen, but just in case the current input dissappears...
+                if (!inputTo) {
+                    this.stderr.writeLine(`-kmsh: WARNING: Input frame dissappeared unexpectedly!`);
+                    return false;
+                }
+                if (this.options.allowEscaping && input.charAt(0) === '!') {
+                    input = input.slice(1);
+                    return false;
+                }
+                else {
+                    //  Allow input control to alter the content per internal logic
+                    input = inputTo.normalize(input, this.client);
+                    if (typeof input === 'string') {
+                        try {
+                            let result;
 
-                    if (!ecc)
-                        throw new Error('FATAL: Execution stack has gone away!');
+                            if (driver.efuns.isAsync(inputTo.callback))
+                                result = await inputTo.callback(input);
+                            else
+                                result = inputTo.callback(input);
 
-                    try {
-                        let result;
+                            if (result !== true) {
+                                //  The modal frame did not recapture the user input
+                                let index = this.inputStack.indexOf(inputTo);
+                                if (index > -1) {
+                                    this.inputStack.splice(index, 1);
+                                }
+                            }
+                            else
+                                this.inputStack.unshift(inputTo);
 
-                        if (driver.efuns.isAsync(inputTo.callback))
-                            result = await inputTo.callback(input);
-                        else
-                            result = inputTo.callback(input);
-
-                        if (result !== true) {
-                            //  The modal frame did not recapture the user input
-                            let index = this.inputStack.indexOf(inputTo);
-                            if (index > -1) {
-                                this.inputStack.splice(index, 1);
+                            return true;
+                        }
+                        catch (err) {
+                            this.component.writeLine(efuns.eol + 'A serious error occurred');
+                            let cleanError = this.handleError(err);
+                            if (cleanError.file) {
+                                await driver.logError(cleanError.file, cleanError);
                             }
                         }
-                        else
-                            this.inputStack.unshift(inputTo);
-
-                        return true;
-                    }
-                    catch (err) {
-                        this.component.writeLine(efuns.eol + 'A serious error occurred');
-                        let cleanError = this.handleError(err);
-                        if (cleanError.file) {
-                            await driver.logError(cleanError.file, cleanError);
+                        finally {
+                            this.inputTo = this.inputStack[0] || false;
                         }
-                    }
-                    finally {
-                        this.inputTo = this.inputStack[0] || false;
-                    }
-                    return false;
+                        return false;
 
+                    }
+                    else if (input instanceof Error) {
+                        driver.efuns.errorLine(`${input.message}\n`);
+                        inputTo.error = input.message;
+                        return input;
+                    }
+                    return true;
                 }
-                else if (input instanceof Error) {
-                    driver.efuns.errorLine(`${input.message}\n`);
-                    inputTo.error = input.message;
-                    return input;
-                }
-                return true;
+                return;
             }
-            return;
+            try {
+                this.options = await this.storage.getShellSettings(false, new CommandShellOptions());
+                let cp = new CommandParser(input, this),
+                    cmd = await cp.parse(),
+                    hist = cmd && cmd.toHistoryString();
+
+                this.storage.lastActivity = driver.efuns.ticks;
+
+                if (!cmd)
+                    return true;
+
+                if (Array.isArray(cmd.options.history))
+                    cmd.options.history.push(hist);
+
+                return await this.executeCommand(cmd);
+                //return await this.executeCommands(cmds);
+            }
+            catch (err) {
+                this.handleError(err);
+                //this.renderPrompt(false);
+            }
         }
-        try {
-            this.options = await this.storage.getShellSettings(false, new CommandShellOptions());
-            let cp = new CommandParser(input, this),
-                cmd = await cp.parse(),
-                hist = cmd && cmd.toHistoryString();
-
-            this.storage.lastActivity = driver.efuns.ticks;
-
-            if (!cmd)
-                return true;
-
-            if (Array.isArray(cmd.options.history))
-                cmd.options.history.push(hist);
-
-            return await this.executeCommand(cmd);
-            //return await this.executeCommands(cmds);
-        }
-        catch (err) {
-            this.handleError(err);
-            //this.renderPrompt(false);
+        finally {
+            frame.pop();
         }
     }
 
@@ -753,47 +788,67 @@ class CommandShell extends events.EventEmitter {
         return false;
     }
 
-    drawPrompt() {
-        return new Promise(async (resolve, reject) => {
-            let inputTo = this.inputStack.length > 0 && this.inputStack[0],
-                rejector = function () { reject('input aborted'); };
+    /**
+     * Draw the next prompt for the user
+     * @param {ExecutionContext} ecc The current callstack
+     * @returns
+     */
+    async drawPrompt(ecc) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'drawPrompt', callType: CallOrigin.Driver });
+        try {
+            return new Promise(async (resolve, reject) => {
+                let inputTo = this.inputStack.length > 0 && this.inputStack[0],
+                    rejector = function () { reject('input aborted'); };
 
-            this.inputController.onlyOnce('abort', rejector);
+                this.inputController.onlyOnce('abort', rejector);
 
-            try {
-                if (!inputTo) {
-                    let text = await driver.driverCallAsync('drawPrompt', async ecc => {
-                        return await ecc.withPlayerAsync(this.storage, async player => {
+                try {
+                    if (!inputTo) {
+                        let text = await frame.context.withPlayerAsync(this.storage, async player => {
                             if (typeof player.getCommandPrompt === 'function') {
-                                if (driver.efuns.isAsync(player.getCommandPrompt))
-                                    return await player.getCommandPrompt();
+                                if (driver.efuns.isAsync(frame.context, player.getCommandPrompt))
+                                    return await player.getCommandPrompt(frame.branch());
                                 else
-                                    return player.getCommandPrompt();
+                                    return player.getCommandPrompt(frame.context);
                             }
                             else
                                 return false;
                         });
-                    });
-                    if (false === text) {
-                        this.once('addPrompt', prompt => {
-                            this.component.renderPrompt(prompt);
-                            resolve(prompt)
-                        });
-                        return;
+                        if (false === text) {
+                            this.once('addPrompt',
+                                /**
+                                 * Render the prompt to the client
+                                 * @param {{ prompt: object, context: ExecutionContext }} addPromptEvent
+                                 */
+                                ({ prompt, context } = addPromptEvent) => {
+                                    let frame = context;
+                                    try {
+                                        this.component.renderPrompt(prompt);
+                                        resolve(prompt)
+                                    }
+                                    finally {
+                                        frame.pop();
+                                    }
+                                });
+                            return;
+                        }
+                        else {
+                            //  This is a normal command shell, not an input frame
+                            this.component.renderPrompt({ type: 'text', text, console: true });
+                            return resolve(false);
+                        }
                     }
-                    else {
-                        //  This is a normal command shell, not an input frame
-                        this.component.renderPrompt({ type: 'text', text, console: true });
-                        return resolve(false);
-                    }
+                    this.component.renderPrompt(inputTo);
+                    return resolve(inputTo);
                 }
-                this.component.renderPrompt(inputTo);
-                return resolve(inputTo);
-            }
-            finally {
-                this.removeListener('abort', rejector);
-            }
-        });
+                finally {
+                    this.removeListener('abort', rejector);
+                }
+            });
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     abortInputs() {
@@ -832,14 +887,15 @@ class CommandShell extends events.EventEmitter {
             try {
                 do {
                     this.flushAll();
-                    this.inputTo = await this.drawPrompt();
+                    this.inputTo = await this.drawPrompt(ExecutionContext.startNewContext());
                     let input = await this.getUserInput();
 
-                    await driver.driverCallAsync('input', async ecc => {
-                        await ecc.withPlayerAsync(this.storage, async () => {
-                            await this.processInput(input);
-                        });
-                    }, undefined, true, true);
+                    /** @type {ExecutionContext} */
+                    let ecc = ExecutionContext.startNewContext();
+                    await ecc.withPlayerAsync(this.storage, async () => {
+                        await this.processInput(ecc, input);
+                    });
+
                 }
                 while (true);
             }

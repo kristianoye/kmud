@@ -195,26 +195,6 @@ class GameServer extends MUDEventEmitter {
         });
     }
 
-    /**
-     * Called to get the current working directory of the specified object (or the current player)
-     * @param {MUDObject} player
-     * @param {string} defaultDir The default directory if no directory is returned by current player
-     * @returns {string} The working directory.
-     */
-    applyGetWorkingDir(player = false, defaultDir = '/') {
-        if (!(player = player || this.efuns.thisPlayer()))
-            throw new Error('No player!');
-
-        return this.driverCall('applyGetWorkingDir', ecc => {
-            let store = this.storage.get(player);
-            return ecc.withPlayer(store, player => {
-                if (typeof player.applyGetWorkingDir === 'function')
-                    return player.applyGetWorkingDir();
-                return defaultDir;
-            });
-        });
-    }
-
     getHomePath(player) {
         return unwrap(player, user => {
             if (this.applyGetHomePath) {
@@ -980,7 +960,7 @@ class GameServer extends MUDEventEmitter {
                     return ExecutionContext.withNewContext({ object: this.masterObject, method: 'executeHeartbeat', isAsync: true, callType: CallOrigin.Driver }, async ecc => {
                         try {
                             ecc.alarmTime = efuns.ticks + heartbeatInterval;
-                            ecc.truePlayer = ecc.player = store.owner;
+                            ecc.setThisPlayer(store.owner, true);
 
                             await store.eventHeartbeat(ecc, this.heartbeatInterval, this.heartbeatCounter);
                         }

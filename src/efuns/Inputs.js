@@ -45,7 +45,7 @@ class InputHelper {
 
             let prompt = BaseInput.create(type, options, typeof options.callback === 'function' && options.callback);
 
-            frame.context.shell.addPrompt(prompt);
+            frame.context.shell.addPrompt(frame.branch(), prompt);
         }
         finally {
             frame.pop();
@@ -95,7 +95,7 @@ class InputHelper {
                                 reject(err);
                             }
                         };
-                        ecc.shell.addPrompt(prompt);
+                        ecc.shell.addPrompt(frame.branch(), prompt);
                     }
                     catch (err) {
                         reject(err);

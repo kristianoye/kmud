@@ -151,65 +151,59 @@ class MUDObject extends MUDEventEmitter {
      * @returns
      */
     async moveObjectAsync(ecc, destination) {
-        let frame = ecc.pushFrameObject({ file: this.filename, method: 'moveObjectAsync', isAsync: true, callType: 2 });
+        let frame = ecc.pushFrameObject({ object: this, file: this.filename, method: 'moveObjectAsync', isAsync: true, callType: 2 });
         try {
             let myStore = driver.storage.get(this),
                 oldEnvironment = myStore.environment;
 
-            return await frame.context.withPlayerAsync(myStore, async (player, ecc) => {
-                let target = destination.instance || await efuns.objects.loadObjectAsync(ecc.branch(), destination),
-                    newEnvironment = target && target.instance;
+            let target = destination.instance || await efuns.objects.loadObjectAsync(frame.branch(), destination),
+                newEnvironment = target && target.instance;
 
-                if (!oldEnvironment || oldEnvironment.canReleaseItem(ecc.branch(), player) && newEnvironment) {
-                    let targetStore = driver.storage.get(newEnvironment);
+            if (!oldEnvironment || oldEnvironment.canReleaseItem(frame.context, this) && newEnvironment) {
+                let targetStore = driver.storage.get(newEnvironment);
 
-                    //  Can the destination accept this object?
-                    if (targetStore && newEnvironment.canAcceptItem(ecc.branch(), player)) {
+                //  Can the destination accept this object?
+                if (targetStore && newEnvironment.canAcceptItem(frame.context, this)) {
 
-                        //  Do lazy reset if it's time
-                        if (driver && driver.useLazyResets) {
-                            if (typeof newEnvironment.reset === 'function') {
-                                if (targetStore.nextReset < efuns.ticks) {
-                                    await targetStore.eventReset(ecc.branch());
-                                }
+                    //  Do lazy reset if it's time
+                    if (driver && driver.useLazyResets) {
+                        if (typeof newEnvironment.reset === 'function') {
+                            if (targetStore.nextReset < efuns.ticks) {
+                                await targetStore.eventReset(frame.branch());
                             }
-                        }
-
-                        /* 
-                         * MudOS-like init support:
-                         */
-                        if (targetStore.addInventory(player)) {
-                            if (myStore.living) {
-                                let stats = targetStore.stats;
-                                if (stats) stats.moves++;
-                                await newEnvironment.initAsync(ecc.branch());
-                            }
-                            for (const item of newEnvironment.inventory) {
-                                let itemStore = driver.storage.get(item.instance);
-                                if (itemStore && itemStore !== myStore && itemStore.living) {
-                                    await ecc.withPlayerAsync(itemStore, async () => await newEnvironment.initAsync(ecc.branch()), true, 'initAsync');
-                                }
-                                if (myStore.living) {
-                                    await ecc.withPlayerAsync(myStore, async () => await newEnvironment.initAsync(ecc.branch()), true, 'initAsync');
-                                }
-                            }
-                            return true;
                         }
                     }
+
+                    /* 
+                     * MudOS-like init support:
+                     */
+                    if (targetStore.addInventory(this)) {
+                        if (myStore.living) {
+                            let stats = targetStore.stats;
+                            if (stats) stats.moves++;
+                            await newEnvironment.initAsync(frame.branch());
+                        }
+                        for (const item of newEnvironment.inventory) {
+                            let itemStore = driver.storage.get(item.instance);
+                            if (itemStore && itemStore !== myStore && itemStore.living) {
+                                await frame.context.withPlayerAsync(itemStore, async () => await newEnvironment.initAsync(frame.branch()), true, 'initAsync');
+                            }
+                            if (myStore.living) {
+                                await frame.context.withPlayerAsync(myStore, async () => await newEnvironment.initAsync(frame.branch()), true, 'initAsync');
+                            }
+                        }
+                        return true;
+                    }
                 }
-                return false;
-            }, true, 'moveObjectAsync');
+            }
+            return false;
         }
         finally {
             frame.pop();
         }
     }
 
-    preprocessInput(input, callback) {
-        return callback(input);
-    }
-
-    receiveMessage(msgClass, text) {
+    receiveMessage(ecc, msgClass, text) {
         let store = driver.storage.get(this);
         if (store.component) {
             if (msgClass.startsWith('N'))
@@ -224,25 +218,7 @@ class MUDObject extends MUDEventEmitter {
         return $storage.serialize();
     }
 
-    setContainer(target, cb) {
-        let $storage = driver.storage.get(this),
-            env = $storage.environment,
-            newEnv = target.wrapper,
-            result = false;
-
-        if (newEnv) {
-            if (env && env !== newEnv)
-                this.emit('kmud.item.removed', this.environment);
-            this.removeAllListeners('kmud.item.removed');
-            $storage.environment = newEnv;
-        }
-        if (typeof cb === 'function') {
-            cb.call(self, newEnv, env);
-        }
-        return this;
-    }
-
-    write(msg) {
+    write(ecc, msg) {
         let storage = driver.storage.get(this),
             shell = storage.shell,
             stdio = shell && shell.stdout;
@@ -253,18 +229,8 @@ class MUDObject extends MUDEventEmitter {
         return this;
     }
 
-    writeLine(msg) {
+    writeLine(ecc, msg) {
         return this.write(msg + '\n');
-    }
-
-    writePrompt(data, cb) {
-        let storage = driver.storage.get(this),
-            client = storage.client;
-
-        if (client) {
-            client.addPrompt(data, cb);
-        }
-        return this;
     }
 }
 

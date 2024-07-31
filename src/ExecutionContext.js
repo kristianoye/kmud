@@ -331,8 +331,6 @@ class ExecutionContext extends MUDEventEmitter {
             this.alarmTime = parent.alarmTime;
             this.currentVerb = parent.currentVerb || false;
             this.client = parent.client;
-            this.player = parent.player;
-            this.truePlayer = parent.truePlayer;
             this.cmdStack = parent.cmdStack;
 
             if (createDetached !== true) {
@@ -354,8 +352,6 @@ class ExecutionContext extends MUDEventEmitter {
             this.#alarmTime = Number.MAX_SAFE_INTEGER;// driver.efuns.ticks + 5000;
             this.currentVerb = false;
             this.branchedAt = 0;
-            this.player = false;
-            this.truePlayer = false;
             this.pid = nextPID++;
 
             contextsByPID[this.pid] = this;
@@ -822,6 +818,10 @@ class ExecutionContext extends MUDEventEmitter {
         return ctx;
     }
 
+    get player() {
+        return this.getThisPlayer();
+    }
+
     /**
      * Pops a MUD frame off the stack
      * @param {string | ExecutionFrame} method
@@ -1156,6 +1156,59 @@ class ExecutionContext extends MUDEventEmitter {
         return false;
     }
 
+    #thisPlayer;
+    #truePlayer;
+
+    getThisPlayer(truePlayer=false, getBoth=false) {
+        if (this.parent)
+            return this.parent.getThisPlayer(truePlayer, getBoth);
+        else if (!getBoth)
+            return truePlayer ? this.#truePlayer : this.#thisPlayer;
+        else
+            return { thisPlayer: this.#thisPlayer, truePlayer: this.#truePlayer };
+    }
+
+    getTruePlayer() {
+        if (this.parent)
+            return this.parent.getThisPlayer(true);
+        else
+            return this.#truePlayer;
+    }
+
+    get truePlayer() {
+        if (this.parent)
+            return this.getTruePlayer();
+        else
+            return this.#truePlayer || this.#thisPlayer;
+    }
+
+    /**
+     * Set the active player and return the previous active player
+     * @param {any} player
+     * @returns
+     */
+    setThisPlayer(player, truePlayer = true, returnPreviousTruePlayer = false) {
+        if (this.parent)
+            return this.parent.setThisPlayer(player);
+        else {
+            let { thisPlayer: previous, truePlayer: previousTruePlayer } = this.getThisPlayer(true, true);
+
+            this.#thisPlayer = player;
+
+            if (truePlayer) {
+                if (player === true)
+                    this.#truePlayer = player;
+                else
+                    this.#truePlayer = player;
+            }
+
+            if (returnPreviousTruePlayer)
+                return [previous, previousTruePlayer];
+            else
+                return previous;
+        }
+    }
+
     /**
      * Try and push a frame on to the stack if an ExecutionContext was passed
      * 
@@ -1262,6 +1315,7 @@ class ExecutionContext extends MUDEventEmitter {
      * @returns
      */
     async withObject(obj, method, callback, isAsync = false, rethrow = true) {
+        let frame = this.pushFrameObject({ method, object: obj, isAsync: true, callType: CallOrigin.Driver });
         try {
             let result = undefined;
 
@@ -1276,56 +1330,11 @@ class ExecutionContext extends MUDEventEmitter {
         catch (ex) {
             if (rethrow)
                 throw ex;
+            else
+                console.log(`Error in ExecutionContext.withObject(): ${ex}\n${ex.stack}`);
         }
         finally {
-            this.pop(method);
-        }
-    }
-
-    /**
-     * Execute an action with an alternate thisPlayer
-     * @param {MUDStorage|MUDObject} storage The player that should be "thisPlayer"
-     * @param {function(MUDObject, ExecutionContext): any} callback The action to execute
-     * @param {boolean} restoreOldPlayer Restore the previous player 
-     */
-    withPlayer(storage, callback, restoreOldPlayer = true, methodName = false, catchErrors = true) {
-        let player = false;
-
-        if (storage instanceof MUDObject)
-            storage = driver.storage.get(player = storage);
-        else
-            player = storage.owner;
-
-        let ecc = driver.getExecution(),
-            oldPlayer = this.player,
-            oldClient = this.client,
-            oldStore = this.storage,
-            oldShell = this.shell;
-
-        if (methodName)
-            ecc.push(player, methodName, player.filename);
-
-        try {
-            this.player = player;
-            this.client = storage.component || this.client;
-            this.shell = storage.shell || this.shell;
-            this.storage = storage || this.storage;
-            this.truePlayer = this.truePlayer || player;
-
-            return callback(player, this);
-        }
-        catch (err) {
-            console.log('Error in withPlayer(): ', err);
-            if (catchErrors === false) throw err;
-        }
-        finally {
-            if (methodName) ecc.pop(methodName);
-            if (restoreOldPlayer) {
-                if (oldPlayer) this.player = oldPlayer;
-                if (oldClient) this.client = oldClient;
-                if (oldStore) this.storage = oldStore;
-                if (oldShell) this.shell = oldShell;
-            }
+            frame.pop();
         }
     }
 
@@ -1344,7 +1353,7 @@ class ExecutionContext extends MUDEventEmitter {
             player = storage.owner;
 
         let ecc = this,
-            oldPlayer = this.player,
+            oldPlayer = this.setThisPlayer(player, true),
             oldClient = this.client,
             oldStore = this.storage,
             oldShell = this.shell;
@@ -1353,11 +1362,9 @@ class ExecutionContext extends MUDEventEmitter {
             ecc.push(player, methodName, player.filename, true);
 
         try {
-            this.player = player;
             this.client = storage.component || this.client;
             this.shell = storage.shell || this.shell;
             this.storage = storage || this.storage;
-            this.truePlayer = this.truePlayer || player;
 
             return await callback(player, this);
         }
@@ -1368,7 +1375,8 @@ class ExecutionContext extends MUDEventEmitter {
             if (methodName)
                 ecc.pop(methodName);
             if (restoreOldPlayer) {
-                if (oldPlayer) this.player = oldPlayer;
+                if (oldPlayer)
+                    this.setThisPlayer(oldPlayer, true);
                 if (oldClient) this.client = oldClient;
                 if (oldStore) this.storage = oldStore;
                 if (oldShell) this.shell = oldShell;
