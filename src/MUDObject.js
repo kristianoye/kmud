@@ -203,11 +203,7 @@ class MUDObject extends MUDEventEmitter {
         }
     }
 
-    preprocessInput(input, callback) {
-        return callback(input);
-    }
-
-    receiveMessage(msgClass, text) {
+    receiveMessage(ecc, msgClass, text) {
         let store = driver.storage.get(this);
         if (store.component) {
             if (msgClass.startsWith('N'))
@@ -222,25 +218,7 @@ class MUDObject extends MUDEventEmitter {
         return $storage.serialize();
     }
 
-    setContainer(target, cb) {
-        let $storage = driver.storage.get(this),
-            env = $storage.environment,
-            newEnv = target.wrapper,
-            result = false;
-
-        if (newEnv) {
-            if (env && env !== newEnv)
-                this.emit('kmud.item.removed', this.environment);
-            this.removeAllListeners('kmud.item.removed');
-            $storage.environment = newEnv;
-        }
-        if (typeof cb === 'function') {
-            cb.call(self, newEnv, env);
-        }
-        return this;
-    }
-
-    write(msg) {
+    write(ecc, msg) {
         let storage = driver.storage.get(this),
             shell = storage.shell,
             stdio = shell && shell.stdout;
@@ -251,18 +229,8 @@ class MUDObject extends MUDEventEmitter {
         return this;
     }
 
-    writeLine(msg) {
+    writeLine(ecc, msg) {
         return this.write(msg + '\n');
-    }
-
-    writePrompt(data, cb) {
-        let storage = driver.storage.get(this),
-            client = storage.client;
-
-        if (client) {
-            client.addPrompt(data, cb);
-        }
-        return this;
     }
 }
 

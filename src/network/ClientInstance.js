@@ -220,7 +220,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
             if (component.requiresShell) {
                 if (data.attachTo === 'newLogin') {
                     try {
-                        let shell = component.attachShell(new CommandShell(component, data.shellOptions));
+                        let shell = component.attachShell(new CommandShell(frame.context, component, data.shellOptions));
                         let newLogin = await driver.connect(frame.branch(), client.port, client.clientType);
 
                         if (newLogin) {
