@@ -693,9 +693,9 @@ class CommandShell extends events.EventEmitter {
                 return;
             }
             try {
-                this.options = await this.storage.getShellSettings(false, new CommandShellOptions());
+                this.options = await this.storage.getShellSettings(frame.context, false, new CommandShellOptions());
                 let cp = new CommandParser(input, this),
-                    cmd = await cp.parse(),
+                    cmd = await cp.parse(frame.context),
                     hist = cmd && cmd.toHistoryString();
 
                 this.storage.lastActivity = driver.efuns.ticks;
@@ -706,7 +706,7 @@ class CommandShell extends events.EventEmitter {
                 if (Array.isArray(cmd.options.history))
                     cmd.options.history.push(hist);
 
-                return await this.executeCommand(cmd);
+                return await this.executeCommand(frame.context, cmd);
                 //return await this.executeCommands(cmds);
             }
             catch (err) {
