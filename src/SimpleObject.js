@@ -7,12 +7,20 @@ const
     MUDEventEmitter = require('./MUDEventEmitter');
 
 class SimpleObject extends MUDEventEmitter {
-    constructor(...args) {
-        super();
-        this.create(...args);
+    constructor(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ method: 'constructor' });
+        try {
+            super();
+            this.create(frame.context, ...args);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
-    create() { }
+    create(ecc) {
+        ecc.used = true;
+    }
 }
 
 global.SimpleObject = SimpleObject;

@@ -422,6 +422,27 @@ class GameServer extends MUDEventEmitter {
         }
     }
 
+    /**
+     * Crash the game server and process
+     * @param {Error} err The error that is responsible for the crash
+     * @param {number} exitCode The exit code to exit with
+     */
+    crash(err, exitCode=-2) {
+        //  TODO: Notify in-game master and users of pending crash
+        console.log(`KMUD has crashed due to an internal error: ${(err + (err.stack ? '\n' + err.stack : ''))}`);
+        process.exit(exitCode);
+    }
+
+    /**
+     * Crash the game server and process.
+     * @param {Error} err The error that is responsible for the crash
+     * @param {number} exitCode The exit code to exit with
+     */
+    crashAsync(err, exitCode) {
+        //  TODO: Only crashAsync() can reliably do logging; Add logging
+        this.crash(err, exitCode);
+    }
+
     /** 
      * Create the in-game master object 
      * @param {ExecutionContext} ecc

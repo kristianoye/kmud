@@ -40,15 +40,14 @@ class CompositeError extends MUDError {
     }
 }
 
-class PermissionDeniedError extends MUDError {
-    constructor(file, method) {
-        super(`${file}: ${method}: Permission denied`);
-    }
-}
-
 class SecurityError extends MUDError {
-    constructor(e) {
-        super(e);
+    /**
+     * Construct security error
+     * @param {string} message The error message
+     * @param {any} innerError The inner exception, if any
+     */
+    constructor(message, innerError = undefined) {
+        super(message, innerError);
     }
 }
 
@@ -113,7 +112,6 @@ module.exports = {
     NotImplementedError,
     SecurityError,
     TimeoutError,
-    PermissionDeniedError,
     SyntaxError,
     CompositeError,
     SyntaxWarning

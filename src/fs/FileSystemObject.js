@@ -942,7 +942,16 @@ class FileWrapperObject extends FileSystemObject {
     async can(ecc, perm, methodName = 'unknown') {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'can', isAsync: true });
         try {
-            return await driver.securityManager.can(frame.branch(), this, perm, methodName);
+            let result = await driver.securityManager.can(frame.branch(), this, perm, methodName);
+            if (result !== true)
+                throw new SecurityError('Unknown security reason');
+            return true;
+        }
+        catch (err) {
+            if (err instanceof SecurityError) {
+                let lastFrame = ecc.stack[1];
+                throw new SecurityError(`${lastFrame.method}: Permission denied`, err);
+            }
         }
         finally {
             frame.pop(true);

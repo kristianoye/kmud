@@ -1,3 +1,5 @@
+const { SecurityError } = require('../ErrorTypes');
+
 /*
  * Written by Kris Oye <kristianoye@gmail.com>
  * Copyright (C) 2017.  All rights reserved.
@@ -164,23 +166,31 @@ class SecurityAcl {
     async can(ecc, flags, fullPath, methodName = 'unknown') {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'can', callType: CallOrigin.Driver });
         try {
-            let perms = await this.getEffectivePermissions(frame.branch());
+            let perms = await this.getEffectivePermissions(frame.branch()),
+                checkCache = {};
 
             //  Silently inject wildcard perms
             securityManager.applyWildcardAcls(frame.branch(), perms);
 
             let result = await frame.context.guarded(async f => {
+                //  Prevent duplicate security checks using the same criteria
+                let cacheId = f.object?.objectId ?? f.file,
+                    isCached = cacheId in checkCache;
+
+                if (isCached)
+                    return true;
+
                 if (f.object) {
                     /** @type {{ userId: string, groups: string[] }} */
                     let $creds = f.object.$credential;
 
                     //  Owner always succeeds
                     if (this.owner === $creds.userId)
-                        return true;
+                        return (checkCache[cacheId] = true);
 
                     //  System group always succeeds
                     if (securityManager.systemGroupName && $creds.groups.indexOf(securityManager.systemGroupName) > -1)
-                        return true;
+                        return (checkCache[cacheId] = true);
 
                     //  Calculate effective permissions
                     let ep = 0;
@@ -189,26 +199,34 @@ class SecurityAcl {
                             ep |= data.perms;
                     }
                     if ((flags & ep) === flags)
-                        return true;
+                        return (checkCache[cacheId] = true);
 
                     switch (flags) {
                         case SecurityFlags.P_READ:
                             if (await driver.callApplyAsync(frame.branch(), driver.applyValidRead, fullPath, f.object, methodName)) {
-                                return true;
+                                return (checkCache[cacheId] = true);
                             }
                             break;
                         case SecurityFlags.P_WRITE:
                             if (await driver.callApplyAsync(frame.branch(), driver.applyValidWrite, fullPath, f.object, methodName)) {
-                                return true;
+                                return (checkCache[cacheId] = true);
                             }
                             break;
                     }
                 }
-                else {
-                    console.log('need something here');
+                //  External sources (driver, node modules, etc) are whitelisted by the stack check
+                else if (ExecutionContext.isExternalPath(frame.file)) {
+                    return (checkCache[cacheId] = true);
                 }
-                return false;
-            });
+                else {
+                    //  THIS IS A CRASH CONDITION
+                    await driver.crashAsync(new Error('Encountered execution frame with no file or object parameter'));
+                }
+                if (f.object)
+                    throw new SecurityError(`Object ${f.object.fullPath}.${f.method}() was denied access to ${methodName} [line ${f.lineNumber}]`);
+                else
+                    throw new SecurityError(`File ${f.object.fullPath} [method ${f.method}] was denied access to ${methodName} [line ${f.lineNumber}]`);
+            }, undefined, true);
 
             return result;
         }

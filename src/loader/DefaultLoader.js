@@ -483,10 +483,6 @@ class DefaultLoader {
         efuns.writeToStream(true, efuns.stdout, ...str);
         return true;
     }
-
-    writeRaw(str) {
-        return efuns.efuns.writeRaw(str);
-    }
 }
 
 DefaultLoader.getInitialization = function () {
