@@ -518,34 +518,32 @@ class ExecutionContext extends MUDEventEmitter {
      * Await an asyncronous call and yield back the execution time
      * @param {function(...):any} asyncCode
      */
-    awaitResult(asyncCode) {
-        return new Promise(async (resolve, reject) => {
-            let startTime = new Date().getTime(),
-                frame = this.stack[0];
+    async awaitResult(asyncCode) {
+        let startTime = new Date().getTime(),
+            frame = this.stack[0];
 
-            try {
-                await this.assertStateAsync(true);
-                frame.awaitCount++;
-                this.restore();
-                let result = await asyncCode();
-                this.restore();
-                await this.assertStateAsync(true);
-                resolve(result);
+        try {
+            await this.assertStateAsync(true);
+            frame.awaitCount++;
+            this.restore();
+            let result = await asyncCode();
+            this.restore();
+            await this.assertStateAsync(true);
+            return result;
+        }
+        catch (err) {
+            let cleanError = driver.cleanError(err);
+            if (cleanError.file) {
+                await driver.logError(this.branch(), cleanError.file, cleanError);
             }
-            catch (err) {
-                let cleanError = driver.cleanError(err);
-                if (cleanError.file) {
-                    await driver.logError(this.branch(), cleanError.file, cleanError);
-                }
-                reject(err);
-            }
-            finally {
-                let ellapsed = (new Date().getTime() - startTime);
-                this.alarmTime += ellapsed;
-                frame.awaitCount--;
-                this.restore();
-            }
-        });
+            throw err;
+        }
+        finally {
+            let ellapsed = (new Date().getTime() - startTime);
+            this.alarmTime += ellapsed;
+            frame.awaitCount--;
+            this.restore();
+        }
     }
 
     /**
@@ -616,12 +614,15 @@ class ExecutionContext extends MUDEventEmitter {
             if (this.stack.length === this.branchedAt || true === forceCompletion) {
                 if (this.childCount > 0) {
                     for (const [id, child] of Object.entries(this.children)) {
-                        console.log(`\tExecutionContext: Child context ${id} has not completedl`);
+                        console.log(`\tExecutionContext: Child context ${id} has not completed`);
+                        child.onComplete.push(() => {
+                            console.log(`\tExecutionContext: Child context ${id} completed after its parent`);
+                        });
                     }
                 }
                 if (this.unusedChildren.length > 0) {
                     for (const child of this.unusedChildren) {
-                        console.log(`\tExecutionContext: Child context ${child.handleId} was never usedl`);
+                        console.log(`\tExecutionContext: Child context ${child.handleId} was never used`);
                         ExecutionContext.deleteContext(child);
                     }
                     this.unusedChildren = [];
@@ -629,7 +630,7 @@ class ExecutionContext extends MUDEventEmitter {
                 this.completed = true;
                 for (let i = 0; i < this.onComplete; i++) {
                     try {
-                        let callback = this.onComplete[i];
+                        let callback = thlsis.onComplete[i];
                         typeof callback === 'function' && callback();
                     }
                     catch (err) {
@@ -744,6 +745,14 @@ class ExecutionContext extends MUDEventEmitter {
     }
 
     /**
+     * Returns the last frame that was internal to the game.
+     */
+    getLastGameFrame() {
+        let lastFrame = this.stack.lastIndexOf(frame => ExecutionContext.isExternalPath(frame.file));
+        return lastFrame > -1 && this.stack[lastFrame]
+    }
+
+    /**
      * Check access to a guarded function.
      * @param {function(ExecutionFrame):boolean} callback Calls the callback for each frame.
      * @param {function(...any): any} [action] An optional action to perform
@@ -799,6 +808,21 @@ class ExecutionContext extends MUDEventEmitter {
 
     get isAwaited() {
         return this.stack.length > 0 && this.stack[0].awaitCount > 0;
+    }
+
+    /**
+     * Check to see if the specified pat is external; External files should not
+     * be considered when performing security checks.
+     * 
+     * Do we need more?
+     * 
+     * @param {string} filename
+     * @returns {boolean}
+     */
+    static isExternalPath(filename) {
+        if (filename.startsWith(__dirname))
+            return true;
+        return false;
     }
 
     get length() {

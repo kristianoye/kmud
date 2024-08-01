@@ -339,7 +339,7 @@ class EFUNProxy {
             width = (width || this.env.COLUMNS || 80);
 
             list.forEach(i => {
-                let n = this.stripColor(i).length;
+                let n = this.stripColor(ecc, i).length;
                 longest = n > longest ? n : longest;
             });
             colWidth = longest + minSpacing;
@@ -370,10 +370,10 @@ class EFUNProxy {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'command', isAsync: true, callType: CallOrigin.DriverEfun });
 
         try {
-            let truePlayer = isForced && this.thisPlayer(1),
-                thisObject = this.thisObject();
+            let truePlayer = isForced && this.thisPlayer(ecc, true),
+                thisObject = this.thisObject(ecc);
 
-            if (!this.living.isAlive(thisObject))
+            if (!this.living.isAlive(ecc, thisObject))
                 throw new Error(`${thisObject.fullPath} is not alive and cannot execute commands`);
 
             let words = input.split(/(\s+)/g),
@@ -461,7 +461,7 @@ class EFUNProxy {
                 let result = target.instance.inventory;
 
                 for (const item of result) {
-                    let inv = this.deepInventory(frame.branch(), item);
+                    let inv = this.deepInventory(frame.context, item);
                     if (inv.length > 0)
                         result.push(...inv);
                 }
@@ -563,8 +563,8 @@ class EFUNProxy {
                 }
                 catch (ee) {
                     /* rollback failed, too... destroy them all */
-                    this.writeLine('Sorry things did not work out.');
-                    await component.disconnect();
+                    this.writeLine(frame.context, 'Sorry things did not work out.');
+                    await component.disconnect(frame.context);
                 }
                 throw e;
             }
@@ -677,16 +677,16 @@ class EFUNProxy {
             if (decim > 0)
                 decim = -decim;
             if (numeric > TeraByte) {
-                return this.math.round10(numeric / TeraByte, decim) + 'TB';
+                return this.math.round10(frame.context, numeric / TeraByte, decim) + 'TB';
             }
             else if (numeric > GigaByte) {
-                return this.math.round10(numeric / GigaByte, decim) + 'GB';
+                return this.math.round10(frame.context, numeric / GigaByte, decim) + 'GB';
             }
             else if (numeric > MegaByte) {
-                return this.math.round10(numeric / MegaByte, decim) + 'MB';
+                return this.math.round10(frame.context, numeric / MegaByte, decim) + 'MB';
             }
             else if (numeric > KiloByte) {
-                return this.math.round10(numeric / KiloByte, decim) + 'KB';
+                return this.math.round10(frame.context, numeric / KiloByte, decim) + 'KB';
             }
             else {
                 return numeric.toString();
@@ -867,7 +867,7 @@ class EFUNProxy {
                 else if (expr instanceof MUDObject)
                     return global.wrap(expr);
             }
-            let result = await driver.fileManager.loadObjectAsync(frame.branch(), this.resolvePath(frame.branch(), expr), args);
+            let result = await driver.fileManager.loadObjectAsync(frame.branch(), this.resolvePath(frame.context, expr), args);
             return result;
         }
         finally {
@@ -893,9 +893,9 @@ class EFUNProxy {
                 if (typeof expr === 'function' && expr.isWrapper)
                     return expr;
                 else if (expr instanceof MUDObject)
-                    return global.wrap(expr);
+                    return global.wrap(frame.context, expr);
             }
-            return driver.fileManager.loadObjectSync(this.resolvePath(expr), args);
+            return driver.fileManager.loadObjectSync(frame.context, this.resolvePath(frame.context, expr), args);
         }
         finally {
             frame.pop();
@@ -960,7 +960,7 @@ class EFUNProxy {
                     excluded = [excluded];
 
                 if (!Array.isArray(audience)) {
-                    audience = [audience || this.thisPlayer()];
+                    audience = [audience || this.thisPlayer(frame.context)];
                 }
 
                 if (typeof expr !== 'string') {
@@ -1033,14 +1033,14 @@ class EFUNProxy {
                 mudlibName: 'KMUD',
                 mudlibBaseVersion: config.mudlib.getVersion(),
                 mudlibVersion: 'Emerald MUD 2.0',
-                mudMemoryTotal: this.getMemSizeString(process.memoryUsage().heapTotal),
-                mudMemoryUsed: this.getMemSizeString(process.memoryUsage().heapUsed),
+                mudMemoryTotal: this.getMemSizeString(frame.context, process.memoryUsage().heapTotal),
+                mudMemoryUsed: this.getMemSizeString(frame.context, process.memoryUsage().heapUsed),
                 name: driver.mudName,
                 osbuild: os.type() + ' ' + os.release(),
                 serverAddress: driver.serverAddress,
-                systemMemoryUsed: this.getMemSizeString(os.totalmem() - os.freemem()),
+                systemMemoryUsed: this.getMemSizeString(frame.context, os.totalmem() - os.freemem()),
                 systemMemoryPercentUsed: ((os.totalmem() - os.freemem()) / os.totalmem()) * 100.0,
-                systemMemoryTotal: this.getMemSizeString(os.totalmem()),
+                systemMemoryTotal: this.getMemSizeString(frame.context, os.totalmem()),
                 uptime: driver.uptime()
             };
         }
@@ -1181,7 +1181,7 @@ class EFUNProxy {
             if (n !== false && n > -1)
                 ext = ext.slice(0, n);
 
-            let [path, objectId] = (fileExpr.startsWith('/') ? fileExpr : this.resolvePath(fileExpr)).split('#', 2),
+            let [path, objectId] = (fileExpr.startsWith('/') ? fileExpr : this.resolvePath(frame?.context, fileExpr)).split('#', 2),
                 [file, type] = path.split('$', 2);
 
             if (!type || type.length === 0) {
@@ -1237,16 +1237,16 @@ class EFUNProxy {
 
             var m = / of /i.exec(what);
             if (m && m.index > 0) {
-                return this.pluralize(what.slice(0, m.index)) + what.slice(m.index);
+                return this.pluralize(frame.context, what.slice(0, m.index)) + what.slice(m.index);
             }
             if (what.match(/a /i))
-                return this.pluralize(what.slice(2));
+                return this.pluralize(frame.context, what.slice(2));
             else if (what.match(/an /i))
-                return this.pluralize(what.slice(3));
+                return this.pluralize(frame.context, what.slice(3));
 
             if (what.indexOf(' ') > -1) {
                 var lastIndex = what.lastIndexOf(' ');
-                return what.slice(0, lastIndex + 1) + this.pluralize(what.slice(lastIndex + 1));
+                return what.slice(0, lastIndex + 1) + this.pluralize(frame.context, what.slice(lastIndex + 1));
             }
 
             var found = 0,
@@ -1573,7 +1573,7 @@ class EFUNProxy {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'present', callType: CallOrigin.DriverEfun });
         try {
             if (!env) {
-                env = this.thisObject();
+                env = this.thisObject(frame.context);
             }
             if (typeof id === 'string') {
                 let parts = id.split(/\s+/),
@@ -1657,26 +1657,6 @@ class EFUNProxy {
      * @param {string} moduleName The module name to import.
      * @returns {any} The results of the import.
      */
-    require(ecc, moduleName) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'require', callType: CallOrigin.DriverEfun });
-        try {
-            const result = (async (moduleName) => {
-                return await this.requireAsync(moduleName);
-            })(moduleName);
-
-            return result;
-        }
-        finally {
-            frame.pop();
-        }
-    }
-
-    /**
-     * Import one or more required resources from another module.
-     * @param {ExecutionContext} ecc The current execution context/call stack
-     * @param {string} moduleName The module name to import.
-     * @returns {any} The results of the import.
-     */
     async requireAsync(ecc, moduleName) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'requireAsync', callType: CallOrigin.DriverEfun, isAsync: true });
         try {
@@ -1696,7 +1676,7 @@ class EFUNProxy {
                         let isInclude = moduleName.charAt(0) === '@',
                             filename = isInclude ?
                                 await this.resolveIncludeAsync(frame.branch(), moduleName) :
-                                await this.resolvePath(frame.branch(), moduleName, this.directoryName(this.filename)),
+                                await this.resolvePath(frame.branch(), moduleName, this.directoryName(frame.context, this.filename)),
                             module = driver.cache.get(filename);
 
                         if (!module)
@@ -1895,7 +1875,7 @@ class EFUNProxy {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'resetObject', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (!target) {
-                target = this.thisObject();
+                target = this.thisObject(frame.context);
             }
             if (target) {
                 let storage = driver.storage.get(target);
@@ -1929,7 +1909,7 @@ class EFUNProxy {
             else {
                 let ecc = frame.context,
                     thisOb = ecc.thisObject,
-                    restoreFile = this.resolvePath(frame.branch(), pathOrObject, thisOb.directory);
+                    restoreFile = this.resolvePath(frame.context, pathOrObject, thisOb.directory);
 
                 if (thisOb) {
                     if (!restoreFile.endsWith(SaveExtension))
@@ -1963,13 +1943,13 @@ class EFUNProxy {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'saveObject', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let ctx = driver.getExecution(), prev = ctx.thisObject,
-                parts = this.parsePath(prev.filename);
+                parts = this.parsePath(frame.context, prev.filename);
 
             expr = expr || parts.file;
 
             if (prev) {
                 if (!expr.endsWith(SaveExtension)) expr += SaveExtension;
-                this.writeJsonFile(expr, this.serialize(prev));
+                this.writeJsonFile(frame.context, expr, this.serialize(frame.context, prev));
                 return true;
             }
             return false;
@@ -1990,14 +1970,14 @@ class EFUNProxy {
         try {
             let ctx = driver.getExecution(),
                 prev = ctx.thisObject,
-                parts = this.parsePath(prev.filename),
-                savePath = this.resolvePath(expr || parts.file, prev.directory);
+                parts = this.parsePath(frame.context, prev.filename),
+                savePath = this.resolvePath(frame.context, expr || parts.file, prev.directory);
 
             if (prev) {
                 if (!savePath.endsWith(SaveExtension))
                     savePath += SaveExtension;
-                let data = this.serialize(prev);
-                return await this.fs.writeJsonAsync(savePath, data, 0, encoding);
+                let data = this.serialize(frame.context, prev);
+                return await this.fs.writeJsonAsync(frame.context, savePath, data, 0, encoding);
             }
             return false;
         }
@@ -2022,7 +2002,7 @@ class EFUNProxy {
                 let serializeMudObject,
                     serializeSimpleObject,
                     serializeValue = (hive, key, val) => {
-                        let vt = this.objectType(frame.branch(), val);
+                        let vt = this.objectType(frame.context, val);
 
                         hive = hive || {};
 
@@ -2382,7 +2362,7 @@ class EFUNProxy {
      * @returns {any} The result of the unguarded call.
      */
     async unguarded(ecc, callback) {
-        let isAsync = this.isAsync(ecc.branch(), callback),
+        let isAsync = this.isAsync(ecc, callback),
             frame = ecc.pushFrameObject({ file: __filename, method: 'unguarded', callType: CallOrigin.DriverEfun, isAsync, isUnguarded: true });
         try {
             if (typeof callback !== 'function')
@@ -2410,7 +2390,7 @@ class EFUNProxy {
     userp(ecc, target) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'userp', callType: CallOrigin.DriverEfun });
         try {
-            return this.living.isInteractive(target);
+            return this.living.isInteractive(frame.context, target);
         }
         finally {
             frame.pop();
@@ -2470,7 +2450,7 @@ class EFUNProxy {
                 lines = [];
 
             for (const chunk of wordsAndSpace) {
-                let clen = this.stripColor(frame.branch(), chunk).length;
+                let clen = this.stripColor(frame.context, chunk).length;
 
                 if ((lineLength + clen) > maxLength) {
                     lines.push(line);
@@ -2512,7 +2492,7 @@ class EFUNProxy {
             if (ec) {
                 expr = expr.map(s => '%^BOLD%^%^' + ec + '%^' + s + '%^RESET%^');
             }
-            this.writeToStream(frame.branch(), false, this.err, ...expr);
+            this.writeToStream(frame.context, false, this.err, ...expr);
             return false;
         }
         finally {
@@ -2536,7 +2516,7 @@ class EFUNProxy {
                 expr = expr.map(s => '%^BOLD%^%^' + ec + '%^' + s + '%^RESET%^');
             }
 
-            this.writeToStream(frame.branch(), true, this.err, ...expr);
+            this.writeToStream(frame.context, true, this.err, ...expr);
             return false;
         }
         finally {
@@ -2553,7 +2533,7 @@ class EFUNProxy {
     write(ecc, ...expr) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'write', callType: CallOrigin.DriverEfun });
         try {
-            return this.writeToStream(frame.branch(), false, this.out, ...expr);
+            return this.writeToStream(frame.context, false, this.out, ...expr);
         }
         finally {
             frame.pop();
@@ -2569,7 +2549,7 @@ class EFUNProxy {
     writeLine(ecc, ...expr) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'wrapText', callType: CallOrigin.DriverEfun });
         try {
-            return this.writeToStream(frame.branch(), true, this.out, ...expr);
+            return this.writeToStream(frame.context, true, this.out, ...expr);
         }
         finally {
             frame.pop();
@@ -2630,7 +2610,8 @@ class EFUNProxy {
                     });
 
                     if (appendNewline) {
-                        if (!efuns.text.trailingNewline(frame.branch(), content)) content += this.eol;
+                        if (!this.text.trailingNewline(frame.context, content))
+                            content += this.eol;
                     }
 
                     if (stream)
@@ -2642,49 +2623,6 @@ class EFUNProxy {
         finally {
             frame.pop();
         }
-    }
-
-    /**
-     * 
-     * @param {ExecutionContext} ecc The current callstack
-     * @param {any} expr
-     * @returns
-     */
-    writeRaw(expr) {
-        return driver.driverCall('write', ecc => {
-            ecc.stdout.write(expr);
-            this.message('write', expr, this.thisPlayer());
-            return true;
-        });
-    }
-
-    /**
-     * Write text to file.
-     * @param {ExecutionContext} ecc The current callstack
-     * @param {string} filename The file to write to.
-     * @param {string} content The content to write.
-     * @returns {void}
-     */
-    writeFile(filename, content, callback) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'wrapText', callType: CallOrigin.DriverEfun });
-        return driver.fileManager.writeFileSync(
-            this.resolvePath(filename),
-            content,
-            callback);
-    }
-
-    /**
-     * 
-     * @param {ExecutionContext} ecc The current callstack
-     * @param {any} filename
-     * @param {any} data
-     * @param {any} callback
-     * @param {any} replacer
-     * @returns
-     */
-    writeJsonFile(filename, data, callback, replacer) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'wrapText', callType: CallOrigin.DriverEfun });
-        return this.writeFile(filename, JSON.stringify(data, replacer, 2), callback, true);
     }
 }
 

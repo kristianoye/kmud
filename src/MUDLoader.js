@@ -863,11 +863,6 @@ class MUDLoader {
         }
     }
 
-
-    writeRaw(...args) {
-        return efuns.efuns.writeRaw(...args);
-    }
-
     get UOM() {
         return UnitsOfMeasurement;
     }

@@ -83,8 +83,7 @@ class VMWrapper extends VMAbstraction {
             '__dirname = __DIR__, ',
             '[efuns, __mec] = __cef(__hid, __filename), ',
             'module = efuns, ',
-            'requireAsync = async (s) => { return await efuns.requireAsync(s); }, ',
-            'require = function(str) { return efuns.require(str);  };',
+            'requireAsync = async (s) => { return await efuns.requireAsync(s); }; ',
         context.content,
             ` })('${ecc.handleId}')`].join('');
 
