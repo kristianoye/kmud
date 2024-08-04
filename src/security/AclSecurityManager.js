@@ -185,7 +185,7 @@ class SecurityAcl {
                     let $creds = f.object.$credential;
 
                     if (!$creds) // Crash?
-                        await driver.crashAsync(new SecurityError(`Object ${f.object.fullPath}.${f.method}() was denied access to ${methodName} [line ${f.lineNumber}]`));
+                        throw new SecurityError(`Destructed object ${f.object.fullPath} was denied access to ${methodName} [line ${f.lineNumber}]`);
 
                     //  Owner always succeeds
                     if (this.owner === $creds.userId)

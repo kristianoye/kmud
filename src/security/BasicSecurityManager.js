@@ -8,6 +8,7 @@
  * some people might prefer that.
  */
 const
+    { ExecutionContext } = require('../ExecutionContext'),
     BaseSecurityManager = require('./BaseSecurityManager'),
     SecurityFlags = require('./SecurityFlags'),
     BasicFlags = Object.freeze({
@@ -51,11 +52,11 @@ class BasicSecurityManager extends BaseSecurityManager {
         }
     }
 
-   /**
-     * Check to see if the caller may append to file.
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
-     */
+    /**
+      * Check to see if the caller may append to file.
+      * @param {EFUNProxy} efuns
+      * @param {FileSystemRequest} req
+      */
     validAppendFile(efuns, req) {
         return this.validWriteFile(efuns, req);
     }
@@ -73,7 +74,7 @@ class BasicSecurityManager extends BaseSecurityManager {
      * @param {string} expr The expression to create
      */
     validCreateFile(expr) {
-        return this.validWriteFile( expr);
+        return this.validWriteFile(expr);
     }
 
     /**
@@ -138,7 +139,7 @@ class BasicSecurityManager extends BaseSecurityManager {
      * @returns {boolean} True if the operation can proceed.
      */
     async validReadFile(filename) {
-        return await driver.getExecution()
+        return await ExecutionContext.getCurrentExecution()
             .guarded(async f => await driver.callApplyAsync(driver.applyValidRead, filename, f.owner, f.method));
     }
 
@@ -157,7 +158,7 @@ class BasicSecurityManager extends BaseSecurityManager {
      * @returns {boolean} Returns true if the operation is permitted.
      */
     validWriteFile(expr) {
-        return driver.getExecution()
+        return ExecutionContext.getCurrentExecution()
             .guarded(async f => await driver.callApplyAsync(driver.applyValidWrite, filename, f.owner, f.method));
     }
 }

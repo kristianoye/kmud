@@ -4,6 +4,7 @@
  * Date: October 1, 2017
  */
 const
+    { ExecutionContext } = require('../ExecutionContext'),
     { BaseSecurityManager } = require('./BaseSecurityManager');
 
 class FilePermissions {
@@ -137,9 +138,6 @@ class UnixSecurityManager extends BaseSecurityManager {
      * @param {DirectoryObject} stat The stat object to check
      */
     async validReadDirectoryAsync(stat) {
-        let ecc = driver.getExecution(),
-            acl = this.getAcl(stat);
-
         if (!stat.isDirectory)
             throw new Error(`Bad argument 1 to validReadDirectoryAsync; Expected DirectoryObject got ${stat.constructor.name}`);
         return true; // BOGUS... but does not work yet
@@ -151,7 +149,7 @@ class UnixSecurityManager extends BaseSecurityManager {
      * @returns {boolean} True if the operation can proceed.
      */
     async validReadFile(filename) {
-        return await driver.getExecution()
+        return await ExecutionContext.getCurrentExecution()
             .guarded(async f => await driver.validRead(f, filename));
     }
 
@@ -170,7 +168,7 @@ class UnixSecurityManager extends BaseSecurityManager {
      * @returns {boolean} Returns true if the operation is permitted.
      */
     validWriteFile(expr) {
-        return driver.getExecution()
+        return ExecutionContext.getCurrentExecution()
             .guarded(f => driver.validWrite(f, expr));
     }
 }

@@ -4,8 +4,8 @@
  * Date: October 1, 2017
  */
 const { NotImplementedError } = require('./ErrorTypes');
-const
-    MUDLoader = require('./MUDLoader');
+const { ExecutionContext } = require('./ExecutionContext');
+const MUDLoader = require('./MUDLoader');
 const MUDObject = require('./MUDObject');
 const SimpleObject = require('./SimpleObject');
 
@@ -404,7 +404,7 @@ class MUDOSLoader extends MUDLoader {
      * @param {any} n
      */
     call_stack(n = 0) {
-        let ecc = driver.getExecution();
+        let ecc = ExecutionContext.getCurrentExecution();
 
         if (typeof n !== 'number')
             throw '*Bad argument 1 to efun call_stack()';
@@ -491,7 +491,7 @@ class MUDOSLoader extends MUDLoader {
         var result = 0;
         try {
             result = eval(expr);
-        } 
+        }
         catch (ex) {
             driver.cleanError(ex);
             result = '*' + ex.message + '\n' + ex.stack;

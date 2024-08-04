@@ -87,7 +87,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
     populateContext(skipCallback = false, ecc = false, opts = {}) {
         let thisPlayer = unwrap(this.body);
 
-        ecc = ecc || driver.getExecution();
+        ecc = ecc || ExecutionContext.getCurrentExecution();
 
         ecc.alarmTime = maxCommandExecutionTime ?
             efuns.ticks + maxCommandExecutionTime :
@@ -275,7 +275,7 @@ class ClientInstance extends MUDEventEmitter { // EventEmitter {
     }
 }
 
-ClientInstance.configureForRuntime = function(driver) {
+ClientInstance.configureForRuntime = function (driver) {
     DefaultError = driver.config.mudlib.defaultError || 'What?';
 
     maxCommandExecutionTime = driver.config.driver.maxCommandExecutionTime;

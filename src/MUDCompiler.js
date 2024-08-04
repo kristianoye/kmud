@@ -294,12 +294,9 @@ class MUDCompiler {
                 if (options.altParent && module) {
                     delete module.loader[options.altParent.name];
                 }
-                let t1 = efuns.ticks, ecc = driver.getExecution();
+                let t1 = efuns.ticks;
                 if (!cleanError) {
-                    if (ecc)
-                        logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
-                    else
-                        logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
+                    logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
                 }
             }
             return false;

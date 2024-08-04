@@ -271,7 +271,6 @@ class EFUNProxy {
             let store = false;
 
             if (!target) {
-                let ecc = driver.getExecution();
                 store = driver.storage.get(frame.context.getThisPlayer());
             }
             else {
@@ -392,7 +391,7 @@ class EFUNProxy {
     }
 
     get console() {
-        let ecc = driver.getExecution();
+        let ecc = ExecutionContext.getCurrentExecution();
         return ecc.shell && ecc.shell.console;
     }
 
@@ -424,8 +423,8 @@ class EFUNProxy {
     }
 
     get currentCommand() {
-        let ecc = driver.getExecution(),
-            cmd = ecc.command;
+        let ecc = ExecutionContext.getCurrentExecution();
+        cmd = ecc.command;
 
         if (cmd)
             return cmd;
@@ -438,7 +437,7 @@ class EFUNProxy {
      * @returns {string|false} The current verb or false if none.
      */
     get currentVerb() {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             cmd = ecc.command;
 
         if (cmd)
@@ -736,7 +735,7 @@ class EFUNProxy {
      * @returns {boolean}
      */
     isAwaited(assertIfNotAwaited = false, methodName = 'unknown') {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             result = ecc && ecc.isAwaited,
             frame = ecc && ecc.stack[0] || false;
 
@@ -1943,7 +1942,8 @@ class EFUNProxy {
     saveObject(ecc, expr) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'saveObject', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
-            let ctx = driver.getExecution(), prev = ctx.thisObject,
+            let ctx = ExecutionContext.getCurrentExecution(),
+                prev = ctx.thisObject,
                 parts = this.parsePath(frame.context, prev.filename);
 
             expr = expr || parts.file;
@@ -1969,8 +1969,7 @@ class EFUNProxy {
     async saveObjectAsync(ecc, expr, encoding = 'utf8') {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'saveObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
-            let ctx = driver.getExecution(),
-                prev = ctx.thisObject,
+            let prev = frame.context.thisObject,
                 parts = this.parsePath(frame.context, prev.filename),
                 savePath = this.resolvePath(frame.context, expr || parts.file, prev.directory);
 
@@ -2104,13 +2103,13 @@ class EFUNProxy {
     }
 
     get env() {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             cmd = ecc.command;
         return cmd.env || {};
     }
 
     get err() {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             cmd = ecc.command;
         if (cmd && cmd.stderr)
             return cmd.stderr;
@@ -2118,7 +2117,7 @@ class EFUNProxy {
     }
 
     get in() {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             cmd = ecc.command;
         if (cmd && cmd.stdin)
             return cmd.stdin;
@@ -2126,7 +2125,7 @@ class EFUNProxy {
     }
 
     get objin() {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             cmd = ecc.command;
         if (cmd && Array.isArray(cmd.objin))
             return cmd.objin;
@@ -2134,7 +2133,7 @@ class EFUNProxy {
     }
 
     get out() {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             cmd = ecc.command;
         if (cmd && cmd.stdout)
             return cmd.stdout;

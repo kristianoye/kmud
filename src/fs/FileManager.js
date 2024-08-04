@@ -63,13 +63,13 @@ class FileManager extends MUDEventEmitter {
             let moduleImport = require(options.managerModule.startsWith('.') ?
                 path.join(__dirname, '..', options.managerModule) : options.managerModule);
 
-            if (driver.efuns.isClass(driver.getExecution().branch(), moduleImport)) {
+            if (driver.efuns.isClass(ExecutionContext.getCurrentExecution(), moduleImport)) {
                 securityManager = new moduleImport(this, fsconfig.securityManagerOptions);
             }
             else if (!options.managerTypeName) {
                 throw new Error('Config for securityManager is missing required parameter managerTypeName');
             }
-            else if (typeof moduleImport === 'object' && driver.efuns.isClass(driver.getExecution().branch(), moduleImport[options.managerTypeName])) {
+            else if (typeof moduleImport === 'object' && driver.efuns.isClass(ExecutionContext.getCurrentExecution(), moduleImport[options.managerTypeName])) {
                 let managerType = moduleImport[options.managerTypeName];
                 securityManager = new managerType(this, fsconfig.securityManagerOptions);
             }

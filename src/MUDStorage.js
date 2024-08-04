@@ -293,22 +293,20 @@ class MUDStorage extends MUDEventEmitter {
             else {
                 if (this.connected)
                     await driver.driverCallAsync('disconnect', async context => {
-                        await context.withPlayerAsync(this, async player => {
-                            await driver.driverCallAsync('disconnect', async () => {
-                                if (this.shell) this.shell.flushAll();
-                                let component = this.component;
-                                this.connected = false;
+                        await context.withPlayerAsync(this, async (player, ecc) => {
+                            if (this.shell) this.shell.flushAll();
+                            let component = this.component;
+                            this.connected = false;
 
-                                //if (this.component)
-                                //    this.component.populateContext(true, context);
+                            //if (this.component)
+                            //    this.component.populateContext(true, context);
 
-                                try {
-                                    await player.disconnect(...args);
-                                }
-                                finally {
-                                    component && component.localDisconnect();
-                                }
-                            });
+                            try {
+                                await player.disconnect(ecc.branch({ lineNumber: 305, hint: 'player.disconnect' }), ...args);
+                            }
+                            finally {
+                                component && component.localDisconnect();
+                            }
                         });
                     });
                 if (this.component)
@@ -908,7 +906,7 @@ class MUDStorageContainer {
     get(ob) {
         let objectId = ob && ob.objectId;
         if (!objectId) {
-            let ecc = driver.getExecution(),
+            let ecc = ExecutionContext.getCurrentExecution(),
                 ctx = ecc.newContext;
             if (ctx) {
                 filename = ctx.filename + (ctx.instanceId > 0 ? `#${ctx.instanceId}` : '');

@@ -191,8 +191,21 @@ class ExecutionFrame {
         return driver.efuns.ticks - this.startTimes;
     }
 
-    toString() {
-        return `ExecutionFrame[file=${this.file};method=${this.method}]`;
+    toString(maskExternalPaths = false) {
+        if (this.file) {
+            let file = this.file;
+            if (maskExternalPaths) {
+                if (ExecutionContext.isExternalPath(file)) {
+                    file = '[EXTERNAL]';
+                }
+            }
+            if (this.className)
+                return `${this.className}.${this.method} [${file}; ${this.lineNumber}]`;
+            else
+                return `${this.method} [${file}; ${this.lineNumber}]`;
+        }
+        else
+            return `${this.method} [${this.lineNumber}]`;
     }
 }
 
@@ -357,7 +370,7 @@ class ExecutionContext extends MUDEventEmitter {
         }
         contexts[this.handleId] = this;
         contextCount++;
-        ExecutionContext.current = this;
+        ExecutionContext.setCurrentExecution(this);
     }
 
     /**
@@ -563,7 +576,7 @@ class ExecutionContext extends MUDEventEmitter {
      */
     branch(info = 0) {
         const
-            lineNumber = info.lineNumber || typeof info === 'number' ? info : 0;
+            lineNumber = info.lineNumber || (typeof info === 'number' ? info : 0);
 
         let result = new ExecutionContext(this, false, info);
         if (lineNumber > 0) {
@@ -661,7 +674,7 @@ class ExecutionContext extends MUDEventEmitter {
     }
 
     static set current(ecc) {
-        driver.executionContext = currentExecution = ecc;
+        ExecutionContext.setCurrentExecution(ecc);
     }
 
     /**
@@ -752,6 +765,17 @@ class ExecutionContext extends MUDEventEmitter {
     getLastGameFrame() {
         let lastFrame = this.stack.lastIndexOf(frame => ExecutionContext.isExternalPath(frame.file));
         return lastFrame > -1 && this.stack[lastFrame]
+    }
+
+    /**
+     * Get the stack as a string
+     * @param {number} startFrame The frame to start with
+     * @param {number} endFrame The frame to stop on
+     * @param {boolean} maskExternalPaths If true, then external paths will show 'external'
+     * @returns {string}
+     */
+    getStackString(startFrame = 0, stopFrame = undefined, maskExternalPaths = true) {
+        return this.stack.slice(startFrame, stopFrame).map(f => f.toString(maskExternalPaths)).join('\n');
     }
 
     /**
@@ -994,6 +1018,8 @@ class ExecutionContext extends MUDEventEmitter {
      */
     pushActual(frame) {
         this.stack.unshift(frame);
+        currentExecution = this;
+
         if (!this.used) {
             this.used = true;
 
@@ -1040,9 +1066,9 @@ class ExecutionContext extends MUDEventEmitter {
      */
     pushFrameObject(frameInfo) {
         if (typeof frameInfo !== 'object')
-            throw new Error('CRASH: pushFrameObject() received invalid parameter');
+            driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
         else if (typeof frameInfo.method !== 'string')
-            throw new Error('CRASH: pushFrameObject() received invalid parameter');
+            driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
         let newFrame = new ExecutionFrame({ context: this, ...frameInfo, object: frameInfo.object || this.thisObject });
         this.pushActual(newFrame);
         return newFrame;
@@ -1110,7 +1136,7 @@ class ExecutionContext extends MUDEventEmitter {
      * @returns {ExecutionContext}
      */
     restore() {
-        ExecutionContext.current = this;
+        ExecutionContext.setCurrentExecution(this);
         return this;
     }
 
@@ -1195,6 +1221,29 @@ class ExecutionContext extends MUDEventEmitter {
     }
 
     /**
+     * Get the current execution
+     * @param {boolean} createIfMissing Create a new context if none is running
+     * @returns {ExecutionContext} The current execution context 
+     */
+    static getCurrentExecution(createIfMissing = false) {
+        if (!currentExecution) {
+            ExecutionContext.setCurrentExecution(new ExecutionContext());
+        }
+        return currentExecution;
+    }
+
+    /**
+     * Change active context
+     * @param {ExecutionContext} context The new context
+     * @returns The previous context
+     */
+    static setCurrentExecution(context) {
+        let previous = currentExecution;
+        driver.executionContext = currentExecution = context;
+        return previous;
+    }
+
+    /**
      * Set the active player and return the previous active player
      * @param {any} player
      * @returns
@@ -1236,14 +1285,14 @@ class ExecutionContext extends MUDEventEmitter {
 
         if (args[0] instanceof ExecutionContext) {
             /** @type {ExecutionContext} */
-            let ecc = args.shift();
+            const ecc = args.shift();
             return [ecc.pushFrameObject(info), ...args];
         }
         else {
             let frameResult = undefined;
 
             if (useCurrentIfNotPresent) {
-                let ecc = ExecutionContext.current;
+                const ecc = currentExecution;
                 if (ecc) {
                     frameResult = ecc.pushFrameObject(info);
                 }
@@ -1262,7 +1311,7 @@ class ExecutionContext extends MUDEventEmitter {
     }
 
     validSyncCall(filename, lineNumber, expr) {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             frame = ecc && ecc.stack[0] || false;
 
         let result = expr();

@@ -489,6 +489,13 @@ function addRuntimeAssert(e, preText, postText, isCon, addIfEmpty = false, op) {
                         start: op.pos + startOfBlock + 1,
                         text: preText
                     });
+                    if (postText)
+                        e.body.body.push({
+                            end: op.pos + startOfBlock + 1,
+                            type: 'RuntimeAssertion',
+                            start: op.pos + startOfBlock + 1,
+                            text: postText
+                        });
                 }
             }
         }
@@ -820,7 +827,7 @@ async function parseElement(op, e, depth) {
                             // set.call(this, ... args)
                             ret += propName;
                             //  TODO: Change type parameter to filename string
-                            ret += `.call(this, ${op.typeDef.typeName}, '${prop}'`
+                            ret += `.call(this, ${op.context.mecName}, ${op.typeDef.typeName}, '${prop}'`
                             if (e.arguments.length > 0) {
                                 ret += ', ';
                                 op.readUntil(e.arguments[0].start);
@@ -936,7 +943,7 @@ async function parseElement(op, e, depth) {
 
             case 'CatchClause':
                 ret += await parseElement(op, e.param, depth + 1);
-                addRuntimeAssert(e, `__cat(${e.param.name}); `);
+                addRuntimeAssert(e, `__cat(${op.context.mecName}, ${e.param.name}); `);
                 ret += await parseElement(op, e.body, depth + 1);
                 break;
 
@@ -1222,7 +1229,7 @@ async function parseElement(op, e, depth) {
                     let n = ret.lastIndexOf('(');
                     if (n > -1) {
                         if (e.params.length)
-                            ret = ret.slice(0, n + 1) + '__ctx,' + ret.slice(n + 1);
+                            ret = ret.slice(0, n + 1) + '__ctx, ' + ret.slice(n + 1);
                         else
                             ret = ret.slice(0, n + 1) + '__ctx' + ret.slice(n + 1);
                     }
@@ -1266,7 +1273,7 @@ async function parseElement(op, e, depth) {
                             else if (op.context.memberName) {
                                 addRuntimeAssert(e,
                                     `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${op.context.callType}); try { `,
-                                    ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false);
+                                    ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false, true, op);
                             }
                             else {
                                 addRuntimeAssert(e,
@@ -1599,6 +1606,11 @@ async function parseElement(op, e, depth) {
                         methodName
                     };
                     ret += methodName;
+                    //  Special case for empty method definitions
+                    if (e.value?.body?.body?.length === 0) {
+                        //e.value.body.body.push({ type: 'Identifier', name: '', start: e.value.start, end: e.value.start });
+                        console.log('woo');
+                    }
                     ret += await parseElement(op, e.value, depth + 1, info);
                     op.setMethod();
                     ctx.pop();
@@ -1610,7 +1622,7 @@ async function parseElement(op, e, depth) {
                     let callee = op.source.slice(e.callee.start, e.callee.end),
                         hasArgs = e.arguments.length > 0;
                     op.pos = e.callee.end;
-                    ret += `__pcc(${op.thisParameter}, ${callee}, __FILE__, '${op.method}', ct => new ct`;
+                    ret += `__pcc(${op.context.mecName}, ${op.thisParameter}, ${callee}, __FILE__, '${op.method}', ct => new ct`;
                     if (hasArgs) {
                         ret += op.readUntil(e.arguments[0].start);
                         ret += op.context.mecName + ', ';

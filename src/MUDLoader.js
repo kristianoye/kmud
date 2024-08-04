@@ -46,14 +46,36 @@ class MUDLoader {
 
         Object.defineProperties(this, {
             __cat: {
-                // Assert Catch Type
-                value: function (val) {
-                    driver.cleanError(val, true);
-                    // Catching timeout errors is not allowed
-                    if (val instanceof TimeoutError) {
-                        throw val;
+                /**
+                 * Catch a game error
+                 * @param {ExecutionContext} ecc The current callstack
+                 * @param {Error} val The error that occurred
+                 */
+                value: function (ecc, val) {
+                    const
+                        caller = ecc.stack[0],
+                        frame = ecc.pushFrameObject({ method: '__cat' });
+                    try {
+                        if (typeof val === 'string') {
+                            const error = {
+                                message: val,
+                                lineNumber: caller.lineNumber,
+                                fileName: caller.file,
+                                stack: caller.context.getStackString(1)
+                            };
+                            driver.errorHandler(frame.context, error, true);
+                        }
+                        else {
+                            // Catching timeout errors is not allowed
+                            if (val instanceof TimeoutError) {
+                                throw val;
+                            }
+                            driver.errorHandler(frame.context, val, true);
+                        }
                     }
-                    driver.errorHandler(val, true);
+                    finally {
+                        frame.pop();
+                    }
                 },
                 configurable: false,
                 enumerable: false,
@@ -129,10 +151,7 @@ class MUDLoader {
                     }
 
                     if (!ecc) {
-                        if (!ob) // Crasher?
-                            throw new Error('What, no execution context?!');
-                        ecc = driver.getExecution(ob, method, file, isAsync, lineNumber);
-                        newContext = true;
+                        driver.crashSync(new Error(`Method or function ${method} in ${file} called without a callstack`));
                     }
                     else if (!access) {
                         //  This is (or should be) an arrow function so the stack needs
@@ -180,10 +199,20 @@ class MUDLoader {
                 writable: false
             },
             __pcc: {
-                //  Perform Constructor Call -- Only used by built-in types
-                value: function (thisObject, type, file, method, con, lineNumber) {
-                    let ecc = driver.getExecution(thisObject, 'constructor', file, false, lineNumber);
-
+                //  Perform Constructor Call -- Only used by native NodeJS/non-game types
+                /**
+                 * 
+                 * @param {ExecutionContext} ecc The current callstack
+                 * @param {MUDObject} thisObject The current game object
+                 * @param {function} type The type being constructed
+                 * @param {string} file The calling file
+                 * @param {string} method The calling method
+                 * @param {function} con The constructor function
+                 * @param {number} lineNumber The origin line within the file where the constructor was called
+                 * @returns 
+                 */
+                value: function (ecc, thisObject, type, file, method, con, lineNumber) {
+                    let frame = ecc.pushFrameObject({ object: thisObject, method: 'new', callType: CallOrigin.driver });
                     try {
                         if (type.prototype && type.prototype.baseName && type.prototype.baseName !== 'MUDObject' && type.prototype instanceof SimpleObject === false)
                             throw new Error(`Mudlib objects must be created with createAsync(...)`);
@@ -192,9 +221,8 @@ class MUDLoader {
                     }
                     finally {
                         ecc.popCreationContext();
-                        ecc && ecc.pop('constructor');
+                        frame.pop();
                     }
-                    return result;
                 },
                 configurable: false,
                 writable: false,
@@ -594,14 +622,21 @@ class MUDLoader {
 
     /**
      * Sets a value (and creates if needed).
+     * @param {ExecutionContext} ecc The current callstack
      * @param {any} definingType The class reference attempting to set the value
      * @param {propertyName} value The name of the variable to create
      * @param {any} initialValue The initial value if the property is not defined
      * @returns {any} Returns the value on success
      */
-    get(definingType, propertyName, initialValue) {
-        let store = driver.storage.get(this);
-        return !!store && store.get(definingType, propertyName, initialValue);
+    get(ecc, definingType, propertyName, initialValue) {
+        const frame = ecc.pushFrameObject({ object: this, method: 'get', callType: CallOrigin.LocalCall });
+        try {
+            let store = driver.storage.get(this);
+            return !!store && store.get(definingType, propertyName, initialValue);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     get system() {
@@ -676,22 +711,28 @@ class MUDLoader {
 
     /**
      * Sets a value (and creates if needed).
+     * @param {ExecutionContext} ecc The current callstack
      * @param {any} definingType The class reference attempting to set the value
      * @param {propertyName} value The name of the variable to create
      * @param {any} value The actual value of the property
      * @returns {boolean} Returns true on success.
      */
-    set(definingType, propertyName, value) {
-        let key = this.filename;
+    set(ecc, definingType, propertyName, value) {
+        let frame = ecc.pushFrameObject({ method: 'set', callType: CallOrigin.LocalCall });
+        try {
+            let key = this.filename;
 
-        if (!key) {
-            let ecc = driver.getExecution(),
-                cct = ecc.newContext;
-            key = cct && cct.filename;
-            if (!key) return false;
+            if (!key) {
+                let cct = ecc.newContext;
+                key = cct && cct.filename;
+                if (!key) return false;
+            }
+            let store = driver.storage.get(this, key);
+            return store && store.set(definingType, propertyName, value);
         }
-        let store = driver.storage.get(this, key);
-        return store && store.set(definingType, propertyName, value);
+        finally {
+            frame.pop();
+        }
     }
 
     /**
