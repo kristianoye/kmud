@@ -151,12 +151,12 @@ class MUDObject extends MUDEventEmitter {
      * @returns
      */
     async moveObjectAsync(ecc, destination) {
-        let frame = ecc.pushFrameObject({ object: this, file: this.filename, method: 'moveObjectAsync', isAsync: true, callType: 2 });
+        let frame = ecc.pushFrameObject({ object: this, file: __filename, method: 'moveObjectAsync', isAsync: true, callType: 2, lineNumber: 154 });
         try {
             let myStore = driver.storage.get(this),
                 oldEnvironment = myStore.environment;
 
-            let target = destination.instance || await efuns.objects.loadObjectAsync(frame.branch(), destination),
+            let target = destination.instance || await efuns.objects.loadObjectAsync(frame.branch(159), destination),
                 newEnvironment = target && target.instance;
 
             if (!oldEnvironment || oldEnvironment.canReleaseItem(frame.context, this) && newEnvironment) {
@@ -169,7 +169,7 @@ class MUDObject extends MUDEventEmitter {
                     if (driver && driver.useLazyResets) {
                         if (typeof newEnvironment.reset === 'function') {
                             if (targetStore.nextReset < efuns.ticks) {
-                                await targetStore.eventReset(frame.branch());
+                                await targetStore.eventReset(frame.branch(172));
                             }
                         }
                     }
@@ -181,15 +181,15 @@ class MUDObject extends MUDEventEmitter {
                         if (myStore.living) {
                             let stats = targetStore.stats;
                             if (stats) stats.moves++;
-                            await newEnvironment.initAsync(frame.branch());
+                            await newEnvironment.initAsync(frame.branch(184));
                         }
                         for (const item of newEnvironment.inventory) {
                             let itemStore = driver.storage.get(item.instance);
                             if (itemStore && itemStore !== myStore && itemStore.living) {
-                                await frame.context.withPlayerAsync(itemStore, async () => await newEnvironment.initAsync(frame.branch()), true, 'initAsync');
+                                await frame.context.withPlayerAsync(itemStore, async () => await newEnvironment.initAsync(frame.branch(189)), true, 'initAsync');
                             }
                             if (myStore.living) {
-                                await frame.context.withPlayerAsync(myStore, async () => await newEnvironment.initAsync(frame.branch()), true, 'initAsync');
+                                await frame.context.withPlayerAsync(myStore, async () => await newEnvironment.initAsync(frame.branch(192)), true, 'initAsync');
                             }
                         }
                         return true;
@@ -197,6 +197,9 @@ class MUDObject extends MUDEventEmitter {
                 }
             }
             return false;
+        }
+        catch (err) {
+            throw err;
         }
         finally {
             frame.pop();
@@ -244,7 +247,7 @@ const
 
 var
     VirtualTables = {};
-    
+
 class MUDVTable {
     constructor(baseName) {
         this.baseName = baseName;
@@ -332,7 +335,7 @@ class MUDVTable {
         if (false === results) {
             if (proto === MUDObject.prototype)
                 return undefined;
-            else if (createIfMissing === true) 
+            else if (createIfMissing === true)
                 return (VirtualTables[proto.baseName] = new MUDVTable(proto.baseName));
         }
         else

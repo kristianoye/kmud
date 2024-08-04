@@ -242,6 +242,9 @@ class MUDModuleTypeInfo {
 
         this.possibleLazyBindings = {};
         this.lazyBindingCount = 0;
+
+        /** @type {typeof MUDObject} */
+        this.typeRef = undefined;
     }
 
     /**
@@ -397,6 +400,11 @@ class MUDModuleTypeInfo {
     get isSingleton() {
         return (this.modifiers & MemberModifiers.Singleton) > 0;
     }
+
+    setConcreteType(type) {
+        this.typeRef = type;
+        return this;
+    }
 }
 
 /**
@@ -545,7 +553,7 @@ class MUDModule extends events.EventEmitter {
 
             if ((flags & MemberModifiers.Singleton) > 0)
                 this.$defaultExport = new val();
-            else 
+            else
                 this.$defaultExport = val;
         }
         else
@@ -558,7 +566,7 @@ class MUDModule extends events.EventEmitter {
      * @param {any} val
      */
     async setDefaultExport(ecc, val) {
-        let frame = ecc.pushFrame(ecc.thisObject, 'setDefaultExport', this.filename, true);
+        let frame = ecc.pushFrameObject({ method: 'setDefaultExport', file: this.filename, isAsync: true, callType: CallOrigin.Driver });
         try {
             if (driver.efuns.isClass(frame.branch(), val)) {
                 let flags = val.prototype.typeModifiers;
@@ -660,48 +668,56 @@ class MUDModule extends events.EventEmitter {
      * @param {any} isReload
      * @returns
      */
-    async createInstanceAsync(ecc, type, instanceData, args, factory = false, callingFile = false, isReload = false) {
-        let frame = ecc.pushFrameObject({  file: __filename, method: 'createInstanceAsync', isAsync: true, callType: CallOrigin.Driver });
+    async createInstanceAsync(ecc, typeSpec, instanceData, args, factory = false, callingFile = false, isReload = false) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'createInstanceAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let instance = false,
                 store = false,
-                isType = false;
+                isType = false,
+                type;
 
-            if (typeof type === 'string' && !this.isVirtual) {
-                if (type in this.$exports === false) {
+            if (typeof typeSpec === 'string' && !this.isVirtual) {
+                if (typeSpec in this.$exports === false) {
                     //  Always allow module to create its own types
                     if (callingFile === this.filename) {
-                        type = this.types[type];
+                        type = this.types[typeSpec];
                     }
-                    else if (type in this.types === false) {
+                    else if (typeSpec in this.types === false) {
                         if (this.$exports.length === 1 && this.$defaultExport)
                             type = this.$defaultExport;
-                        else if (type in this.typeDefinitions) {
-                            type = this.typeDefinitions[type];
+                        else if (typeSpec in this.typeDefinitions) {
+                            type = this.typeDefinitions[typeSpec].typeRef;
                             isType = true;
                         }
                         else
-                            throw new Error(`Unable to find type ${type}`);
+                            throw new Error(`Unable to find type ${typeSpec}`);
                     }
                     else
-                        type = this.types[type];
+                        type = this.types[typeSpec];
                 }
                 else
-                    type = this.types[type];
-                    isType = true;
+                    type = this.types[typeSpec];
+                isType = true;
             }
+            else if (typeof typeSpec === 'function' && typeSpec.toString().startsWith('class ')) {
+                type = typeSpec;
+            }
+
             if (instance === false) {
                 let virtualContext = ecc && ecc.popVirtualCreationContext();
 
                 if (virtualContext) {
                     if (isType === false) {
-                        type = this.types[type.type];
+                        type = this.types[typeSpec.type];
                     }
                     virtualContext.module = this;
                     virtualContext.trueName = this.filename + '$' + type.name + '#' + virtualContext.objectId;
                     virtualContext.typeName = type.name;
                     return await this.createInstanceAsync(frame.branch(700), type, virtualContext, args);
                 }
+
+                if (!type)
+                    throw new Error(`getNewContent() could not resolve type '${type}' in module ${this.fullPath}`);
 
                 if (!instanceData) {
                     instanceData = this.getNewContext(type, false, args);
@@ -750,7 +766,7 @@ class MUDModule extends events.EventEmitter {
         }
         catch (err) {
             /* rollback object creation */
-            driver.storage.delete(instanceData.filename);
+            driver.storage.delete(instanceData?.filename);
             throw err;
         }
         finally {
@@ -814,7 +830,7 @@ class MUDModule extends events.EventEmitter {
      * Get all instances for the specified types
      * @param {...string} typeList
      */
-    getInstances(...typeList) { 
+    getInstances(...typeList) {
         let result = [];
 
         if (!Array.isArray(typeList) || typeList.length === 0)
@@ -877,7 +893,10 @@ class MUDModule extends events.EventEmitter {
         let typeName = typeof type === 'function' ? type.name : typeof type === 'string' ? type : false,
             objectId = driver.efuns.getNewId(),
             typeInfo = this.typeDefinitions[typeName],
-            isSingleton = typeInfo.isSingleton === true;
+            isSingleton = typeInfo?.isSingleton === true;
+
+        if (!typeInfo)
+            throw new Error(`getNewContent() could not resolve type '${type}' in module ${this.fullPath}`);
 
         if (isSingleton && typeName in this.instancesByType) {
             let currentId = this.instancesByType[typeName][0] || false,
@@ -889,7 +908,7 @@ class MUDModule extends events.EventEmitter {
         }
 
         let filename = this.fullPath + '$' + typeName;
-        
+
         let result = {
             args: args || [],
             objectId,
@@ -1032,6 +1051,13 @@ class MUDModule extends events.EventEmitter {
     }
 
     /**
+     * End the current method definition
+     */
+    eventEndTypeDefinition() {
+        delete this.currentTypeDef;
+    }
+
+    /**
      * Define a new type within the module
      * @param {ExecutionContext} ecc The current callstack
      * @param {any} type
@@ -1041,6 +1067,7 @@ class MUDModule extends events.EventEmitter {
         try {
             this.types[type.name] = type;
             this.typeNames.push(type.name);
+            this.typeDefinitions[type.name].setConcreteType(type);
 
             if (type.name in this.instanceMap == false)
                 this.instanceMap[type.name] = [];
@@ -1065,7 +1092,7 @@ class MUDModule extends events.EventEmitter {
      * child instances are updated as well.
      * 
      * @param {MUDCompilerOptions} options
-     */ 
+     */
     async eventRecompiled(options) {
         if (options.noCreate === false) {
             for (const [oid, instance] of Object.entries(this.instancesById)) {
@@ -1121,7 +1148,7 @@ class MUDModule extends events.EventEmitter {
             this.$exports = { length: 0 };
             this.singletons = {};
             this.typeNames = [];
-            this.types = { };
+            this.types = {};
             this.defaultExport = false;
             this.explicitDefault = false;
 

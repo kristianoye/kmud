@@ -12,7 +12,6 @@ const
     MemberModifiers = require("./compiler/MudscriptMemberModifiers"),
     MUDEventEmitter = require('./MUDEventEmitter'),
     uuidv1 = require('uuid/v1'),
-    MUDObject = require('./MUDObject'),
     CallOrigin = Object.freeze({
         Unknown: 0,
         Driver: 1 << 0,
@@ -50,17 +49,9 @@ var
 class ExecutionFrame {
     /**
      * Construct a new frame
-     * @param {ExecutionContext} context The context in which this frame is executing
-     * @param {MUDObject} thisObject The object performing the action
-     * @param {string} filename The file in which the executing method exists
-     * @param {string} method The name of the method being executed
-     * @param {number} lineNumber The line number at which the call was made
-     * @param {string} callstring This USUALLY the same as the method
-     * @param {boolean} isAsync More informative than useful, now
-     * @param {number} callType The call origin type
-     * @param {boolean} isUnguarded Unguarded frames short-circuit security and prevent checks against previous objects
+     * @param {Partial<ExecutionFrame>} frame Information about the new callstack frame
      */
-    constructor(context, thisObject, filename, method, lineNumber, callstring = false, isAsync = false, isUnguarded = false, callType = 0) {
+    constructor(frame) {
         /**
          * Is this frame awaiting a result?
          */
@@ -78,47 +69,59 @@ class ExecutionFrame {
          * The context in which this frame is executing 
          * @type {ExecutionContext}
          */
-        this.context = context;
+        this.context = frame.context;
 
         /**
          * The object performing the action 
-         * @type {MUDObject}
+         * @type {typeof import('./MUDObject')}
          */
-        this.object = thisObject || context.thisObject;
+        this.object = frame.object || frame.context?.thisObject;
+
+        if (this.object) {
+            this.className = this.object.constructor.name;
+        }
+
+        if (typeof frame.callHint === 'string') {
+            /**
+             * A call hint is used to troubleshoot issues with the stack
+             * @type {string}
+             */
+            this.callHint = frame.callHint;
+        }
 
         /**
          * How was this method invoked?
          */
-        this.callType = callType || CallOrigin.Unknown;
+        this.callType = frame.callType || CallOrigin.Unknown;
 
         /**
          * The method name + extra decorations (e.g. static async [method]) 
          * @type {string}
          */
-        this.callString = typeof callstring === 'string' ?  callstring : method;
+        this.callString = frame.callstring || frame.method;
 
         /**
          * The file in which the executing method exists 
          * @type {string}
          */
-        this.file = filename || thisObject.filename;
+        this.file = frame.file || frame.context?.thisObject?.filename;
 
         /** 
          * The name of the method being executed 
          * @type {string}
          */
-        this.method = method;
+        this.method = frame.method;
 
         /**
          * The line number at which the call was made 
          * @type {number}
          */
-        this.lineNumber = lineNumber || 0;
+        this.lineNumber = frame.lineNumber || 0;
 
         /** More informative than useful, now
          * @type {boolean}
          */
-        this.isAsync = isAsync === true;
+        this.isAsync = frame.isAsync === true;
 
         /**
          * When was the method put on the stack?
@@ -129,7 +132,7 @@ class ExecutionFrame {
          * Unguarded frames short-circuit security and prevent checks against previous objects 
          * @type {boolean}
          */
-        this.unguarded = isUnguarded === true;
+        this.unguarded = frame.unguarded === true;
     }
 
     /**
@@ -146,16 +149,7 @@ class ExecutionFrame {
     }
 
     clone() {
-        return new ExecutionFrame(
-            this.context,
-            this.object,
-            this.file,
-            this.method,
-            this.lineNumber,
-            this.isAsync,
-            this.unguarded,
-            this.callType,
-            this.callType);
+        return new ExecutionFrame(this);
     }
 
     getContext() {
@@ -285,11 +279,16 @@ class ExecutionContext extends MUDEventEmitter {
     /**
      * 
      * @param {ExecutionContext} parent The parent context (if one exists)
-     * @param {string} handleId The child UUID that identifies child to parent
+     * @param {boolean} createDetached Is this context a standalone thread?
+     * @param {{ lineNumber: number, hint: string }} info Why and where was this context created?
+     * 
      */
-    constructor(parent = false, createDetached = false) {
+    constructor(parent = false, createDetached = false, info = false) {
         super();
 
+        if (info) {
+            this.info = info;
+        }
         /** 
          * Storage for custom runtime variables
          * @type {Object.<string,any>} 
@@ -436,7 +435,7 @@ class ExecutionContext extends MUDEventEmitter {
 
     /**
      * Check to see if the current protected or private call should be allowed.
-     * @param {MUDObject} thisObject The current 'this' object in scope (or type if in a static call)
+     * @param {typeof import('./MUDObject')} thisObject The current 'this' object in scope (or type if in a static call)
      * @param {number} access Access type (private, protected, etc)
      * @param {string} method The name of the method being accssed
      * @param {string} fileName The file this 
@@ -559,11 +558,14 @@ class ExecutionContext extends MUDEventEmitter {
 
     /**
      * Start a new execution branch on the call stack
-     * @param {number} lineNumber The line number the call to branch was made from
+     * @param {number | { lineNumber: number, hint: string }} info The line number the call to branch was made from
      * @returns {ExecutionContext} Returns a child context.
      */
-    branch(lineNumber = 0) {
-        let result = new ExecutionContext(this, false);
+    branch(info = 0) {
+        const
+            lineNumber = info.lineNumber || typeof info === 'number' ? info : 0;
+
+        let result = new ExecutionContext(this, false, info);
         if (lineNumber > 0) {
             let lastFrame = result.stack[0].clone();
             lastFrame.lineNumber = lineNumber;
@@ -764,7 +766,9 @@ class ExecutionContext extends MUDEventEmitter {
         for (let i = 0, max = this.length, c = {}; i < max; i++) {
             let frame = this.getFrame(i);
 
-            if (!frame.object && !frame.file)
+            if (frame.unguarded === true)
+                break;
+            else if (!frame.object && !frame.file)
                 continue; // Does this ever happen?
             else if (frame.object === driver)
                 continue; // The driver always succeeds
@@ -776,8 +780,6 @@ class ExecutionContext extends MUDEventEmitter {
                 return false;
             else if ((c[frame.file] = callback(frame)) === false)
                 return false;
-            else if (frame.unguarded === true)
-                break;
         }
         if (action) {
             try {
@@ -851,7 +853,7 @@ class ExecutionContext extends MUDEventEmitter {
      * @param {string | ExecutionFrame} method
      * @param {boolean} yieldBack If true, then the call duration is yielded back to the alarm time
      */
-    pop(method, yieldBack=false) {
+    pop(method, yieldBack = false) {
         let lastFrame = this.stack.shift();
 
         if (!lastFrame || lastFrame.callString !== method) {
@@ -885,7 +887,7 @@ class ExecutionContext extends MUDEventEmitter {
         return this.pop(frame.callString);
     }
 
-    popCreationContext(arg=false) {
+    popCreationContext(arg = false) {
         if (Array.isArray(this.creationContexts)) {
             let ctx = arg ? this.creationContexts.findIndex(c => c === arg) : this.creationContexts.shift();
             if (typeof ctx === 'number') {
@@ -922,7 +924,7 @@ class ExecutionContext extends MUDEventEmitter {
                 this.stack = this.stack.slice(0, index);
             }
         }
-        else 
+        else
             this.stack.shift();
 
         if (this.stack.length <= this.branchedAt) {
@@ -934,7 +936,7 @@ class ExecutionContext extends MUDEventEmitter {
         return frame;
     }
 
-    popVirtualCreationContext(arg=false) {
+    popVirtualCreationContext(arg = false) {
         if (Array.isArray(this.virtualCreationContexts)) {
             let ctx = arg ? this.virtualCreationContexts.findIndex(c => c === arg) : this.virtualCreationContexts.shift();
             if (typeof ctx === 'number') {
@@ -960,12 +962,12 @@ class ExecutionContext extends MUDEventEmitter {
 
     /**
      * Returns the previous objects off the stack
-     * @type {MUDObject[]}
+     * @type {typeof import('./MUDObject')[]}
      */
     get previousObjects() {
         let stack = this.stack;
         return stack
-            .filter(f => f.object instanceof MUDObject)
+            .filter(f => typeof f.object === 'object')
             .slice(0)
             .map(f => f.object);
     }
@@ -982,7 +984,7 @@ class ExecutionContext extends MUDEventEmitter {
      * @returns {ExecutionContext}
      */
     push(object, method, file, isAsync, lineNumber, callString, isUnguarded, callType = 0) {
-        let newFrame = new ExecutionFrame(this, object, file, method, lineNumber, callString, isAsync, isUnguarded, callType);
+        let newFrame = new ExecutionFrame({ context: this, object, file, method, lineNumber, callString, isAsync, isUnguarded, callType });
         return this.pushActual(newFrame).context;
     }
 
@@ -1018,7 +1020,7 @@ class ExecutionContext extends MUDEventEmitter {
 
     /**
      * Push a new frame onto the stack
-     * @param {MUDObject} object
+     * @param {typeof import('./MUDObject')} object
      * @param {string} method
      * @param {string} file
      * @param {boolean} isAsync
@@ -1034,23 +1036,14 @@ class ExecutionContext extends MUDEventEmitter {
 
     /**
      * Shortcut for pushing partial frames to stack
-     * @param {{object:MUDObject?, file:string?, method:string, lineNumber:number?, callString:string?, isAsync:boolean?, isUnguarded:boolean?, callType:number? }} frameInfo
+     * @param {Partial<ExecutionFrame>} frameInfo
      */
     pushFrameObject(frameInfo) {
         if (typeof frameInfo !== 'object')
             throw new Error('CRASH: pushFrameObject() received invalid parameter');
         else if (typeof frameInfo.method !== 'string')
             throw new Error('CRASH: pushFrameObject() received invalid parameter');
-        let newFrame = new ExecutionFrame(
-            this,
-            frameInfo.object || this.thisObject,
-            frameInfo.file,
-            frameInfo.method,
-            frameInfo.lineNumber || 0,
-            frameInfo.callString || frameInfo.method,
-            frameInfo.isAsync === true,
-            frameInfo.isUnguarded === true,
-            frameInfo.callType || 0);
+        let newFrame = new ExecutionFrame({ context: this, ...frameInfo, object: frameInfo.object || this.thisObject });
         this.pushActual(newFrame);
         return newFrame;
     }
@@ -1062,7 +1055,7 @@ class ExecutionContext extends MUDEventEmitter {
     /**
      * Push a new frame based on the NodeJS callstack
      * THIS IS SUPER SLOW (23x slower than pushFrameObject); Avoid use if possible
-     * @param {{object:MUDObject?, file:string?, method:string, lineNumber:number?, callString:string?, isAsync:boolean?, isUnguarded:boolean?, callType:number? }} partialInfo
+     * @param {Partial<ExecutionFrame>} partialInfo
      * @returns
      */
     pushFromStack(partialInfo = {}) {
@@ -1076,19 +1069,14 @@ class ExecutionContext extends MUDEventEmitter {
                 method: frame.getMethodName() || frame.getFunctionName(),
                 lineNumber: frame.getLineNumber(),
                 isAsync: false,
-                isUnguarded: false,
+                unguarded: false,
                 callType: 0
             }, partialInfo)
-            let newFrame = new ExecutionFrame(
-                this,
-                info.object,
-                info.file,
-                info.method,
-                info.lineNumber,
-                info.callString || info.method,
-                info.isAsync === true,
-                info.isUnguarded === true,
-                info.callType);
+            let newFrame = new ExecutionFrame({
+                context: this,
+                ...info,
+                callString: info.callString || info.method
+            });
             this.pushActual(newFrame);
             return newFrame;
         }
@@ -1163,13 +1151,13 @@ class ExecutionContext extends MUDEventEmitter {
 
     /**
      * Returns the current object
-     * @type {MUDObject}
+     * @type {typeof import('./MUDObject')}
      */
     get thisObject() {
         for (let i = 0, m = this.stack.length; i < m; i++) {
             let ob = this.stack[i].object;
 
-            if (ob instanceof MUDObject)
+            if (typeof ob === 'object')
                 return ob;
 
             // NEVER expose the driver directly to the game, use master instead
@@ -1183,7 +1171,7 @@ class ExecutionContext extends MUDEventEmitter {
     #thisPlayer;
     #truePlayer;
 
-    getThisPlayer(truePlayer=false, getBoth=false) {
+    getThisPlayer(truePlayer = false, getBoth = false) {
         if (this.parent)
             return this.parent.getThisPlayer(truePlayer, getBoth);
         else if (!getBoth)
@@ -1237,12 +1225,12 @@ class ExecutionContext extends MUDEventEmitter {
      * Try and push a frame on to the stack if an ExecutionContext was passed
      * 
      * @param {IArguments} argsIn The raw arguments passed to the original function
-     * @param {{object:MUDObject?, file:string?, method:string, lineNumber:number?, callString:string?, isAsync:boolean?, isUnguarded:boolean?, callType:number? }} info Details about the method call location
+     * @param {Partial<ExecutionFrame>} info Details about the method call location
      * @param {boolean} useCurrentIfNotPresent tryPushFrame will push a frame on the current context if (1) this is true, (2) no context was present in the arguments
      * @param {boolean} throwErrorIfNoContext If this method tries to use the current context and none is set, then throw an error
      * @returns {[ExecutionFrame?, ...any]}
      */
-    static tryPushFrame(argsIn, info, useCurrentIfNotPresent=false, throwErrorIfNoContext=true) {
+    static tryPushFrame(argsIn, info, useCurrentIfNotPresent = false, throwErrorIfNoContext = true) {
         /** @type {any[]} */
         let args = Array.prototype.slice.apply(argsIn);
 
@@ -1365,7 +1353,7 @@ class ExecutionContext extends MUDEventEmitter {
     /**
      * Execute an action with an alternate thisPlayer
      * @param {MUDStorage} storage The player that should be "thisPlayer"
-     * @param {function(MUDObject, ExecutionContext): any} callback The action to execute
+     * @param {function(import('./MUDObject'), ExecutionContext): any} callback The action to execute
      * @param {boolean} restoreOldPlayer Restore the previous player 
      */
     async withPlayerAsync(storage, callback, restoreOldPlayer = true, methodName = false, catchErrors = true) {

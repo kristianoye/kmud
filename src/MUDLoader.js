@@ -86,8 +86,22 @@ class MUDLoader {
                 writable: false
             },
             __bfc: {
-                //  Begin Function Call
-                value: function (ecc, parameters, namedParameters, ob, access, method, fileName, isAsync, lineNumber, type, callType) {
+                /**
+                 * Begin Function Call
+                 * @param {ExecutionContext} ecc The current callstack
+                 * @param {IArguments} parameters Raw arguments
+                 * @param {Object.<string,any>} namedParameters The named parameters
+                 * @param {typeof MUDObject} ob 
+                 * @param {number} access 
+                 * @param {string} method 
+                 * @param {string} file 
+                 * @param {boolean} isAsync 
+                 * @param {number} lineNumber 
+                 * @param {typeof MUDObject} type 
+                 * @param {number} callType 
+                 * @returns 
+                 */
+                value: function (ecc, parameters, namedParameters, ob, access, method, file, isAsync, lineNumber, type, callType) {
                     let args = Array.prototype.slice(parameters);
                     let newContext = false;
 
@@ -111,13 +125,13 @@ class MUDLoader {
                         isAsync = true;
 
                     if (driver.efuns.isClass(ecc, type) && typeof ob === 'object' && MUDVTable.doesInherit(ob, type) === false) {
-                        throw new SecurityError(`Illegal invocation of '${method}' in ${fileName} [Line ${lineNumber}]; Callee type mismatch`)
+                        throw new SecurityError(`Illegal invocation of '${method}' in ${file} [Line ${lineNumber}]; Callee type mismatch`)
                     }
 
                     if (!ecc) {
                         if (!ob) // Crasher?
                             throw new Error('What, no execution context?!');
-                        ecc = driver.getExecution(ob, method, fileName, isAsync, lineNumber);
+                        ecc = driver.getExecution(ob, method, file, isAsync, lineNumber);
                         newContext = true;
                     }
                     else if (!access) {
@@ -125,17 +139,30 @@ class MUDLoader {
                         //  to be incremented prior to checking method access
                         ecc
                             .alarm()
-                            .push((ob instanceof MUDObject || ob instanceof SimpleObject) && ob, method || '(anonymous)', fileName, isAsync, lineNumber, undefined, false, callType);
+                            .pushFrameObject({
+                                object: (ob instanceof MUDObject || ob instanceof SimpleObject) && ob,
+                                method: method || '(anonymous)',
+                                file,
+                                lineNumber,
+                                isAsync,
+                                callType
+                            });
                     }
 
                     if ((access & MemberModifiers.Public) !== MemberModifiers.Public)
-                        ecc.assertAccess(ob, access, method, fileName);
+                        ecc.assertAccess(ob, access, method, file);
 
                     //  Check access prior to pushing the new frame to the stack
                     if (access && !newContext)
-                        ecc = ecc.alarm()
-                            //  Previously only allowed objects inheriting from MUDObject to be allowed on stack
-                            .push(/* ob instanceof MUDObject && */ ob, method || '(undefined)', fileName, isAsync, lineNumber, undefined, false, callType);
+                        ecc.alarm()
+                            .pushFrameObject({
+                                ob,
+                                method: method || '(undefined)',
+                                file,
+                                isAsync,
+                                lineNumber,
+
+                            })
 
                     return [ecc, args];
                 },
@@ -199,7 +226,7 @@ class MUDLoader {
             },
             __cef: {
                 //  Create efuns
-                value: function(handleId, filename) {
+                value: function (handleId, filename) {
                     let ctx = ExecutionContext.getContextByHandleID(handleId),
                         newEfuns = driver.createEfunInstance(filename);
                     return [newEfuns, ctx];
@@ -218,7 +245,7 @@ class MUDLoader {
                 value: function (ecc, fileName, type) {
                     let module = driver.cache.get(fileName);
                     if (module) {
-                        module.eventDefineType(ecc.branch(), type);
+                        module.eventDefineType(ecc, type);
                     }
                 },
                 configurable: false,
@@ -605,7 +632,7 @@ class MUDLoader {
      * @param {any} audience
      * @param {any} excluded
      */
-    message(ecc, messageType='', expr='', audience=[], excluded=[]) {
+    message(ecc, messageType = '', expr = '', audience = [], excluded = []) {
         return efuns.message(ecc, messageType, expr, audience, excluded);
     }
 
@@ -681,8 +708,7 @@ class MUDLoader {
                 .branch()
                 .restore()
                 .pushFrameObject({ method: 'setImmediate', isAsync });
-            try
-            {
+            try {
                 if (efuns.isAsync(callback))
                     await callback.call(thisObject, frame.context);
                 else

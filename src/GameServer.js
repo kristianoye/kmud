@@ -427,7 +427,7 @@ class GameServer extends MUDEventEmitter {
      * @param {Error} err The error that is responsible for the crash
      * @param {number} exitCode The exit code to exit with
      */
-    crash(err, exitCode=-2) {
+    crash(err, exitCode = -2) {
         //  TODO: Notify in-game master and users of pending crash
         console.log(`KMUD has crashed due to an internal error: ${(err + (err.stack ? '\n' + err.stack : ''))}`);
         process.exit(exitCode);
@@ -550,7 +550,7 @@ class GameServer extends MUDEventEmitter {
      * Start a new execution context/stack
      * @param {Partial<ExecutionFrame>} initialFrame
      */
-    createNewContext(initialFrame=false) {
+    createNewContext(initialFrame = false) {
         let ecc = new ExecutionContext();
         if (initialFrame)
             ecc.pushFrameObject(initialFrame);
@@ -584,7 +584,7 @@ class GameServer extends MUDEventEmitter {
                 }
             }
         }
-        catch(ex) {
+        catch (ex) {
             console.log(`Failed to load all preloads: ${ex}`);
         }
         finally {
@@ -878,7 +878,7 @@ class GameServer extends MUDEventEmitter {
 
         logger.logIf(LOGGER_DEBUG, 'Bootstrap: Initializing driver features');
         this.features = this.config.driver.forEachFeature((featureConfig, pos, id) => {
-            if(featureConfig.enabled) {
+            if (featureConfig.enabled) {
                 logger.logIf(LOGGER_PRODUCTION, `\tEnabling driver feature: ${featureConfig.name}`);
                 let feature = featureConfig.initialize();
 
@@ -1131,7 +1131,7 @@ class GameServer extends MUDEventEmitter {
      * @param {Error} error The error to log.
      */
     async logError(ecc, path, error) {
-        let frame = ecc.pushFrameObject({ object: this.masterObject, method: 'logError', isAsync: true, callType: CallOrigin.Driver, isUnguarded: true });
+        let frame = ecc.pushFrameObject({ object: this.masterObject, method: 'logError', isAsync: true, callType: CallOrigin.Driver, unguarded: true });
         try {
             if (!this.applyLogError) {
                 logger.log('Compiler Error: ' + error.message);
@@ -1500,7 +1500,7 @@ class GameServer extends MUDEventEmitter {
         if (this.gameState < GAMESTATE_RUNNING)
             return false;
         else if (this.applyValidExec === false) return true;
-        else return this.applyValidExec(frame, oldBody, newBody);
+        else return this.applyValidExec(frame.context, oldBody, newBody);
     }
 
     validObject(arg) {
@@ -1510,7 +1510,7 @@ class GameServer extends MUDEventEmitter {
             else return this.applyValidObject(ob);
         });
         return result === true;
-    } 
+    }
 
     /**
      * Get the MUD uptime.
@@ -1526,12 +1526,12 @@ class GameServer extends MUDEventEmitter {
      * @param {ExecutionFrame} frame The frame that is being evaluated.
      * @returns {boolean} True if the destruct is allowed, false if it should be blocked.
      */
-    validDestruct(target, frame) {
+    validDestruct(frame, target) {
         if (!this.applyValidDestruct)
             return target !== driver.masterObject;
         else if (frame.object === target)
             return true;
-        return this.applyValidDestruct(frame.object || frame.file, target, frame.method);
+        return this.applyValidDestruct(frame.context, frame.object || frame.file, target, frame.method);
     }
 
     /**
@@ -1545,7 +1545,7 @@ class GameServer extends MUDEventEmitter {
         else if (!this.applyValidReadConfig)
             return false; //  By default, config is not visible in game
         else this.getExecution()
-            .guarded(f => this.applyValidReadConfig(f.object || f.file, key, f.method));
+            .guarded(f => this.applyValidReadConfig(frame.context, f.object || f.file, key, f.method));
     }
 
     /**
@@ -1561,7 +1561,7 @@ class GameServer extends MUDEventEmitter {
         else if (frame.object === driver.masterObject || frame.object === driver)
             return true;
         else
-            return await this.applyValidRead(frame.branch(), path, frame.object || frame.file, frame.method);            
+            return await this.applyValidRead(frame.branch(), path, frame.object || frame.file, frame.method);
     }
 
     validRequire(efuns, moduleName) {
