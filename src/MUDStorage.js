@@ -155,52 +155,59 @@ class MUDStorage extends MUDEventEmitter {
 
     /**
      * Destroys the object.
+     * @param {ExecutionContext} ecc The current callstack
      */
-    eventDestroy(...args) {
-        if (!this.destroyed) {
-            let filename = this.owner.trueName || this.owner.filename;
+    eventDestroy(ecc, ...args) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'eventDestroy', callType: CallOrigin.driver });
+        try {
+            if (!this.destroyed) {
+                let filename = this.owner.trueName || this.owner.filename;
 
-            let parts = efuns.parsePath(filename),
-                module = driver.cache.get(parts.file);
+                let parts = efuns.parsePath(filename),
+                    module = driver.cache.get(parts.file);
 
-            this.heartbeat = false;
+                this.heartbeat = false;
 
-            if (this.component)
-                this.eventExec(ExecutionContext.startNewContext(), false, ...args);
+                if (this.component)
+                    this.eventExec(ExecutionContext.startNewContext(), false, ...args);
 
-            if (this.environment) {
-                let store = driver.storage.get(this.environment);
-                store && store.removeInventory(this.owner);
-            }
-
-            if (this.player) this.player = false;
-            if (this.living) this.living = false;
-            if (this.wizard) this.wizard = false;
-
-            this.owner.removeAllListeners && this.owner.removeAllListeners();
-
-            this.destroyed = true;
-
-            if (this.shell) {
-                this.shell.destroy();
-                this.shell = undefined;
-            }
-
-            this.destroyed = module.destroyInstance(this.owner);
-            if (typeof this.owner.eventDestroy === 'function') {
-                try {
-                    this.owner.eventDestroy();
+                if (this.environment) {
+                    let store = driver.storage.get(this.environment);
+                    store && store.removeInventory(this.owner);
                 }
-                catch (x) {
 
+                if (this.player) this.player = false;
+                if (this.living) this.living = false;
+                if (this.wizard) this.wizard = false;
+
+                this.owner.removeAllListeners && this.owner.removeAllListeners();
+
+                this.destroyed = true;
+
+                if (this.shell) {
+                    this.shell.destroy();
+                    this.shell = undefined;
                 }
-            }
-            driver.storage.delete(this.owner);
-            this.owner = false;
 
-            return true;
+                this.destroyed = module.destroyInstance(this.owner);
+                if (typeof this.owner.eventDestroy === 'function') {
+                    try {
+                        this.owner.eventDestroy(frame.context);
+                    }
+                    catch (x) {
+
+                    }
+                }
+                driver.storage.delete(this.owner);
+                this.owner = false;
+
+                return true;
+            }
+            return false;
         }
-        return false;
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -286,22 +293,20 @@ class MUDStorage extends MUDEventEmitter {
             else {
                 if (this.connected)
                     await driver.driverCallAsync('disconnect', async context => {
-                        await context.withPlayerAsync(this, async player => {
-                            await driver.driverCallAsync('disconnect', async () => {
-                                if (this.shell) this.shell.flushAll();
-                                let component = this.component;
-                                this.connected = false;
+                        await context.withPlayerAsync(this, async (player, ecc) => {
+                            if (this.shell) this.shell.flushAll();
+                            let component = this.component;
+                            this.connected = false;
 
-                                //if (this.component)
-                                //    this.component.populateContext(true, context);
+                            //if (this.component)
+                            //    this.component.populateContext(true, context);
 
-                                try {
-                                    await player.disconnect(...args);
-                                }
-                                finally {
-                                    component && component.localDisconnect();
-                                }
-                            });
+                            try {
+                                await player.disconnect(ecc.branch({ lineNumber: 305, hint: 'player.disconnect' }), ...args);
+                            }
+                            finally {
+                                component && component.localDisconnect();
+                            }
                         });
                     });
                 if (this.component)
@@ -377,13 +382,20 @@ class MUDStorage extends MUDEventEmitter {
         }
     }
 
-    async eventReset() {
-        this.nextReset = driver.efuns.ticks + this.resetInterval;
-        return await driver.driverCallAsync('reset', async (ecc) => {
-            return await ecc.withObject(this.owner, 'reset', async () => {
-                await this.owner.reset(ecc.branch());
-            }, true);
-        });
+    /**
+     * Reset the object
+     * @param {ExecutionContext} ecc The current callstack
+     * @returns
+     */
+    async eventReset(ecc) {
+        let frame = ecc.pushFrameObject({ object: this.owner, method: 'eventReset', isAsync: true, callType: CallOrigin.LocalCall });
+        try {
+            this.nextReset = driver.efuns.ticks + this.resetInterval;
+            await this.owner.reset(ecc.branch());
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -864,15 +876,24 @@ class MUDStorageContainer {
      * @param {MUDObject} ob
      */
     delete(ob) {
-        if (typeof ob === 'string') {
-            let store = this.storage[ob];
-            if (store) delete this.storage[ob];
-            return !!store;
-        }
-        let objectId = ob.objectId;
-        if (objectId in this.storage) {
-            delete this.storage[objectId];
-            return true;
+        if (ob) {
+            if (typeof ob === 'string') {
+                if (ob in this.storage) {
+                    delete this.storage[ob];
+                    return true;
+                }
+                else {
+                    let store = this.storage[ob];
+                    if (store)
+                        delete this.storage[ob];
+                    return !!store;
+                }
+            }
+            let objectId = ob.objectId;
+            if (objectId in this.storage) {
+                delete this.storage[objectId];
+                return true;
+            }
         }
         return false;
     }
@@ -885,7 +906,7 @@ class MUDStorageContainer {
     get(ob) {
         let objectId = ob && ob.objectId;
         if (!objectId) {
-            let ecc = driver.getExecution(),
+            let ecc = ExecutionContext.getCurrentExecution(),
                 ctx = ecc.newContext;
             if (ctx) {
                 filename = ctx.filename + (ctx.instanceId > 0 ? `#${ctx.instanceId}` : '');

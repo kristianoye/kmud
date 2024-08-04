@@ -184,6 +184,9 @@ class SecurityAcl {
                     /** @type {{ userId: string, groups: string[] }} */
                     let $creds = f.object.$credential;
 
+                    if (!$creds) // Crash?
+                        throw new SecurityError(`Destructed object ${f.object.fullPath} was denied access to ${methodName} [line ${f.lineNumber}]`);
+
                     //  Owner always succeeds
                     if (this.owner === $creds.userId)
                         return (checkCache[cacheId] = true);
@@ -445,7 +448,7 @@ class WildcardAcl {
         this.permissions = {};
 
         for (let group of aclInfo.data.permissions) {
-            for(let [key, value] of Object.entries(group)) {
+            for (let [key, value] of Object.entries(group)) {
                 this.permissions[key] = driver.securityManager.parsePerms(value);
             }
         }
@@ -1304,12 +1307,12 @@ class AclSecurityManager extends BaseSecurityManager {
         }
     }
 
-   /**
-     * Check to see if the caller may append to file.
-     * @param {ExecutionContext} ecc The current call stack
-     * @param {EFUNProxy} efuns
-     * @param {FileSystemRequest} req
-     */
+    /**
+      * Check to see if the caller may append to file.
+      * @param {ExecutionContext} ecc The current call stack
+      * @param {EFUNProxy} efuns
+      * @param {FileSystemRequest} req
+      */
     validAppendFile(ecc, efuns, req) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'validAppendFile', isAsync: true, callType: CallOrigin.Driver });
         try {

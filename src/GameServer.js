@@ -427,7 +427,7 @@ class GameServer extends MUDEventEmitter {
      * @param {Error} err The error that is responsible for the crash
      * @param {number} exitCode The exit code to exit with
      */
-    crash(err, exitCode=-2) {
+    crash(err, exitCode = -2) {
         //  TODO: Notify in-game master and users of pending crash
         console.log(`KMUD has crashed due to an internal error: ${(err + (err.stack ? '\n' + err.stack : ''))}`);
         process.exit(exitCode);
@@ -550,7 +550,7 @@ class GameServer extends MUDEventEmitter {
      * Start a new execution context/stack
      * @param {Partial<ExecutionFrame>} initialFrame
      */
-    createNewContext(initialFrame=false) {
+    createNewContext(initialFrame = false) {
         let ecc = new ExecutionContext();
         if (initialFrame)
             ecc.pushFrameObject(initialFrame);
@@ -584,7 +584,7 @@ class GameServer extends MUDEventEmitter {
                 }
             }
         }
-        catch(ex) {
+        catch (ex) {
             console.log(`Failed to load all preloads: ${ex}`);
         }
         finally {
@@ -804,15 +804,14 @@ class GameServer extends MUDEventEmitter {
      * Create a context frame that includes the master/driver.
      * @param {string} method The method being called.
      * @param {function(ExecutionContext):any} callback The callback that executes when the context is ready.
-     * @param {string} fileName The optional filename
+     * @param {string} file The optional filename
      * @returns {any} The result of the callback
      */
-    driverCall(method, callback, fileName, rethrow = false) {
-        let result, ecc = this.getExecution(
-            this.masterObject || this,
-            method,
-            fileName || this.masterFilename,
-            false, 0);
+    driverCall(method, callback, file, rethrow = false) {
+        const
+            ecc = ExecutionContext.getCurrentExecution(true),
+            frame = ecc.pushFrameObject({ object: this.masterObject, method, file, callType: CallOrigin.Driver });
+        let result;
 
         try {
             result = callback(ecc);
@@ -823,7 +822,7 @@ class GameServer extends MUDEventEmitter {
             else result = err;
         }
         finally {
-            ecc.pop(method);
+            frame.pop(true);
         }
         return result;
     }
@@ -832,26 +831,14 @@ class GameServer extends MUDEventEmitter {
      * Create a context frame that includes the master/driver.
      * @param {string} method The method being called.
      * @param {function(ExecutionContext):any} callback The callback that executes when the context is ready.
-     * @param {string} fileName The optional filename
+     * @param {string} file The optional filename
      * @returns {any} The result of the callback
      */
-    async driverCallAsync(method, callback, fileName, rethrow = false, newContext = false) {
-        let result,
-            prevContext = false,
-            ecc = newContext === true ?
-                this.getExecution() :
-                this.getExecution(
-                    this.masterObject || this,
-                    method,
-                    fileName || this.masterFilename,
-                    true,
-                    0);
-
-        if (newContext) {
-            prevContext = ecc;
-            ecc = this.executionContext = new ExecutionContext();
-            ecc.push(this, method || 'driverCallAsync', fileName, true, 0);
-        }
+    async driverCallAsync(method, callback, file, rethrow = false, newContext = false) {
+        const
+            ecc = ExecutionContext.getCurrentExecution(true),
+            frame = ecc.pushFrameObject({ object: this.masterObject, method: 'driverCallAsync', file, callType: CallOrigin.Driver });
+        let result;
 
         try {
             result = await callback(ecc);
@@ -862,9 +849,7 @@ class GameServer extends MUDEventEmitter {
             else result = err;
         }
         finally {
-            ecc.pop(method);
-            if (ecc.stack.length === 0)
-                this.executionContext = prevContext;
+            frame.pop(true);
         }
         return result;
     }
@@ -878,7 +863,7 @@ class GameServer extends MUDEventEmitter {
 
         logger.logIf(LOGGER_DEBUG, 'Bootstrap: Initializing driver features');
         this.features = this.config.driver.forEachFeature((featureConfig, pos, id) => {
-            if(featureConfig.enabled) {
+            if (featureConfig.enabled) {
                 logger.logIf(LOGGER_PRODUCTION, `\tEnabling driver feature: ${featureConfig.name}`);
                 let feature = featureConfig.initialize();
 
@@ -912,58 +897,30 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Let the in-game master possibly handle an exception.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {Error} err The exception that must be handled.
      * @param {boolean} caught Indicates whether the exception was caught elsewhere.
      */
-    errorHandler(err, caught) {
-        if (this.applyErrorHandler) {
-            this.cleanError(err);
-            let error = {
-                error: err.message,
-                program: '',
-                object: null,
-                line: 0,
-                stack: err.stack,
-                trace: []
-            }, firstFrame = true;
+    errorHandler(ecc, err, caught) {
+        const frame = ecc.pushFrameObject({ object: this.gameMaster, method: 'errorHandler', callType: CallOrigin.Driver });
+        try {
+            if (this.applyErrorHandler) {
+                if (err instanceof Error)
+                    this.cleanError(err);
+                let error = {
+                    error: typeof err === 'string' ? err : err.message,
+                    program: '',
+                    object: null,
+                    line: 0,
+                    stack: err.stack,
+                    trace: []
+                }, firstFrame = true;
 
-            error.trace = err.stack && err.stack.split('\n').map((line, index) => {
-                let parts = line.split(/\s+/g).filter(s => s.length);
-                if (parts[0] === 'at') {
-                    let func = parts[1].split('.'), inst = null;
-                    if (typeof parts[2] !== 'string') {
-                        return false;
-                    }
-                    let [filename, line, cindex] = parts[2].slice(0, parts[2].length - 1).split(':');
-
-                    if (filename.indexOf('.') === -1) {
-                        let fparts = filename.split('#'),
-                            module = this.cache.get(fparts[0]);
-                        if (module) {
-                            inst = module.instances[fparts.length === 2 ? parseInt(fparts[1]) : 0];
-                        }
-                    }
-                    let frame = {
-                        character: cindex,
-                        file: filename,
-                        function: func.pop(),
-                        line: line,
-                        object: inst,
-                        program: func.length === 0 ? '[null]' : func.join('.')
-                    };
-                    if (firstFrame) {
-                        error.character = frame.character;
-                        error.file = frame.file;
-                        error.function = frame.function;
-                        error.line = frame.line;
-                        error.object = inst;
-                        error.program = frame.program;
-                        firstFrame = false;
-                    }
-                    return frame;
-                }
-            }).filter(f => typeof f === 'object');
-            this.applyErrorHandler(error, caught);
+                this.applyErrorHandler(frame.context, error, caught);
+            }
+        }
+        finally {
+            frame.pop();
         }
     }
 
@@ -1131,7 +1088,7 @@ class GameServer extends MUDEventEmitter {
      * @param {Error} error The error to log.
      */
     async logError(ecc, path, error) {
-        let frame = ecc.pushFrameObject({ object: this.masterObject, method: 'logError', isAsync: true, callType: CallOrigin.Driver, isUnguarded: true });
+        let frame = ecc.pushFrameObject({ object: this.masterObject, method: 'logError', isAsync: true, callType: CallOrigin.Driver, unguarded: true });
         try {
             if (!this.applyLogError) {
                 logger.log('Compiler Error: ' + error.message);
@@ -1305,12 +1262,12 @@ class GameServer extends MUDEventEmitter {
                     // Application specific logging, throwing an error, or other logic here
                 });
             }
-            await this.createFileSystems(ecc.branch());
+            await this.createFileSystems(ecc.branch({ lineNumber: 1293, hint: 'this.createFileSystems' }));
             this.configureRuntime(ecc);
 
             console.log('Loading driver and external features');
             try {
-                await this.createSimulEfuns(ecc.branch());
+                await this.createSimulEfuns(ecc.branch({ lineNumber: 1298, hint: 'this.createSimulEfuns' }));
                 await this.createMasterObjectAsync(ecc);
                 await this.securityManager.validateAsync(ecc, this);
                 await this.securityManager.initSecurityAsync(ecc);
@@ -1324,7 +1281,7 @@ class GameServer extends MUDEventEmitter {
             await this.runStarting(ecc);
 
             if (this.masterObject && this.applyStartup)
-                await this.applyStartup(frame.branch());
+                await this.applyStartup(frame.branch({ lineNumber: 1312, hint: 'this.applyStartup' }));
             if (callback)
                 callback.call(this);
             return await this.runMain();
@@ -1407,57 +1364,63 @@ class GameServer extends MUDEventEmitter {
     }
 
     async runMain() {
-        let ecc = this.getExecution(this.masterObject, 'onReady', this.masterObject.filename);
-        this.gameState = GAMESTATE_RUNNING;
+        let ecc = ExecutionContext.startNewContext(),
+            frame = ecc.pushFrameObject({ object: this.masterObject, file: __filename, method: 'runMain', callType: CallOrigin.Driver, isAsync: true });
+
         try {
-            await this.masterObject.emit('ready', this.masterObject);
-        }
-        catch (err) {
-            /* do nothing */
+            this.gameState = GAMESTATE_RUNNING;
+            try {
+                await this.masterObject.emit('ready', this.masterObject);
+            }
+            catch (err) {
+                /* do nothing if ready event borks */
+            }
+            finally {
+            }
+            if (this.config.mudlib.heartbeatInterval > 0) {
+                this.heartbeatTimer = setTimeout(async () => {
+                    await this.executeHeartbeat();
+                }, this.config.mudlib.heartbeatInterval);
+            }
+
+            if (this.config.mudlib.objectResetInterval > 0 && this.config.driver.useLazyResets === false) {
+                this.resetTimer = setInterval(async () => {
+                    let n = 0;
+
+                    for (let i = 0, now = efuns.ticks; i < this.resetStack.length; i++) {
+                        let timestamp = this.resetStack[i],
+                            list = this.resetTimes[timestamp];
+
+                        if (timestamp > 0 && timestamp < now) {
+                            for (const [item, index] of Object.entries(list)) {
+                                let ob = item.instance;
+                                try {
+                                    let $storage = driver.storage.get(ob);
+                                    if ($storage.nextReset < now) {
+                                        await ob.reset();
+                                        this.registerReset(item, false);
+                                    }
+                                }
+                                catch (resetError) {
+                                    // Do not re-register reset--now disabled for previous object.
+                                    this.errorHandler(resetError, false);
+                                }
+                            };
+                            delete this.resetTimes[timestamp];
+                            n++;
+                            continue;
+                        }
+                        break;
+                    }
+                    //  This requires revisiting.  Use real stack and pop to avoid grossness like this.
+                    if (n > 0) this.resetStack.splice(0, n);
+                }, this.config.driver.resetPollingInterval);
+            }
+            return this;
         }
         finally {
-            ecc.pop('onReady');
+            frame.pop();
         }
-        if (this.config.mudlib.heartbeatInterval > 0) {
-            this.heartbeatTimer = setTimeout(async () => {
-                await this.executeHeartbeat();
-            }, this.config.mudlib.heartbeatInterval);
-        }
-
-        if (this.config.mudlib.objectResetInterval > 0 && this.config.driver.useLazyResets === false) {
-            this.resetTimer = setInterval(async () => {
-                let n = 0;
-
-                for (let i = 0, now = efuns.ticks; i < this.resetStack.length; i++) {
-                    let timestamp = this.resetStack[i],
-                        list = this.resetTimes[timestamp];
-
-                    if (timestamp > 0 && timestamp < now) {
-                        for (const [item, index] of Object.entries(list)) {
-                            let ob = item.instance;
-                            try {
-                                let $storage = driver.storage.get(ob);
-                                if ($storage.nextReset < now) {
-                                    await ob.reset();
-                                    this.registerReset(item, false);
-                                }
-                            }
-                            catch (resetError) {
-                                // Do not re-register reset--now disabled for previous object.
-                                this.errorHandler(resetError, false);
-                            }
-                        };
-                        delete this.resetTimes[timestamp];
-                        n++;
-                        continue;
-                    }
-                    break;
-                }
-                //  This requires revisiting.  Use real stack and pop to avoid grossness like this.
-                if (n > 0) this.resetStack.splice(0, n);
-            }, this.config.driver.resetPollingInterval);
-        }
-        return this;
     }
 
     /**
@@ -1500,7 +1463,7 @@ class GameServer extends MUDEventEmitter {
         if (this.gameState < GAMESTATE_RUNNING)
             return false;
         else if (this.applyValidExec === false) return true;
-        else return this.applyValidExec(frame, oldBody, newBody);
+        else return this.applyValidExec(frame.context, oldBody, newBody);
     }
 
     validObject(arg) {
@@ -1510,7 +1473,7 @@ class GameServer extends MUDEventEmitter {
             else return this.applyValidObject(ob);
         });
         return result === true;
-    } 
+    }
 
     /**
      * Get the MUD uptime.
@@ -1526,12 +1489,12 @@ class GameServer extends MUDEventEmitter {
      * @param {ExecutionFrame} frame The frame that is being evaluated.
      * @returns {boolean} True if the destruct is allowed, false if it should be blocked.
      */
-    validDestruct(target, frame) {
+    validDestruct(frame, target) {
         if (!this.applyValidDestruct)
             return target !== driver.masterObject;
         else if (frame.object === target)
             return true;
-        return this.applyValidDestruct(frame.object || frame.file, target, frame.method);
+        return this.applyValidDestruct(frame.context, frame.object || frame.file, target, frame.method);
     }
 
     /**
@@ -1544,8 +1507,8 @@ class GameServer extends MUDEventEmitter {
             return true;
         else if (!this.applyValidReadConfig)
             return false; //  By default, config is not visible in game
-        else this.getExecution()
-            .guarded(f => this.applyValidReadConfig(f.object || f.file, key, f.method));
+        else ExecutionContext.getCurrentExecution()
+            .guarded(f => this.applyValidReadConfig(frame.context, f.object || f.file, key, f.method));
     }
 
     /**
@@ -1561,7 +1524,7 @@ class GameServer extends MUDEventEmitter {
         else if (frame.object === driver.masterObject || frame.object === driver)
             return true;
         else
-            return await this.applyValidRead(frame.branch(), path, frame.object || frame.file, frame.method);            
+            return await this.applyValidRead(frame.branch(), path, frame.object || frame.file, frame.method);
     }
 
     validRequire(efuns, moduleName) {

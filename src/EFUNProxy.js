@@ -34,8 +34,8 @@ const
     TextHelper = require('./efuns/TextHelper'),
     TimeHelper = require('./efuns/Time'),
     UserHelper = require('./efuns/UserHelper');
-    const { ExecutionContext, CallOrigin, ExecutionFrame } = require('./ExecutionContext');
-    const MUDObject = require('./MUDObject');
+const { ExecutionContext, CallOrigin, ExecutionFrame } = require('./ExecutionContext');
+const MUDObject = require('./MUDObject');
 
 var
     IncludeCache = {},
@@ -271,7 +271,6 @@ class EFUNProxy {
             let store = false;
 
             if (!target) {
-                let ecc = driver.getExecution();
                 store = driver.storage.get(frame.context.getThisPlayer());
             }
             else {
@@ -308,7 +307,7 @@ class EFUNProxy {
         try {
             return await driver
                 .fileManager
-                .cloneObjectAsync(frame.branch(), this.resolvePath(frame.branch(), file), args);
+                .cloneObjectAsync(frame.branch(), this.resolvePath(frame.context, file), args);
         }
         finally {
             frame.pop();
@@ -392,7 +391,7 @@ class EFUNProxy {
     }
 
     get console() {
-        let ecc = driver.getExecution();
+        let ecc = ExecutionContext.getCurrentExecution();
         return ecc.shell && ecc.shell.console;
     }
 
@@ -424,8 +423,8 @@ class EFUNProxy {
     }
 
     get currentCommand() {
-        let ecc = driver.getExecution(),
-            cmd = ecc.command;
+        let ecc = ExecutionContext.getCurrentExecution();
+        cmd = ecc.command;
 
         if (cmd)
             return cmd;
@@ -438,7 +437,7 @@ class EFUNProxy {
      * @returns {string|false} The current verb or false if none.
      */
     get currentVerb() {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             cmd = ecc.command;
 
         if (cmd)
@@ -488,10 +487,8 @@ class EFUNProxy {
             if (ob) {
                 let store = driver.storage.get(ob);
                 if (store) {
-                    if (frame.context.guarded(frame => driver.validDestruct(ob, frame))) {
-                        return driver.driverCall('destruct', () => {
-                            return store.eventDestroy(...args);
-                        });
+                    if (frame.context.guarded(frame => driver.validDestruct(frame, ob))) {
+                        return store.eventDestroy(frame.context, ...args);
                     }
                     else
                         throw Error(`Permission denied: Could not destruct object ${ob.filename}`);
@@ -666,7 +663,7 @@ class EFUNProxy {
      * @param {number} decim Number of decimal places
      * @returns {string} A human-friendly string.
      */
-    getMemSizeString(ecc, n,decim=0) {
+    getMemSizeString(ecc, n, decim = 0) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'getMemSizeString', callType: CallOrigin.DriverEfun });
         try {
             let numeric = parseInt(n);
@@ -738,7 +735,7 @@ class EFUNProxy {
      * @returns {boolean}
      */
     isAwaited(assertIfNotAwaited = false, methodName = 'unknown') {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             result = ecc && ecc.isAwaited,
             frame = ecc && ecc.stack[0] || false;
 
@@ -1569,7 +1566,7 @@ class EFUNProxy {
      * @param {any} returnAll If true, the return value will be all objects matching the id
      * @returns
      */
-    present(ecc, id, env=false, returnAll=false) {
+    present(ecc, id, env = false, returnAll = false) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'present', callType: CallOrigin.DriverEfun });
         try {
             if (!env) {
@@ -1793,7 +1790,7 @@ class EFUNProxy {
                             files = await dir.readDirectoryAsync(frame.branch(), file + '.*');
                         }
 
-                        if (files.length === 1) {
+                        if (files?.length === 1) {
                             return IncludeCache[file] = files[0].path;
                         }
                     }
@@ -1807,7 +1804,10 @@ class EFUNProxy {
             }
             return result;
         }
-        finally { 
+        catch (err) {
+            throw err;
+        }
+        finally {
             frame.pop();
         }
     }
@@ -1942,7 +1942,8 @@ class EFUNProxy {
     saveObject(ecc, expr) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'saveObject', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
-            let ctx = driver.getExecution(), prev = ctx.thisObject,
+            let ctx = ExecutionContext.getCurrentExecution(),
+                prev = ctx.thisObject,
                 parts = this.parsePath(frame.context, prev.filename);
 
             expr = expr || parts.file;
@@ -1968,8 +1969,7 @@ class EFUNProxy {
     async saveObjectAsync(ecc, expr, encoding = 'utf8') {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'saveObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
-            let ctx = driver.getExecution(),
-                prev = ctx.thisObject,
+            let prev = frame.context.thisObject,
                 parts = this.parsePath(frame.context, prev.filename),
                 savePath = this.resolvePath(frame.context, expr || parts.file, prev.directory);
 
@@ -2103,13 +2103,13 @@ class EFUNProxy {
     }
 
     get env() {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             cmd = ecc.command;
         return cmd.env || {};
     }
 
     get err() {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             cmd = ecc.command;
         if (cmd && cmd.stderr)
             return cmd.stderr;
@@ -2117,7 +2117,7 @@ class EFUNProxy {
     }
 
     get in() {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             cmd = ecc.command;
         if (cmd && cmd.stdin)
             return cmd.stdin;
@@ -2125,7 +2125,7 @@ class EFUNProxy {
     }
 
     get objin() {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             cmd = ecc.command;
         if (cmd && Array.isArray(cmd.objin))
             return cmd.objin;
@@ -2133,7 +2133,7 @@ class EFUNProxy {
     }
 
     get out() {
-        let ecc = driver.getExecution(),
+        let ecc = ExecutionContext.getCurrentExecution(),
             cmd = ecc.command;
         if (cmd && cmd.stdout)
             return cmd.stdout;
@@ -2248,7 +2248,7 @@ class EFUNProxy {
      * @param {...any} args
      * @returns
      */
-    sprintf(ecc,...args) {
+    sprintf(ecc, ...args) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'sprintf', callType: CallOrigin.DriverEfun, isAsync: false });
         try {
             return sprintf.apply(sprintf, args);
@@ -2363,7 +2363,7 @@ class EFUNProxy {
      */
     async unguarded(ecc, callback) {
         let isAsync = this.isAsync(ecc, callback),
-            frame = ecc.pushFrameObject({ file: __filename, method: 'unguarded', callType: CallOrigin.DriverEfun, isAsync, isUnguarded: true });
+            frame = ecc.pushFrameObject({ file: __filename, method: 'unguarded', callType: CallOrigin.DriverEfun, isAsync, unguarded: true });
         try {
             if (typeof callback !== 'function')
                 throw new Error(`Bad argument 1 to unguarded; expected function got ${typeof callback}`);
@@ -2570,55 +2570,55 @@ class EFUNProxy {
 
             if (!stream)
                 return false;
-            else
-                return driver.driverCall('write', ecc => {
-                    let expandValue = /** @returns {string[]} */ item => {
-                        let valType = typeof item;
+            else {
+                let expandValue = /** @returns {string[]} */ item => {
+                    let valType = typeof item;
 
-                        if (valType === 'string')
-                            return [item];
-                        else if (item instanceof Buffer) {
-                            return [item.toString('utf8')];
-                        }
-                        else if (valType === 'function') {
-                            return expandValue(valType());
-                        }
-                        else if (valType === 'number')
-                            return [item.toString()];
-                        else if (valType === 'boolean')
-                            return [item ? 'true' : 'false'];
-                        else if (Array.isArray(item)) {
-                            let r = [];
-                            item.forEach(i => r.push(...expandValue(i)));
-                            return r;
-                        }
-                        else
-                            return [valType.toUpperCase()];
-                    };
-                    /** @type {string[]} */
-                    let items = [], content = '';
-
-                    expr.map(item => items.push(...expandValue(item)));
-                    items.filter(v => v.length > 0).forEach((v, i) => {
-                        if (i === 0)
-                            content += v;
-                        else if (EndsWithWhitespace.test(v)) {
-                            content += v;
-                        }
-                        else
-                            content += ' ' + v;
-                    });
-
-                    if (appendNewline) {
-                        if (!this.text.trailingNewline(frame.context, content))
-                            content += this.eol;
+                    if (valType === 'string')
+                        return [item];
+                    else if (item instanceof Buffer) {
+                        return [item.toString('utf8')];
                     }
+                    else if (valType === 'function') {
+                        return expandValue(valType());
+                    }
+                    else if (valType === 'number')
+                        return [item.toString()];
+                    else if (valType === 'boolean')
+                        return [item ? 'true' : 'false'];
+                    else if (Array.isArray(item)) {
+                        let r = [];
+                        item.forEach(i => r.push(...expandValue(i)));
+                        return r;
+                    }
+                    else
+                        return [valType.toUpperCase()];
+                };
 
-                    if (stream)
-                        stream.write(content);
+                /** @type {string[]} */
+                let items = [], content = '';
 
-                    return true;
+                expr.map(item => items.push(...expandValue(item)));
+                items.filter(v => v.length > 0).forEach((v, i) => {
+                    if (i === 0)
+                        content += v;
+                    else if (EndsWithWhitespace.test(v)) {
+                        content += v;
+                    }
+                    else
+                        content += ' ' + v;
                 });
+
+                if (appendNewline) {
+                    if (!this.text.trailingNewline(frame.context, content))
+                        content += this.eol;
+                }
+
+                if (stream)
+                    stream.write(content);
+
+                return true;
+            }
         }
         finally {
             frame.pop();

@@ -84,7 +84,7 @@ class VMWrapper extends VMAbstraction {
             '[efuns, __mec] = __cef(__hid, __filename), ',
             'module = efuns, ',
             'requireAsync = async (s) => { return await efuns.requireAsync(s); }; ',
-        context.content,
+            context.content,
             ` })('${ecc.handleId}')`].join('');
 
         if (!this.initialized) {
@@ -122,7 +122,7 @@ class VMWrapper extends VMAbstraction {
         try {
             let result = this.makeQuerablePromise(vm.runInContext(content, module.context, options));
             if (result.isPending())
-                return await result;
+                result = await result;
             return result;
         }
         catch (e) {
@@ -151,6 +151,7 @@ class VMWrapper extends VMAbstraction {
             return result;
         }
         catch (e) {
+            debugger;
             console.log(`Error in runCodeAsync(): ${e.message}`);
         }
         return undefined;

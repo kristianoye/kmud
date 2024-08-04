@@ -35,7 +35,7 @@ class DiskFileObject extends FileSystemObject {
             this.#files = [];
             this.#hasLoaded = false;
         }
-        else 
+        else
             this.#files = this.#directories = false;
     }
 
@@ -637,7 +637,7 @@ class DiskFileObject extends FileSystemObject {
      * @param {string | Object.<string,string|Buffer|(string) => string>} fileNameOrContent
      * @param {any} options
      */
-    async writeDirectoryAsync(ecc, fileNameOrContent, content , options = { encoding: 'utf8', flag: 'w' }) {
+    async writeDirectoryAsync(ecc, fileNameOrContent, content, options = { encoding: 'utf8', flag: 'w' }) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'writeDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let writes = [];
@@ -711,7 +711,7 @@ class DiskFileSystem extends BaseFileSystem {
         this.flags = BaseFileSystem.FS_ASYNC |
             BaseFileSystem.FS_SYNC |
             BaseFileSystem.FS_DIRECTORIES |
-            BaseFileSystem.FS_OBJECTS | 
+            BaseFileSystem.FS_OBJECTS |
             BaseFileSystem.FS_WILDCARDS;
 
         this.isReadOnly = false;
@@ -868,7 +868,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @param {ExecutionContext} ecc The current callstack
      * @param {string} exprIn The file expression to convert.
      * @returns {string} The absolute filesystem path.
-     */ 
+     */
     getRealPath(ecc, exprIn) {
         let [frame, expr] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'getRealPath', isAsync: false, callType: CallOrigin.Driver });
         try {
@@ -1173,7 +1173,7 @@ class DiskFileSystem extends BaseFileSystem {
             if (stats.exists && stats.isDirectory)
                 return new DiskFileObject(stats, fullPath, this);
             else
-                throw(`getDirectoryAsync(): ${stats.fullPath} is not a directory`);
+                throw (`getDirectoryAsync(): ${stats.fullPath} is not a directory`);
         }
         finally {
             frame.pop();
@@ -1269,7 +1269,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @param {any} args
      */
     async loadObjectAsync(ecc, request, args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver, unguarded: true });
         try {
             let parts = driver.efuns.parsePath(frame.branch(), request.fullPath),
                 module = driver.cache.get(parts.file),
@@ -1409,9 +1409,9 @@ class DiskFileSystem extends BaseFileSystem {
                 let showFullPath = request.hasFlag(MUDFS.GetDirFlags.FullPath),
                     details = request.hasFlag(MUDFS.GetDirFlags.Details),
                     pattern = request.name && new RegExp('^' + request.name
-                            .replace(/\./g, '\\.')
-                            .replace(/\?/g, '.')
-                            .replace(/\*/g, '.+') + '$');
+                        .replace(/\./g, '\\.')
+                        .replace(/\?/g, '.')
+                        .replace(/\*/g, '.+') + '$');
 
                 if (request.hasFlag(MUDFS.GetDirFlags.ImplicitDirs) && !fullPath.endsWith(path.sep))
                     fullPath += path.sep;

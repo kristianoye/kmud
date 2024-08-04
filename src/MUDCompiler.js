@@ -16,7 +16,9 @@ const
     MUDCache = require('./MUDCache');
 
 var
-    VM, loaders = {};
+    /** @type {import('./compiler/VMWrapper')} */
+    VM,
+    loaders = {};
 
 class MUDCompiler {
     /**
@@ -39,7 +41,7 @@ class MUDCompiler {
         this.validExtensions = [];
 
         Object.keys(config.loaders).forEach(name => {
-            this.loaders[name] = require(config.loaders[name]["file"]); 
+            this.loaders[name] = require(config.loaders[name]["file"]);
         });
 
         if (Array.isArray(config.components)) {
@@ -240,7 +242,7 @@ class MUDCompiler {
                         options.onPipelineComplete(context.content);
                     }
                     module.exports = false;
-                    let result = await VM.runAsync(ecc.branch(), context, module);
+                    let result = await VM.runAsync(ecc.branch({ lineNumber: 245, hint: 'VM.runAsync' }), context, module);
 
                     delete module.isCompiling;
                     if (result instanceof Error)
@@ -292,12 +294,9 @@ class MUDCompiler {
                 if (options.altParent && module) {
                     delete module.loader[options.altParent.name];
                 }
-                let t1 = efuns.ticks, ecc = driver.getExecution();
+                let t1 = efuns.ticks;
                 if (!cleanError) {
-                    if (ecc)
-                        logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
-                    else
-                        logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
+                    logger.log(`\tLoad timer: ${options.file} [${(t1 - t0)} ms]`);
                 }
             }
             return false;

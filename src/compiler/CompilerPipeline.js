@@ -10,8 +10,7 @@ const
     PipelineContext = PipeContext.PipelineContext,
     { ExecutionContext } = require('../ExecutionContext');
 
-class CompilerPipeline
-{
+class CompilerPipeline {
     constructor(ext, config, resolver) {
         this.enabled = typeof config.enabled === 'boolean' ? config.enabled : true;
         this.extension = ext;
@@ -37,7 +36,7 @@ class CompilerPipeline
      * @returns {PipeLineContext|false} The compiler context or false if the pipe was disabled.
      */
     async executeAsync(ecc, context, options) {
-        let frame = ecc.pushFrame(ecc.thisObject, 'executeAsync', options.file, true, 0);
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'executeAsync', isAsync: true });
         try {
             if (!this.enabled) {
                 options.onDebugOutput(`Pipeline ${this.name} is disabled`, 2);

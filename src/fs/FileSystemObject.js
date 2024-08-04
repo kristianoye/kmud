@@ -439,42 +439,37 @@ class FileSystemObject extends events.EventEmitter {
      * @param {any[]} args
      */
     async loadObjectAsync(ecc, flags = 0, args = [], fileParts = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
-        return new Promise(async (resolve, reject) => {
-            try {
-                if (this.isDirectory)
-                    throw new Error(`Operation not supported: ${this.fullPath} is a directory.`);
-                let parts = fileParts || driver.efuns.parsePath(frame.context, this.fullPath),
-                    module = driver.cache.get(parts.file),
-                    forceReload = !module || (flags & 1) > 0,
-                    cloneOnly = (flags & 2) > 0;
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver, unguarded: true });
+        try {
+            if (this.isDirectory)
+                throw new Error(`Operation not supported: ${this.fullPath} is a directory.`);
+            let parts = fileParts || driver.efuns.parsePath(frame.context, this.fullPath),
+                module = driver.cache.get(parts.file),
+                forceReload = !module || (flags & 1) > 0,
+                cloneOnly = (flags & 2) > 0;
 
-                if (forceReload) {
-                    module = await driver.compiler.compileObjectAsync(frame.branch(), {
-                        args,
-                        file: parts.file,
-                        reload: forceReload
-                    });
-                    if (!module)
-                        return reject(new Error(`loadObjectAsync(): Failed to load module ${fullPath}`));
-                }
-                if (cloneOnly) {
-                    let clone = await module.createInstanceAsync(frame.branch(), parts.type, false, args);
+            if (forceReload) {
+                module = await driver.compiler.compileObjectAsync(frame.branch(), {
+                    args,
+                    file: parts.file,
+                    reload: forceReload
+                });
+                if (!module)
+                    throw new Error(`loadObjectAsync(): Failed to load module ${fullPath}`);
+            }
+            if (cloneOnly) {
+                let clone = await module.createInstanceAsync(frame.branch(), parts.type, false, args);
 
-                    if (!clone)
-                        return reject(`loadObjectAsync(): Failed to clone object '${this.fullPath}'`);
+                if (!clone)
+                    throw new Error(`loadObjectAsync(): Failed to clone object '${this.fullPath}'`);
 
-                    return resolve(clone);
-                }
-                return resolve(module.getInstanceWrapper(parts));
+                return clone;
             }
-            catch (err) {
-                reject(err);
-            }
-            finally {
-                frame.pop();
-            }
-        });
+            return module.getInstanceWrapper(parts);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -666,7 +661,7 @@ class ObjectNotFound extends FileSystemObject {
 
 class VirtualObjectFile extends FileSystemObject {
     constructor(stat, request) {
-        super(stat,request);
+        super(stat, request);
     }
 
     get isVirtual() {
@@ -680,7 +675,7 @@ class VirtualObjectFile extends FileSystemObject {
      * @param {any[]} args
      */
     async loadObjectAsync(ecc, request, args = []) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver, unguarded: true });
         try {
             let parts = driver.efuns.parsePath(frame.context, request.fullPath),
                 module = driver.cache.get(parts.file),
@@ -1223,7 +1218,9 @@ class FileWrapperObject extends FileSystemObject {
     async loadObjectAsync(ecc, ...args) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
-            return await this.#instance.loadObjectAsync(frame.branch(), ...args);
+            if (await this.can(frame.branch(), SecurityFlags.P_LOADOBJECT, 'loadObjectAsync')) {
+                return await this.#instance.loadObjectAsync(frame.branch(), ...args);
+            }
         }
         finally {
             frame.pop(true);

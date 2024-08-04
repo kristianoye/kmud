@@ -208,7 +208,7 @@ class SecurityHelper {
             frame.pop();
         }
     }
-    
+
     /**
      * Convert a permission set into a human readable string
      * @param {ExecutionContext} ecc The current callstack
@@ -269,7 +269,7 @@ class SecurityHelper {
      * @returns
      */
     static async unguardedAsync(ecc, callbackIn) {
-        let [frame, callback] = ExecutionContext.tryPushFrame(arguments, { method: 'unguardedAsync', file: __filename, isAsync: true, callType: CallOrigin.DriverEfun, isUnguarded: true });
+        let [frame, callback] = ExecutionContext.tryPushFrame(arguments, { method: 'unguardedAsync', file: __filename, isAsync: true, callType: CallOrigin.DriverEfun, unguarded: true });
         try {
             let thisObject = ecc.thisObject;
             return driver.driverCallAsync('unguarded', callback, thisObject.filename || '[not specified]', true, true);

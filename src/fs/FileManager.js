@@ -63,13 +63,13 @@ class FileManager extends MUDEventEmitter {
             let moduleImport = require(options.managerModule.startsWith('.') ?
                 path.join(__dirname, '..', options.managerModule) : options.managerModule);
 
-            if (driver.efuns.isClass(driver.getExecution().branch(), moduleImport)) {
+            if (driver.efuns.isClass(ExecutionContext.getCurrentExecution(), moduleImport)) {
                 securityManager = new moduleImport(this, fsconfig.securityManagerOptions);
             }
             else if (!options.managerTypeName) {
                 throw new Error('Config for securityManager is missing required parameter managerTypeName');
             }
-            else if (typeof moduleImport === 'object' && driver.efuns.isClass(driver.getExecution().branch(), moduleImport[options.managerTypeName])) {
+            else if (typeof moduleImport === 'object' && driver.efuns.isClass(ExecutionContext.getCurrentExecution(), moduleImport[options.managerTypeName])) {
                 let managerType = moduleImport[options.managerTypeName];
                 securityManager = new managerType(this, fsconfig.securityManagerOptions);
             }
@@ -256,8 +256,7 @@ class FileManager extends MUDEventEmitter {
                 if (options.hasFlag(CopyFlags.RemoveDestination) && dest.exists) {
                     await dest.deleteAsync();
                 }
-                if (options.hasFlag(CopyFlags.NonClobber))
-                {
+                if (options.hasFlag(CopyFlags.NonClobber)) {
                     options.onCopyInformation(options.verb, `NoClobber: Omitting file '${options.source}' since it already exists as '${options.destination}'`);
                     return true;
                 }
@@ -352,7 +351,7 @@ class FileManager extends MUDEventEmitter {
             relativePath: relParts.join('/'),
             absolutePath: '/' + absPath.join('/')
         }));
-     }
+    }
 
     /**
      * Create a request that describes the current operation.
@@ -1018,7 +1017,7 @@ class FileManager extends MUDEventEmitter {
             let exts = driver.compiler.supportedExtensions,
                 pattern = new RegExp(driver.compiler.extensionPattern),
                 result = false;
-            let fileParts = driver.efuns.parsePath(frame.branch(), request.fullPath),
+            let fileParts = driver.efuns.parsePath(frame.context, request.fullPath),
                 { file, extension, type, objectId, defaultType } = fileParts,
                 module = driver.cache.get(file);
 
@@ -1122,58 +1121,6 @@ class FileManager extends MUDEventEmitter {
             }
         });
         return request.valid('validReadFile') && await request.fileSystem.readFileAsync(request);
-    }
-
-    /**
-     * Read structured data from the specified location.
-     * @param {string} expr The JSON file being read.
-     * @param {FileOptions} options Additional options
-     * @returns {Promise<any>}
-     */
-    readJsonAsync(expr, options = {}) {
-        return new Promise(async (resolve, reject) => {
-            let ecc = driver.getExecution();
-            let frame = ecc.pushFrame(driver.masterObject, 'readJsonAsync', __filename, true, 817);
-
-            try {
-                let o = await this.getFileAsync(expr),
-                    result = await o.readJsonAsync(options)
-                        .catch(err => reject(err));
-                return resolve(result);
-            }
-            catch (err) {
-                reject(err);
-            }
-            finally {
-                ecc.pop(frame);
-            }
-        });
-    }
-
-    /**
-     * Read structured data from the specified location.
-     * @param {string} expr The JSON file being read.
-     * @returns {Promise<any>}
-     */
-    async readYamlAsync(expr) {
-        return new Promise(async (resolve, reject) => {
-            try {
-                let request = this.createFileRequest('readYamlAsync', expr);
-                let directory = await this.getDirectoryAsync(request.directory);
-
-                if (!directory.exists)
-                    reject(new Error(`Directory ${request.directory} does not exist.`));
-                let file = await directory.getFileAsync(request.name);
-                if (!file.exists)
-                    reject(new Error(`File ${request.path} does not exist.`));
-                let results = yaml.safeLoad(await file.readAsync());
-
-                resolve(results);
-            }
-            catch (err) {
-                reject(err);
-            }
-        });
     }
 
     /**
