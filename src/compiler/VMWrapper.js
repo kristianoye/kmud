@@ -126,6 +126,7 @@ class VMWrapper extends VMAbstraction {
             return result;
         }
         catch (e) {
+            debugger;
             console.log(`Error in runAsync(): ${e.message}`);
         }
         return undefined;

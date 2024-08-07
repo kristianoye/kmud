@@ -59,6 +59,16 @@ class ExecutionFrame {
 
         this.ellapsed = 0;
 
+        /**
+         * @type {Error}
+         */
+        this.error = false;
+
+        /**
+         * @type {[Object.<string, [function()] | [function(): any, function(val): void]>]}
+         */
+        this.parameters = frame.parameters || {};
+
         /** 
          * The unique UUID of this frame
          * @type {string}
@@ -73,12 +83,18 @@ class ExecutionFrame {
 
         /**
          * The object performing the action 
-         * @type {typeof import('./MUDObject')}
+         * @type {import('./MUDObject')}
          */
-        this.object = frame.object || frame.context?.thisObject;
+        this.object = frame.object;// || frame.context?.thisObject;
 
         if (this.object) {
             this.className = this.object.constructor.name;
+        }
+        else if (frame.className) {
+            if (typeof frame.className === 'string')
+                this.className = frame.className;
+            else
+                this.className = frame.className.name || 'Unknown';
         }
 
         if (typeof frame.callHint === 'string') {
@@ -924,6 +940,7 @@ class ExecutionContext extends MUDEventEmitter {
                 delete this.creationContexts;
             return ctx;
         }
+        delete this.storage;
         return undefined;
     }
 
@@ -1069,7 +1086,7 @@ class ExecutionContext extends MUDEventEmitter {
             driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
         else if (typeof frameInfo.method !== 'string')
             driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
-        let newFrame = new ExecutionFrame({ context: this, ...frameInfo, object: frameInfo.object || this.thisObject });
+        let newFrame = new ExecutionFrame({ context: this, ...frameInfo, object: (frameInfo.object || this.thisObject) });
         this.pushActual(newFrame);
         return newFrame;
     }

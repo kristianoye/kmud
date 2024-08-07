@@ -82,6 +82,14 @@ class BaseSecurityManager extends EventEmitter {
      * 
      * @param {string} username
      */
+    getSafeCredential(username) {
+        throw new NotImplementedError('getSafeCredential');
+    }
+
+    /**
+     * 
+     * @param {string} username
+     */
     getSafeCredentialAsync(username) {
         throw new NotImplementedError('getSafeCredential');
     }
@@ -254,6 +262,60 @@ class BaseSecurityManager extends EventEmitter {
     // #endregion
 }
 
+class SafeSecurityCredential extends EventEmitter {
+    /**
+     * Create a wrapper for an actual security credential
+     * @param {BaseSecurityCredential} cred The credential to wrap 
+     */
+    constructor(cred) {
+        super();
+        Object.defineProperties(this, {
+            groupIds: {
+                get: function () {
+                    return cred.groups.map(g => g.id);
+                },
+                enumerable: true,
+                configurable: false
+            },
+            groupNames: {
+                get: function () {
+                    return cred.groups.map(g => g.name);
+                },
+                enumerable: true,
+                configurable: false
+            },
+            groups: {
+                get: function () {
+                    return cred.groups.map(g => g.createSafeExport());
+                },
+                enumerable: true,
+                configurable: false
+            },
+            isUser: {
+                get: function () {
+                    return cred.IsUser;
+                },
+                enumerable: true,
+                configurable: false
+            },
+            isWizard: {
+                get: function () {
+                    return cred.IsWizard;
+                },
+                enumerable: true,
+                configurable: false
+            },
+            userId: {
+                get: function () {
+                    return cred.userId;
+                },
+                enumerable: true,
+                configurable: false
+            }
+        });
+    }
+}
+
 /** Base credential */
 class BaseSecurityCredential extends EventEmitter {
     /**
@@ -301,16 +363,7 @@ class BaseSecurityCredential extends EventEmitter {
     createSafeExport(ecc) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'createSafeExport', callType: CallOrigin.Driver });
         try {
-            let safeObject = {
-                userId: this.userId,
-                groups: this.groups.map(g => g.createSafeExport())
-            };
-            if (this.IsUser)
-                safeObject.IsUser = true;
-            if (this.IsWizard)
-                safeObject.IsWizard = true;
-
-            return Object.freeze(safeObject);
+            return Object.freeze(new SafeSecurityCredential(this));
         }
         finally {
             frame.pop();
@@ -340,7 +393,7 @@ class BaseSecurityCredential extends EventEmitter {
      * @param {ExecutionContext} ecc The current call stack
      * @param {string | BaseSecurityCredential} info
      */
-    isEqual(info) {
+    isEqual(ecc, info) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'isEqual', callType: CallOrigin.Driver });
         try {
             if (info instanceof BaseSecurityCredential)
@@ -414,12 +467,12 @@ class BaseSecurityGroup extends EventEmitter {
     }
 
     /**
-     * 
-     * @param {ExecutionContext} ecc
+     * Create an export safe group object that can be used within the game
+     * @param {ExecutionContext} ecc The current callstack
      * @returns
      */
     createSafeExport(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createSafeExport', callType: CallOrigin.Driver });
+        let frame = ecc?.pushFrameObject({ file: __filename, method: 'createSafeExport', callType: CallOrigin.Driver });
         try {
             return Object.freeze({
                 id: this.gid,
@@ -438,7 +491,7 @@ class BaseSecurityGroup extends EventEmitter {
             });
         }
         finally {
-            frame.pop();
+            frame?.pop();
         }
     }
 
@@ -585,7 +638,7 @@ class BaseSecurityGroup extends EventEmitter {
     removeMember(ecc, member) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'removeMember', callType: CallOrigin.Driver });
         try {
-            return this.findIndex(member) > -1;
+            return this.findIndex(ecc, member) > -1;
             //  Objects cannot be removed from default group
             if (this.gid === this.owner.defaultGroupName)
                 return false;
@@ -617,7 +670,7 @@ class BaseSecurityGroup extends EventEmitter {
         let frame = ecc.pushFrameObject({ method: 'resolveMembers' });
         try {
             if (this.owner.initialized === true) {
-                this.#members = this.owner.getCredentials(ecc.branch(), this.members);
+                this.#members = this.owner.getCredentials(ecc, this.members);
             }
         }
         finally {

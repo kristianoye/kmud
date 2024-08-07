@@ -10,6 +10,11 @@ class CreationContext {
          * @type {any[]} */
         this.args = data.args || [];
 
+        /**
+         * @type {number}
+         */
+        this.createTime = Date.now();
+
         /** 
          * The path to the object being created
          * @type {string} 
@@ -21,6 +26,15 @@ class CreationContext {
          * @type {string} 
          */
         this.fullPath = data.fullPath;
+
+        /** @type {string} */
+        this.identity = data.identity;
+
+        /** 
+         * Is this a singleton type? 
+         * @type {boolean}
+         */
+        this.isSingleton = data.isSingleton === true;
 
         /** 
          * Is this a virtual object request? 
@@ -39,6 +53,11 @@ class CreationContext {
          * @type {string} 
          */
         this.objectId = data.objectId;
+
+        /**
+         * @type {import('./MUDStorage')}
+         */
+        this.store = data.store;
 
         /**
          * If this is a virtual object, this is a filename specifying details about

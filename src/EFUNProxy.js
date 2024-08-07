@@ -969,25 +969,25 @@ class EFUNProxy {
                         throw new Error(`Bad argument 2 to message; Expected string, number, or MUDHtmlComponent but received ${typeof expr}`);
                 }
                 let filtered = excluded
-                    .map(m => unwrap(m))
+                    .map(m => m.instance)
                     .filter(m => m instanceof MUDObject);
 
                 let recipients = audience
-                    .map(m => unwrap(m))
+                    .map(m => m.instance)
                     .filter(m => m instanceof MUDObject && filtered.indexOf(m) === -1);
 
                 if (typeof expr === 'function') {
                     driver.driverCall('message', () => {
                         recipients.forEach(player => {
                             let playerMessage = expr(player) || false;
-                            playerMessage && player.receiveMessage(messageType, playerMessage);
+                            playerMessage && player.receiveMessage(ecc, messageType, playerMessage);
                         });
                     });
                 }
                 else {
                     driver.driverCall('message', () => {
                         recipients.forEach(player => {
-                            player.receiveMessage(messageType, expr);
+                            player.receiveMessage(ecc, messageType, expr);
                         });
                     });
                 }
@@ -1924,6 +1924,10 @@ class EFUNProxy {
                 }
             }
             return false;
+        }
+        catch (err) {
+            frame.error = err;
+            throw err;
         }
         finally {
             frame.pop();

@@ -66,6 +66,7 @@ const
         '__mec',     // MUD Execution Context
         '__ctx',
         '__gec',     // Get context
+        '__ifc',    // If context
 
         //  Reserved for multiple inheritance logic
         '__callScopedImplementation',
@@ -448,6 +449,28 @@ class MudScriptAstAssembler {
 }
 
 /**
+ * 
+ * @param {string[]} variableList List of variables to serialize
+ * @param {boolean} writable Are these values writable?
+ * @returns 
+ */
+function renderVariableBlock(variableList, writable = true) {
+    /*
+        a: [ () => a, __xa => a = __xa ]
+    */
+    let result = [];
+    for (const key of variableList) {
+        let parts = [];
+        parts.push(`() => ${key}`);
+        if (writable)
+            parts.push(`(__xa) => ${key} = __xa`);
+        result.push(`{ ${key}: [${parts.join(', ')}] }`);
+    }
+    return '[' + result.join(', ') + ']';
+}
+
+
+/**
  * Instruments final source code with runtime assertions designed to protect against runaway code.
  * @param {NodeType} e The node that is being transpiled.
  * @param {string} preText Text inserted before the expression.
@@ -600,19 +623,20 @@ async function parseElement(op, e, depth) {
                         ret += await parseElement(op, _, depth + 1);
                         pnames.push(_.name);
                     }
+
                     ret += op.readUntil(e.body.start);
                     if (e.body.type === 'BlockStatement') {
-                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(__gec, [${pnames.join(', ')}], { ${pnames.join(', ')} }, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, false, ${CallOrigin.FunctionPointer}); try `;
+                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(__ifc(${op.context.mecParent}, [${pnames.join(', ')}]) /*7*/, [${pnames.join(', ')}], ${renderVariableBlock(pnames)}, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, false, ${CallOrigin.FunctionPointer}); try `;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += ` finally { __efc(${ctx.mecName}, '${funcName}'); } }`;
                     }
                     else if (e.body.type === 'MemberExpression') {
-                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(__gec, [${pnames.join(', ')}], { ${pnames.join(', ')} }, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, false, ${CallOrigin.FunctionPointer}); try { return `;
+                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(__ifc(${op.context.mecParent}, [${pnames.join(', ')}]) /*8*/, [${pnames.join(', ')}], ${renderVariableBlock(pnames)}, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, false, ${CallOrigin.FunctionPointer}); try { return `;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += `; } finally { __efc(${ctx.mecName}, '${funcName}'); } }`;
                     }
                     else {
-                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(__gec, [${pnames.join(', ')}], { ${pnames.join(', ')} }, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, false, ${CallOrigin.FunctionPointer}); try { return (`;
+                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(__ifc(${op.context.mecParent}, [${pnames.join(', ')}]) /*9*/, [${pnames.join(', ')}], ${renderVariableBlock(pnames)}, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __LINE__, false, ${CallOrigin.FunctionPointer}); try { return (`;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += `); } finally { __efc(${ctx.mecName}, '${funcName}'); } }`;
                     }
@@ -1113,7 +1137,6 @@ async function parseElement(op, e, depth) {
 
                             case 'VariableDeclaration':
                                 {
-
                                     for (const decl of e.declaration.declarations) {
                                         if (decl.type === 'VariableDeclarator') {
                                             if (decl.id.type === 'Identifier') {
@@ -1218,12 +1241,12 @@ async function parseElement(op, e, depth) {
                     }
                     if (op.typeDef) {
                         addRuntimeAssert(e,
-                            `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${MemberModifiers.Public}, '${e.id.name}', __FILE__, ${ctx.isAsync}, __LINE__); try { `,
+                            `const [${ctx.mecName}, parameters] = __bfc(__ctx /*10*/, arguments, ${renderVariableBlock(pnames)}, ${op.thisParameter}, ${MemberModifiers.Public}, '${e.id.name}', __FILE__, ${ctx.isAsync}, __LINE__); try { `,
                             ` } finally { __efc(${ctx.mecName}, '${e.id.name}'); }`);
                     }
                     else
                         addRuntimeAssert(e,
-                            `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, this, ${MemberModifiers.Public}, '${e.id.name}', __FILE__,  ${ctx.isAsync}, __LINE__); try { `,
+                            `const [${ctx.mecName}, parameters] = __bfc(__ctx /*11*/, arguments, ${renderVariableBlock(pnames)}, this, ${MemberModifiers.Public}, '${e.id.name}', __FILE__,  ${ctx.isAsync}, __LINE__); try { `,
                             ` } finally { __efc(${ctx.mecName}, '${e.id.name}'); }`);
                     ret += op.readUntil(e.body.start);
                     let n = ret.lastIndexOf('(');
@@ -1258,7 +1281,7 @@ async function parseElement(op, e, depth) {
                         let n = ret.indexOf('(');
                         if (n > -1) {
                             if (e.params.length)
-                                ret = ret.slice(0, n + 1) + '__ctx,' + ret.slice(n + 1);
+                                ret = ret.slice(0, n + 1) + '__ctx, ' + ret.slice(n + 1);
                             else
                                 ret = ret.slice(0, n + 1) + '__ctx' + ret.slice(n + 1);
                         }
@@ -1266,30 +1289,35 @@ async function parseElement(op, e, depth) {
                             if (ctx.callType === CallOrigin.Constructor && op.typeDef) {
                                 addRuntimeAssert(e,
                                     (op.forcedInheritance && op.wroteConstructorName === false ? `super.${ctx.memberName}();` : '') +
-                                    `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${CallOrigin.Constructor}); try { `,
+                                    `const [${ctx.mecName}, parameters] = __bfc(__ctx /*1*/, arguments, ${renderVariableBlock(pnames)}, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${CallOrigin.Constructor}); try { `,
                                     ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, true);
                                 op.wroteConstructorName = true;
                             }
                             else if (op.context.memberName) {
                                 addRuntimeAssert(e,
-                                    `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${op.context.callType}); try { `,
+                                    `const [${ctx.mecName}, parameters] = __bfc(__ctx /*2*/, arguments, ${renderVariableBlock(pnames)}, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.memberName}', __FILE__, false, __LINE__, ${op.context.className}, ${op.context.callType}); try { `,
                                     ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false, true, op);
                             }
                             else {
                                 addRuntimeAssert(e,
-                                    `const [${ctx.mecName}, parameters] = __bfc(__ctx, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, 1 /* public */, '(anonymous)', __FILE__, false, __LINE__, undefined, ${op.context.callType}); try { `,
+                                    `const [${ctx.mecName}, parameters] = __bfc(__ifc(${op.context.mecParent}, [${pnames.join(', ')}]) /*3*/, arguments, ${renderVariableBlock(pnames)}, ${op.thisParameter}, 1 /* public */, '(anonymous)', __FILE__, false, __LINE__, undefined, ${op.context.callType}); try { `,
                                     ` } finally { __efc(${ctx.mecName}, '(anonymous)'); }`, false);
                             }
                         }
                         else if (op.context.functionName) {
                             addRuntimeAssert(e,
-                                `const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent}, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.functionName}', __FILE__, false, __LINE__, false, ${op.context.callType}); try { `,
+                                `const [${ctx.mecName}, parameters] = __bfc(${ctx.mecParent} /*4*/, arguments, ${renderVariableBlock(pnames)}, ${op.thisParameter}, ${op.context.memberModifiers}, '${op.context.functionName}', __FILE__, false, __LINE__, false, ${op.context.callType}); try { `,
+                                ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false);
+                        }
+                        else {
+                            addRuntimeAssert(e,
+                                `const [${ctx.mecName}, parameters] = __bfc(__ifc(${op.context.mecParent}, [${pnames.join(', ')}]) /*5*/, arguments, ${renderVariableBlock(pnames)}, ${op.thisParameter}, ${op.context.memberModifiers}, '${(op.context.functionName || op.context.memberName)}', __FILE__, false, __LINE__, false, ${op.context.callType}); try { `,
                                 ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false);
                         }
                     }
                     else {
                         addRuntimeAssert(e,
-                            `const [${ctx.mecName}, parameters] = __bfc(__gec, arguments, { ${pnames.join(', ')} }, ${op.thisParameter}, ${op.context.memberModifiers}, '${(op.context.functionName || op.context.memberName)}', __FILE__, false, __LINE__, false, ${op.context.callType}); try { `,
+                            `const [${ctx.mecName}, parameters] = __bfc(__gec/*6*/, arguments, ${renderVariableBlock(pnames)}, ${op.thisParameter}, ${op.context.memberModifiers}, '${(op.context.functionName || op.context.memberName)}', __FILE__, false, __LINE__, false, ${op.context.callType}); try { `,
                             ` } finally { __efc(${ctx.mecName}, '${op.method}'); }`, false);
                     }
                     ret += op.readUntil(e.body.start);
@@ -1609,7 +1637,6 @@ async function parseElement(op, e, depth) {
                     //  Special case for empty method definitions
                     if (e.value?.body?.body?.length === 0) {
                         //e.value.body.body.push({ type: 'Identifier', name: '', start: e.value.start, end: e.value.start });
-                        console.log('woo');
                     }
                     ret += await parseElement(op, e.value, depth + 1, info);
                     op.setMethod();
@@ -1911,7 +1938,7 @@ class MudScriptTranspiler extends PipelineComponent {
             if (this.enabled) {
                 options.onDebugOutput(`\t\tRunning pipeline stage ${(step + 1)} of ${maxStep}: ${this.name}`, 3);
 
-                let source = op.source = 'await (async (__gar) => {  ' + op.source + ' })()';
+                let source = op.source = 'await (async () => {  ' + op.source + ' })()';
                 // let source = op.source;
 
                 op.ast = this.parser.parse(source, op.acornOptions);

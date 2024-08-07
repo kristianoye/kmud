@@ -9,6 +9,7 @@ const
     SimpleObject = require('./SimpleObject'),
     MUDCompilerOptions = require('./compiler/MUDCompilerOptions'),
     { PipelineContext } = require('./compiler/PipelineContext'),
+    CreationContext = require('./CreationContext'),
     events = require('events'),
     MemberModifiers = require("./compiler/MudscriptMemberModifiers"),
     MemberType = {
@@ -24,7 +25,9 @@ var
     useDomainStats = false,
     useStats = false;
 
-/** @typedef {{ char: number, file:string, line: number }} MUDFilePosition */
+/** 
+ * @typedef {{ char: number, file:string, line: number }} MUDFilePosition 
+ */
 
 class MUDModuleTypeMemberInfo {
     /**
@@ -661,7 +664,7 @@ class MUDModule extends events.EventEmitter {
      * 
      * @param {ExecutionContext} ecc
      * @param {any} type
-     * @param {any} instanceData
+     * @param {CreationContext} instanceData
      * @param {any[]} args
      * @param {any} factory
      * @param {any} callingFile
@@ -710,38 +713,41 @@ class MUDModule extends events.EventEmitter {
                     if (isType === false) {
                         type = this.types[typeSpec.type];
                     }
-                    virtualContext.module = this;
-                    virtualContext.trueName = this.filename + '$' + type.name + '#' + virtualContext.objectId;
-                    virtualContext.typeName = type.name;
-                    return await this.createInstanceAsync(frame.branch(700), type, virtualContext, args);
+
+                    await this.getNewContext(frame.context, type, undefined, virtualContext);
+
+                    // virtualContext.module = this;
+                    // virtualContext.trueName = this.filename + '$' + type.name + '#' + virtualContext.objectId;
+                    // virtualContext.typeName = type.name;
+                    return await this.createInstanceAsync(frame.branch({ hint: 'this.createInstanceAsync' }), type, virtualContext, args);
                 }
 
                 if (!type)
                     throw new Error(`getNewContent() could not resolve type '${type}' in module ${this.fullPath}`);
 
                 if (!instanceData) {
-                    instanceData = this.getNewContext(type, false, args);
+                    instanceData = await this.getNewContext(frame.context, type, args);
+                }
+                else {
+                    //  Ensure instanceData is complete
                 }
 
                 if (!instanceData.wrapper)
                     instanceData.wrapper = this.getWrapperForContext(instanceData);
 
-                // Storage needs to be set before starting...
-                store = driver.storage.createForId(frame.branch(711), instanceData.objectId, instanceData.filename);
-
                 let constructorFrame = frame
-                    .branch(714)
+                    .branch({ hint: 'constructor' })
                     .pushFrameObject({ object: instance, method: 'constructor', file: this.filename, callType: CallOrigin.Constructor });
 
                 try {
-                    let constructorArgs = args.slice(0);
+                    let constructorArgs = [instanceData, constructorFrame.context, ...args];
 
                     constructorFrame.context.addCreationContext(instanceData);
-                    constructorFrame.context.storage = store;
+                    constructorFrame.context.storage = instanceData.store;
 
                     //  Having the context as the first argument is an edge case
-                    constructorArgs.unshift(constructorFrame.context, constructorFrame.context);
-                    instance = factory ? factory(type, ...constructorArgs) : new type(...constructorArgs);
+                    //  constructorArgs.unshift(constructorFrame.context, constructorFrame.context);
+                    instance = factory ? factory(...constructorArgs) : new type(...constructorArgs);
                     this.addInstance(instance, type, instanceData);
                 }
                 finally {
@@ -753,13 +759,13 @@ class MUDModule extends events.EventEmitter {
                 }
 
                 if (typeof instance.create === 'function') {
-                    await instance.create(frame.branch(737), ...args);
+                    await instance.create(frame.branch({ hint: 'instance.create' }), ...args);
                 }
                 if (typeof instance.setup === 'function') {
-                    await instance.setup(frame.branch(740));
+                    await instance.setup(frame.branch({ hint: 'instance.setup' }));
                 }
-                if (store !== false && instance !== false)
-                    await store.eventInitialize(ecc.branch(743), instance);
+                if (instanceData.store !== false && instance !== false)
+                    await instanceData.store.eventInitialize(ecc.branch({ hint: 'store.eventInitialize' }), instance);
             }
 
             return instance;
@@ -885,43 +891,66 @@ class MUDModule extends events.EventEmitter {
 
     /**
      * Create information required to create a new MUDObject instance.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string|function} type The type to fetch a constructor context for.
-     * @param {number} idArg Specify the instance ID.
-     * @returns {{ filename: string, objectId: string, args: any[], isSingleton: boolean, typeName: string }} Information needed by MUDObject constructor.
+     * @param {any[]} args Arguments to pass the constructor
+     * @param {Partial<CreationContext>} virtualContext A partially created context
+     * @returns {CreationContext} Information needed by MUDObject constructor.
      */
-    getNewContext(type, idArg, args) {
-        let typeName = typeof type === 'function' ? type.name : typeof type === 'string' ? type : false,
-            objectId = driver.efuns.getNewId(),
-            typeInfo = this.typeDefinitions[typeName],
-            isSingleton = typeInfo?.isSingleton === true;
+    async getNewContext(ecc, type, args, virtualContext = false) {
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'getNewContext', callType: CallOrigin.Driver });
+        try {
+            let typeName = typeof type === 'function' ? type.name : typeof type === 'string' ? type : false,
+                objectId = virtualContext?.objectId || driver.efuns.getNewId(),
+                typeInfo = this.typeDefinitions[typeName],
+                isSingleton = typeInfo?.isSingleton === true;
 
-        if (!typeInfo)
-            throw new Error(`getNewContent() could not resolve type '${type}' in module ${this.fullPath}`);
+            if (!typeInfo)
+                throw new Error(`getNewContent() could not resolve type '${type}' in module ${this.fullPath}`);
 
-        if (isSingleton && typeName in this.instancesByType) {
-            let currentId = this.instancesByType[typeName][0] || false,
-                context = currentId && this.creationContexts[currentId];
-            if (context) {
-                context.args = args || context.args;
-                return context;
+            if (isSingleton && typeName in this.instancesByType) {
+                let currentId = this.instancesByType[typeName][0] || false,
+                    context = currentId && this.creationContexts[currentId];
+
+                if (context) {
+                    context.args = args || context.args;
+                    return context;
+                }
             }
+
+            const filename = this.fullPath + '$' + typeName,
+                store = driver.storage.createForId(frame.context, objectId, this.fullPath),
+                credential = driver.masterObject && await driver.securityManager.getCredential(frame.context.branch({ hint: 'getCredential' }), virtualContext?.filename || this.fullPath);
+
+            let result = {
+                args: args || [],
+                objectId,
+                filename,
+                fullPath: this.fullPath || this.filename,
+                identity: credential?.userId,
+                isSingleton,
+                module: this,
+                store,
+                typeName: type.name
+            };
+
+            result.wrapper = this.getWrapperForContext(result);
+
+            if (virtualContext) {
+                virtualContext.fullPath = result.fullPath;
+                virtualContext.typeName = type.name;
+                virtualContext.store = store;
+                virtualContext.identity = credential.userId;
+                virtualContext.module = this;
+                virtualContext.trueName = filename;
+                virtualContext.wrapper = result.wrapper;
+                return virtualContext;
+            }
+            return new CreationContext(result);
         }
-
-        let filename = this.fullPath + '$' + typeName;
-
-        let result = {
-            args: args || [],
-            objectId,
-            filename,
-            fullPath: this.fullPath,
-            isSingleton,
-            module: this,
-            typeName: type.name
-        };
-
-        result.wrapper = this.getWrapperForContext(result);
-
-        return result;
+        finally {
+            frame.pop();
+        }
     }
 
     getSingleton(type) {

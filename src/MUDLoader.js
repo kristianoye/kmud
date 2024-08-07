@@ -63,14 +63,14 @@ class MUDLoader {
                                 fileName: caller.file,
                                 stack: caller.context.getStackString(1)
                             };
-                            driver.errorHandler(frame.context, error, true);
+                            driver.errorHandler(frame.context, ecc.stack[1].error = error, true);
                         }
                         else {
                             // Catching timeout errors is not allowed
                             if (val instanceof TimeoutError) {
                                 throw val;
                             }
-                            driver.errorHandler(frame.context, val, true);
+                            driver.errorHandler(frame.context, ecc.stack[1].error = val, true);
                         }
                     }
                     finally {
@@ -112,7 +112,7 @@ class MUDLoader {
                  * Begin Function Call
                  * @param {ExecutionContext} ecc The current callstack
                  * @param {IArguments} parameters Raw arguments
-                 * @param {Object.<string,any>} namedParameters The named parameters
+                 * @param {[Object.<string, [function()] | [function(): any, function(val): void]>]} namedParameters The named parameters
                  * @param {typeof MUDObject} ob 
                  * @param {number} access 
                  * @param {string} method 
@@ -129,6 +129,16 @@ class MUDLoader {
 
                     if (ecc instanceof ExecutionContext === false) {
                         throw new Error('Illegal function call');
+                    }
+
+                    if (ecc.stack[0].neededContext === true && parameters.length !== namedParameters.length) {
+                        const offset = parameters[0] instanceof ExecutionContext ? 1 : 0;
+                        namedParameters.forEach((p, i) => {
+                            for (const [varName, desc] of Object.entries(p)) {
+                                console.log(`Setting ${varName} to ${(parameters[i + offset])}`);
+                                desc[1](parameters[i + offset]);
+                            }
+                        });
                     }
 
                     //  Don't allow access to the execution context via arguments object
@@ -161,6 +171,7 @@ class MUDLoader {
                             .pushFrameObject({
                                 object: (ob instanceof MUDObject || ob instanceof SimpleObject) && ob,
                                 method: method || '(anonymous)',
+                                parameters: namedParameters,
                                 file,
                                 lineNumber,
                                 isAsync,
@@ -175,8 +186,9 @@ class MUDLoader {
                     if (access && !newContext)
                         ecc.alarm()
                             .pushFrameObject({
-                                ob,
+                                object: (ob instanceof MUDObject || ob instanceof SimpleObject) && ob,
                                 method: method || '(undefined)',
+                                parameters: namedParameters,
                                 file,
                                 isAsync,
                                 lineNumber,
@@ -287,6 +299,28 @@ class MUDLoader {
                 },
                 configurable: false,
                 enumerable: false
+            },
+            __ifc: {
+                /**
+                 * Try and use the existing context from the stack
+                 * @param {ExecutionContext} defaultContext The default context
+                 * @param  {any[]} args 
+                 */
+                value: function (defaultContext, args) {
+                    /** @type {[ ExecutionContext, any ]} */
+                    let [ctx, ...parms] = args;
+                    if (ctx instanceof ExecutionContext) {
+                        return ctx;
+                    }
+                    else {
+                        ctx = defaultContext instanceof ExecutionContext ? defaultContext : ExecutionContext.getCurrentExecution();
+                        ctx.stack[0].neededContext = true;
+                        return ctx;
+                    }
+                },
+                enumerable: false,
+                configurable: false,
+                writable: false
             },
             __igt: {
                 value: function (proto, specificMethodList = false) {
