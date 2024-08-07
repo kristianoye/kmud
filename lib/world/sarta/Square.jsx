@@ -19,7 +19,7 @@ function formatName() {
  */
 export default final singleton class Square extends Room {
     private override create() {
-        super->Room::create();
+        super.create();
         this.keyId = 'Square';
         this.shortDesc = 'The Central Square of Sarta';
         this.addExit('fighter', 'classHalls/Fighter');

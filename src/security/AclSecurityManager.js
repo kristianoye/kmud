@@ -182,7 +182,7 @@ class SecurityAcl {
 
                 if (f.object) {
                     /** @type {{ userId: string, groups: string[] }} */
-                    let $creds = f.object.$credential;
+                    let $creds = f.object.getCredential(frame.context);
 
                     if (!$creds) // Crash?
                         throw new SecurityError(`Destructed object ${f.object.fullPath} was denied access to ${methodName} [line ${f.lineNumber}]`);
@@ -192,13 +192,15 @@ class SecurityAcl {
                         return (checkCache[cacheId] = true);
 
                     //  System group always succeeds
-                    if (securityManager.systemGroupName && $creds.groups.indexOf(securityManager.systemGroupName) > -1)
+                    if (securityManager.systemGroupName && $creds.groupIds.indexOf(securityManager.systemGroupName) > -1)
                         return (checkCache[cacheId] = true);
 
                     //  Calculate effective permissions
                     let ep = 0;
                     for (const [id, data] of Object.entries(perms)) {
-                        if ($creds.groups.indexOf(id) > -1)
+                        if ($creds.groupIds.indexOf(id) > -1)
+                            ep |= data.perms;
+                        else if ($creds.userId === id)
                             ep |= data.perms;
                     }
                     if ((flags & ep) === flags)
@@ -216,6 +218,7 @@ class SecurityAcl {
                             }
                             break;
                     }
+                    throw new SecurityError(`Object ${f.object.fullPath}.${f.method}() was denied access to ${methodName} [line ${f.lineNumber}]`);
                 }
                 //  External sources (driver, node modules, etc) are whitelisted by the stack check
                 else if (ExecutionContext.isExternalPath(frame.file)) {
@@ -294,7 +297,7 @@ class SecurityAcl {
     /**
      * 
      * @param {ExecutionContext} ecc The current call stack
-     * @param {any} tp
+     * @param {import('../MUDObject')} tp
      * @param {any} fullPath
      * @returns
      */
@@ -308,7 +311,7 @@ class SecurityAcl {
             securityManager.applyWildcardAcls(frame.branch(), perms);
 
             /** @type {{ userId: string, groups: string[] }} */
-            let $creds = tp.$credential;
+            let $creds = tp.getCredential(frame.context);
 
             //  Owner always succeeds
             if (this.owner === $creds.userId)
@@ -477,6 +480,8 @@ class AclSecurityManager extends BaseSecurityManager {
 
         /** @type {Object.<string, AclSecurityCredential>} */
         this.credentials = {};
+        /** @type {Object.<string, AclSecurityCredential>} */
+        this.safeCredentials = {};
 
         /** @type {Object.<string,AclSecurityGroup>} */
         this.groups = {};
@@ -815,13 +820,34 @@ class AclSecurityManager extends BaseSecurityManager {
     /**
      * Get a MUD-safe representation of a security credential
      * @param {ExecutionContext} ecc The current call stack
-     * @param {string} username
+     * @param {string} username The user identity to fetch a credential for
+     * @param {boolean} refresh If true then the cache is ignored
      */
-    async getSafeCredentialAsync(ecc, username) {
+    getSafeCredential(ecc, username, refresh = false) {
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'getSafeCredential', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (username in this.safeCredentials)
+                return this.safeCredentials[username];
+
+            let creds = this.getCredential(frame.context, username, refresh);
+            return (this.safeCredentials[username] = creds.createSafeExport(frame.context));
+        }
+        finally {
+            frame.pop();
+        }
+    }
+
+    /**
+     * Get a MUD-safe representation of a security credential
+     * @param {ExecutionContext} ecc The current call stack
+     * @param {string} username
+     * @param {boolean} reload Reload permissions
+     */
+    async getSafeCredentialAsync(ecc, username, reload = false) {
         let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
         try {
-            let creds = await this.getCredential(frame.branch(), username);
-            return creds.createSafeExport(frame.branch());
+            let creds = this.getCredential(frame.context, username);
+            return creds.createSafeExport(frame.context);
         }
         finally {
             frame.pop();

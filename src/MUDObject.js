@@ -3,7 +3,7 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
-const { ExecutionContext } = require('./ExecutionContext');
+const { ExecutionContext, CallOrigin } = require('./ExecutionContext');
 const
     MUDEventEmitter = require('./MUDEventEmitter');
 
@@ -11,18 +11,24 @@ const
  * Base type for all MUD objects.
  */
 class MUDObject extends MUDEventEmitter {
-    constructor(ecc) {
+    /**
+     * 
+     * @param {import('./MUDModule').CreationContext} ctx Initialization values for this objects
+     * @param {ExecutionContext} ecc The current callstack
+     */
+    constructor(ctx, ecc) {
         super();
 
         if (!new.target)
             throw new Error('Illegal constructor call');
+        const
+            frame = ecc.pushFrameObject({ object: this, method: 'constructor', callType: CallOrigin.Constructor });
 
         try {
-            if (ecc && ecc.newContext) {
-                let ctx = ecc.newContext;
+            if (ctx) {
                 Object.defineProperties(this, {
                     createTime: {
-                        value: efuns.ticks,
+                        value: ctx.createTime,
                         writable: false,
                         enumerable: true
                     },
@@ -33,6 +39,11 @@ class MUDObject extends MUDEventEmitter {
                     },
                     fullPath: {
                         value: ctx.fullPath,
+                        writable: false,
+                        enumerable: true
+                    },
+                    identity: {
+                        value: ctx.identity,
                         writable: false,
                         enumerable: true
                     },
@@ -73,14 +84,14 @@ class MUDObject extends MUDEventEmitter {
                 }
             }
             //  Set this before going back up the constructor chain
-            if (ecc.storage) {
-                ecc.storage.owner = this;
-                delete ecc.storage;
+            if (ctx.store) {
+                ctx.store.owner = this;
             }
         }
         finally {
             ecc.popCreationContext();
             Object.freeze(this);
+            frame.pop();
         }
     }
 
@@ -119,9 +130,18 @@ class MUDObject extends MUDEventEmitter {
             return true;
     }
 
-    get $credential() {
-        let store = driver.storage.get(this);
-        return !!store && store.getSafeCredential();
+    /**
+     * Get the object's security credential from the security manager
+     * @returns {import('./security/BaseSecurityManager').BaseSecurityCredential}
+     */
+    getCredential() {
+        const [frame, refresh] = ExecutionContext.tryPushFrame(arguments, { object: this, method: 'getCredential' }, true);
+        try {
+            return driver.securityManager.getSafeCredential(frame.context, this.identity, refresh === true);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     get directory() {
@@ -219,6 +239,20 @@ class MUDObject extends MUDEventEmitter {
     serializeObject() {
         let $storage = driver.storage.get(this);
         return $storage.serialize();
+    }
+
+    /**
+     * Generate a string representation of this object
+     * @param {ExecutionContext} ecc The current callstack
+     */
+    toString(ecc) {
+        const [frame] = ExecutionContext.tryPushFrame(arguments, { object: this, method: 'toString' }, true, false);
+        try {
+            return `${this.constructor.name}[${this.filename}]`;
+        }
+        finally {
+            frame?.pop();
+        }
     }
 
     write(ecc, msg) {
@@ -391,8 +425,8 @@ class MUDVTable {
     }
 
     /**
-     * 
-     * @param {any} instance
+     * Make a call to a virtual parent class
+     * @param {typeof MUDObject} instance
      * @param {ExecutionContext} ecc
      * @param {any} methodName
      * @param {any} typeName

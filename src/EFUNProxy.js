@@ -1925,6 +1925,10 @@ class EFUNProxy {
             }
             return false;
         }
+        catch (err) {
+            frame.error = err;
+            throw err;
+        }
         finally {
             frame.pop();
         }

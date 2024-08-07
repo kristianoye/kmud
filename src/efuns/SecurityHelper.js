@@ -15,7 +15,7 @@ class SecurityHelper {
                 principles = [];
 
             for (const memberId of members) {
-                let cred = driver.securityManager.getCredential(memberId);
+                let cred = driver.securityManager.getCredential(frame.context, memberId);
                 if (cred) principles.push(cred);
             }
 
@@ -239,7 +239,7 @@ class SecurityHelper {
                 principles = [];
 
             for (const memberId of members) {
-                let cred = driver.securityManager.getCredential(memberId);
+                let cred = driver.securityManager.getCredential(ecc, memberId);
                 if (cred) principles.push(cred);
             }
 

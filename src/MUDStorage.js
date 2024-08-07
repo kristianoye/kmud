@@ -366,13 +366,6 @@ class MUDStorage extends MUDEventEmitter {
         try {
             if (ownerObject instanceof MUDObject) {
                 this.owner = ownerObject;
-
-                //  Special case
-                if (driver.masterObject != null) {
-                    this.$credential = await driver.securityManager.getCredential(ecc.branch(), ownerObject.filename);
-                }
-                else
-                    throw new Error('CRASH: Master object has not been created!');
                 return true;
             }
             return false;

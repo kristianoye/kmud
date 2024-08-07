@@ -831,13 +831,13 @@ class GameServer extends MUDEventEmitter {
      * Create a context frame that includes the master/driver.
      * @param {string} method The method being called.
      * @param {function(ExecutionContext):any} callback The callback that executes when the context is ready.
-     * @param {string} file The optional filename
+     * @param {string} fileName The optional filename
      * @returns {any} The result of the callback
      */
-    async driverCallAsync(method, callback, file, rethrow = false, newContext = false) {
+    async driverCallAsync(method, callback, fileName, rethrow = false, newContext = false) {
         const
             ecc = ExecutionContext.getCurrentExecution(true),
-            frame = ecc.pushFrameObject({ object: this.masterObject, method: 'driverCallAsync', file, callType: CallOrigin.Driver });
+            frame = ecc.pushFrameObject({ object: this.masterObject, method: 'driverCallAsync', file: fileName || __filename, callType: CallOrigin.Driver });
         let result;
 
         try {
