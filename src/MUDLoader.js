@@ -127,6 +127,10 @@ class MUDLoader {
                     let args = Array.prototype.slice(parameters);
                     let newContext = false;
 
+                    if (ecc instanceof ExecutionContext === false) {
+                        throw new Error('Illegal function call');
+                    }
+
                     if (ecc.stack[0].neededContext === true && parameters.length !== namedParameters.length) {
                         const offset = parameters[0] instanceof ExecutionContext ? 1 : 0;
                         namedParameters.forEach((p, i) => {
@@ -135,10 +139,6 @@ class MUDLoader {
                                 desc[1](parameters[i + offset]);
                             }
                         });
-                    }
-
-                    if (ecc instanceof ExecutionContext === false) {
-                        throw new Error('Illegal function call');
                     }
 
                     //  Don't allow access to the execution context via arguments object

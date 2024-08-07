@@ -90,6 +90,12 @@ class ExecutionFrame {
         if (this.object) {
             this.className = this.object.constructor.name;
         }
+        else if (frame.className) {
+            if (typeof frame.className === 'string')
+                this.className = frame.className;
+            else
+                this.className = frame.className.name || 'Unknown';
+        }
 
         if (typeof frame.callHint === 'string') {
             /**

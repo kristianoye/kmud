@@ -10,12 +10,10 @@
 const
     ConfigUtil = require('../ConfigUtil'),
     FeatureBase = require('./FeatureBase'),
-    DriverFeature = require('../config/DriverFeature');
+    DriverFeature = require('../config/DriverFeature'),
+    { ExecutionContext, CallOrigin } = require('../ExecutionContext');
 
 const
-    MATCH_ALLOW_MULTIPLE = 1,
-    MATCH_IS_LIVING = 2,
-    MATCH_IS_PLAYER = 4,
     _prepAliases = {
         "in": ['in', 'inside', 'within'],
         "on": ["on", "upon"]
@@ -109,7 +107,7 @@ class VerbRule {
      * @param {string} scope The scope of the rule (if any)
      */
     constructor(verb, rule, handler, container, scope) {
-        let tokenInfo =  container.getTokenInfo(rule);
+        let tokenInfo = container.getTokenInfo(rule);
 
         /** @type {string} */
         this.verb = verb;
@@ -174,84 +172,98 @@ class VerbRule {
         else
             return new RegExp('^' +
                 rule.split(/\s+/)
-                .map(s => {
-                    switch (s) {
-                        case 'EQUIPMENT':
-                        case 'INVENTORY':
-                        case 'LIVING':
-                        case 'LIVINGS':
-                        case 'OBJECT':
-                        case 'OBJECTS':
-                        case 'PLAYER':
-                        case 'PLAYERS':
-                        case 'STRING':
-                        case 'STR':
-                            this.tokens.push(s);
-                            return '(.+)';
+                    .map(s => {
+                        switch (s) {
+                            case 'EQUIPMENT':
+                            case 'INVENTORY':
+                            case 'LIVING':
+                            case 'LIVINGS':
+                            case 'OBJECT':
+                            case 'OBJECTS':
+                            case 'PLAYER':
+                            case 'PLAYERS':
+                            case 'STRING':
+                            case 'STR':
+                                this.tokens.push(s);
+                                return '(.+)';
 
-                        case 'WORD':
-                        case 'WRD':
-                            this.tokens.push(s);
-                            return '([^\\b]+)';
+                            case 'WORD':
+                            case 'WRD':
+                                this.tokens.push(s);
+                                return '([^\\b]+)';
 
-                        default:
-                            if (s in _prepAliases)
-                                return '(?:' + _prepAliases[s].join('|') + ')';
-                            else if (typeof _prepositions[s] === 'string')
-                                return _prepositions[s];
-                            return s;
-                    }
-                })
-                .join('\\s+')
-            + '$');
+                            default:
+                                if (s in _prepAliases)
+                                    return '(?:' + _prepAliases[s].join('|') + ')';
+                                else if (typeof _prepositions[s] === 'string')
+                                    return _prepositions[s];
+                                return s;
+                        }
+                    })
+                    .join('\\s+')
+                + '$');
     }
 
     /**
      * Check to see if the user can perform the action.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {any[]} matchData Matched tokens
      * @returns {boolean|string} True if the action can move forward.
      */
-    async can(matchData) {
-        let handler = unwrap(this.handler),
-            method = handler[this.canMethod] || false,
-            isFallback = false;
+    async can(ecc, matchData) {
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'can', isAsync: true, callType: CallOrigin.DriverEfun, className: VerbRule });
+        try {
+            let handler = this.handler.instance,
+                method = handler[this.canMethod] || false,
+                isFallback = false;
 
-        if (!method) {
-            method = handler[this.fallbackCan];
-            isFallback = !!method;
+            if (!method) {
+                method = handler[this.fallbackCan];
+                isFallback = !!method;
+            }
+
+            if (!method)
+                return false;
+
+            if (isFallback)
+                return await method.call(handler, ecc, this.verb, this, matchData, this.parse);
+            else
+                return await method.apply(handler, [ecc, ...matchData]);
         }
-
-        if (!method)
-            return false;
-
-        if (isFallback)
-            return await method.call(handler, this.verb, this, matchData, this.parse);
-        else
-            return await method.apply(handler, matchData);
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Try and do the thing...
+     * @param {ExecutionContext} ecc The current callstack
      * @param {Array<string|MUDObject>} matchData Tokens matched during parsing.
      * @returns {boolean|string} True if the action was successful.
      */
-    async do(matchData) {
-        let handler = unwrap(this.handler),
-            method = handler[this.doMethod] || false,
-            isFallback = false;
+    async do(ecc, matchData) {
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'do', isAsync: true, callType: CallOrigin.DriverEfun, className: VerbRule });
+        try {
+            let handler = this.handler.instance,
+                method = handler[this.doMethod] || false,
+                isFallback = false;
 
-        if (!method) {
-            method = handler[this.fallbackDo];
-            isFallback = !!method;
+            if (!method) {
+                method = handler[this.fallbackDo];
+                isFallback = !!method;
+            }
+
+            if (!method)
+                return false;
+
+            if (isFallback)
+                return await method.call(handler, ecc, this.verb, this, matchData, this.parse);
+            else
+                return await method.apply(handler, [ecc, ...matchData]);
         }
-
-        if (!method)
-            return false;
-
-        if (isFallback)
-            return await method.call(handler, this.verb, this, matchData, this.parse);
-        else
-            return await method.apply(handler, matchData);
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -288,20 +300,20 @@ class VerbRule {
      * Validate the rule.
      */
     validate() {
-        unwrap(this.handler, handler => {
-            if (typeof handler[this.canMethod] !== 'function') {
-                let fallbackCan = VerbSystemFeature.normalizeRule('can', 'verb', 'rule', false);
-                if (typeof handler[fallbackCan] !== 'function')
-                    throw new Error(`Handler ${handler.filename} does not contain ${this.canMethod} or ${fallbackCan}`);
-                this.fallbackCan = fallbackCan;
-            }
-            if (typeof handler[this.doMethod] !== 'function') {
-                let fallbackDo = VerbSystemFeature.normalizeRule('do', 'verb', 'rule', false);
-                if (typeof handler[fallbackDo] !== 'function')
-                    throw new Error(`Handler ${handler.filename} does not contain ${this.doMethod} or ${fallbackDo}`);
-                this.fallbackDo = fallbackDo;
-            }
-        });
+        const handler = this.handler.instance;
+
+        if (typeof handler[this.canMethod] !== 'function') {
+            let fallbackCan = VerbSystemFeature.normalizeRule('can', 'verb', 'rule', false);
+            if (typeof handler[fallbackCan] !== 'function')
+                throw new Error(`Handler ${handler.filename} does not contain ${this.canMethod} or ${fallbackCan}`);
+            this.fallbackCan = fallbackCan;
+        }
+        if (typeof handler[this.doMethod] !== 'function') {
+            let fallbackDo = VerbSystemFeature.normalizeRule('do', 'verb', 'rule', false);
+            if (typeof handler[fallbackDo] !== 'function')
+                throw new Error(`Handler ${handler.filename} does not contain ${this.doMethod} or ${fallbackDo}`);
+            this.fallbackDo = fallbackDo;
+        }
     }
 }
 
@@ -316,35 +328,42 @@ class Verb {
 
     /**
      * Try and parse the user's input.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {MUDObject} tp The player executing the verb.
      * @param {string} verb The verb being executed.
      * @param {string[]} args The words entered by the user.
      * @returns {string|boolean} Returns true if the verb succeeded.
      */
-    tryVerb(tp, verb, args) {
-        let rules = this.rules,
-            words = args.map(w => _prepositions[w] || w),
-            errors = [];
+    tryVerb(ecc, tp, verb, args) {
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'tryVerb', callType: CallOrigin.DriverEfun, className: Verb });
+        try {
+            let rules = this.rules,
+                words = args.map(w => _prepositions[w] || w),
+                errors = [];
 
-        for (let i = 0, max = rules.length; i < max; i++) {
-            let rule = this.rules[i],
-                result = rule.tryParse(words);
+            for (let i = 0, max = rules.length; i < max; i++) {
+                let rule = this.rules[i],
+                    result = rule.tryParse(words);
 
-            if (result === false)
-                continue;
+                if (result === false)
+                    continue;
 
-            let canCan = rule.can(result);
+                let canCan = rule.can(result);
 
-            if (canCan === true) {
-                return rule.do(result);
+                if (canCan === true) {
+                    return rule.do(result);
+                }
+                else if (typeof canCan === 'string')
+                    errors.unshift(canCan);
             }
-            else if (typeof canCan === 'string')
-                errors.unshift(canCan);
+            if (errors.length > 0) {
+                return errors[0];
+            }
+            return false;
         }
-        if (errors.length > 0) {
-            return errors[0];
+        finally {
+            frame.pop();
         }
-        return false;
     }
 
     /**
@@ -390,36 +409,50 @@ class VerbContainer {
 
     /**
      * Add a rule to the system.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} verbName The verb name.
      * @param {string} rule The associated rule.
      * @param {object} handler The handler / verb object.
      * @param {string} scope The scope of the rule.
      * @returns {boolean} Returns true on success.
      */
-    addRule(verbName, rule, handler, scope) {
-        if (!handler) //  Could not determine handler! Ack!
-            throw new Error(`No valid handler associated with verb '${verbName}'`);
-        let verb = this.getVerb(verbName, true);
-        return verb.addRule(rule, handler, this);
+    addRule(ecc, verbName, rule, handler, scope) {
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'addSynonym', callType: CallOrigin.DriverEfun, className: VerbContainer });
+        try {
+            if (!handler) //  Could not determine handler! Ack!
+                throw new Error(`No valid handler associated with verb '${verbName}'`);
+            const verb = this.getVerb(verbName, true);
+            return verb.addRule(rule, handler, this);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Add a synonym for a verb.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {any} synonym The synonym.
      * @param {any} verbName The verb it executes.
      * @returns {boolean} True on success.
      */
-    addSynonym(synonym, verbName) {
-        let verb = this.getVerb(verbName);
+    addSynonym(ecc, synonym, verbName) {
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'addSynonym', callType: CallOrigin.DriverEfun, className: VerbContainer });
+        try {
+            const verb = this.getVerb(verbName);
 
-        if (!verb)
-            throw Error(`'${verb}' is not a verb!`);
-        if (synonym in this.synonyms && this.synonyms[synonym] !== verb)
-            throw Error(`${synonym} is already a synonym for ${this.synonyms[synonym]}!`);
+            if (!verb)
+                throw Error(`'${verb}' is not a verb!`);
+            if (synonym in this.synonyms && this.synonyms[synonym] !== verb)
+                throw Error(`${synonym} is already a synonym for ${this.synonyms[synonym]}!`);
 
-        this.synonyms[synonym] = verb;
+            this.synonyms[synonym] = verb;
 
-        return true;
+            return true;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -520,7 +553,7 @@ class VerbContainer {
             case 'OBS':
             case 'PLAYER':
             case 'PLAYERS':
-            case 'STR': 
+            case 'STR':
             case 'STRING':
             case 'WORD':
             case 'WRD':
@@ -561,393 +594,414 @@ class VerbContainer {
 
     /**
      * Try evaluating a single verb rule to see if it matches.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {MUDObject} thisPlayer The MUD user performing the action.
      * @param {VerbRule} rule The verb rule being evaluated.
      * @param {string[]} inputs The users text to match against.
      * @param {string[]} errors A collection of ordered error messages.
      * @returns {string|boolean|any[]} Try match a rule to the user's input.
      */
-    async tryParseRule(thisPlayer, rule, inputs, errors) {
-        let chunks = [],
-            chunk = [],
-            direct = null,
-            indirect = null,
-            matchedTokens = [],
-            matched = 0, x = 0,
-            objTokenCount = 0;
+    async tryParseRule(ecc, thisPlayer, rule, inputs, errors) {
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'tryParseRule', callType: CallOrigin.DriverEfun, className: VerbContainer });
+        try {
+            let chunks = [],
+                chunk = [],
+                direct = null,
+                indirect = null,
+                matchedTokens = [],
+                matched = 0, x = 0,
+                objTokenCount = 0;
 
-        // Shortcut...
-        if (rule.tokenCount === 0) {
-            //  Done...
-            if (inputs.length === 0) return [];
-            return false;
-        }
-
-        // User did not specify enough inputs...
-        if (rule.tokenCount > inputs.length)
-            return false;
-
-        let preps = rule.parts.filter((word, i) => word in _prepositions);
-        let prepC = inputs.filter((word, i) => {
-            var r = _prepositions[word],
-                rt = typeof r;
-            if (rt === 'undefined') return false;
-            else if (typeof r === 'string') {
-                inputs[i] = r;
-                return true;
+            // Shortcut...
+            if (rule.tokenCount === 0) {
+                //  Done...
+                if (inputs.length === 0) return [];
+                return false;
             }
-            return r === null;
-        });
-        if (preps.length > prepC.length) return false;
-        for (let x = 0; x < preps.length; x++) {
-            if (preps[x] !== prepC[x]) {
-                if (_prepositions[prepC[x]] === preps[x]) {
+
+            // User did not specify enough inputs...
+            if (rule.tokenCount > inputs.length)
+                return false;
+
+            let preps = rule.parts.filter((word, i) => word in _prepositions);
+            let prepC = inputs.filter((word, i) => {
+                var r = _prepositions[word],
+                    rt = typeof r;
+                if (rt === 'undefined') return false;
+                else if (typeof r === 'string') {
+                    inputs[i] = r;
+                    return true;
+                }
+                return r === null;
+            });
+            if (preps.length > prepC.length) return false;
+            for (let x = 0; x < preps.length; x++) {
+                if (preps[x] !== prepC[x]) {
+                    if (_prepositions[prepC[x]] === preps[x]) {
+                        continue;
+                    }
+                    return false;
+                }
+            }
+            x = 0;
+            inputs.forEach(function (word, i, a) {
+                if (word !== preps[x]) {
+                    chunk.push(word);
+                }
+                else {
+                    x++;
+                    if (chunk.length > 0) {
+                        chunks.push(chunk); 7
+                        chunk = chunk.slice(chunk.length);
+                    }
+                }
+                if (i + 1 === a.length && chunk.length > 0) {
+                    chunks.push(chunk);
+                }
+            });
+            for (var i = 0, c = 0, pl = rule.parts.length, lastPrep = ''; i < pl; i++) {
+                var word = rule.parts[i];
+
+                if (word in _prepositions) {
+                    lastPrep = word;
                     continue;
                 }
-                return false;
-            }
-        }
-        x = 0;
-        inputs.forEach(function (word, i, a) {
-            if (word !== preps[x]) {
-                chunk.push(word);
-            }
-            else {
-                x++;
-                if (chunk.length > 0) {
-                    chunks.push(chunk);7
-                    chunk = chunk.slice(chunk.length);
+                else if (!this.isToken(word) && word === rule.parts[i]) {
+                    // literal match -- do not include in next chunk.
+                    chunks[c].shift();
+                    continue;
                 }
-            }
-            if (i + 1 === a.length && chunk.length > 0) {
-                chunks.push(chunk);
-            }
-        });
-        for (var i = 0, c = 0, pl = rule.parts.length, lastPrep = ''; i < pl; i++) {
-            var word = rule.parts[i];
+                else if (this.isToken(word)) {
+                    var doneWithChunk = false;
 
-            if (word in _prepositions) {
-                lastPrep = word;
-                continue;
-            }
-            else if (!this.isToken(word) && word === rule.parts[i]) {
-                // literal match -- do not include in next chunk.
-                chunks[c].shift();
-                continue;
-            }
-            else if (this.isToken(word)) {
-                var doneWithChunk = false;
+                    chunk = chunks[c++];
 
-                chunk = chunks[c++];
+                    if (!chunk || chunk.length === 0)
+                        return false;
 
-                if (!chunk || chunk.length === 0)
-                    return false;
+                    doneWithChunk = true;
 
-                doneWithChunk = true;
-
-                switch (word) {
-                    case 'WORD':
-                    case 'WRD':
-                        if (chunk.length < 1) return false;
-                        matchedTokens.push(chunk[0]), matched++;
-                        chunk = chunk.slice(1);
-                        if (chunk.length > 0) {
-                            c--; // More to do
-                            chunks[c] = chunk;
-                        }
-                        break;
-
-                    case 'LIV': 
-                    case "LIVING":
-                    case "LIVINGS":
-                    case 'LVS':
-                    case "OBJECT":
-                    case "OBJECTS":
-                    case "PLAYER":
-                    case "PLAYERS":
-                        {
-                            let
-                                thisToken = objTokenCount++ === 0 ?
-                                    direct = new VerbTokenMatch() :
-                                    indirect = new VerbTokenMatch(),
-                                env = thisPlayer.environment,
-                                environments = [
-                                    thisPlayer,
-                                    env
-                                ],
-                                inv = env.inventory,
-                                target;
-
-                            thisToken.index = objTokenCount;
-                            thisToken.living = word.startsWith("LIV");
-                            thisToken.multi = word.endsWith('S');
-                            thisToken.player = word.startsWith('PLAYER');
-                            thisToken.quantity = thisToken.multi ? -1 : 1;
-
-                            for (var j = 0; j < inv.length; j++) {
-                                if (environments.indexOf(inv[j]) === -1)
-                                    environments.push(inv[j]);
+                    switch (word) {
+                        case 'WORD':
+                        case 'WRD':
+                            if (chunk.length < 1) return false;
+                            matchedTokens.push(chunk[0]), matched++;
+                            chunk = chunk.slice(1);
+                            if (chunk.length > 0) {
+                                c--; // More to do
+                                chunks[c] = chunk;
                             }
-                            for (inv = thisPlayer.inventory, j = 0; j < inv.length; j++) {
-                                if (environments.indexOf(inv[j]) === -1)
-                                    environments.push(inv[j]);
-                            }
+                            break;
 
-                            chunk.forEach(function (word, i) {
-                                if (i === 0 && word === 'all') {
-                                    thisToken.quantity = -1;
-                                    thisToken.all = true;
+                        case 'LIV':
+                        case "LIVING":
+                        case "LIVINGS":
+                        case 'LVS':
+                        case "OBJECT":
+                        case "OBJECTS":
+                        case "PLAYER":
+                        case "PLAYERS":
+                            {
+                                let
+                                    thisToken = objTokenCount++ === 0 ?
+                                        direct = new VerbTokenMatch() :
+                                        indirect = new VerbTokenMatch(),
+                                    env = thisPlayer.environment,
+                                    environments = [
+                                        thisPlayer,
+                                        env
+                                    ],
+                                    inv = env.inventory,
+                                    target;
+
+                                thisToken.index = objTokenCount;
+                                thisToken.living = word.startsWith("LIV");
+                                thisToken.multi = word.endsWith('S');
+                                thisToken.player = word.startsWith('PLAYER');
+                                thisToken.quantity = thisToken.multi ? -1 : 1;
+
+                                for (var j = 0; j < inv.length; j++) {
+                                    if (environments.indexOf(inv[j]) === -1)
+                                        environments.push(inv[j]);
                                 }
-                                else if (i === 0 && word in _ordinals) {
-                                    thisToken.which = _ordinals[word] - 1;
+                                for (inv = thisPlayer.inventory, j = 0; j < inv.length; j++) {
+                                    if (environments.indexOf(inv[j]) === -1)
+                                        environments.push(inv[j]);
                                 }
-                                else if (i === 0 && word in _howMany) {
-                                    thisToken.quantity = _howMany[word];
-                                }
-                                else if (i === 0 && /^\d+$/.test(word)) {
-                                    thisToken.quantity = parseInt(word);
-                                }
-                                else if (word === "the") {
-                                    return;
-                                }
-                                else if ((i + 1) === chunk.length) {
-                                    var asInt = parseInt(word);
-                                    if (asInt)
-                                        thisToken.which = parseInt(word) - 1;
-                                    else
-                                        thisToken.identifiers.push(word);
-                                }
-                                else if (word.endsWith("'s")) {
-                                    word = word.slice(0, word.length - 2).toLowerCase();
-                                    var who = thisPlayer.environment.inventory.filter((target, i) => {
-                                        return target.matchesId(word);
-                                    });
-                                    if (who.length === 1)
-                                        environments = [who[0]];
-                                }
-                                else if (word === "my") {
-                                    environments = [thisPlayer];
-                                }
-                                else
-                                    thisToken.identifiers.push(word);
-                            });
 
-                            thisToken.lastPrep = lastPrep;
-                            this.matchObjectToken(thisToken, environments);
-                            thisToken.index = matchedTokens.length;
-                            matchedTokens.push(thisToken),
-                                matched++;
-
-                            if (thisToken.matches.length === 0)
-                                return false;
-                        }
-                        break;
-
-                    case 'STRING':
-                    case 'STR':
-                        {
-                            if (chunk.length === 0) return false;
-                            var str = chunk.join(' ');
-                            matchedTokens.push(str), matched++;
-                        }
-                        break;
-                }
-            }
-        }
-
-        if (matched !== rule.tokenCount)
-            return false;
-
-        let
-            directMatches = 0, indirectMatches = 0,
-            result = matchedTokens.slice(0);
-
-        switch (objTokenCount) {
-            /* that wasy easy... */
-            case 0:
-                return matchedTokens;
-
-            /* hmm okay easy but... */
-            case 1:
-                if (direct.matches.length > 0) {
-                    result[direct.index] = [];
-
-                    await direct.matches.forEachAsync(async matched => {
-                        let theseArgs = matchedTokens.slice(0),
-                            directResult = false;
-
-                        theseArgs[direct.index] = matched;
-
-                        if (rule.directMethod in matched) {
-                            directResult = await matched[rule.directMethod](matched, ...theseArgs);
-                        }
-                        else if (rule.directFallback in matched) {
-                            directResult = await matched[rule.directFallback].call(matched, rule.verb, rule.rule);
-                        }
-                        if (directResult === true) {
-                            result[direct.index].push(matched);
-                            directMatches++;
-                        }
-                        else if (typeof directResult === 'string')
-                            errors.push(directResult);
-                    });
-                }
-                break;
-
-            /* ugh */
-            case 2:
-                if (indirect.matches.length > 0) {
-                    var directMethod = rule.directMethod,
-                        indirectMethod = rule.indirectMethod;
-
-                    result[direct.index] = [];
-                    result[indirect.index] = [];
-
-                    indirect.matches.forEach(_i => {
-                        if (indirectMethod in _i) {
-                            var theseArgs = matchedTokens.slice(0);
-
-                            theseArgs[indirect.index] = _i;
-
-                            direct.matches.filter(_d => {
-                                if (directMethod in _d) {
-                                    theseArgs[direct.index] = _d;
-                                    var directResult = _d[directMethod].apply(_d, theseArgs);
-                                    if (typeof directResult === 'string')
-                                        errors.push(directResult);
-                                    else if (directResult === true) {
-                                        var indirectResult = _i[indirectMethod].apply(_i, theseArgs);
-                                        if (indirectResult === true) {
-                                            directMatches++ , indirectMatches++;
-
-                                            result[direct.index].push(_d);
-                                            result[indirect.index].push(_i);
-                                        }
-                                        else if (typeof indirectResult === 'string')
-                                            errors.push(indirectResult);
+                                chunk.forEach(function (word, i) {
+                                    if (i === 0 && word === 'all') {
+                                        thisToken.quantity = -1;
+                                        thisToken.all = true;
                                     }
-                                    else if (directResult === false) {
+                                    else if (i === 0 && word in _ordinals) {
+                                        thisToken.which = _ordinals[word] - 1;
+                                    }
+                                    else if (i === 0 && word in _howMany) {
+                                        thisToken.quantity = _howMany[word];
+                                    }
+                                    else if (i === 0 && /^\d+$/.test(word)) {
+                                        thisToken.quantity = parseInt(word);
+                                    }
+                                    else if (word === "the") {
                                         return;
                                     }
+                                    else if ((i + 1) === chunk.length) {
+                                        var asInt = parseInt(word);
+                                        if (asInt)
+                                            thisToken.which = parseInt(word) - 1;
+                                        else
+                                            thisToken.identifiers.push(word);
+                                    }
+                                    else if (word.endsWith("'s")) {
+                                        word = word.slice(0, word.length - 2).toLowerCase();
+                                        var who = thisPlayer.environment.inventory.filter((target, i) => {
+                                            return target.matchesId(word);
+                                        });
+                                        if (who.length === 1)
+                                            environments = [who[0]];
+                                    }
+                                    else if (word === "my") {
+                                        environments = [thisPlayer];
+                                    }
                                     else
-                                        throw new Error(`Bad result from ${directMethod}; Expected string or boolean but got ${typeof directResult}`);
-                                }
-                            });
-                        }
-                    });
+                                        thisToken.identifiers.push(word);
+                                });
+
+                                thisToken.lastPrep = lastPrep;
+                                this.matchObjectToken(thisToken, environments);
+                                thisToken.index = matchedTokens.length;
+                                matchedTokens.push(thisToken),
+                                    matched++;
+
+                                if (thisToken.matches.length === 0)
+                                    return false;
+                            }
+                            break;
+
+                        case 'STRING':
+                        case 'STR':
+                            {
+                                if (chunk.length === 0) return false;
+                                var str = chunk.join(' ');
+                                matchedTokens.push(str), matched++;
+                            }
+                            break;
+                    }
                 }
-                break;
-        }
-
-        if (directMatches === 0)
-            return false;
-
-        result[direct.index] = result[direct.index].filter(_d => {
-            if (direct.living && !efuns.living.isAlive (_d)) {
-                errors.push(`${_d.displayName} is not alive.`);
-                return false;
             }
-            else if (direct.player && !efuns.playerp(_d)) {
-                errors.push(`${_d.displayName} is not a player.`);
-                return false;
-            }
-            return true;
-        });
-        if (direct.which === -1) {
-            if (direct.howMany > directMatches) {
-                errors.push(`There are only ${efuns.cardinal(indirectMatches)} ${(efuns.plurlize(direct.identifiers.join(' ')))} here.`);
-                return false;
-            }
-        }
-        else if (direct.which >= result[direct.index].length) {
-            errors.push(`There is no ${(efuns.ordinal(direct.which + 1))} ${(direct.identifiers.join(' '))}`);
-            return false;
-        }
-        else {
-            if (direct.multi)
-                result[direct.index] = result[direct.index].slice(direct.which, direct.which + 1);
-            else
-                result[direct.index] = result[direct.index][direct.which];
-        }
 
-        if (objTokenCount > 1) {
-            result[indirect.index] = result[indirect.index].filter(_d => {
-                if (indirect.living && !efuns.living.isAlive(_d)) {
+            if (matched !== rule.tokenCount)
+                return false;
+
+            let
+                directMatches = 0, indirectMatches = 0,
+                result = matchedTokens.slice(0);
+
+            switch (objTokenCount) {
+                /* that wasy easy... */
+                case 0:
+                    return matchedTokens;
+
+                /* hmm okay easy but... */
+                case 1:
+                    if (direct.matches.length > 0) {
+                        result[direct.index] = [];
+
+                        await direct.matches.forEachAsync(async matched => {
+                            let theseArgs = matchedTokens.slice(0),
+                                directResult = false;
+
+                            theseArgs[direct.index] = matched;
+
+                            if (rule.directMethod in matched) {
+                                directResult = await matched[rule.directMethod](matched, ecc, ...theseArgs);
+                            }
+                            else if (rule.directFallback in matched) {
+                                directResult = await matched[rule.directFallback].call(matched, ecc, rule.verb, rule.rule);
+                            }
+                            if (directResult === true) {
+                                result[direct.index].push(matched);
+                                directMatches++;
+                            }
+                            else if (typeof directResult === 'string')
+                                errors.push(directResult);
+                        });
+                    }
+                    break;
+
+                /* ugh */
+                case 2:
+                    if (indirect.matches.length > 0) {
+                        var directMethod = rule.directMethod,
+                            indirectMethod = rule.indirectMethod;
+
+                        result[direct.index] = [];
+                        result[indirect.index] = [];
+
+                        indirect.matches.forEach(_i => {
+                            if (indirectMethod in _i) {
+                                var theseArgs = matchedTokens.slice(0);
+
+                                theseArgs[indirect.index] = _i;
+
+                                direct.matches.filter(_d => {
+                                    if (directMethod in _d) {
+                                        theseArgs[direct.index] = _d;
+                                        var directResult = _d[directMethod].apply(_d, [ecc, ...theseArgs]);
+                                        if (typeof directResult === 'string')
+                                            errors.push(directResult);
+                                        else if (directResult === true) {
+                                            var indirectResult = _i[indirectMethod].apply(_i, [ecc, ...theseArgs]);
+                                            if (indirectResult === true) {
+                                                directMatches++, indirectMatches++;
+
+                                                result[direct.index].push(_d);
+                                                result[indirect.index].push(_i);
+                                            }
+                                            else if (typeof indirectResult === 'string')
+                                                errors.push(indirectResult);
+                                        }
+                                        else if (directResult === false) {
+                                            return;
+                                        }
+                                        else
+                                            throw new Error(`Bad result from ${directMethod}; Expected string or boolean but got ${typeof directResult}`);
+                                    }
+                                });
+                            }
+                        });
+                    }
+                    break;
+            }
+
+            if (directMatches === 0)
+                return false;
+
+            result[direct.index] = result[direct.index].filter(_d => {
+                if (direct.living && !efuns.living.isAlive(_d)) {
                     errors.push(`${_d.displayName} is not alive.`);
                     return false;
                 }
-                else if (indirect.player && !efuns.playerp(_d)) {
+                else if (direct.player && !efuns.playerp(_d)) {
                     errors.push(`${_d.displayName} is not a player.`);
                     return false;
                 }
                 return true;
             });
-            if (indirect.multi) {
-                if (indirect.howMany > indirectMatches) {
-                    errors.push(`There are only ${efuns.ordinal(indirectMatches)} ${efuns.plurlize(indirect.identifiers.join(' '))} here.`);
+            if (direct.which === -1) {
+                if (direct.howMany > directMatches) {
+                    errors.push(`There are only ${efuns.cardinal(indirectMatches)} ${(efuns.plurlize(direct.identifiers.join(' ')))} here.`);
                     return false;
                 }
             }
-            else {
-                result[indirect.index] = result[indirect.index].shift();
+            else if (direct.which >= result[direct.index].length) {
+                errors.push(`There is no ${(efuns.ordinal(direct.which + 1))} ${(direct.identifiers.join(' '))}`);
+                return false;
             }
+            else {
+                if (direct.multi)
+                    result[direct.index] = result[direct.index].slice(direct.which, direct.which + 1);
+                else
+                    result[direct.index] = result[direct.index][direct.which];
+            }
+
+            if (objTokenCount > 1) {
+                result[indirect.index] = result[indirect.index].filter(_d => {
+                    if (indirect.living && !efuns.living.isAlive(_d)) {
+                        errors.push(`${_d.displayName} is not alive.`);
+                        return false;
+                    }
+                    else if (indirect.player && !efuns.playerp(_d)) {
+                        errors.push(`${_d.displayName} is not a player.`);
+                        return false;
+                    }
+                    return true;
+                });
+                if (indirect.multi) {
+                    if (indirect.howMany > indirectMatches) {
+                        errors.push(`There are only ${efuns.ordinal(indirectMatches)} ${efuns.plurlize(indirect.identifiers.join(' '))} here.`);
+                        return false;
+                    }
+                }
+                else {
+                    result[indirect.index] = result[indirect.index].shift();
+                }
+            }
+            return result;
         }
-        return result;
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Try and parse some user input.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} input The user input.
      * @param {MUDObject} player The player performing the action.
      * @param {string[]} scopes The scopes to evaluate (if enabled).
      * @returns {string|boolean} Returns true on success
      */
-    async tryParseSentence(input, player, scopes) {
-        let words = input.trim().split(/\s+/),
-            verbName = words.shift() || false;
-        return await this.tryParseVerb(verbName, words, player, scopes);
+    async tryParseSentence(ecc, input, player, scopes) {
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'tryParseVerb', callType: CallOrigin.DriverEfun, className: VerbContainer });
+        try {
+            let words = input.trim().split(/\s+/),
+                verbName = words.shift() || false;
+            return await this.tryParseVerb(ecc, verbName, words, player, scopes);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
      * Try parsing a specific verb.
+     * @param {ExecutionContext} ecc The current callstack
      * @param {string} verbName The verb invoked by the user.
      * @param {string|string[]} input The user's input.
      * @param {MUDObject} thisPlayer The current player.
      * @param {string[]} scopes A list of scopes the user has access to.
      * @returns {boolean|string} True on success
      */
-    async tryParseVerb(verbName, input, thisPlayer, scopes) {
-        let verb = this.getVerb(verbName, false),
-            errors = [];
+    async tryParseVerb(ecc, verbName, input, thisPlayer, scopes) {
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'tryParseVerb', callType: CallOrigin.DriverEfun, className: VerbContainer });
+        try {
+            let verb = this.getVerb(verbName, false),
+                errors = [];
 
-        if (verb === false)
-            return false;
+            if (verb === false)
+                return false;
 
-        let rules = verb.getRulesInScope(scopes),
-            words = Array.isArray(input) ? input : input.split(/\s+/g);
+            let rules = verb.getRulesInScope(scopes),
+                words = Array.isArray(input) ? input : input.split(/\s+/g);
 
 
-        //  User does not have access to any applicable rules.
-        if (rules.length === 0)
-            return false;
+            //  User does not have access to any applicable rules.
+            if (rules.length === 0)
+                return false;
 
-        //  Try rules in ranked order from highest to lowest.
-        for (let i = 0; i < rules.length; i++) {
-            let matchTokens = await this.tryParseRule(thisPlayer, rules[i], words, errors);
+            //  Try rules in ranked order from highest to lowest.
+            for (let i = 0; i < rules.length; i++) {
+                let matchTokens = await this.tryParseRule(ecc, thisPlayer, rules[i], words, errors);
 
-            //  We have matched tokens
-            if (Array.isArray(matchTokens)) {
-                let result = await rules[i].can(matchTokens);
-                if (result === true) {
-                    if ((result = await rules[i].do(matchTokens)) === true)
-                        return true;
-                        
+                //  We have matched tokens
+                if (Array.isArray(matchTokens)) {
+                    let result = await rules[i].can(ecc, matchTokens);
+                    if (result === true) {
+                        if ((result = await rules[i].do(ecc, matchTokens)) === true)
+                            return true;
+
+                    }
+                    if (typeof result === 'string')
+                        errors.push(result);
                 }
-                if (typeof result === 'string')
-                    errors.push(result);
             }
+            return errors.length > 0 ? errors[0] : false;
         }
-        return errors.length > 0 ? errors[0] : false;
+        finally {
+            frame.pop();
+        }
     }
 }
 
@@ -1001,50 +1055,121 @@ class VerbSystemFeature extends FeatureBase {
     }
 
     createExternalFunctions(efunPrototype) {
-        let feature = this, container = this.container;
-        if (this.efunNameParseAddRule) {
-            efunPrototype[this.efunNameParseAddRule] = function (ecc, verb, rule, target) {
-                let handler = feature.allowHandlerParameter ?
-                    target || this.thisObject(ecc) : this.thisObject(ecc);
-                let scope = feature.useVerbRuleScope ?
-                    unwrap(handler, (o) => o.verbScope || o.directory) : false;
-                return container.addRule(verb, rule, handler, scope);
+        const feature = this,
+            container = this.container,
+            {
+                efunNameParseAddRule,
+                efunNameParseAddSynonym,
+                efunNameParseInit,
+                efunNameParseRefresh,
+                efunNameParseSentence,
+                efunNameParseVerb
+            } = this;
+
+        if (efunNameParseAddRule) {
+            /**
+             * 
+             * @param {ExecutionContext} ecc The current callstack
+             * @param {string} verb The verb being defined
+             * @param {Partial<VerbRule>} rule The rule to add to the specified verb
+             * @param {*} target 
+             * @returns 
+             */
+            efunPrototype[efunNameParseAddRule] = function (ecc, verb, rule, target) {
+                const frame = ecc.pushFrameObject({ file: __filename, method: efunNameParseAddRule, callType: CallOrigin.Driver, className: VerbSystemFeature });
+                try {
+                    let handler = feature.allowHandlerParameter ?
+                        target || this.thisObject(ecc) : this.thisObject(ecc);
+                    let scope = feature.useVerbRuleScope ?
+                        unwrap(handler, (o) => o.verbScope || o.directory) : false;
+                    return container.addRule(ecc, verb, rule, handler, scope);
+                }
+                finally {
+                    frame.pop();
+                }
             };
         }
-        if (this.efunNameParseAddSynonym) {
-            efunPrototype[this.efunNameParseAddSynonym] = function (ecc, synonym, verb) {
-                return container.addSynonym(synonym, verb);
+        if (efunNameParseAddSynonym) {
+            efunPrototype[efunNameParseAddSynonym] = function (ecc, synonym, verb) {
+                const frame = ecc.pushFrameObject({ file: __filename, method: efunNameParseAddSynonym, callType: CallOrigin.Driver, className: VerbSystemFeature });
+                try {
+                    return container.addSynonym(ecc, synonym, verb);
+                }
+                finally {
+                    frame.pop();
+                }
             };
         }
-        if (this.efunNameParseInit) {
-            efunPrototype[this.efunNameParseInit] = function () {
-                /* dummy efun */
+        if (efunNameParseInit) {
+            /**
+             * For MudOS compact; Does not do anything atm
+             * @param {ExecutionContext} ecc The current callstack
+             */
+            efunPrototype[efunNameParseInit] = function (ecc) {
+                const frame = ecc.pushFrameObject({ file: __filename, method: efunNameParseInit, callType: CallOrigin.Driver, className: VerbSystemFeature });
+                try {
+                }
+                finally {
+                    frame.pop();
+                }
             };
         }
-        if (this.efunNameParseRefresh) {
-            efunPrototype[this.efunNameParseRefresh] = function () {
-                /* dummy efun */
+        if (efunNameParseRefresh) {
+            efunPrototype[efunNameParseRefresh] = function (ecc) {
+                const frame = ecc.pushFrameObject({ file: __filename, method: efunNameParseRefresh, callType: CallOrigin.Driver, className: VerbSystemFeature });
+                try {
+                }
+                finally {
+                    frame.pop();
+                }
             };
         }
-        if (this.efunNameParseSentence) {
-            efunPrototype[this.efunNameParseSentence] = async function (ecc, /** @type {string} */ rawInput, /** @type {string[]} */ scopeList) {
-                let input = rawInput.trim(),
-                    scopes = feature.useVerbRuleScope ?
+        if (efunNameParseSentence) {
+            /**
+             * 
+             * @param {ExecutionContext} ecc The current callstack
+             * @param {string} rawInput Raw input entered by user
+             * @param {string[]} scopeList Scope limit 
+             * @returns 
+             */
+            efunPrototype[efunNameParseSentence] = async function (ecc, rawInput, scopeList) {
+                const frame = ecc.pushFrameObject({ file: __filename, method: efunNameParseVerb, callType: CallOrigin.Driver, className: VerbSystemFeature });
+                try {
+                    let input = rawInput.trim(),
+                        scopes = feature.useVerbRuleScope ?
+                            Array.isArray(scopeList) && scopeList.length ?
+                                scopeList : false : false,
+                        thisPlayer = this.thisPlayer(ecc);
+
+                    return await container.tryParseSentence(ecc, input, thisPlayer, scopes);
+                }
+                finally {
+                    frame.pop();
+                }
+            };
+        }
+        if (efunNameParseVerb) {
+            /**
+             * 
+             * @param {ExecutionContext} ecc The current callstack
+             * @param {string} verb The verb being executed
+             * @param {string | string[]} input The input text from the user
+             * @param {string[]} scopeList Scope list
+             * @returns 
+             */
+            efunPrototype[efunNameParseVerb] = async function (ecc, verb, input, scopeList) {
+                const frame = ecc.pushFrameObject({ file: __filename, method: efunNameParseVerb, className: VerbSystemFeature, callType: CallOrigin.Driver });
+                try {
+                    let scopes = feature.useVerbRuleScope ?
                         Array.isArray(scopeList) && scopeList.length ?
                             scopeList : false : false,
-                    thisPlayer = this.thisPlayer();
+                        thisPlayer = this.thisPlayer();
 
-                return await container.tryParseSentence(input, thisPlayer, scopes);
-            };
-        }
-        if (this.efunNameParseVerb) {
-            efunPrototype[this.efunNameParseVerb] = async function (ecc, /** @type {string} */ verb, /** @type {string|string[]} */ input, /** @type {string[]} */ scopeList) {
-                let scopes = feature.useVerbRuleScope ?
-                    Array.isArray(scopeList) && scopeList.length ?
-                        scopeList : false : false,
-                    thisPlayer = this.thisPlayer();
-
-                return await container.tryParseVerb(verb, input, thisPlayer, scopes);
+                    return await container.tryParseVerb(ecc, verb, input, thisPlayer, scopes);
+                }
+                finally {
+                    frame.pop();
+                }
             };
         }
     }
