@@ -227,18 +227,30 @@ class MUDObject extends MUDEventEmitter {
     }
 
     receiveMessage(ecc, msgClass, text) {
-        let store = driver.storage.get(this);
-        if (store.component) {
-            if (msgClass.startsWith('N'))
-                store.component.write(text);
-            else
-                store.component.writeLine(text);
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'receiveMessage', lineNumber: __line, isAsync: false, className: this, callType: CallOrigin.LocalCall });
+        try {
+            let store = driver.storage.get(this);
+            if (store.component) {
+                if (msgClass.startsWith('N'))
+                    store.component.write(text);
+                else
+                    store.component.writeLine(text);
+            }
+        }
+        finally {
+            frame.pop();
         }
     }
 
     serializeObject() {
-        let $storage = driver.storage.get(this);
-        return $storage.serialize();
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'serializeObject', lineNumber: __line, isAsync: false, className: this, callType: CallOrigin.CallOther });
+        try {
+            let $storage = driver.storage.get(this);
+            return $storage.serialize();
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -256,18 +268,30 @@ class MUDObject extends MUDEventEmitter {
     }
 
     write(ecc, msg) {
-        let storage = driver.storage.get(this),
-            shell = storage.shell,
-            stdio = shell && shell.stdout;
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'write', lineNumber: __line, isAsync: false, className: this, callType: CallOrigin.LocalCall });
+        try {
+            let storage = driver.storage.get(this),
+                shell = storage.shell,
+                stdio = shell && shell.stdout;
 
-        if (shell) {
-            stdio.write(msg || '');
+            if (shell) {
+                stdio.write(msg || '');
+            }
+            return this;
         }
-        return this;
+        finally {
+            frame.pop();
+        }
     }
 
     writeLine(ecc, msg) {
-        return this.write(msg + '\n');
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'writeLine', lineNumber: __line, isAsync: false, className: this, callType: CallOrigin.LocalCall });
+        try {
+            return this.write(msg + '\n');
+        }
+        finally {
+            frame.pop();
+        }
     }
 }
 

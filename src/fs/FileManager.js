@@ -1,9 +1,8 @@
 /*
  *
  */
-const { ExecutionContext, CallOrigin, ExecutionFrame } = require('../ExecutionContext');
 const
-    MUDEventEmitter = require('../MUDEventEmitter'),
+    { ExecutionContext, CallOrigin, ExecutionFrame } = require('../ExecutionContext'),
     { FileSystemObject, ObjectNotFound, VirtualObjectFile, FileWrapperObject } = require('./FileSystemObject'),
     FileSystemRequest = require('./FileSystemRequest'),
     FileSystemQuery = require('./FileSystemQuery'),
@@ -11,6 +10,7 @@ const
     crypto = require('crypto'),
     yaml = require('js-yaml'),
     path = require('path'),
+    events = require('events'),
     { FileSystemQueryFlags, CopyFlags, DeleteFlags } = require('./FileSystemFlags'),
     { FileCopyOperation, FileDeleteOperation } = require('./FileOperations');
 
@@ -20,7 +20,7 @@ const
  * and dispatches those requests to the file and security systems.  It then sends
  * the results back to the user (usually an efuns proxy instance).
  */
-class FileManager extends MUDEventEmitter {
+class FileManager extends events.EventEmitter {
     /**
      * Construct the file manager
      */
@@ -88,13 +88,20 @@ class FileManager extends MUDEventEmitter {
 
     /**
      * Ensure the filesystems are all okay.
+     * @param {ExecutionContext} ecc The callstack
      * @param {any} fsconfig
      * @returns
      */
-    async bootstrap(fsconfig) {
-        await fsconfig.eachFileSystem(async (config, index) => await this.createFileSystem(config, index));
-        await this.ensureMountPointsExist();
-        return this;
+    async bootstrap(ecc, fsconfig) {
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'bootstrap', isAsync: true, className: FileManager });
+        try {
+            await fsconfig.eachFileSystem(async (config, index) => await this.createFileSystem(config, index));
+            await this.ensureMountPointsExist(frame.context);
+            return this;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -522,18 +529,32 @@ class FileManager extends MUDEventEmitter {
     /**
      * Ensure each, non-root filesystem has a valid mount point on the MUD fs
      */
-    async ensureMountPointsExist() {
-        await this.eachFileSystemAsync(async (fs, mp) => {
-            if (mp !== '/') {
-                let parentPath = path.posix.resolve(mp, '..');
-                let parent = await this.getDirectoryAsync(parentPath);
+    async ensureMountPointsExist(ecc) {
+        const
+            frame = ecc.pushFrameObject({ file: __filename, method: 'ensureMountPointsExist', className: FileManager });
 
-                if (!parent.isDirectory)
-                    throw new Error(`Invalid mount point for ${mp}: ${parent.fullPath} is not a directory`);
+        try {
+            await this.eachFileSystemAsync(async (fs, mp) => {
+                if (mp !== '/') {
+                    const parentPath = path.posix.resolve(mp, '..'),
+                        parentDir = await this.getObjectAsync(frame.context, parentPath, undefined, true),
+                        mountDir = await this.getObjectAsync(frame.context, mp, undefined, true);
 
-                console.log(`\tEnsuring mount point ${mp} exists`);
-            }
-        });
+                    if (!parentDir.isDirectory)
+                        throw new Error(`Invalid mount point for ${mp}: ${parentDir.fullPath} is not a directory`);
+                    if (!mountDir.exists) {
+                        console.log(`\tEnsuring mount point ${mp} exists`);
+                        await mountDir.createDirectoryAsync({ createAsNeeded: true });
+                    }
+                    else if (!mountDir.isDirectory) {
+                        throw new Error(`Invalid mount point for ${mp}; Target is not a directory`);
+                    }
+                }
+            });
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -693,47 +714,6 @@ class FileManager extends MUDEventEmitter {
     }
 
     /**
-     * Remove a directory from the filesystem.
-     * @param {string} expr The directory to remove.
-     * @param {number} flags Any additional options.
-     */
-    deleteDirectoryAsync(expr, flags) {
-        let request = this.createFileRequest('deleteDirectoryAsync', expr, flags);
-
-        return new Promise(async (resolve, reject) => {
-            try {
-                let directory = await this.getDirectoryAsync(request.path);
-
-                if (!directory.exists)
-                    reject(`Directory ${request.path} does not exist.`);
-
-                let result = await directory.deleteAsync(request.flags);
-                resolve(result);
-            }
-            catch (err) {
-                reject(err);
-            }
-        });
-    }
-
-    /**
-     * Delete/unlink a file from the filesystem.
-     * @param {string} expr The path expression to remove.
-     * @param {number} flags Flags to control the operation.
-     */
-    deleteFileAsync(expr, flags = 0) {
-        return new Promise(async (resolve, reject) => {
-            try {
-                let file = await this.getFileAsync(expr, flags);
-                resolve(await file.deleteAsync(flags));
-            }
-            catch (err) {
-                reject(err);
-            }
-        });
-    }
-
-    /**
      * Iterate over the filesystems and perform an action for each.
      * @param {function(FileSystem,string):any[]} callback
      * @returns {any[]} The result of all the actions taken, one element for each filesystem.
@@ -760,7 +740,7 @@ class FileManager extends MUDEventEmitter {
      * Get a directory object
      * @param {string} expr The directory expression to fetch
      * @param {number} flags Flags to control the operation
-     * @returns {Promise<DirectoryObject>} Returns a directory object.
+     * @returns {Promise<FileSystemObject>} Returns a directory object.
      */
     async getDirectoryAsync(expr, flags = 0) {
         return new Promise(async (resolve, reject) => {

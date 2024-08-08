@@ -7,7 +7,7 @@
  */
 const
     ActionBinder = require('./ActionBinder'),
-    MUDEventEmitter = require('./MUDEventEmitter'),
+    events = require('events'),
     ClientComponent = require('./ClientComponent'),
     ClientCaps = require('./network/ClientCaps'),
     MUDStorageFlags = require('./MUDStorageFlags'),
@@ -22,7 +22,7 @@ const
  * a signal mechanism between the driver and the in-game object for important
  * events like heartbeats and connection status (to protect against fake calls)
  */
-class MUDStorage extends MUDEventEmitter {
+class MUDStorage extends events.EventEmitter {
     /**
      * Construct a storage object.
      * @param {MUDObject} owner The owner of the storage object.

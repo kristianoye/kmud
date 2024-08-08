@@ -7,8 +7,7 @@
  */
 const
     EventEmitter = require('events'),
-    MudPort = require('../config/MudPort'),
-    MUDEventEmitter = require('../MUDEventEmitter');
+    MudPort = require('../config/MudPort');
 
 class ClientEndpoint extends EventEmitter {
     /**

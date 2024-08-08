@@ -626,17 +626,17 @@ async function parseElement(op, e, depth) {
 
                     ret += op.readUntil(e.body.start);
                     if (e.body.type === 'BlockStatement') {
-                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(__ifc(${op.context.mecParent}, [${pnames.join(', ')}]) /*7*/, [${pnames.join(', ')}], ${renderVariableBlock(pnames)}, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __line, false, ${CallOrigin.FunctionPointer}); try `;
+                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(__ifc(${op.context.mecParent}.branch({ lineNumber: __line }), [${pnames.join(', ')}]) /*7*/, [${pnames.join(', ')}], ${renderVariableBlock(pnames)}, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __line, false, ${CallOrigin.FunctionPointer}); try `;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += ` finally { __efc(${ctx.mecName}, '${funcName}'); } }`;
                     }
                     else if (e.body.type === 'MemberExpression') {
-                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(__ifc(${op.context.mecParent}, [${pnames.join(', ')}]) /*8*/, [${pnames.join(', ')}], ${renderVariableBlock(pnames)}, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __line, false, ${CallOrigin.FunctionPointer}); try { return `;
+                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(__ifc(${op.context.mecParent}.branch({ lineNumber: __line }), [${pnames.join(', ')}]) /*8*/, [${pnames.join(', ')}], ${renderVariableBlock(pnames)}, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __line, false, ${CallOrigin.FunctionPointer}); try { return `;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += `; } finally { __efc(${ctx.mecName}, '${funcName}'); } }`;
                     }
                     else {
-                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(__ifc(${op.context.mecParent}, [${pnames.join(', ')}]) /*9*/, [${pnames.join(', ')}], ${renderVariableBlock(pnames)}, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __line, false, ${CallOrigin.FunctionPointer}); try { return (`;
+                        ret += `{ const [${ctx.mecName}, parameters] = __bfc(__ifc(${op.context.mecParent}.branch({ lineNumber: __line }), [${pnames.join(', ')}]) /*9*/, [${pnames.join(', ')}], ${renderVariableBlock(pnames)}, ${op.thisParameter}, 0, '${funcName}', __FILE__, ${e.async}, __line, false, ${CallOrigin.FunctionPointer}); try { return (`;
                         ret += await parseElement(op, e.body, depth + 1);
                         ret += `); } finally { __efc(${ctx.mecName}, '${funcName}'); } }`;
                     }
@@ -929,7 +929,7 @@ async function parseElement(op, e, depth) {
                             for (const _ of e.arguments) {
                                 ret += op.readUntil(_.start);
                                 if (c++ === 0) {
-                                    ret += `${op.context.mecName}, `; // + `.branch({ lineNumber: __line, hint: '${hint}' }), `;
+                                    ret += op.context.mecName + `.branch({ lineNumber: __line, hint: '${hint}' }), `;
                                 }
                                 ret += await parseElement(op, _, depth + 1);
                             }
@@ -937,7 +937,7 @@ async function parseElement(op, e, depth) {
                                 if (op.context.mecDepth > 0) {
                                     if (op.source.charAt(e.arguments.start) === '(') {
                                         ret += op.readUntil(e.arguments.start + 1);
-                                        ret += op.context.mecName; // + `.branch({ lineNumber: __line, hint: '${hint}' })`;
+                                        ret += op.context.mecName + `.branch({ lineNumber: __line, hint: '${hint}' })`;
                                     }
                                 }
                             }
@@ -1747,7 +1747,7 @@ async function parseElement(op, e, depth) {
                     switch (op.scope) {
                         case ScopeType.CallExpression:
 
-                            ret += `__callScopedImplementation(${op.context.mecName}, '${scopeId}', '${scopeName}'`;
+                            ret += `__callScopedImplementation(${op.context.mecName}.branch({ lineNumber: __line }), '${scopeId}', '${scopeName}'`;
                             break;
 
                         case ScopeType.AssignmentExpression:

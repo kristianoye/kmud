@@ -380,8 +380,8 @@ class EFUNProxy {
                     text: words.join('').trim(),
                     args: words.filter(s => s.trim().length > 0)
                 };
-            await frame.context.withPlayerAsync(thisObject, async player => {
-                await player.executeCommand(frame.branch(), evt);
+            await frame.context.withPlayerAsync(thisObject, async (player, context) => {
+                await player.executeCommand(context, evt);
             }, true, 'command');
         }
         finally {
@@ -910,7 +910,6 @@ class EFUNProxy {
         try {
             let logPath = path.posix.resolve(driver.config.mudlib.logDirectory, file),
                 logFile = await driver.fileManager.getObjectAsync(frame.branch(), logPath);
-
             return await logFile.appendFileAsync(frame.branch(), message + this.eol);
         }
         finally {
@@ -930,6 +929,7 @@ class EFUNProxy {
             return await driver.logError(frame.branch(), to.fullPath, err);
         }
         catch (e) {
+            frame.err = e;
         }
         finally {
             frame.pop();
@@ -946,7 +946,7 @@ class EFUNProxy {
      * @returns {true} Always returns true.
      */
     message(ecc, messageType, expr, audience, excluded) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'message', callType: CallOrigin.DriverEfun });
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'message', lineNumber: __line, callType: CallOrigin.DriverEfun });
         try {
             if (expr) {
                 if (!excluded)
@@ -979,14 +979,14 @@ class EFUNProxy {
                     driver.driverCall('message', () => {
                         recipients.forEach(player => {
                             let playerMessage = expr(player) || false;
-                            playerMessage && player.receiveMessage(ecc, messageType, playerMessage);
+                            playerMessage && player.receiveMessage(ecc.branch({ lineNumber: __line, hint: 'player.receiveMessage' }), messageType, playerMessage);
                         });
                     });
                 }
                 else {
                     driver.driverCall('message', () => {
                         recipients.forEach(player => {
-                            player.receiveMessage(ecc, messageType, expr);
+                            player.receiveMessage(ecc.branch({ lineNumber: __line, hint: 'player.receiveMessage' }), messageType, expr);
                         });
                     });
                 }

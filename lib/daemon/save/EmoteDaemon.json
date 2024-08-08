@@ -4,7 +4,7 @@
   "flags": 0,
   "inventory": [],
   "properties": {
-    "/daemon/EmoteDaemon": {
+    "/daemon/EmoteDaemon.js": {
       "adverbs": [
         "accidentally",
         "angrily",

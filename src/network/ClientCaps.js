@@ -8,7 +8,7 @@
  */
 const
     ClientImplementation = require('./impl/ClientImplementation'),
-    MUDEventEmitter = require('../MUDEventEmitter'),
+    events = require('events'),
     DefaultCaps = Object.freeze({
         clientHeight: 24,
         clientWidth: 80,
@@ -20,10 +20,10 @@ const
     });
 
 
-class ClientCaps extends MUDEventEmitter {
+class ClientCaps extends events.EventEmitter {
     constructor(clientInstance) {
         super();
-        let flags = { },
+        let flags = {},
             client = clientInstance,
             interfaces = [],
             methods = {},
@@ -108,7 +108,7 @@ class ClientCaps extends MUDEventEmitter {
                 }
             },
             getMethod: {
-                value: function(method) {
+                value: function (method) {
                     return methods[method] || false;
                 },
                 writable: false

@@ -407,6 +407,7 @@ class FileSystemObject extends events.EventEmitter {
     /**
      * Called to delete the object
      * @param {FileSystemRequest} request
+     * @returns {Promise<boolean>}
      */
     async deleteDirectoryAsync(request) {
         throw new NotImplementedError('deleteDirectoryAsync', this);

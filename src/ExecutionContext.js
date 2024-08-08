@@ -10,7 +10,7 @@
 const
     CreationContext = require('./CreationContext'),
     MemberModifiers = require("./compiler/MudscriptMemberModifiers"),
-    MUDEventEmitter = require('./MUDEventEmitter'),
+    events = require('events'),
     uuidv1 = require('uuid/v1'),
     CallOrigin = Object.freeze({
         Unknown: 0,
@@ -32,7 +32,6 @@ const
         Aborted: 1,
         Suspended: 2
     }),
-    events = require('events'),
     parseErrorLine = /\s*at (?<callType>new|async)?\s*(?<callee>[^\b]+) \((?<loc>[^\)]+)\)/;
 
 var
@@ -142,7 +141,7 @@ class ExecutionFrame {
         /**
          * When was the method put on the stack?
          */
-        this.startTime = driver.efuns.ticks;
+        this.startTime = Date.now();
 
         /**
          * Unguarded frames short-circuit security and prevent checks against previous objects 
@@ -153,7 +152,7 @@ class ExecutionFrame {
 
     /**
      * Create a branch in the stack
-     * @param {number} lineNumber
+     * @param {number | { lineNumber: number, hint: string }} lineNumber
      * @returns
      */
     branch(lineNumber = 0) {
@@ -204,7 +203,7 @@ class ExecutionFrame {
      * @returns {number}
      */
     get ticks() {
-        return driver.efuns.ticks - this.startTimes;
+        return Date.now() - this.startTimes;
     }
 
     toString(maskExternalPaths = false) {
@@ -228,7 +227,7 @@ class ExecutionFrame {
 /**
  * Process controller to allow for aborting or suspending processes
  */
-class ExecutionSignaller extends MUDEventEmitter {
+class ExecutionSignaller extends events.EventEmitter {
     constructor() {
         super();
 
@@ -304,7 +303,7 @@ class ExecutionSignaller extends MUDEventEmitter {
 /**
  * Maitains execution and object stacks for the MUD.
  */
-class ExecutionContext extends MUDEventEmitter {
+class ExecutionContext extends events.EventEmitter {
     /**
      * 
      * @param {ExecutionContext} parent The parent context (if one exists)
@@ -348,8 +347,9 @@ class ExecutionContext extends MUDEventEmitter {
 
         /** Was this context ever used? */
         this.used = false;
-        /** @type {ExecutionContext[]} */
-        this.unusedChildren = [];
+        /** @type {Object.<string,ExecutionContext>} */
+        this.unusedChildren = {};
+        this.unusedChildCount = 0;
 
         if (parent) {
             /** @type {ExecutionFrame[]} */
@@ -364,7 +364,8 @@ class ExecutionContext extends MUDEventEmitter {
             if (createDetached !== true) {
                 this.parent = parent;
                 this.parentFrame = parent.stack[0];
-                parent.unusedChildren = [this, ...parent.unusedChildren];
+
+                parent.addNewChild(this);
 
                 /** @type {ExecutionContext} */
                 this.master = parent.master;
@@ -377,7 +378,7 @@ class ExecutionContext extends MUDEventEmitter {
             }
         }
         else {
-            this.#alarmTime = Number.MAX_SAFE_INTEGER;// driver.efuns.ticks + 5000;
+            this.#alarmTime = global?.driver?.debugMode ? Number.MAX_SAFE_INTEGER : driver.efuns.ticks + 5000;
             this.currentVerb = false;
             this.branchedAt = 0;
             this.pid = nextPID++;
@@ -387,6 +388,19 @@ class ExecutionContext extends MUDEventEmitter {
         contexts[this.handleId] = this;
         contextCount++;
         ExecutionContext.setCurrentExecution(this);
+    }
+
+    /**
+     * Mark a child context as in use
+     * @param {ExecutionContext} ecc The child that has been activated
+     */
+    addActiveChild(ecc) {
+        if (ecc.handleId in this.unusedChildren) {
+            this.children[ecc.handleId] = ecc;
+            this.childCount++;
+            delete this.unusedChildren[ecc.handleId];
+            this.unusedChildCount--;
+        }
     }
 
     /**
@@ -410,6 +424,15 @@ class ExecutionContext extends MUDEventEmitter {
         if (typeof key === 'string' && key.length > 0)
             this.customVariables[key] = val;
         return this;
+    }
+
+    /**
+     * Add a new, unused context
+     * @param {ExecutionContext} ecc The new child
+     */
+    addNewChild(ecc) {
+        this.unusedChildren[ecc.handleId] = ecc;
+        this.unusedChildCount++;
     }
 
     /**
@@ -652,14 +675,16 @@ class ExecutionContext extends MUDEventEmitter {
                         child.onComplete.push(() => {
                             console.log(`\tExecutionContext: Child context ${id} completed after its parent`);
                         });
+                        if (child.handleId in contexts) {
+                            delete contexts[child.handleId];
+                        }
                     }
                 }
-                if (this.unusedChildren.length > 0) {
-                    for (const child of this.unusedChildren) {
+                if (this.unusedChildCount > 0) {
+                    for (const [id, child] of Object.entries(this.unusedChildren)) {
                         console.log(`\tExecutionContext: Child context ${child.handleId} was never used`);
                         ExecutionContext.deleteContext(child);
                     }
-                    this.unusedChildren = [];
                 }
                 this.completed = true;
                 for (let i = 0; i < this.onComplete; i++) {
@@ -701,7 +726,7 @@ class ExecutionContext extends MUDEventEmitter {
      * @returns {ExecutionContext}
      */
     static createNewContext() {
-        return (driver.executionContext = new ExecutionContext());
+        return new ExecutionContext();
     }
 
     get currentFileName() {
@@ -717,6 +742,7 @@ class ExecutionContext extends MUDEventEmitter {
         if (ecc.handleId in contexts) {
             delete contexts[ecc.handleId];
             contextCount--;
+
             if (!ecc.parent && ecc.pid > 0) {
                 delete contextsByPID[ecc.pid];
             }
@@ -872,6 +898,17 @@ class ExecutionContext extends MUDEventEmitter {
 
     get length() {
         return this.stack.length;
+    }
+
+    /**
+     * Called when a child context pushes its first frame
+     * @param {ExecutionContext} child The child
+     */
+    markChildUse(child) {
+        if (child.handleId in this.unusedChildren) {
+            delete this.unusedChildren[child.handleId];
+            this.unusedChildCount--;
+        }
     }
 
     get newContext() {
@@ -1045,19 +1082,11 @@ class ExecutionContext extends MUDEventEmitter {
     pushActual(frame) {
         this.stack.unshift(frame);
         currentExecution = this;
-
         if (!this.used) {
             this.used = true;
 
             //  Once a frame is used, only then is it registered with the parent
-            if (this.parent) {
-                let index = this.parent.unusedChildren.findIndex(this, c => c === this);
-
-                this.parent.children[this.handleId] = this;
-                this.parent.childCount++;
-
-                this.parent.unusedChildren.splice(index, 1);
-            }
+            this.parent?.addActiveChild(this);
         }
         return frame;
     }
@@ -1095,7 +1124,7 @@ class ExecutionContext extends MUDEventEmitter {
             driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
         else if (typeof frameInfo.method !== 'string')
             driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
-        let newFrame = new ExecutionFrame({ context: this, ...frameInfo, object: (frameInfo.object || this.thisObject) });
+        let newFrame = new ExecutionFrame({ context: this, ...frameInfo });
         this.pushActual(newFrame);
         return newFrame;
     }
@@ -1265,7 +1294,7 @@ class ExecutionContext extends MUDEventEmitter {
      */
     static setCurrentExecution(context) {
         let previous = currentExecution;
-        driver.executionContext = currentExecution = context;
+        currentExecution = context;
         return previous;
     }
 
@@ -1294,6 +1323,10 @@ class ExecutionContext extends MUDEventEmitter {
             else
                 return previous;
         }
+    }
+
+    toString() {
+        return `ExecutionContext[handleId: ${this.handleId}, length: ${this.length}; c: ${this.childCount}, used: ${this.used}${(this.info ? ', ' + JSON.stringify(this.info) : '')} ]\n`;
     }
 
     /**
@@ -1406,7 +1439,6 @@ class ExecutionContext extends MUDEventEmitter {
         try {
             let result = undefined;
 
-            this.push(obj, method, obj.filename, isAsync, 0);
             if (callback.toString().startsWith('async'))
                 result = await callback();
             else
@@ -1431,7 +1463,7 @@ class ExecutionContext extends MUDEventEmitter {
      * @param {function(import('./MUDObject'), ExecutionContext): any} callback The action to execute
      * @param {boolean} restoreOldPlayer Restore the previous player 
      */
-    async withPlayerAsync(storage, callback, restoreOldPlayer = true, methodName = false, catchErrors = true) {
+    async withPlayerAsync(storage, callback, restoreOldPlayer = true, method = false, catchErrors = true) {
         let player = false;
 
         if (storage instanceof MUDObject)
@@ -1445,8 +1477,7 @@ class ExecutionContext extends MUDEventEmitter {
             oldStore = this.storage,
             oldShell = this.shell;
 
-        if (methodName)
-            ecc.push(player, methodName, player.filename, true);
+        const frame = method ? this.pushFrameObject({ object: player, method, isAsync: true }) : undefined;
 
         try {
             this.client = storage.component || this.client;
@@ -1459,8 +1490,7 @@ class ExecutionContext extends MUDEventEmitter {
             if (catchErrors === false) throw err;
         }
         finally {
-            if (methodName)
-                ecc.pop(methodName);
+            frame?.pop();
             if (restoreOldPlayer) {
                 if (oldPlayer)
                     this.setThisPlayer(oldPlayer, true);

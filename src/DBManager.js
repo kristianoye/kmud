@@ -7,10 +7,10 @@
  */
 
 const
-    MUDEventEmitter = require('./MUDEventEmitter'),
+    events = require('events'),
     Database = require('./db/IDatabase')
 
-class DBManager extends MUDEventEmitter {
+class DBManager extends events.EventEmitter {
     /**
      * Initialize the database manager.
      * @param {Object.<string,Database>} config Collection of database entries
