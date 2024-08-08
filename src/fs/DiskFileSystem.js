@@ -9,7 +9,7 @@ const
     { FileSystemObject } = require('./FileSystemObject'),
     { FileSystemQueryFlags, CopyFlags } = require('./FileSystemFlags'),
     { ExecutionContext, CallOrigin } = require('../ExecutionContext'),
-    { copyFile, readdir, statfs, mkdir } = require('fs/promises'),
+    { copyFile, readdir, statfs, mkdir, unlink } = require('fs/promises'),
     async = require('async'),
     path = require('path'),
     fs = require('fs'),
@@ -301,24 +301,15 @@ class DiskFileObject extends FileSystemObject {
      */
     async deleteFileAsync(ecc) {
         let frame = ecc.push({ file: __filename, method: 'deleteFileAsync', isAsync: true, callType: CallOrigin.Driver });
-        return new Promise((resolve, reject) => {
-            try {
-                if (this.isDirectory)
-                    return reject(`deleteFileAsync: Invalid operation: ${this.path} is a directory`);
-                else
-                    fs.unlink(this.#physicalLocation, err => {
-                        if (err)
-                            reject(err);
-                        else resolve(true);
-                    });
-            }
-            catch (ex) {
-                reject(ex);
-            }
-            finally {
-                frame.pop();
-            }
-        });
+        try {
+            if (this.isDirectory)
+                throw new Error(`deleteFileAsync: Invalid operation: ${this.path} is a directory`);
+            await unlink(this.#physicalLocation);
+            await this.refreshAsync();
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**

@@ -56,7 +56,7 @@ class MUDLoader {
                  */
                 value: function (ecc, val) {
                     const
-                        caller = ecc.stack[0],
+                        caller = ecc._callstack[0],
                         frame = ecc.push({ method: '__cat' });
                     try {
                         if (typeof val === 'string') {
@@ -66,14 +66,14 @@ class MUDLoader {
                                 fileName: caller.file,
                                 stack: caller.context.getStackString(1)
                             };
-                            driver.errorHandler(frame.context, ecc.stack[1].error = error, true);
+                            driver.errorHandler(frame.context, ecc._callstack[1].error = error, true);
                         }
                         else {
                             // Catching timeout errors is not allowed
                             if (val instanceof TimeoutError) {
                                 throw val;
                             }
-                            driver.errorHandler(frame.context, ecc.stack[1].error = val, true);
+                            driver.errorHandler(frame.context, ecc._callstack[1].error = val, true);
                         }
                     }
                     finally {
@@ -134,7 +134,7 @@ class MUDLoader {
                         throw new Error('Illegal function call');
                     }
 
-                    if (ecc.stack[0].neededContext === true && parameters.length !== namedParameters.length) {
+                    if (ecc._callstack[0].neededContext === true && parameters.length !== namedParameters.length) {
                         const offset = parameters[0] instanceof ExecutionContext ? 1 : 0;
                         namedParameters.forEach((p, i) => {
                             for (const [varName, desc] of Object.entries(p)) {
@@ -316,7 +316,7 @@ class MUDLoader {
                     }
                     else {
                         ctx = defaultContext instanceof ExecutionContext ? defaultContext : ExecutionContext.getCurrentExecution();
-                        ctx.stack[0].neededContext = true;
+                        ctx._callstack[0].neededContext = true;
                         return ctx;
                     }
                 },

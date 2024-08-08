@@ -541,37 +541,32 @@ class FileSystemObject extends events.EventEmitter {
      * @param {ExecutionContext} ecc
      * @param {FileOptions} options
      */
-    readJsonAsync(ecc, options = {}) {
+    async readJsonAsync(ecc, options = {}) {
         let frame = ecc.push({ file: __filename, method: 'readJsonAsync', isAsync: true, callType: CallOrigin.Driver });
-        return new Promise(async (resolve, reject) => {
-            try {
-                let localOptions = Object.assign({ encoding: 'utf8', stripBOM: true }, options);
-                if (this.isDirectory) {
-                    console.log('Reading json from a directory?');
-                }
-                let content = await this.readAsync(frame.branch());
-                if (content) {
-                    content = content.toString(localOptions.encoding);
-                    if (localOptions.stripBOM) {
-                        content = driver.efuns.stripBOM(frame.context, content);
-                    }
-                }
-                if (typeof content === 'string') {
-                    let result = JSON.parse(content);
-                    return resolve(result);
-                }
-                else if (typeof content === 'object')
-                    return resolve(content);
-                else
-                    reject(new Error(`readJsonAsync(): Could not produce object`));
+        try {
+            let localOptions = Object.assign({ encoding: 'utf8', stripBOM: true }, options);
+            if (this.isDirectory) {
+                console.log('Reading json from a directory?');
             }
-            catch (ex) {
-                reject(ex);
+            let content = await this.readAsync(frame.branch());
+            if (content) {
+                content = content.toString(localOptions.encoding);
+                if (localOptions.stripBOM) {
+                    content = driver.efuns.stripBOM(frame.context, content);
+                }
             }
-            finally {
-                frame.pop();
+            if (typeof content === 'string') {
+                let result = JSON.parse(content);
+                return result;
             }
-        });
+            else if (typeof content === 'object')
+                return content;
+            else
+                throw new Error(`readJsonAsync(): Could not produce object`);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -968,7 +963,7 @@ class FileWrapperObject extends FileSystemObject {
         }
         catch (err) {
             if (err instanceof SecurityError) {
-                let lastFrame = ecc.stack[1];
+                let lastFrame = ecc._callstack[1];
                 throw new SecurityError(`${lastFrame.method}: Permission denied`, err);
             }
         }

@@ -736,7 +736,7 @@ class EFUNProxy {
     isAwaited(assertIfNotAwaited = false, methodName = 'unknown') {
         let ecc = ExecutionContext.getCurrentExecution(),
             result = ecc && ecc.isAwaited,
-            frame = ecc && ecc.stack[0] || false;
+            frame = ecc && ecc._callstack[0] || false;
 
         if (frame && frame.method === 'constructor')
             throw `Constructor in ${frame.file} [line ${frame.lineNumber}] attempted to call '${methodName}' which is async; Constructors cannot call async methods.`;
@@ -1132,7 +1132,7 @@ class EFUNProxy {
     origin(ecc) {
         let frame = ecc.push({ file: __filename, method: 'origin', callType: CallOrigin.DriverEfun });
         try {
-            let previousFrame = frame.context.stack[1];
+            let previousFrame = frame.context._callstack[1];
             return previousFrame ? previousFrame.origin : 0;
         }
         finally {

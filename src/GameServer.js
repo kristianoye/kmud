@@ -1003,15 +1003,6 @@ class GameServer extends events.EventEmitter {
     }
 
     /**
-     * Push a new frame onto the execution stack
-     * @param {ExecutionFrame} info
-     * @returns {ExecutionFrame}
-     */
-    pushFrame(info) {
-        return this.executionContext.push(info);
-    }
-
-    /**
      * Get all outstanding/unfinished execution contexts
      * @returns {Object.<string,ExecutionContext>}
      */
@@ -1287,7 +1278,7 @@ class GameServer extends events.EventEmitter {
                 console.log(`FATAL ERROR DURING STARTUP:`, ex);
                 process.exit(-111);
             }
-            await this.runStarting(ecc);
+            await this.runStarting(ecc.branch());
 
             if (this.masterObject && this.applyStartup)
                 await this.applyStartup(frame.branch({ lineNumber: 1312, hint: 'this.applyStartup' }));
@@ -1305,71 +1296,77 @@ class GameServer extends events.EventEmitter {
      * @param {ExecutionContext} ecc
      */
     async runStarting(ecc) {
-        this.gameState = GAMESTATE_STARTING;
-        await this.createPreloads(ecc.branch());
-        if (this.config.skipStartupScripts === false) {
-            let runOnce = path.resolve(__dirname, '../runOnce.json');
-            if (fs.existsSync(runOnce)) {
-                let list = this.config.stripBOM(fs.readFileSync(runOnce, 'utf8'))
-                    .split(efuns.eol)
-                    .map(s => JSON.parse(s));
+        const frame = ecc.push({ file: __filename, method: 'runStarting', lineNumber: __line, isAsync: true, className: this, callType: CallOrigin.Driver });
+        try {
+            this.gameState = GAMESTATE_STARTING;
+            await this.createPreloads(ecc.branch());
+            if (this.config.skipStartupScripts === false) {
+                let runOnce = path.resolve(__dirname, '../runOnce.json');
+                if (fs.existsSync(runOnce)) {
+                    let list = this.config.stripBOM(fs.readFileSync(runOnce, 'utf8'))
+                        .split(efuns.eol)
+                        .map(s => JSON.parse(s));
+                    try {
+                        let $storage = this.storage.get(this.masterObject);
+                        $storage.emit('kmud', { type: 'runOnce', dataData: list });
+                        logger.log(`Run once complete; Removing ${runOnce}`);
+                        fs.unlinkSync(runOnce);
+                    }
+                    catch (err) {
+                        logger.log(`Error running runOnce.json: ${err.message}`);
+                    }
+                }
+            }
+            for (let i = 0; i < this.endpoints.length; i++) {
+                let beFrame = ecc.push({ object: this.masterObject, method: 'bindEndpoints', callType: CallOrigin.Driver });
                 try {
-                    let $storage = this.storage.get(this.masterObject);
-                    $storage.emit('kmud', { type: 'runOnce', dataData: list });
-                    logger.log(`Run once complete; Removing ${runOnce}`);
-                    fs.unlinkSync(runOnce);
-                }
-                catch (err) {
-                    logger.log(`Error running runOnce.json: ${err.message}`);
-                }
-            }
-        }
-        for (let i = 0; i < this.endpoints.length; i++) {
-            let frame = ecc.push({ object: this.masterObject, method: 'bindEndpoints', callType: CallOrigin.Driver });
-            try {
-                this.endpoints[i]
-                    .bind(frame.branch())
-                    .on('kmud.connection', /** @param {MUDClient} client */ client => {
-                        this.driverCall('onConnection', () => {
-                            //let newLogin = this.masterObject.connect(client.port, client.clientType);
-                            //if (newLogin) {
-                            //    client.setBody(newLogin);
+                    this.endpoints[i]
+                        .bind(beFrame.branch())
+                        .on('kmud.connection', /** @param {MUDClient} client */ client => {
+                            this.driverCall('onConnection', () => {
+                                //let newLogin = this.masterObject.connect(client.port, client.clientType);
+                                //if (newLogin) {
+                                //    client.setBody(newLogin);
 
-                            //    if (driver.connections.indexOf(client) === -1)
-                            //        driver.connections.push(client);
-                            //}
-                            //else {
-                            //    client.writeLine('Sorry, something is very wrong right now; Please try again later.');
-                            //    client.close('No Login Object Available');
-                            //}
+                                //    if (driver.connections.indexOf(client) === -1)
+                                //        driver.connections.push(client);
+                                //}
+                                //else {
+                                //    client.writeLine('Sorry, something is very wrong right now; Please try again later.');
+                                //    client.close('No Login Object Available');
+                                //}
+                            });
+                        })
+                        .on('kmud.connection.new', function (client, protocol) {
+                            logger.log(`New ${protocol} connection from ${client.remoteAddress}`);
+                            driver.connections.push(client);
+                        })
+                        .on('kmud.connection.closed', function (client, protocol) {
+                            logger.log(`${protocol} connection from ${client.remoteAddress} closed.`);
+                            driver.connections.removeValue(client);
+                        })
+                        .on('kmud.connection.full', function (c) {
+                            c.write('The game is all full, sorry; Please try again later.\n');
+                            c.close();
+                        })
+                        .on('kmud.connection.timeout', function (c, p) {
+                            logger.log('A %s connection from %s timed out', p, c.remoteAddress);
                         });
-                    })
-                    .on('kmud.connection.new', function (client, protocol) {
-                        logger.log(`New ${protocol} connection from ${client.remoteAddress}`);
-                        driver.connections.push(client);
-                    })
-                    .on('kmud.connection.closed', function (client, protocol) {
-                        logger.log(`${protocol} connection from ${client.remoteAddress} closed.`);
-                        driver.connections.removeValue(client);
-                    })
-                    .on('kmud.connection.full', function (c) {
-                        c.write('The game is all full, sorry; Please try again later.\n');
-                        c.close();
-                    })
-                    .on('kmud.connection.timeout', function (c, p) {
-                        logger.log('A %s connection from %s timed out', p, c.remoteAddress);
-                    });
+                }
+                finally {
+                    beFrame.pop();
+                }
             }
-            finally {
-                frame.pop();
-            }
+            if (typeof callback === 'function') callback.call(this);
+
+            let startupTime = Date.now() - this.startTime,
+                startSeconds = startupTime / 1000;
+
+            logger.log(`Startup took ${startSeconds} seconds [${startupTime} ms]`);
         }
-        if (typeof callback === 'function') callback.call(this);
-
-        let startupTime = efuns.ticks - this.startTime,
-            startSeconds = startupTime / 1000;
-
-        logger.log(`Startup took ${startSeconds} seconds [${startupTime} ms]`);
+        finally {
+            frame.pop();
+        }
     }
 
     async runMain() {
