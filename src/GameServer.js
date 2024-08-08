@@ -195,6 +195,11 @@ class GameServer extends MUDEventEmitter {
         });
     }
 
+    /**
+     * 
+     * @param {typeof MUDObject | string} player The player object to get a home path for
+     * @returns 
+     */
     getHomePath(player) {
         return unwrap(player, user => {
             if (this.applyGetHomePath) {
@@ -428,7 +433,10 @@ class GameServer extends MUDEventEmitter {
      * @param {number} exitCode The exit code to exit with
      */
     crash(err, exitCode = -2) {
-        //  TODO: Notify in-game master and users of pending crash
+        const message = `${driver.efuns.mudName} has crashed due to an internal error`;
+        this.playerObjects.forEach(store => {
+            store.owner?.receiveMessage(message)
+        });
         console.log(`KMUD has crashed due to an internal error: ${(err + (err.stack ? '\n' + err.stack : ''))}`);
         process.exit(exitCode);
     }
@@ -834,7 +842,7 @@ class GameServer extends MUDEventEmitter {
      * @param {string} fileName The optional filename
      * @returns {any} The result of the callback
      */
-    async driverCallAsync(method, callback, fileName, rethrow = false, newContext = false) {
+    async driverCallAsync(method, callback, fileName, rethrow = false) {
         const
             ecc = ExecutionContext.getCurrentExecution(true),
             frame = ecc.pushFrameObject({ object: this.masterObject, method: 'driverCallAsync', file: fileName || __filename, callType: CallOrigin.Driver });
@@ -1023,9 +1031,14 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Set the driver's version of the efuns object.
-     * @param {any} efuns
+     * @param {import('./EFUNProxy')} efuns
      */
-    initDriverEfuns(efuns) {
+    initDriverEfuns(efunsIn) {
+        /**
+         * @global
+         * @type {import('./EFUNProxy')}
+         */
+        const efuns = efunsIn;
         this.efuns = global.efuns = efuns;
     }
 

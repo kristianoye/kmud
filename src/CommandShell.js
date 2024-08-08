@@ -74,7 +74,6 @@ class CommandShell extends events.EventEmitter {
             history: [],
             ...options
         };
-
         this.client = component.client;
 
         this.stdin = new IO.StandardInputStream({ encoding: 'utf8' }, component, this);
@@ -366,7 +365,7 @@ class CommandShell extends events.EventEmitter {
                             case TokenTypes.TOKEN_BACKTICK:
                                 if (options.expandBackticks) {
                                     let cp = new CommandParser(token.tokenValue, this),
-                                        btcmd = await cp.parse();
+                                        btcmd = await cp.parse(frame.context);
 
                                     let s = new IO.StandardBufferStream();
                                     btcmd.redirectStdoutTo = s;
@@ -605,7 +604,7 @@ class CommandShell extends events.EventEmitter {
                 return cleanError;
             });
         }
-        catch(err) {
+        catch (err) {
             logger.log('CRITICAL: Error in handleError!', err);
         }
     }

@@ -344,7 +344,7 @@ class MUDStorage extends MUDEventEmitter {
                 try {
                     //  Do not attempt any heartbeats until this one is complete.
                     this.canHeartbeat = false;
-                    await player.eventHeartbeat(frame.branch(), total, ticks);
+                    await this.owner?.instance?.eventHeartbeat(frame.context, total, ticks);
                 }
                 finally {
                     this.canHeartbeat = true;

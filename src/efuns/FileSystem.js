@@ -12,7 +12,7 @@ const
     { CallOrigin, ExecutionContext } = require('../ExecutionContext'),
     { FileSystemObject } = require('../fs/FileSystemObject'),
     path = require('path').posix;
-    
+
 
 class FileSystemHelper {
     constructor(parent) {
@@ -130,14 +130,14 @@ class FileSystemHelper {
      * Create a directory on the filesystem
      * @param {ExecutionContext} ecc The current call stack
      * @param {string} expr The path expression to create
-     * @param {number} flags Flags to control the operation
+     * @param {{ createAsNeeded: boolean, errorIfExists: boolean }} flags Flags to control the operation
      * @returns {Promise<boolean>} Returns true if successful
      */
-    async createDirectoryAsync(ecc, expr, flags = 0) {
+    async createDirectoryAsync(ecc, expr, { createAsNeeded, errorIfExists } = { createAsNeeded: false, errorIfExists: true }) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'createDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
-            let fso = await driver.fileManager.getObjectAsync(frame.branch(), expr);
-            return await fso.createDirectoryAsync(frame.branch());
+            let fso = await driver.fileManager.getObjectAsync(frame.context, expr);
+            return await fso.createDirectoryAsync(frame.context, { createAsNeeded, errorIfExists });
         }
         finally {
             frame.pop();
@@ -222,7 +222,7 @@ class FileSystemHelper {
      * @param {any} suffix
      * @returns
      */
-    async getBackupExtension(ecc, fileOrPath, control='simple', suffix='~') {
+    async getBackupExtension(ecc, fileOrPath, control = 'simple', suffix = '~') {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'getBackupExtension', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (typeof fileOrPath === 'object' && typeof fileOrPath.fullPath === 'string')

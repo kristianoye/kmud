@@ -9,6 +9,7 @@ const
     { FileSystemObject } = require('./FileSystemObject'),
     { FileSystemQueryFlags, CopyFlags } = require('./FileSystemFlags'),
     { ExecutionContext, CallOrigin } = require('../ExecutionContext'),
+    { readdir, statfs } = require('fs/promises'),
     async = require('async'),
     path = require('path'),
     fs = require('fs'),
@@ -148,11 +149,21 @@ class DiskFileObject extends FileSystemObject {
     /**
      * Attempt to create this as a directory
      * @param {ExecutionContext} ecc The current callstack
-     * @param {boolean} createAsNeeded
+     * @param {{ createAsNeeded: boolean, errorIfExists: boolean }}
      * @returns
      */
-    async createDirectoryAsync(ecc, createAsNeeded = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
+    async createDirectoryAsync(ecc, { createAsNeeded, errorIfExists } = { createAsNeeded: false, errorIfExists: true }) {
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'createDirectoryAsync', isAsync: true, callType: CallOrigin.Driver }),
+            pathParts = this.fullPath.split(path.posix.sep).slice(1),
+            directoriesToCreate = !createAsNeeded ? [this.fullPath] : pathParts.flatMap((part, i) => {
+                return path.join(pathParts.slice(0, i).join(path.posix.sep), part);
+            });
+
+        for (const [dirName, i] of Object.entries(directoriesToCreate)) {
+            if ((i + 1) === directoriesToCreate.length) {
+
+            }
+        }
         return new Promise(async (resolve, reject) => {
             if (this.exists) {
                 if (createAsNeeded)

@@ -13,6 +13,8 @@ const
     DriverFeature = require('../config/DriverFeature'),
     { ExecutionContext, CallOrigin } = require('../ExecutionContext');
 
+driver.efuns.fs.createDirectoryAsync(ecc, 'test', { createAsNeeded: true })
+
 const
     _prepAliases = {
         "in": ['in', 'inside', 'within'],
@@ -252,7 +254,6 @@ class VerbRule {
                 method = handler[this.fallbackDo];
                 isFallback = !!method;
             }
-
             if (!method)
                 return false;
 

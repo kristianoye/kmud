@@ -33,6 +33,9 @@ var /** @type {Object.<number,ExecutionContext>} */
 var /** @type {Object.<number,ExecutionContext>} */
     Callouts = {};
 
+/**
+ * @global {import('./EFUNProxy')} efuns */
+
 class MUDLoader {
     /**
      * @param {MUDCompiler} compiler The compiler.

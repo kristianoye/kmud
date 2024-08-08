@@ -550,6 +550,9 @@ class ExecutionContext extends MUDEventEmitter {
         let startTime = new Date().getTime(),
             frame = this.stack[0];
 
+        if (!frame)
+            await driver.crashAsync(new Error(`Call stack was empty!`));
+
         try {
             await this.assertStateAsync(true);
             frame.awaitCount++;
@@ -955,14 +958,20 @@ class ExecutionContext extends MUDEventEmitter {
                 this.alarmTime += lastFrame.ellapsed;
         }
         if (frame !== this.stack[0]) {
-            console.log(`\tExecutionContext: Out of sync; Expected ${frame.method} but found ${this.stack[0].method}`);
-            let index = this.stack.findIndex(f => f === frame);
-            if (index === -1) {
-                //  Crash?
-                console.log(`\tExecutionContext: CRITICAL ERROR: FRAME NOT FOUND IN STACK: ${frame.method}`);
+            if (this.stack.length === 0) {
+                //  Crasher?
+                console.log('\tExecutionContext: Cannot pop frame off an empty stack!');
             }
             else {
-                this.stack = this.stack.slice(0, index);
+                console.log(`\tExecutionContext: Out of sync; Expected ${frame.method} but found ${this.stack[0].method}`);
+                let index = this.stack.findIndex(f => f === frame);
+                if (index === -1) {
+                    //  Crash?
+                    console.log(`\tExecutionContext: CRITICAL ERROR: FRAME NOT FOUND IN STACK: ${frame.method}`);
+                }
+                else {
+                    this.stack = this.stack.slice(0, index);
+                }
             }
         }
         else
