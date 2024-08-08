@@ -3,6 +3,14 @@
  * Copyright (C) 2017.  All rights reserved.
  * Date: October 1, 2017
  */
+
+const
+    path = require('node:path'),
+    driverSource = path.join(__dirname, 'src');
+
+//  Nothing but the side-effects, mam
+require('./src/Importer')(['.js'], (filename) => !filename.startsWith(driverSource));
+
 var exitCode = 0;
 
 try {

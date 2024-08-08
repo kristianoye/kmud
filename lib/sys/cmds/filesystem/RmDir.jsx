@@ -62,18 +62,18 @@ export default singleton class RmDir extends Command {
     /**
      * Does the work of actually deleting the directories.
      * @param {string[]} dirList
-     * @param {number} options
+     * @param {number} flags
      */
-    async removeDirectories(dirList, options) {
+    async removeDirectories(dirList, flags) {
         let dir = dirList.shift();
 
         for (let i = 0; i < dirList.length; i++) {
             if (!await efuns.fs.isDirectoryAsync(dirList[i]))
                 return `rmdir: '${dirList[i]}' is not a directory`;
 
-            let success = - await efuns.fs.deleteDirectoryAsync(dirList[i], options);
+            let success = await efuns.fs.deleteDirectoryAsync(dirList[i], { flags });
 
-            if (options & RmdirVerbose)
+            if (flags & RmdirVerbose)
                 writeLine('Rmdir: ' + (success ? `Removed ${dir}` : `Failed: ${error.message}`));
         }
         return true;

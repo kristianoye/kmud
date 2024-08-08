@@ -208,11 +208,23 @@ class FileSystemObject extends events.EventEmitter {
     }
 
     async getGroupName() {
-        return await driver.securityManager.getGroupName(this);
+        let [frame] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'getGroupName', isAsync: true, callType: CallOrigin.Driver }, true);
+        try {
+            return await driver.securityManager.getGroupName(frame.context, this);
+        }
+        finally {
+            frame?.pop();
+        }
     }
 
     async getOwnerName() {
-        return await driver.securityManager.getOwnerName(this);
+        let [frame] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'getOwnerName', isAsync: true, callType: CallOrigin.Driver }, true);
+        try {
+            return await driver.securityManager.getOwnerName(frame.context, this);
+        }
+        finally {
+            frame?.pop();
+        }
     }
 
     get parent() {
@@ -228,8 +240,19 @@ class FileSystemObject extends events.EventEmitter {
         return this.#fileInfo.path;
     }
 
-    async getPermString(tp = false) {
-        return await driver.securityManager.getPermString(this, tp || driver.efuns.thisPlayer());
+    /**
+     * Get the string representation of the object's permissions to this object
+     * @returns {string}
+     */
+    async getPermString() {
+        /** @type {[ ExecutionContext, typeof import('../MUDObject') ]} */
+        const [frame, player] = ExecutionContext.tryPushFrame(arguments, { method: 'getPermString', callType: CallOrigin.Driver, isAsync: true, className: FileSystemObject });
+        try {
+            return await driver.securityManager.getPermString(frame.context, this, player || driver.efuns.thisPlayer(frame.context));
+        }
+        finally {
+            frame?.pop();
+        }
     }
 
     get rdev() {
@@ -384,6 +407,7 @@ class FileSystemObject extends events.EventEmitter {
     /**
      * Called to delete the object
      * @param {FileSystemRequest} request
+     * @returns {Promise<boolean>}
      */
     async deleteDirectoryAsync(request) {
         throw new NotImplementedError('deleteDirectoryAsync', this);
@@ -1025,8 +1049,8 @@ class FileWrapperObject extends FileSystemObject {
     async createDirectoryAsync(ecc, ...args) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'createDirectoryAsync', isAsync: true });
         try {
-            if (await this.can(frame.branch(), SecurityFlags.P_CREATEDIR)) {
-                return this.#instance.createDirectoryAsync(...args);
+            if (await this.can(ecc, SecurityFlags.P_CREATEDIR)) {
+                return this.#instance.createDirectoryAsync(ecc, ...args);
             }
         }
         finally {

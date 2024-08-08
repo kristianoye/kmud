@@ -33,6 +33,9 @@ var /** @type {Object.<number,ExecutionContext>} */
 var /** @type {Object.<number,ExecutionContext>} */
     Callouts = {};
 
+/**
+ * @global {import('./EFUNProxy')} efuns */
+
 class MUDLoader {
     /**
      * @param {MUDCompiler} compiler The compiler.
@@ -135,7 +138,6 @@ class MUDLoader {
                         const offset = parameters[0] instanceof ExecutionContext ? 1 : 0;
                         namedParameters.forEach((p, i) => {
                             for (const [varName, desc] of Object.entries(p)) {
-                                console.log(`Setting ${varName} to ${(parameters[i + offset])}`);
                                 desc[1](parameters[i + offset]);
                             }
                         });
@@ -702,7 +704,13 @@ class MUDLoader {
      * @param {any} excluded
      */
     message(ecc, messageType = '', expr = '', audience = [], excluded = []) {
-        return efuns.message(ecc, messageType, expr, audience, excluded);
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'message', lineNumber: __line });
+        try {
+            return efuns.message(frame.context, messageType, expr, audience, excluded);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     get MUDFS() {

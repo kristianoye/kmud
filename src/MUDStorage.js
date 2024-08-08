@@ -7,7 +7,7 @@
  */
 const
     ActionBinder = require('./ActionBinder'),
-    MUDEventEmitter = require('./MUDEventEmitter'),
+    events = require('events'),
     ClientComponent = require('./ClientComponent'),
     ClientCaps = require('./network/ClientCaps'),
     MUDStorageFlags = require('./MUDStorageFlags'),
@@ -22,7 +22,7 @@ const
  * a signal mechanism between the driver and the in-game object for important
  * events like heartbeats and connection status (to protect against fake calls)
  */
-class MUDStorage extends MUDEventEmitter {
+class MUDStorage extends events.EventEmitter {
     /**
      * Construct a storage object.
      * @param {MUDObject} owner The owner of the storage object.
@@ -344,7 +344,7 @@ class MUDStorage extends MUDEventEmitter {
                 try {
                     //  Do not attempt any heartbeats until this one is complete.
                     this.canHeartbeat = false;
-                    await player.eventHeartbeat(frame.branch(), total, ticks);
+                    await this.owner?.instance?.eventHeartbeat(frame.context, total, ticks);
                 }
                 finally {
                     this.canHeartbeat = true;

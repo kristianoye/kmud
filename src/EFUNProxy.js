@@ -23,6 +23,7 @@ const
     PLURAL_CHOP = 2;
 
 const
+    { ExecutionContext, CallOrigin, ExecutionFrame } = require('./ExecutionContext'),
     ArrayHelper = require('./efuns/Arrays'),
     EnglishHelper = require('./efuns/English'),
     FileSystemHelper = require('./efuns/FileSystem'),
@@ -33,9 +34,8 @@ const
     SecurityHelper = require('./efuns/SecurityHelper'),
     TextHelper = require('./efuns/TextHelper'),
     TimeHelper = require('./efuns/Time'),
-    UserHelper = require('./efuns/UserHelper');
-const { ExecutionContext, CallOrigin, ExecutionFrame } = require('./ExecutionContext');
-const MUDObject = require('./MUDObject');
+    UserHelper = require('./efuns/UserHelper'),
+    MUDObject = require('./MUDObject');
 
 var
     IncludeCache = {},
@@ -246,13 +246,12 @@ class EFUNProxy {
      * @param {ExecutionContext} ecc
      * @param {string} plain The plain text entered as a password.
      * @param {string} crypto The encrypted password to check against.
-     * @param {function=} callback Optional callback if operation is async.
      * @returns {boolean} True if the password matches false if not.
      */
-    checkPassword(ecc, plain, crypto, callback) {
+    checkPassword(ecc, plain, crypto) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'checkPassword', callType: CallOrigin.DriverEfun });
         try {
-            return driver.config.mud.passwordPolicy.checkPassword(plain, crypto, callback);
+            return driver.config.mud.passwordPolicy.checkPassword(plain, crypto);
         }
         finally {
             frame.pop();
@@ -381,8 +380,8 @@ class EFUNProxy {
                     text: words.join('').trim(),
                     args: words.filter(s => s.trim().length > 0)
                 };
-            await frame.context.withPlayerAsync(thisObject, async player => {
-                await player.executeCommand(frame.branch(), evt);
+            await frame.context.withPlayerAsync(thisObject, async (player, context) => {
+                await player.executeCommand(context, evt);
             }, true, 'command');
         }
         finally {
@@ -911,7 +910,6 @@ class EFUNProxy {
         try {
             let logPath = path.posix.resolve(driver.config.mudlib.logDirectory, file),
                 logFile = await driver.fileManager.getObjectAsync(frame.branch(), logPath);
-
             return await logFile.appendFileAsync(frame.branch(), message + this.eol);
         }
         finally {
@@ -931,6 +929,7 @@ class EFUNProxy {
             return await driver.logError(frame.branch(), to.fullPath, err);
         }
         catch (e) {
+            frame.err = e;
         }
         finally {
             frame.pop();
@@ -947,7 +946,7 @@ class EFUNProxy {
      * @returns {true} Always returns true.
      */
     message(ecc, messageType, expr, audience, excluded) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'message', callType: CallOrigin.DriverEfun });
+        let frame = ecc.pushFrameObject({ file: __filename, method: 'message', lineNumber: __line, callType: CallOrigin.DriverEfun });
         try {
             if (expr) {
                 if (!excluded)
@@ -980,14 +979,14 @@ class EFUNProxy {
                     driver.driverCall('message', () => {
                         recipients.forEach(player => {
                             let playerMessage = expr(player) || false;
-                            playerMessage && player.receiveMessage(ecc, messageType, playerMessage);
+                            playerMessage && player.receiveMessage(ecc.branch({ lineNumber: __line, hint: 'player.receiveMessage' }), messageType, playerMessage);
                         });
                     });
                 }
                 else {
                     driver.driverCall('message', () => {
                         recipients.forEach(player => {
-                            player.receiveMessage(ecc, messageType, expr);
+                            player.receiveMessage(ecc.branch({ lineNumber: __line, hint: 'player.receiveMessage' }), messageType, expr);
                         });
                     });
                 }
@@ -2146,15 +2145,22 @@ class EFUNProxy {
 
     /**
      * Produce a random number in the specified range
-     * @param {number} min
-     * @param {number} max
+     * @param {ExecutionContext} ecc The current callstack
+     * @param {number} min The minimum possible value
+     * @param {number} max The max possible value
      * @returns
      */
-    random(min, max) {
-        min = Math.ceil(min);
-        max = Math.floor(max);
+    random(ecc, min = 1, max = 100) {
+        const frame = ecc.pushFrameObject({ method: 'random', callType: CallOrigin.DriverEfun });
+        try {
+            min = Math.ceil(min);
+            max = Math.floor(max);
 
-        return Math.floor(Math.random() * (max - min + 1)) + min;
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -2337,7 +2343,7 @@ class EFUNProxy {
     thisPlayer(ecc, flagIn = false, getBoth = false) {
         let [frame, flag] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'thisPlayer', callType: CallOrigin.DriverEfun, isAsync: false }, true);
         try {
-            if (!ecc) {
+            if (!frame?.context) {
                 console.log('\t\t\tefuns.thisPlayer() did not receive a context');
             }
             return frame.context.getThisPlayer(!!flag, getBoth)

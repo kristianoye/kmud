@@ -1167,12 +1167,12 @@ class AclSecurityManager extends BaseSecurityManager {
     async getOwnerName(ecc, fo) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'getOwnerName', isAsync: true, callType: CallOrigin.Driver });
         try {
+            let acl = await this.getAcl(ecc, fo);
+            return acl?.owner ?? 'unknown';
         }
         finally {
             frame.pop();
         }
-        let acl = await this.getAcl(fo);
-        return acl ? acl.owner : 'unknown';
     }
 
     /**
@@ -1185,12 +1185,12 @@ class AclSecurityManager extends BaseSecurityManager {
     async getPermString(ecc, fo, tp) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'getPermString', isAsync: true, callType: CallOrigin.Driver });
         try {
+            let acl = await this.getAcl(ecc, fo);
+            return acl ? await acl.getPermString(ecc, tp, fo.fullPath) : 'unknown';
         }
         finally {
             frame.pop();
         }
-        let acl = await this.getAcl(fo);
-        return acl ? acl.getPermString(tp, fo.fullPath) : 'unknown';
     }
 
     /**

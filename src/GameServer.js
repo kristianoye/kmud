@@ -18,9 +18,9 @@ const
     path = require('path'),
     os = require('os'),
     uuidv5 = require('uuid/v5'),
-    MUDEventEmitter = require('./MUDEventEmitter');
+    events = require('events');
 
-class GameServer extends MUDEventEmitter {
+class GameServer extends events.EventEmitter {
     /**
      * Construct a new game server
      * @param {MUDConfig} config The configuration object.
@@ -29,6 +29,7 @@ class GameServer extends MUDEventEmitter {
         super();
 
         global.driver = this;
+        this.debugMode = true;
 
         let extensionsDir = path.join(__dirname, 'extensions');
         Object.defineProperty(global, '__ivc', {
@@ -195,6 +196,11 @@ class GameServer extends MUDEventEmitter {
         });
     }
 
+    /**
+     * 
+     * @param {typeof MUDObject | string} player The player object to get a home path for
+     * @returns 
+     */
     getHomePath(player) {
         return unwrap(player, user => {
             if (this.applyGetHomePath) {
@@ -428,7 +434,10 @@ class GameServer extends MUDEventEmitter {
      * @param {number} exitCode The exit code to exit with
      */
     crash(err, exitCode = -2) {
-        //  TODO: Notify in-game master and users of pending crash
+        const message = `${driver.efuns.mudName} has crashed due to an internal error`;
+        this.playerObjects.forEach(store => {
+            store.owner?.receiveMessage(message)
+        });
         console.log(`KMUD has crashed due to an internal error: ${(err + (err.stack ? '\n' + err.stack : ''))}`);
         process.exit(exitCode);
     }
@@ -530,14 +539,14 @@ class GameServer extends MUDEventEmitter {
      * @param {ExecutionContext} ecc
      */
     async createFileSystems(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createFileSystems', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.pushFrameObject({ file: __filename, lineNumber: __line, method: 'createFileSystems', isAsync: true, callType: CallOrigin.Driver });
 
         try {
             let fsconfig = this.config.mudlib.fileSystem;
 
             logger.logIf(LOGGER_PRODUCTION, 'Creating filesystem(s)');
             this.fileManager = await fsconfig.createFileManager(this);
-            await this.fileManager.bootstrap(fsconfig); // fsconfig.eachFileSystem(async (config, index) => await this.fileManager.createFileSystem(config, index));
+            await this.fileManager.bootstrap(frame.context, fsconfig); // fsconfig.eachFileSystem(async (config, index) => await this.fileManager.createFileSystem(config, index));
             this.securityManager = this.fileManager.securityManager;
             await this.securityManager.bootstrap(frame.branch(), this);
         }
@@ -834,7 +843,7 @@ class GameServer extends MUDEventEmitter {
      * @param {string} fileName The optional filename
      * @returns {any} The result of the callback
      */
-    async driverCallAsync(method, callback, fileName, rethrow = false, newContext = false) {
+    async driverCallAsync(method, callback, fileName, rethrow = false) {
         const
             ecc = ExecutionContext.getCurrentExecution(true),
             frame = ecc.pushFrameObject({ object: this.masterObject, method: 'driverCallAsync', file: fileName || __filename, callType: CallOrigin.Driver });
@@ -937,7 +946,7 @@ class GameServer extends MUDEventEmitter {
                 async (store, index, itr) => {
                     return ExecutionContext.withNewContext({ object: this.masterObject, method: 'executeHeartbeat', isAsync: true, callType: CallOrigin.Driver }, async ecc => {
                         try {
-                            ecc.alarmTime = efuns.ticks + heartbeatInterval;
+                            ecc.alarmTime = this.debugMode ? Number.MAX_SAFE_INTEGER : Date.now() + heartbeatInterval;
                             ecc.setThisPlayer(store.owner, true);
 
                             await store.eventHeartbeat(ecc, this.heartbeatInterval, this.heartbeatCounter);
@@ -1023,9 +1032,14 @@ class GameServer extends MUDEventEmitter {
 
     /**
      * Set the driver's version of the efuns object.
-     * @param {any} efuns
+     * @param {import('./EFUNProxy')} efuns
      */
-    initDriverEfuns(efuns) {
+    initDriverEfuns(efunsIn) {
+        /**
+         * @global
+         * @type {import('./EFUNProxy')}
+         */
+        const efuns = efunsIn;
         this.efuns = global.efuns = efuns;
     }
 
@@ -1064,13 +1078,8 @@ class GameServer extends MUDEventEmitter {
                                 }
                             }
                             else {
-                                try {
-                                    let result = proto.__native[name].apply(this, parms);
-                                    return result;
-                                }
-                                catch (err) {
-                                    console.log(`Error in ${name}: ${err}\n${err.stack}`);
-                                }
+                                let result = proto.__native[name].apply(this, parms);
+                                return result;
                             }
                         };
                     })(name, proto.__native[name] = proto[name]);
@@ -1284,11 +1293,11 @@ class GameServer extends MUDEventEmitter {
                 await this.applyStartup(frame.branch({ lineNumber: 1312, hint: 'this.applyStartup' }));
             if (callback)
                 callback.call(this);
-            return await this.runMain();
         }
         finally {
             frame.pop();
         }
+        return await this.runMain();
     }
 
     /**

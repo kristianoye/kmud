@@ -9,6 +9,7 @@ const
     { FileSystemObject } = require('./FileSystemObject'),
     { FileSystemQueryFlags, CopyFlags } = require('./FileSystemFlags'),
     { ExecutionContext, CallOrigin } = require('../ExecutionContext'),
+    { copyFile, readdir, statfs, mkdir } = require('fs/promises'),
     async = require('async'),
     path = require('path'),
     fs = require('fs'),
@@ -122,12 +123,14 @@ class DiskFileObject extends FileSystemObject {
     /**
      * Try and copy a file using the OS
      * @param {ExecutionContext} ecc The current callstack
-     * @param {FileSystemObject} dest
+     * @param {FileSystemObject} dest The location to copy to
+     * @param {import('./BaseFileSystem').CopyOptions}
      * @returns
      */
-    async tryDirectCopyAsync(ecc, dest) {
+    async tryDirectCopyAsync(ecc, dest, { errorIfExists, failSilently, flags } = { errorIfExists: false, failSilently: false, flags: 0 }) {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'tryDirectCopyAsync', isAsync: true, callType: CallOrigin.Driver });
-        return new Promise(async resolve => {
+        try {
+            //  Cannot direct copy between a disk file and a database file, for example
             if (dest.storageType !== this.storageType)
                 return false;
             else {
@@ -135,61 +138,57 @@ class DiskFileObject extends FileSystemObject {
                 let { fileSystem, relativePath } = driver.fileManager.getFilesystem(dest.fullPath),
                     physicalDest = fileSystem.getRealPath(frame.branch(), relativePath);
 
-                fs.copyFile(this.#physicalLocation, physicalDest, fs.constants.COPYFILE_FICLONE, err => {
-                    if (err)
-                        resolve(false);
-                    else
-                        resolve(true);
-                });
+                await copyFile(this.#physicalLocation, physicalDest, flags);
+                return true;
             }
-        }).finally(() => frame.pop());
+        }
+        catch (err) {
+            frame.error = err;
+            if (!failSilently)
+                throw err;
+        }
+        finally {
+            frame.pop();
+        }
+        return false;
     }
 
     /**
      * Attempt to create this as a directory
      * @param {ExecutionContext} ecc The current callstack
-     * @param {boolean} createAsNeeded
+     * @param {import('./BaseFileSystem').CreateDirectoryOptions}
      * @returns
      */
-    async createDirectoryAsync(ecc, createAsNeeded = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
-        return new Promise(async (resolve, reject) => {
-            if (this.exists) {
-                if (createAsNeeded)
-                    return resolve(this);
-                else if (!this.isDirectory)
-                    reject(`createDirectoryAsync: Path ${this.path} is not a directory.`);
-                else
-                    return reject(`createDirectoryAsync: Path ${this.path} already exists.`);
-            }
+    async createDirectoryAsync(ecc, { createAsNeeded, errorIfExists, isSystemRequest } = { createAsNeeded: false, errorIfExists: true, isSystemRequest: false }) {
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'createDirectoryAsync', isAsync: true, callType: CallOrigin.Driver }),
+            pathParts = this.fullPath.split(path.posix.sep).slice(1),
+            directoriesToCreate = !createAsNeeded ? [this.fullPath] : pathParts.flatMap((part, i) => {
+                return path.join(pathParts.slice(0, i).join(path.posix.sep), part);
+            });
 
-            try {
-                if (createAsNeeded === true) {
-                    let parts = this.fullPath.split('/').filter(s => s.length > 0);
-                    if (parts.length > 1) {
-                        for (let i = 1, max = parts.length; i < max; i++) {
-                            let parentPath = path.posix.join('/', ...parts.slice(0, i));
-                            let parent = await driver.fileManager.getFileAsync(frame.branch(), parentPath, 0, false === this.isWrapper());
-
-                            if (!parent.exists) {
-                                await parent.createDirectoryAsync(frame.branch(), createAsNeeded);
-                            }
-                        }
+        try {
+            for (const [i, dirName] of directoriesToCreate.entries()) {
+                if ((i + 1) === directoriesToCreate.length) {
+                    try {
+                        await mkdir(this.#physicalLocation);
                     }
+                    catch (err) {
+                        if (err.code !== 'EEXIST' || errorIfExists)
+                            throw err;
+                    }
+                    await this.refreshAsync(ecc);
+                    return true;
                 }
-                fs.mkdir(this.#physicalLocation, async err => {
-                    if (err)
-                        return reject(err);
-                    else {
-                        await this.refreshAsync(frame.branch());
-                        return resolve(true);
-                    }
-                });
+                else {
+                    //  For parent paths, we cannot be sure they exist on a disk
+                    const parentDir = await driver.fileManager.getObjectAsync(ecc, dirName, isSystemRequest === true);
+                    await parentDir.createDirectoryAsync(ecc, { errorIfExists, isSystemRequest });
+                }
             }
-            catch (err) {
-                reject(err);
-            }
-        }).finally(() => frame.pop());
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -249,9 +248,9 @@ class DiskFileObject extends FileSystemObject {
         let frame = ecc.pushFrameObject({ file: __filename, method: 'deleteAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (this.isDirectory)
-                return this.deleteDirectoryAsync(frame.branch(), ...args);
+                return this.deleteDirectoryAsync(ecc, ...args);
             else
-                return this.deleteFileAsync(frame.branch(), ...args);
+                return this.deleteFileAsync(ecc, ...args);
         }
         finally {
             frame.pop();
@@ -265,21 +264,20 @@ class DiskFileObject extends FileSystemObject {
      * @param {number} flags
      */
     async deleteDirectoryAsync(ecc, expr = '', flags = 0) {
-        let deleteOperation = { pattern: '', confirm: () => true, flags: 0 };
+        const frame = ecc.pushFrameObject({ file: __filename, method: 'deleteDirectoryAsync', isAsync: true, callType: CallOrigin.Driver, className: DiskFileObject });
+        try {
+            let deleteOperation = { pattern: '', confirm: () => true, flags: 0 };
 
-        if (typeof expr === 'object') {
-            deleteOperation = Object.assign(deleteOperation, expr);
-        }
-        else if (typeof expr === 'string') {
-            deleteOperation.pattern = expr;
-        }
+            if (typeof expr === 'object') {
+                deleteOperation = Object.assign(deleteOperation, expr);
+            }
+            else if (typeof expr === 'string') {
+                deleteOperation.pattern = expr;
+            }
 
-        if (flags > 0) {
-            deleteOperation.flags |= flags;
-        }
-
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'deleteAsync', isAsync: true, callType: CallOrigin.Driver });
-        return new Promise(async (resolve, reject) => {
+            if (flags > 0) {
+                deleteOperation.flags |= flags;
+            }
             if (!this.directory)
                 return reject(`deleteFileAsync: Invalid operation: ${this.path} is not a directory`);
 
@@ -290,7 +288,10 @@ class DiskFileObject extends FileSystemObject {
                     await contents[i].deleteAsync();
                 }
             }
-        }).finally(() => frame.pop());
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**

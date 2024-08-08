@@ -9,7 +9,7 @@
 const CommandShell = require('./CommandShell');
 
 const
-    MUDEventEmitter = require('./MUDEventEmitter'),
+    events = require('events'),
     ComponentData = {};
 
 /**
@@ -23,7 +23,7 @@ function $(arg) {
     return ComponentData[arg.id];
 }
 
-class ClientComponent extends MUDEventEmitter {
+class ClientComponent extends events.EventEmitter {
     /**
      * Constructs a new client component
      * @param {ClientInstance} client The client this component is registered with

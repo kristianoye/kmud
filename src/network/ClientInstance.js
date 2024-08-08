@@ -9,9 +9,9 @@ const { ExecutionContext, CallOrigin } = require('../ExecutionContext');
 const
     ClientEndpoint = require('./ClientEndpoint'),
     ClientComponent = require('../ClientComponent'),
-    MUDEventEmitter = require('../MUDEventEmitter'),
     BaseInput = require('../inputs/BaseInput'),
-    CommandShell = require('../CommandShell');
+    CommandShell = require('../CommandShell'),
+    events = require('events');
 
 var
     maxCommandExecutionTime = 0;
@@ -19,7 +19,7 @@ var
 /**
  * Abstracted client interface shared by all client connection types.
  */
-class ClientInstance extends MUDEventEmitter { // EventEmitter {
+class ClientInstance extends events.EventEmitter {
     /**
      * 
      * @param {ClientEndpoint} endpoint

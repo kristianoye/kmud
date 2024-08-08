@@ -252,7 +252,6 @@ class VerbRule {
                 method = handler[this.fallbackDo];
                 isFallback = !!method;
             }
-
             if (!method)
                 return false;
 

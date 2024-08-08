@@ -1,7 +1,23 @@
 const { NotImplementedError } = require('../ErrorTypes');
 const
-    MUDEventEmitter = require('../MUDEventEmitter');
-const FileSystemQuery = require('./FileSystemQuery');
+    events = require('events'),
+    FileSystemQuery = require('./FileSystemQuery');
+
+
+/**
+ * @typedef {Object} CreateDirectoryOptions
+ * @property {boolean} [createAsNeeded] Check and create every parent as needed; Defaults to false
+ * @property {boolean} [errorIfExists] Throw an exception if the directory already exists; Defaults to true
+ * @property {boolean} [isSystemRequest] Is this request being made by the driver? RESERVED--cannot be used in-game
+ */
+
+/**
+ * @typedef {Object} CopyOptions
+ * @property {boolean} [errorIfExists] Throw an exception if the directory already exists; Defaults to true
+ * @property {boolean} [failSilently] Fail silently if the copy operation fails; Defaults to false
+ * @property {number} [flags] NodeJS flags for copy operations
+ * @property {boolean} [isSystemRequest] RESERVED--This is a system call; cannot be used in-game; Defaults to false
+ */
 
 const
     FS_NONE = 0,            // No flags set
@@ -19,7 +35,7 @@ const
  * 
  * The file manager ultimately provides a single method: getObjectAsyc.
  */
-class BaseFileSystem extends MUDEventEmitter {
+class BaseFileSystem extends events.EventEmitter {
     /**
      * 
      * @param {FileManager} fileManager
