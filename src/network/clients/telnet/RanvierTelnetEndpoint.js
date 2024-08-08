@@ -32,7 +32,7 @@ class RanvierTelnetEndpoint extends ClientEndpoint {
      * @returns {RanvierTelnetEndpoint} A reference to itself
      */
     bind(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'bind', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'bind', callType: CallOrigin.Driver });
         try {
             let server = new TelnetServer(async socket => {
                 /** @type {[ExecutionFrame, ExecutionContext]} */

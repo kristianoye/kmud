@@ -57,7 +57,7 @@ class MUDLoader {
                 value: function (ecc, val) {
                     const
                         caller = ecc.stack[0],
-                        frame = ecc.pushFrameObject({ method: '__cat' });
+                        frame = ecc.push({ method: '__cat' });
                     try {
                         if (typeof val === 'string') {
                             const error = {
@@ -170,7 +170,7 @@ class MUDLoader {
                         //  to be incremented prior to checking method access
                         ecc
                             .alarm()
-                            .pushFrameObject({
+                            .push({
                                 object: (ob instanceof MUDObject || ob instanceof SimpleObject) && ob,
                                 method: method || '(anonymous)',
                                 parameters: namedParameters,
@@ -187,7 +187,7 @@ class MUDLoader {
                     //  Check access prior to pushing the new frame to the stack
                     if (access && !newContext)
                         ecc.alarm()
-                            .pushFrameObject({
+                            .push({
                                 object: (ob instanceof MUDObject || ob instanceof SimpleObject) && ob,
                                 method: method || '(undefined)',
                                 parameters: namedParameters,
@@ -226,7 +226,7 @@ class MUDLoader {
                  * @returns 
                  */
                 value: function (ecc, thisObject, type, file, method, con, lineNumber) {
-                    let frame = ecc.pushFrameObject({ object: thisObject, method: 'new', callType: CallOrigin.driver });
+                    let frame = ecc.push({ object: thisObject, method: 'new', callType: CallOrigin.driver });
                     try {
                         if (type.prototype && type.prototype.baseName && type.prototype.baseName !== 'MUDObject' && type.prototype instanceof SimpleObject === false)
                             throw new Error(`Mudlib objects must be created with createAsync(...)`);
@@ -249,7 +249,7 @@ class MUDLoader {
                  * @param {string} fileName
                  */
                 value: function (ecc, fileName) {
-                    let frame = ecc.pushFrameObject({ file: fileName, method: '__rmt' });
+                    let frame = ecc.push({ file: fileName, method: '__rmt' });
                     try {
                         let module = driver.cache.get(fileName);
                         if (module) {
@@ -468,7 +468,7 @@ class MUDLoader {
      * 
      */
     extendType(ecc, target, ...moduleList) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'extendType' });
+        let frame = ecc.push({ file: __filename, method: 'extendType' });
         try {
             for (const exp of moduleList) {
                 if (driver.efuns.isClass(frame.context, exp)) {
@@ -492,7 +492,7 @@ class MUDLoader {
      * @returns
      */
     async createAsync(callingFile, ecc, type, ...args) {
-        let frame = ecc.pushFrameObject({ file: callingFile, method: 'createAsync', isAsync: true, callType: CallOrigin.Constructor });
+        let frame = ecc.push({ file: callingFile, method: 'createAsync', isAsync: true, callType: CallOrigin.Constructor });
         try {
             if (typeof type === 'string') {
                 let parts = driver.efuns.parsePath(frame.branch(), type),
@@ -533,7 +533,7 @@ class MUDLoader {
      * @returns {boolean}
      */
     clearInterval(ecc, ident) {
-        let frame = ecc.pushFrameObject({ method: 'clearInterval', callType: CallOrigin.Driver });
+        let frame = ecc.push({ method: 'clearInterval', callType: CallOrigin.Driver });
         try {
             if (typeof ident === 'number' && ident > 0) {
                 if (ident in Intervals) {
@@ -561,7 +561,7 @@ class MUDLoader {
      * @returns {boolean}
      */
     clearTimeout(ecc, ident) {
-        let frame = ecc.pushFrameObject({ method: 'clearTimeout', callType: CallOrigin.Driver });
+        let frame = ecc.push({ method: 'clearTimeout', callType: CallOrigin.Driver });
         try {
             if (typeof ident === 'number' && ident > 0) {
                 if (ident in Callouts) {
@@ -589,7 +589,7 @@ class MUDLoader {
      * @returns
      */
     createElement(ecc, ...children) {
-        let frame = ecc.pushFrameObject({ method: 'createElement' });
+        let frame = ecc.push({ method: 'createElement' });
         try {
             let type = children.shift(),
                 props = children.shift();
@@ -641,7 +641,7 @@ class MUDLoader {
      * @returns
      */
     eventSend(ecc, event, target = false) {
-        let frame = ecc.pushFrameObject({ method: 'eventSend', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ method: 'eventSend', callType: CallOrigin.DriverEfun });
         try {
             let thisObject = target || ecc.player,
                 store = !!thisObject && driver.storage.get(thisObject);
@@ -665,7 +665,7 @@ class MUDLoader {
      * @returns {any} Returns the value on success
      */
     get(ecc, definingType, propertyName, initialValue) {
-        const frame = ecc.pushFrameObject({ object: this, method: 'get', callType: CallOrigin.LocalCall });
+        const frame = ecc.push({ object: this, method: 'get', callType: CallOrigin.LocalCall });
         try {
             let store = driver.storage.get(this);
             return !!store && store.get(definingType, propertyName, initialValue);
@@ -704,7 +704,7 @@ class MUDLoader {
      * @param {any} excluded
      */
     message(ecc, messageType = '', expr = '', audience = [], excluded = []) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'message', lineNumber: __line });
+        const frame = ecc.push({ file: __filename, method: 'message', lineNumber: __line });
         try {
             return efuns.message(frame.context, messageType, expr, audience, excluded);
         }
@@ -760,7 +760,7 @@ class MUDLoader {
      * @returns {boolean} Returns true on success.
      */
     set(ecc, definingType, propertyName, value) {
-        let frame = ecc.pushFrameObject({ method: 'set', callType: CallOrigin.LocalCall });
+        let frame = ecc.push({ method: 'set', callType: CallOrigin.LocalCall });
         try {
             let key = this.filename;
 
@@ -790,7 +790,7 @@ class MUDLoader {
             let frame = child
                 .branch()
                 .restore()
-                .pushFrameObject({ method: 'setImmediate', isAsync });
+                .push({ method: 'setImmediate', isAsync });
             try {
                 if (efuns.isAsync(callback))
                     await callback.call(thisObject, frame.context);
@@ -825,7 +825,7 @@ class MUDLoader {
             let frame = childContext
                 .branch()
                 .restore()
-                .pushFrameObject({ object: thisObject, method: 'setInterval', callType: CallOrigin.Callout });
+                .push({ object: thisObject, method: 'setInterval', callType: CallOrigin.Callout });
 
             //  Check for the health of this timer
             let hasError = false;
@@ -876,7 +876,7 @@ class MUDLoader {
             let frame = childContext
                 .branch()
                 .restore()
-                .pushFrameObject({ object: thisObject, method: 'setTimeout', callType: CallOrigin.Callout });
+                .push({ object: thisObject, method: 'setTimeout', callType: CallOrigin.Callout });
 
             try {
                 //  Insert branched execution context
@@ -945,7 +945,7 @@ class MUDLoader {
      * @returns
      */
     write(ecc, ...str) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeLine', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'writeLine', callType: CallOrigin.DriverEfun });
         try {
             efuns.writeToStream(ecc, false, efuns.stdout, ...str);
             return true;
@@ -962,7 +962,7 @@ class MUDLoader {
      * @returns
      */
     writeLine(ecc, ...str) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeLine', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'writeLine', callType: CallOrigin.DriverEfun });
         try {
             efuns.writeToStream(ecc, true, efuns.stdout, ...str);
             return true;

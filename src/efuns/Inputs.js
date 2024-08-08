@@ -23,7 +23,7 @@ class InputHelper {
      * @param {any} callback
      */
     static prompt(ecc, type, options = {}, callback = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'prompt', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'prompt', callType: CallOrigin.DriverEfun });
         try {
             if (typeof options === 'string') {
                 options = { text: options };
@@ -60,7 +60,7 @@ class InputHelper {
      * @returns
      */
     static async promptAsync(ecc, type, opts = {}) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'promptAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'promptAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (typeof opts === 'string') {
                 opts = { text: opts };

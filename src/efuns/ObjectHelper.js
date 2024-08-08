@@ -18,7 +18,7 @@ class ObjectHelper {
      * @param {...any[]} args Arguments to pass to the constructor
      */
     static async cloneObjectAsync(ecc, expr, ...args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             return await driver.fileManager.cloneObjectAsync(frame.branch(), expr, args);
         }
@@ -39,7 +39,7 @@ class ObjectHelper {
      * @returns
      */
     static async findObject(ecc, filename, flag = 0) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'findObject', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'findObject', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let module = driver.cache.get(filename);
 
@@ -63,7 +63,7 @@ class ObjectHelper {
      * @returns
      */
     static getLoadededModules(ecc, filter = undefined) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getLoadededModules', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'getLoadededModules', callType: CallOrigin.DriverEfun });
         try {
             let result = driver.cache.moduleNames.slice(0);
             if (typeof filter === 'function')
@@ -83,7 +83,7 @@ class ObjectHelper {
      * @returns
      */
     static getLoadedTypes(ecc, filter = undefined) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'resolveObject', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'resolveObject', callType: CallOrigin.DriverEfun });
         try {
             let result = [];
 
@@ -110,7 +110,7 @@ class ObjectHelper {
      * @returns {MUDObject[]} Matching objects
      */
     static getObjects(ecc, filter = undefined) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'resolveObject', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'resolveObject', callType: CallOrigin.DriverEfun });
         try {
             let result = [];
 
@@ -137,7 +137,7 @@ class ObjectHelper {
      * @returns {string[]} Returns a list of groups
      */
     static getGroups(ecc, target = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getGroups', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'getGroups', callType: CallOrigin.DriverEfun });
         try {
             let ob = target?.instance ?? frame.context.thisObject,
                 storage = ob && driver.storage.get(ob);
@@ -157,7 +157,7 @@ class ObjectHelper {
      * @returns {Promise<MUDObject>}
      */
     static async loadObjectAsync(ecc, expr, ...args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (expr instanceof MUDObject)
                 return expr;
@@ -183,7 +183,7 @@ class ObjectHelper {
      * @returns {boolean} True if the move was succcessful.
      */
     static async moveObjectAsync(ecc, destination) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'moveObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'moveObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let thisObject = efuns.thisObject(frame.context),
                 thisStorage = driver.storage.get(thisObject),
@@ -252,7 +252,7 @@ class ObjectHelper {
      * @param {MUDObject} target
      */
     static async queryPrivs(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'queryPrivs', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'queryPrivs', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             return await driver.securityManager.queryPrivs(target);
         }
@@ -268,7 +268,7 @@ class ObjectHelper {
      * @param {number} flags Additional flags to control the operation
      */
     static async reloadObjectAsync(ecc, expr, ...args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'reloadObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'reloadObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             return await driver.fileManager.loadObjectAsync(frame.branch(), driver.efuns.resolvePath(expr), args, 1);
         }
@@ -302,7 +302,7 @@ class ObjectHelper {
      * @returns The matching object or false if nothing matches
      */
     static async resolveObject(ecc, spec) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'resolveObject', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'resolveObject', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let n = -1,
                 tp = driver.efuns.thisPlayer(frame.context),

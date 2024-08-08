@@ -113,7 +113,7 @@ class CommandShell extends events.EventEmitter {
         component.on('remoteDisconnect', () => {
             if (this.storage) {
                 let ecc = ExecutionContext.startNewContext(),
-                    frame = ecc.pushFrameObject({ method: 'remoteDisconnect' });
+                    frame = ecc.push({ method: 'remoteDisconnect' });
                 try {
                     this.storage.eventExec(ecc, false);
                 }
@@ -129,7 +129,7 @@ class CommandShell extends events.EventEmitter {
              * @param {{ prompt: object, context: ExecutionContext }} param0
              */
             async ({ prompt, context } = eventData) => {
-                let frame = context.pushFrameObject({ file: __filename, method: 'onAddPrompt', isAsync: true, callType: CallOrigin.Callout });
+                let frame = context.push({ file: __filename, method: 'onAddPrompt', isAsync: true, callType: CallOrigin.Callout });
                 try {
                     if (prompt.isAsync) {
                         let result = false;
@@ -157,7 +157,7 @@ class CommandShell extends events.EventEmitter {
      * @param {function(string): void} callback A callback to execute once the user enters text.
      */
     addPrompt(ecc, prompt) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'addPrompt', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'addPrompt', callType: CallOrigin.Driver });
         try {
             if (prompt instanceof BaseInput === false)
                 throw new Error('Illegal call to addPrompt(); Must be a valid input type');
@@ -178,7 +178,7 @@ class CommandShell extends events.EventEmitter {
      * @returns {boolean} True on success.
      */
     async attachPlayer(ecc, player, shellLevel = 1, snoopLevel = 0) {
-        let frame = ecc.pushFrameObject({ method: 'attachPlayer', callType: CallOrigin.Driver });
+        let frame = ecc.push({ method: 'attachPlayer', callType: CallOrigin.Driver });
         try {
             let storage = driver.storage.get(player);
 
@@ -237,7 +237,7 @@ class CommandShell extends events.EventEmitter {
      * @param {ParsedCommand} cmd
      */
     async executeCommand(ecc, cmd) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'executeCommand', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'executeCommand', isAsync: true, callType: CallOrigin.Driver });
         try {
             let result = '',
                 isPipeline = false,
@@ -315,7 +315,7 @@ class CommandShell extends events.EventEmitter {
      * @param {string} filename
      */
     async executeResourceFile(ecc, filename) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'executeResourceFile', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'executeResourceFile', isAsync: true, callType: CallOrigin.Driver });
         try {
             let fso = await driver.efuns.fs.getFileAsync(frame.branch(), filename);
             if (fso.isFile) {
@@ -351,7 +351,7 @@ class CommandShell extends events.EventEmitter {
      * @param {ParsedCommand} cmd
      */
     async prepareCommand(ecc, cmd) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'executeCommand', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'executeCommand', isAsync: true, callType: CallOrigin.Driver });
 
         try {
             return await frame.context.withPlayerAsync(this.storage, async player => {
@@ -576,7 +576,7 @@ class CommandShell extends events.EventEmitter {
      * @returns {CommandShellOptions}
      */
     async getShellSettings(ecc, verb, opts = {}) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getShellSettings', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getShellSettings', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (this.storage) {
                 return await this.storage.getShellSettings(frame.context, verb, opts);
@@ -632,7 +632,7 @@ class CommandShell extends events.EventEmitter {
      * @param {string} input The user's line of input.
      */
     async processInput(ecc, input) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'processInput', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'processInput', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (this.inputTo) {
                 let inputTo = this.inputTo;
@@ -793,7 +793,7 @@ class CommandShell extends events.EventEmitter {
      * @returns
      */
     async drawPrompt(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'drawPrompt', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'drawPrompt', callType: CallOrigin.Driver });
         try {
             return new Promise(async (resolve, reject) => {
                 let inputTo = this.inputStack.length > 0 && this.inputStack[0],

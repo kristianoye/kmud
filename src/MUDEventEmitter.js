@@ -47,7 +47,7 @@ class MUDEventEmitter {
      * @param {...any[]} args Arguments related to the event.
      */
     async emit(ecc, eventName, ...args) {
-        const frame = ecc.pushFrameObject({ object: this, method: 'emit', file: this.filename || __filename, lineNumber: __line, isAsync: true, callType: CallOrigin.LocalCall });
+        const frame = ecc.push({ object: this, method: 'emit', file: this.filename || __filename, lineNumber: __line, isAsync: true, callType: CallOrigin.LocalCall });
         try {
             let event = this.events[eventName],
                 handlesToRemove = [];
@@ -88,7 +88,7 @@ class MUDEventEmitter {
     }
 
     eventNames(ecc) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'eventNames', lineNumber: __line, isAsync: true, className: MUDEventEmitter, callType: CallOrigin.LocalCall });
+        const frame = ecc.push({ file: __filename, method: 'eventNames', lineNumber: __line, isAsync: true, className: MUDEventEmitter, callType: CallOrigin.LocalCall });
         try {
             return Object.keys(this.events);
         }
@@ -115,7 +115,7 @@ class MUDEventEmitter {
     }
 
     isListening(ecc, eventName, listener) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'isListening', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
+        const frame = ecc.push({ file: __filename, method: 'isListening', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
         try {
             return this.#getListenerIndex(eventName, listener) > -1;
         }
@@ -125,7 +125,7 @@ class MUDEventEmitter {
     }
 
     listeners(ecc, eventName) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'listeners', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
+        const frame = ecc.push({ file: __filename, method: 'listeners', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
         try {
             return (this.events[eventName] || []).slice(0);
         }
@@ -135,7 +135,7 @@ class MUDEventEmitter {
     }
 
     off(ecc, eventName, listener) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'off', lineNumber: __line, isAsync: isAsync, className: MUDEventEmitter, callType: CallOrigin.CallOther });
+        const frame = ecc.push({ file: __filename, method: 'off', lineNumber: __line, isAsync: isAsync, className: MUDEventEmitter, callType: CallOrigin.CallOther });
         try {
             return this.removeListener(eventName, listener);
         }
@@ -145,7 +145,7 @@ class MUDEventEmitter {
     }
 
     on(ecc, eventName, listener) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'on', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
+        const frame = ecc.push({ file: __filename, method: 'on', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
         try {
             return this.addListener(eventName, listener, false, false);
         }
@@ -155,7 +155,7 @@ class MUDEventEmitter {
     }
 
     once(ecc, eventName, listener) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'once', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
+        const frame = ecc.push({ file: __filename, method: 'once', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
         try {
             return this.addListener(eventName, listener, false, true);
         }
@@ -165,7 +165,7 @@ class MUDEventEmitter {
     }
 
     prependListener(ecc, eventName, listener) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'prependListener', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
+        const frame = ecc.push({ file: __filename, method: 'prependListener', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
         try {
             return this.addListener(eventName, listener, true, false);
         }
@@ -175,7 +175,7 @@ class MUDEventEmitter {
     }
 
     prependOnceListener(ecc, eventName, listener) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'prependOnceListener', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
+        const frame = ecc.push({ file: __filename, method: 'prependOnceListener', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
         try {
             return this.addListener(eventName, listener, true, true);
         }
@@ -185,7 +185,7 @@ class MUDEventEmitter {
     }
 
     rawListeners(eventName) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'rawListeners', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
+        const frame = ecc.push({ file: __filename, method: 'rawListeners', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
         try {
             return this.listeners(eventName);
         }
@@ -195,7 +195,7 @@ class MUDEventEmitter {
     }
 
     removeAllListeners(eventName) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'removeAllListeners', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
+        const frame = ecc.push({ file: __filename, method: 'removeAllListeners', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
         try {
             delete this.events[eventName];
             return this;
@@ -206,7 +206,7 @@ class MUDEventEmitter {
     }
 
     removeListener(eventName, listener) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'removeListener', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
+        const frame = ecc.push({ file: __filename, method: 'removeListener', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
         try {
             let event = this.events[eventName];
             if (event) {

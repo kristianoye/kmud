@@ -12,7 +12,7 @@ class MathHelper {
      * @returns {Number} The adjusted value.
      */
     static decimalAdjust(ecc, type, value, exp) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'decimalAdjust', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'decimalAdjust', callType: CallOrigin.DriverEfun });
         try {
             // If the exp is undefined or zero...
             if (typeof exp === 'undefined' || +exp === 0) {
@@ -53,7 +53,7 @@ class MathHelper {
      * @returns
      */
     static ceil10(ecc, value, exp) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'ceil10', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'ceil10', callType: CallOrigin.DriverEfun });
         try {
             return MathHelper.decimalAdjust('ceil', value, exp);
         }
@@ -70,7 +70,7 @@ class MathHelper {
      * @returns
      */
     static floor10(ecc, value, exp) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'floor10', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'floor10', callType: CallOrigin.DriverEfun });
         try {
             return MathHelper.decimalAdjust('floor', value, exp);
         }
@@ -87,7 +87,7 @@ class MathHelper {
      * @returns
      */
     static round10(ecc, value, exp) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'round10', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'round10', callType: CallOrigin.DriverEfun });
         try {
             return MathHelper.decimalAdjust('round', value, exp);
         }

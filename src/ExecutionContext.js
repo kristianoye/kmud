@@ -1060,35 +1060,22 @@ class ExecutionContext extends events.EventEmitter {
     }
 
     /**
-     * Push a new frame onto the stack
-     * @param {any} object
-     * @param {string} method
-     * @param {string} file
-     * @param {boolean} isAsync
-     * @param {number} lineNumber
-     * @param {string} callString
-     * @param {boolean} [isUnguarded]
-     * @returns {ExecutionContext}
+     * Push a new frame on to the call stack
+     * @param {Partial<ExecutionFrame>} frameInfo
      */
-    push(object, method, file, isAsync, lineNumber, callString, isUnguarded, callType = 0) {
-        let newFrame = new ExecutionFrame({ context: this, object, file, method, lineNumber, callString, isAsync, isUnguarded, callType });
-        return this.pushActual(newFrame).context;
-    }
-
-    /**
-     * Actually push the frame to the stack
-     * @param {ExecutionFrame} frame
-     */
-    pushActual(frame) {
-        this.stack.unshift(frame);
-        currentExecution = this;
+    push(frameInfo) {
+        if (typeof frameInfo !== 'object')
+            driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
+        else if (typeof frameInfo.method !== 'string')
+            driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
+        let newFrame = new ExecutionFrame({ context: this, ...frameInfo });
+        this.stack.unshift(newFrame);
         if (!this.used) {
             this.used = true;
-
-            //  Once a frame is used, only then is it registered with the parent
             this.parent?.addActiveChild(this);
         }
-        return frame;
+        ExecutionContext.setCurrentExecution(newFrame.context);
+        return newFrame;
     }
 
     /**
@@ -1099,69 +1086,8 @@ class ExecutionContext extends events.EventEmitter {
         this.cmdStack.unshift(cmd);
     }
 
-    /**
-     * Push a new frame onto the stack
-     * @param {typeof import('./MUDObject')} object
-     * @param {string} method
-     * @param {string} file
-     * @param {boolean} isAsync
-     * @param {number} lineNumber
-     * @param {string} callString
-     * @param {boolean} [isUnguarded]
-     * @returns {ExecutionFrame}
-     */
-    pushFrame(object, method, file, isAsync = false, lineNumber = 0, callString = false, isUnguarded = false, callType = 0) {
-        this.push(object, method, file, isAsync, lineNumber, callString, isAsync, isUnguarded, callType);
-        return this.stack[0];
-    }
-
-    /**
-     * Shortcut for pushing partial frames to stack
-     * @param {Partial<ExecutionFrame>} frameInfo
-     */
-    pushFrameObject(frameInfo) {
-        if (typeof frameInfo !== 'object')
-            driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
-        else if (typeof frameInfo.method !== 'string')
-            driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
-        let newFrame = new ExecutionFrame({ context: this, ...frameInfo });
-        this.pushActual(newFrame);
-        return newFrame;
-    }
-
     pushNewScope() {
         return this;
-    }
-
-    /**
-     * Push a new frame based on the NodeJS callstack
-     * THIS IS SUPER SLOW (23x slower than pushFrameObject); Avoid use if possible
-     * @param {Partial<ExecutionFrame>} partialInfo
-     * @returns
-     */
-    pushFromStack(partialInfo = {}) {
-        let stack = __stack,
-            frame = stack[1];
-
-        if (frame) {
-            let info = Object.assign({
-                object: undefined,
-                file: frame.getFileName(),
-                method: frame.getMethodName() || frame.getFunctionName(),
-                lineNumber: frame.getLineNumber(),
-                isAsync: false,
-                unguarded: false,
-                callType: 0
-            }, partialInfo)
-            let newFrame = new ExecutionFrame({
-                context: this,
-                ...info,
-                callString: info.callString || info.method
-            });
-            this.pushActual(newFrame);
-            return newFrame;
-        }
-        throw new Error('Could not determine frame information from stack');
     }
 
     /**
@@ -1211,7 +1137,7 @@ class ExecutionContext extends events.EventEmitter {
     static startNewContext(initialFrame = false) {
         let ecc = new ExecutionContext();
         if (initialFrame) {
-            let frame = ecc.pushFrameObject(initialFrame);
+            let frame = ecc.push(initialFrame);
             return [ecc, frame];
         }
         return (currentExecution = ecc);
@@ -1345,7 +1271,7 @@ class ExecutionContext extends events.EventEmitter {
         if (args[0] instanceof ExecutionContext) {
             /** @type {ExecutionContext} */
             const ecc = args.shift();
-            return [ecc.pushFrameObject(info), ...args];
+            return [ecc.push(info), ...args];
         }
         else {
             let frameResult = undefined;
@@ -1353,7 +1279,7 @@ class ExecutionContext extends events.EventEmitter {
             if (useCurrentIfNotPresent) {
                 const ecc = currentExecution;
                 if (ecc) {
-                    frameResult = ecc.pushFrameObject(info);
+                    frameResult = ecc.push(info);
                 }
                 else if (throwErrorIfNoContext)
                     throw new Error(`There is no active execution context for tryPushFrame(file: ${info.file}, method: ${info.method})`)
@@ -1435,7 +1361,7 @@ class ExecutionContext extends events.EventEmitter {
      * @returns
      */
     async withObject(obj, method, callback, isAsync = false, rethrow = true) {
-        let frame = this.pushFrameObject({ method, object: obj, isAsync: true, callType: CallOrigin.Driver });
+        let frame = this.push({ method, object: obj, isAsync: true, callType: CallOrigin.Driver });
         try {
             let result = undefined;
 
@@ -1477,7 +1403,7 @@ class ExecutionContext extends events.EventEmitter {
             oldStore = this.storage,
             oldShell = this.shell;
 
-        const frame = method ? this.pushFrameObject({ object: player, method, isAsync: true }) : undefined;
+        const frame = method ? this.push({ object: player, method, isAsync: true }) : undefined;
 
         try {
             this.client = storage.component || this.client;

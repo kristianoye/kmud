@@ -168,7 +168,7 @@ class SecurityHelper {
      * @param {string} groupName
      */
     static isGroupMember(ecc, username, groupName) {
-        let frame = ecc.pushFrameObject({ method: 'isGroupMember', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ method: 'isGroupMember', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             return driver.securityManager.isGroupMember(frame.context, username, groupName);
         }
@@ -184,7 +184,7 @@ class SecurityHelper {
      * @returns
      */
     static listSecurityGroups(ecc, expr) {
-        let frame = ecc.pushFrameObject({ method: 'listSecurityGroups', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ method: 'listSecurityGroups', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             return driver.securityManager.listGroups(frame.context, expr);
         }
@@ -200,7 +200,7 @@ class SecurityHelper {
      * @returns {number} The bitflag array
      */
     static parsePerms(ecc, exprIn) {
-        let frame = ecc.pushFrameObject({ method: 'parsePerms', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ method: 'parsePerms', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             return driver.securityManager.parsePerms(frame.context, expr);
         }

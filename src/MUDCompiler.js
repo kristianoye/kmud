@@ -177,7 +177,7 @@ class MUDCompiler {
      * @returns {MUDModule} The compiled module
      */
     async compileObjectAsync(ecc, options) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'compileObjectAsync', lineNumber: 178, isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'compileObjectAsync', lineNumber: 178, isAsync: true, callType: CallOrigin.Driver });
         try {
             if (!options)
                 throw new Error('compileObject() called with invalid parameter(s)');
@@ -317,7 +317,7 @@ class MUDCompiler {
      * @param {MUDCompilerOptions} options Compiler options
      */
     async compileVirtualAsync(ecc, context, options = {}) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'compileVirtualAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'compileVirtualAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             //  Try virtual compilation
             let virtualContext, virtualResult, module;

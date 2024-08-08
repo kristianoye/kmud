@@ -63,7 +63,7 @@ class EFUNProxy {
      * @param {function} callback The callback that executes when the action is triggered.
      */
     addAction(ecc, verb, callback) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'addAction', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'addAction', callType: CallOrigin.DriverEfun });
         try {
             let prevObject = this.previousObject(frame.branch()),
                 thisObject = frame.context.thisObject;
@@ -85,7 +85,7 @@ class EFUNProxy {
      * @param {any} obj
      */
     addOutputObject(ecc, obj) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'addOutputObject', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'addOutputObject', callType: CallOrigin.DriverEfun });
         try {
             if (ecc.command && Array.isArray(ecc.command.objout)) {
                 ecc.command.objout.push(obj);
@@ -103,7 +103,7 @@ class EFUNProxy {
      * @returns {boolean} True if the target is an administrator.
      */
     adminp(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'adminp', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'adminp', callType: CallOrigin.DriverEfun });
         try {
             return driver.callApplySync(frame.context, 'isAdmin', target);
         }
@@ -119,7 +119,7 @@ class EFUNProxy {
      * @returns {boolean} True if the target is an arch.ca
      */
     archp(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'archp', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'archp', callType: CallOrigin.DriverEfun });
         try {
             return driver.callApplySync(frame.context, 'isArch', target);
         }
@@ -140,7 +140,7 @@ class EFUNProxy {
      * @returns {string} The consolidated string
      */
     arrayToSentence(ecc, list, useOr = false, consolidate = true, useNumbers = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'arrayToSentence', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'arrayToSentence', callType: CallOrigin.DriverEfun });
         try {
             useOr = typeof useOr === 'boolean' ? useOr : false;
             consolidate = typeof consolidate === 'boolean' ? consolidate : true;
@@ -186,7 +186,7 @@ class EFUNProxy {
      * @returns {function():any}
      */
     bindFunctionByName(ecc, target, methodName, ...args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'bindFunctionByName', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'bindFunctionByName', callType: CallOrigin.DriverEfun });
         try {
             //  First parameter was not an explicit MUD object; Use thisObject
             if (typeof target === 'string') {
@@ -249,7 +249,7 @@ class EFUNProxy {
      * @returns {boolean} True if the password matches false if not.
      */
     checkPassword(ecc, plain, crypto) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'checkPassword', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'checkPassword', callType: CallOrigin.DriverEfun });
         try {
             return driver.config.mud.passwordPolicy.checkPassword(plain, crypto);
         }
@@ -265,7 +265,7 @@ class EFUNProxy {
      * @returns {{ clientHeight: number, clientWidth: number, colorEnabled: boolean, htmlEnabled: boolean, soundEnabled: boolean }} Client capabilities.
      */
     clientCaps(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'clientCaps', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'clientCaps', callType: CallOrigin.DriverEfun });
         try {
             let store = false;
 
@@ -302,7 +302,7 @@ class EFUNProxy {
      * @returns {MUDWrapper} The object if successfully cloned.
      */
     async cloneObjectAsync(ecc, file, ...args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             return await driver
                 .fileManager
@@ -322,7 +322,7 @@ class EFUNProxy {
      * @returns {string} A page of columns.
      */
     columnText(ecc, list, width, minSpacing = 2) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'columnText', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'columnText', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let rows = [],
                 row = [],
@@ -365,7 +365,7 @@ class EFUNProxy {
      * @param {string} input The complete command to execute.
      */
     async command(ecc, input, isForced = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'command', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'command', isAsync: true, callType: CallOrigin.DriverEfun });
 
         try {
             let truePlayer = isForced && this.thisPlayer(ecc, true),
@@ -453,7 +453,7 @@ class EFUNProxy {
      * @returns {MUDObject[]} Returns the deep inventory.
      */
     deepInventory(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'deepInventory', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'deepInventory', callType: CallOrigin.DriverEfun });
         try {
             if (target.instance) {
                 let result = target.instance.inventory;
@@ -480,7 +480,7 @@ class EFUNProxy {
      * @param {MUDObject} target The object to destruct.
      */
     destruct(ecc, target, ...args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'destruct', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'destruct', callType: CallOrigin.DriverEfun });
         try {
             let ob = target ? target.instance : frame.context.thisObject;
             if (ob) {
@@ -506,7 +506,7 @@ class EFUNProxy {
      * @param {MUDWrapper} target The MUD object.
      */
     directoryName(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'directoryName', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'directoryName', callType: CallOrigin.DriverEfun });
         try {
             let dir = typeof target === 'object' && unwrap(target, o => o.filename) || target;
             return typeof dir === 'string' && dir.slice(0, dir.lastIndexOf('/'));
@@ -525,7 +525,7 @@ class EFUNProxy {
      * @returns {boolean} True if the 
      */
     async exec(ecc, ptrOld, ptrNew, callback) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'exec', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'exec', callType: CallOrigin.DriverEfun });
         try {
             let oldBody = ptrOld.isWrapper ? ptrOld() : ptrOld;
             let newBody = ptrNew.isWrapper ? ptrNew() : ptrNew;
@@ -581,7 +581,7 @@ class EFUNProxy {
      * @returns {boolean} Returns true if the string looks like a file pattern
      */
     containsWildcard(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'containsWildcard', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'containsWildcard', callType: CallOrigin.DriverEfun });
         try {
             if (typeof expr !== 'string')
                 return false;
@@ -629,7 +629,7 @@ class EFUNProxy {
      * @returns {boolean} True if the feature is enabled or false if it does not exist or is disabled.
      */
     featureEnabled(ecc, feature) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'featureEnabled', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'featureEnabled', callType: CallOrigin.DriverEfun });
         try {
             let result = driver.config.readValue(`driver.featureFlags.${feature}`, false);
             return result === true;
@@ -663,7 +663,7 @@ class EFUNProxy {
      * @returns {string} A human-friendly string.
      */
     getMemSizeString(ecc, n, decim = 0) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getMemSizeString', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'getMemSizeString', callType: CallOrigin.DriverEfun });
         try {
             let numeric = parseInt(n);
 
@@ -694,7 +694,7 @@ class EFUNProxy {
     }
 
     inherits(ecc, ob, targetType) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'inherits', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'inherits', callType: CallOrigin.DriverEfun });
         try {
             return global.MUDVTable.doesInherit(ob, targetType);
         }
@@ -713,7 +713,7 @@ class EFUNProxy {
      */
     isAsync(ecc, expr) {
         let frame = ecc instanceof ExecutionContext ?
-            ecc.pushFrameObject({ file: __filename, method: 'inherits', callType: CallOrigin.DriverEfun }) :
+            ecc.push({ file: __filename, method: 'inherits', callType: CallOrigin.DriverEfun }) :
             false;
 
         try {
@@ -771,7 +771,7 @@ class EFUNProxy {
      * @returns
      */
     isForced(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isForced', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'isForced', callType: CallOrigin.DriverEfun });
         try {
             return ecc.truePlayer && ecc.thisPlayer !== ecc.truePlayer;
         }
@@ -787,7 +787,7 @@ class EFUNProxy {
      * @returns {boolean} True if the item is a plain old object.
      */
     isPOO(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isPOO', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'isPOO', callType: CallOrigin.DriverEfun });
         try {
             return typeof target === 'object' &&
                 target.constructor.name === 'Object' &&
@@ -806,7 +806,7 @@ class EFUNProxy {
      * @returns {boolean} Returns true if the item looks like an Promise object.
      */
     isPromise(ecc, item) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isPromise', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'isPromise', callType: CallOrigin.DriverEfun });
         try {
             if (typeof item === 'object') {
                 try {
@@ -832,7 +832,7 @@ class EFUNProxy {
      * @param {...string} expr
      */
     joinPath(ecc, ...expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'joinPath', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'joinPath', callType: CallOrigin.DriverEfun });
         try {
             return path.posix.join(...expr);
         }
@@ -852,7 +852,7 @@ class EFUNProxy {
      * @returns
      */
     async loadObjectAsync(ecc, expr, ...args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (expr instanceof MUDObject)
                 return expr;
@@ -880,7 +880,7 @@ class EFUNProxy {
      * @deprecated
      */
     loadObjectSync(ecc, expr, ...args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectSync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'loadObjectSync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (expr instanceof MUDObject)
                 return expr;
@@ -906,7 +906,7 @@ class EFUNProxy {
      * @returns {boolean} True on success.
      */
     async log(ecc, file, message) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'log', callType: CallOrigin.DriverEfun, isAsync: true });
+        let frame = ecc.push({ file: __filename, method: 'log', callType: CallOrigin.DriverEfun, isAsync: true });
         try {
             let logPath = path.posix.resolve(driver.config.mudlib.logDirectory, file),
                 logFile = await driver.fileManager.getObjectAsync(frame.branch(), logPath);
@@ -923,7 +923,7 @@ class EFUNProxy {
      * @param {Error} err
      */
     async logError(ecc, err) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'logError', callType: CallOrigin.DriverEfun, isAsync: true });
+        let frame = ecc.push({ file: __filename, method: 'logError', callType: CallOrigin.DriverEfun, isAsync: true });
         try {
             let to = ecc.thisObject;
             return await driver.logError(frame.branch(), to.fullPath, err);
@@ -946,7 +946,7 @@ class EFUNProxy {
      * @returns {true} Always returns true.
      */
     message(ecc, messageType, expr, audience, excluded) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'message', lineNumber: __line, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'message', lineNumber: __line, callType: CallOrigin.DriverEfun });
         try {
             if (expr) {
                 if (!excluded)
@@ -1004,7 +1004,7 @@ class EFUNProxy {
      * @returns
      */
     mudInfo(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'mudInfo', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'mudInfo', callType: CallOrigin.DriverEfun });
         try {
             let config = driver.config;
             return {
@@ -1051,7 +1051,7 @@ class EFUNProxy {
      * @returns {string} The MUD name.
      */
     mudName(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'mudName', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'mudName', callType: CallOrigin.DriverEfun });
         try {
             return driver.config.mud.name;
         }
@@ -1068,7 +1068,7 @@ class EFUNProxy {
      * @returns {string} The normalized version of the name e.g. 'bobthebuilder'
      */
     normalizeName(ecc, name, flag = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'normalizeName', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'normalizeName', callType: CallOrigin.DriverEfun });
         try {
             let wantsPlayer = false;
 
@@ -1097,7 +1097,7 @@ class EFUNProxy {
      * @returns {'function'|'string'|'number'|'MudObject'|'SimpleObject'|'boolean'|'undefined'|'object'|'array'} Returns the type of object
      */
     objectType(ecc, arg) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'objectType', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'objectType', callType: CallOrigin.DriverEfun });
         try {
             let tt = typeof arg;
 
@@ -1130,7 +1130,7 @@ class EFUNProxy {
      * @returns
      */
     origin(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'origin', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'origin', callType: CallOrigin.DriverEfun });
         try {
             let previousFrame = frame.context.stack[1];
             return previousFrame ? previousFrame.origin : 0;
@@ -1147,7 +1147,7 @@ class EFUNProxy {
      * @returns {boolean} True if the value is a player or false.
      */
     playerp(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'playerp', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'playerp', callType: CallOrigin.DriverEfun });
         try {
             return this.living.isPlayer(ecc, target);
         }
@@ -1204,7 +1204,7 @@ class EFUNProxy {
      * @returns {MUDObject[]} Player objects currently in the game.
      */
     players(ecc, showAll = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'players', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'players', callType: CallOrigin.DriverEfun });
         try {
             return driver.players.map(p => unwrap(p)).filter(player => {
                 return player.connected || showAll;
@@ -1224,7 +1224,7 @@ class EFUNProxy {
      * @returns {string} A pluralized form of the string.
      */
     pluralize(ecc, what) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'pluralize', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'pluralize', callType: CallOrigin.DriverEfun });
         try {
             let result;
 
@@ -1566,7 +1566,7 @@ class EFUNProxy {
      * @returns
      */
     present(ecc, id, env = false, returnAll = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'present', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'present', callType: CallOrigin.DriverEfun });
         try {
             if (!env) {
                 env = this.thisObject(frame.context);
@@ -1622,7 +1622,7 @@ class EFUNProxy {
      * @returns {MUDObject}
      */
     previousObject(ecc, n = 1) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'previousObject', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'previousObject', callType: CallOrigin.DriverEfun });
         try {
             let prev = ecc.previousObject;
             return n === -1 ? prev.slice(0) : prev[n];
@@ -1638,7 +1638,7 @@ class EFUNProxy {
      * @returns {string} The verb currently being executed.
      */
     queryVerb(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'queryVerb', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'queryVerb', callType: CallOrigin.DriverEfun });
         try {
             return this.currentVerb || '';
         }
@@ -1654,7 +1654,7 @@ class EFUNProxy {
      * @returns {any} The results of the import.
      */
     async requireAsync(ecc, moduleName) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'requireAsync', callType: CallOrigin.DriverEfun, isAsync: true });
+        let frame = ecc.push({ file: __filename, method: 'requireAsync', callType: CallOrigin.DriverEfun, isAsync: true });
         try {
             if (typeof moduleName === 'string') {
                 switch (moduleName) {
@@ -1706,7 +1706,7 @@ class EFUNProxy {
      * @param {any} relativePath
      */
     async importAsync(ecc, moduleName, specifiers, relativePath = false, lineNumber = 0) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'importAsync', callType: CallOrigin.DriverEfun, isAsync: true });
+        let frame = ecc.push({ file: __filename, method: 'importAsync', callType: CallOrigin.DriverEfun, isAsync: true });
         try {
             if (typeof moduleName === 'string') {
                 switch (moduleName) {
@@ -1765,7 +1765,7 @@ class EFUNProxy {
      * @returns {string|false} Returns the path name of the file or false if not found.
      */
     async resolveIncludeAsync(ecc, file, ignoreCache) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'resolveIncludeAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'resolveIncludeAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let result = !ignoreCache && IncludeCache[file];
             let includePath = [this.directory || '/'];
@@ -1871,7 +1871,7 @@ class EFUNProxy {
      * @param {any} target
      */
     async resetObject(ecc, target = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'resetObject', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'resetObject', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (!target) {
                 target = this.thisObject(frame.context);
@@ -1893,7 +1893,7 @@ class EFUNProxy {
      * @param {string} pathOrObject The file to read properties from.
      */
     async restoreObjectAsync(ecc, pathOrObject) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'restoreObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'restoreObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (this.objectType(frame.context, pathOrObject) === 'object' && '$type' in pathOrObject) {
                 let $type = pathOrObject.$type;
@@ -1943,7 +1943,7 @@ class EFUNProxy {
      * @param {string} expr The path to save to.
      */
     saveObject(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'saveObject', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'saveObject', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let ctx = ExecutionContext.getCurrentExecution(),
                 prev = ctx.thisObject,
@@ -1970,7 +1970,7 @@ class EFUNProxy {
      * @param {string} [encoding] The encoding to use when serialize (defaults to utf8)
      */
     async saveObjectAsync(ecc, expr, encoding = 'utf8') {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'saveObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'saveObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let prev = frame.context.thisObject,
                 parts = this.parsePath(frame.context, prev.filename),
@@ -1999,7 +1999,7 @@ class EFUNProxy {
      * @param {any} target
      */
     serialize(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'serialize', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'serialize', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let finalResult = unwrap(target, targetObject => {
                 let serializeMudObject,
@@ -2151,7 +2151,7 @@ class EFUNProxy {
      * @returns
      */
     random(ecc, min = 1, max = 100) {
-        const frame = ecc.pushFrameObject({ method: 'random', callType: CallOrigin.DriverEfun });
+        const frame = ecc.push({ method: 'random', callType: CallOrigin.DriverEfun });
         try {
             min = Math.ceil(min);
             max = Math.floor(max);
@@ -2208,7 +2208,7 @@ class EFUNProxy {
      * @param {ExecutionContext} ecc
      */
     async setDefaultExport(ecc, val) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'setDefaultExport', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'setDefaultExport', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let module = driver.cache.get(this.fullPath);
             return await module.setDefaultExport(frame.branch(), val, true);
@@ -2225,7 +2225,7 @@ class EFUNProxy {
      * @returns {string} The string minus any color encoding.
      */
     stripColor(ecc, str) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'stripColor', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'stripColor', callType: CallOrigin.DriverEfun });
         try {
             return str.replace(/(\%\^[A-Z]+\%\^)/g, '');
         }
@@ -2241,7 +2241,7 @@ class EFUNProxy {
      * @param {string} reason The reason given for the shutdown.
      */
     async shutdown(ecc, errCode, reason) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'shutdown', callType: CallOrigin.DriverEfun, isAsync: true });
+        let frame = ecc.push({ file: __filename, method: 'shutdown', callType: CallOrigin.DriverEfun, isAsync: true });
         try {
             if (await ecc.guarded(f => driver.validShutdown(f))) {
                 process.exit(errCode || 0);
@@ -2259,7 +2259,7 @@ class EFUNProxy {
      * @returns
      */
     sprintf(ecc, ...args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'sprintf', callType: CallOrigin.DriverEfun, isAsync: false });
+        let frame = ecc.push({ file: __filename, method: 'sprintf', callType: CallOrigin.DriverEfun, isAsync: false });
         try {
             return sprintf.apply(sprintf, args);
         }
@@ -2275,7 +2275,7 @@ class EFUNProxy {
      * @returns
      */
     stripBOM(ecc, content) {
-        let frame = ecc instanceof ExecutionContext ? ecc.pushFrameObject({ file: __filename, method: 'stripBOM' }) : false;
+        let frame = ecc instanceof ExecutionContext ? ecc.push({ file: __filename, method: 'stripBOM' }) : false;
 
         try {
             if (!frame)
@@ -2373,7 +2373,7 @@ class EFUNProxy {
      */
     async unguarded(ecc, callback) {
         let isAsync = this.isAsync(ecc, callback),
-            frame = ecc.pushFrameObject({ file: __filename, method: 'unguarded', callType: CallOrigin.DriverEfun, isAsync, unguarded: true });
+            frame = ecc.push({ file: __filename, method: 'unguarded', callType: CallOrigin.DriverEfun, isAsync, unguarded: true });
         try {
             if (typeof callback !== 'function')
                 throw new Error(`Bad argument 1 to unguarded; expected function got ${typeof callback}`);
@@ -2398,7 +2398,7 @@ class EFUNProxy {
      * @returns
      */
     userp(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'userp', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'userp', callType: CallOrigin.DriverEfun });
         try {
             return this.living.isInteractive(frame.context, target);
         }
@@ -2414,7 +2414,7 @@ class EFUNProxy {
      * @returns {boolean} True if the password complies with the policy or false if too weak.
      */
     validPassword(ecc, str) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validPassword', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'validPassword', callType: CallOrigin.DriverEfun });
         try {
             return driver.config.mud.passwordPolicy.validPassword(str);
         }
@@ -2429,7 +2429,7 @@ class EFUNProxy {
      * @param {any} target
      */
     wizardp(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'wizardp', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'wizardp', callType: CallOrigin.DriverEfun });
         try {
             return this.living.isWizard(frame.context, target);
         }
@@ -2446,7 +2446,7 @@ class EFUNProxy {
      * @param {string} indent
      */
     wrapText(ecc, text, maxLength, lineBreak, indent) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'wrapText', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'wrapText', callType: CallOrigin.DriverEfun });
         try {
             text = text.replace(/[\r\n]+/g, ' ');
             maxLength = maxLength || this.env.COLUMNS || 80;
@@ -2494,7 +2494,7 @@ class EFUNProxy {
      * @returns
      */
     error(ecc, ...expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'error', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'error', callType: CallOrigin.DriverEfun });
         try {
             let cmd = ecc.command,
                 ec = cmd?.env?.ERRORCOLOR;
@@ -2517,7 +2517,7 @@ class EFUNProxy {
      * @returns
      */
     errorLine(ecc, ...expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'errorLine', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'errorLine', callType: CallOrigin.DriverEfun });
         try {
             let cmd = ecc.command,
                 ec = cmd?.env?.ERRORCOLOR;
@@ -2541,7 +2541,7 @@ class EFUNProxy {
      * @returns
      */
     write(ecc, ...expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'write', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'write', callType: CallOrigin.DriverEfun });
         try {
             return this.writeToStream(frame.context, false, this.out, ...expr);
         }
@@ -2557,7 +2557,7 @@ class EFUNProxy {
      * @returns
      */
     writeLine(ecc, ...expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'wrapText', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'wrapText', callType: CallOrigin.DriverEfun });
         try {
             return this.writeToStream(frame.context, true, this.out, ...expr);
         }
@@ -2574,7 +2574,7 @@ class EFUNProxy {
      * @returns {true} Always returns true.
      */
     writeToStream(ecc, appendNewline = true, stream = false, ...expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'wrapText', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'wrapText', callType: CallOrigin.DriverEfun });
         try {
             stream = stream || this.out;
 

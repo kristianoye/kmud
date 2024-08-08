@@ -93,7 +93,7 @@ class FileManager extends events.EventEmitter {
      * @returns
      */
     async bootstrap(ecc, fsconfig) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'bootstrap', isAsync: true, className: FileManager });
+        const frame = ecc.push({ file: __filename, method: 'bootstrap', isAsync: true, className: FileManager });
         try {
             await fsconfig.eachFileSystem(async (config, index) => await this.createFileSystem(config, index));
             await this.ensureMountPointsExist(frame.context);
@@ -122,7 +122,7 @@ class FileManager extends events.EventEmitter {
      * @returns {MUDWrapper} The wrapped instance.
      */
     async cloneObjectAsync(ecc, expr, args = []) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             return await this.loadObjectAsync(frame.branch(), expr, args, 2);
         }
@@ -531,7 +531,7 @@ class FileManager extends events.EventEmitter {
      */
     async ensureMountPointsExist(ecc) {
         const
-            frame = ecc.pushFrameObject({ file: __filename, method: 'ensureMountPointsExist', className: FileManager });
+            frame = ecc.push({ file: __filename, method: 'ensureMountPointsExist', className: FileManager });
 
         try {
             await this.eachFileSystemAsync(async (fs, mp) => {
@@ -773,7 +773,7 @@ class FileManager extends events.EventEmitter {
      * @returns {Promise<FileObject>}
      */
     async getFileAsync(ecc, expr, flags = 0, isSystemRequest = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let request = this.createFileRequest('getFileAsync', expr, flags);
             let fso = await request.fileSystem.getFileAsync(frame.branch(), request);
@@ -841,7 +841,7 @@ class FileManager extends events.EventEmitter {
      * @returns {Promise<FileSystemObject>}
      */
     getObjectAsync(ecc, expr, flags = 0, isSystemRequest = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.Driver });
 
         if (typeof flags === 'boolean') {
             isSystemRequest = flags;
@@ -991,7 +991,7 @@ class FileManager extends events.EventEmitter {
      * @returns {MUDObject} The loaded object... hopefully
      */
     async loadObjectAsync(ecc, expr, args, flags = 0) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let request = this.createFileRequest('loadObjectAsync', expr, flags);
             let exts = driver.compiler.supportedExtensions,

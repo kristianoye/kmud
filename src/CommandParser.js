@@ -192,7 +192,7 @@ class ParsedCommand {
                     }
                 });
 
-                if (this.tokens.length) 
+                if (this.tokens.length)
                     template = template.trim() + ' ' + this.tokens.select(s => s.length).join('').trim();
 
                 this.original = template;
@@ -300,7 +300,7 @@ class CommandParser {
      * @returns {{ operator: ParsedToken, command: ParsedCommand }} 
      */
     async nextCommand(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'nextCommand', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'nextCommand', isAsync: true, callType: CallOrigin.Driver });
         try {
             /** @type {ParsedCommand} */
             let cmd;
@@ -470,7 +470,7 @@ class CommandParser {
                         i = 0,
                         n = 0;
 
-                    let take = (f, t) =>  {
+                    let take = (f, t) => {
                         let ret = '';
                         if (f instanceof RegExp) {
                             let ret = f.exec(source.slice(i));
@@ -640,7 +640,7 @@ class CommandParser {
      * @param {ParsedCommand} cmd The command being built
      * @returns {ParsedToken} The next token
      */
-    async nextCompleteWord(cmd, errorIfNotWordOrWhitespace=true) {
+    async nextCompleteWord(cmd, errorIfNotWordOrWhitespace = true) {
         let nextToken = await this.nextToken(cmd),
             wordToken = false;
 
@@ -715,7 +715,7 @@ class CommandParser {
                     }
                 }
 
-            /** @type {RegExpExecArray} */
+                /** @type {RegExpExecArray} */
                 let mt = retoken.exec(text) || { groups: {} };
 
                 switch (true) {
@@ -1061,7 +1061,7 @@ class CommandParser {
      * @param {ExecutionContext} ecc The current callstack
      */
     async parse(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'parse', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'parse', isAsync: true, callType: CallOrigin.Driver });
         try {
             let { operator, command } = await this.nextCommand(frame.context),
                 firstCommand = command;

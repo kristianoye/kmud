@@ -29,7 +29,7 @@ class RouteTable {
      * @param {...string} expr The directories to add to the search path.
      */
     addControllerPath(ecc, ...expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'addControllerPath' });
+        let frame = ecc.push({ file: __filename, method: 'addControllerPath' });
         try {
             expr.forEach(dir => {
                 if (this.controllerPath.indexOf(dir) === -1)
@@ -49,7 +49,7 @@ class RouteTable {
      * @param {{ url: string, defaults: Object.<string,string> }} routeData Info about the route
      */
     addRoute(ecc, name, routeData) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'addRoute' });
+        let frame = ecc.push({ file: __filename, method: 'addRoute' });
         try {
             if (typeof name === 'object') {
                 routeData = Object.assign(name, routeData);
@@ -79,7 +79,7 @@ class RouteTable {
      * @param {...string} expr The path expressions to add
      */
     addViewPath(ecc, ...expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'addViewPath' });
+        let frame = ecc.push({ file: __filename, method: 'addViewPath' });
         try {
             expr.forEach(dir => {
                 if (this.viewPath.indexOf(dir) === -1)

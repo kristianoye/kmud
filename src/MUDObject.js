@@ -22,7 +22,7 @@ class MUDObject extends MUDEventEmitter {
         if (!new.target)
             throw new Error('Illegal constructor call');
         const
-            frame = ecc.pushFrameObject({ object: this, method: 'constructor', callType: CallOrigin.Constructor });
+            frame = ecc.push({ object: this, method: 'constructor', callType: CallOrigin.Constructor });
 
         try {
             if (ctx) {
@@ -108,12 +108,12 @@ class MUDObject extends MUDEventEmitter {
     }
 
     create(ecc, ...args) {
-        let frame = ecc && ecc.pushFrameObject({ method: 'create' });
+        let frame = ecc && ecc.push({ method: 'create' });
         frame?.pop();
     }
 
     setup(ecc, ...args) {
-        let frame = ecc && ecc.pushFrameObject({ method: 'setup' });
+        let frame = ecc && ecc.push({ method: 'setup' });
         frame?.pop();
     }
 
@@ -160,7 +160,7 @@ class MUDObject extends MUDEventEmitter {
     }
 
     async initAsync(ecc) {
-        let frame = ecc && ecc.pushFrameObject({ method: 'initAsync' });
+        let frame = ecc && ecc.push({ method: 'initAsync' });
         frame?.pop();
     }
 
@@ -171,7 +171,7 @@ class MUDObject extends MUDEventEmitter {
      * @returns
      */
     async moveObjectAsync(ecc, destination) {
-        let frame = ecc.pushFrameObject({ object: this, file: __filename, method: 'moveObjectAsync', isAsync: true, callType: 2, lineNumber: 154 });
+        let frame = ecc.push({ object: this, file: __filename, method: 'moveObjectAsync', isAsync: true, callType: 2, lineNumber: 154 });
         try {
             let myStore = driver.storage.get(this),
                 oldEnvironment = myStore.environment;
@@ -227,7 +227,7 @@ class MUDObject extends MUDEventEmitter {
     }
 
     receiveMessage(ecc, msgClass, text) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'receiveMessage', lineNumber: __line, isAsync: false, className: this, callType: CallOrigin.LocalCall });
+        const frame = ecc.push({ file: __filename, method: 'receiveMessage', lineNumber: __line, isAsync: false, className: this, callType: CallOrigin.LocalCall });
         try {
             let store = driver.storage.get(this);
             if (store.component) {
@@ -243,7 +243,7 @@ class MUDObject extends MUDEventEmitter {
     }
 
     serializeObject() {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'serializeObject', lineNumber: __line, isAsync: false, className: this, callType: CallOrigin.CallOther });
+        const frame = ecc.push({ file: __filename, method: 'serializeObject', lineNumber: __line, isAsync: false, className: this, callType: CallOrigin.CallOther });
         try {
             let $storage = driver.storage.get(this);
             return $storage.serialize();
@@ -268,7 +268,7 @@ class MUDObject extends MUDEventEmitter {
     }
 
     write(ecc, msg) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'write', lineNumber: __line, isAsync: false, className: this, callType: CallOrigin.LocalCall });
+        const frame = ecc.push({ file: __filename, method: 'write', lineNumber: __line, isAsync: false, className: this, callType: CallOrigin.LocalCall });
         try {
             let storage = driver.storage.get(this),
                 shell = storage.shell,
@@ -285,7 +285,7 @@ class MUDObject extends MUDEventEmitter {
     }
 
     writeLine(ecc, msg) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'writeLine', lineNumber: __line, isAsync: false, className: this, callType: CallOrigin.LocalCall });
+        const frame = ecc.push({ file: __filename, method: 'writeLine', lineNumber: __line, isAsync: false, className: this, callType: CallOrigin.LocalCall });
         try {
             return this.write(msg + '\n');
         }
@@ -460,7 +460,7 @@ class MUDVTable {
     static virtualCall(instance, ecc, methodName, typeName, args) {
         const vtable = MUDVTable.getVirtualTable(instance.constructor.prototype),
             methodMap = vtable.getMethod(methodName);
-        let frame = ecc.pushFrameObject({ method: 'virtualCall', callType: 2 });
+        let frame = ecc.push({ method: 'virtualCall', callType: 2 });
         try {
             if (!methodMap)
                 throw new Error(`Type ${instance.constructor.name} does not have a method named '${methodName}'`)

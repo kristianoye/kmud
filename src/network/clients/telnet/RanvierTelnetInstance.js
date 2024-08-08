@@ -83,7 +83,7 @@ class RanvierTelnetInstance extends ClientInstance {
      * @returns
      */
     async connect(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'connect', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'connect', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (!this.mainWindow) {
                 this.mainWindow = await ClientInstance.registerComponent(ecc, this, {

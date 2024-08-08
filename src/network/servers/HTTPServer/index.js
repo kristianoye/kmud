@@ -135,10 +135,10 @@ class HTTPServer extends events.EventEmitter {
         this.port = config.port || 8088;
         this.portOptions = Object.assign(
             config.portOptions || {}, {
-                host: '0.0.0.0',
-                IncomingMessage: HTTPRequest,
-                ServerResponse: HTTPResponse
-            });
+            host: '0.0.0.0',
+            IncomingMessage: HTTPRequest,
+            ServerResponse: HTTPResponse
+        });
 
         this.routeTable = new RouteTable(this);
         this.securePort = config.securePort || false;
@@ -159,7 +159,7 @@ class HTTPServer extends events.EventEmitter {
      * @param {...string} spec
      */
     addIndexFile(ecc, ...spec) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'addIndexFile' });
+        let frame = ecc.push({ file: __filename, method: 'addIndexFile' });
         try {
             spec.forEach(fn => {
                 if (this.indexFiles.indexOf(fn) === -1)
@@ -417,7 +417,7 @@ class HTTPServer extends events.EventEmitter {
         let resolvedFilename = this.fileSystem.createLocation(expr),
             stat = await resolvedFilename.stat();
 
-        if (stat.isDirectory === true|| stat.isDirectory()) {
+        if (stat.isDirectory === true || stat.isDirectory()) {
             for (let i = 0; i < this.indexFiles.length; i++) {
                 let indexFile = resolvedFilename.resolveVirtual(this.indexFiles[i]);
                 let indexStat = await indexFile.stat();
@@ -486,7 +486,7 @@ class HTTPServer extends events.EventEmitter {
      * @param {any} siteRoot
      */
     setContentRoot(ecc, siteRoot) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'setContentRoot' });
+        let frame = ecc.push({ file: __filename, method: 'setContentRoot' });
         try {
             this.contentRoot = siteRoot;
             return this;
@@ -590,7 +590,7 @@ class HTTPServer extends events.EventEmitter {
      * @param {any} doAction
      */
     withRoutes(ecc, doAction = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'withRoutes' });
+        let frame = ecc.push({ file: __filename, method: 'withRoutes' });
 
         try {
             if (typeof doAction === 'function')

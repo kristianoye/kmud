@@ -82,7 +82,7 @@ if (typeof String.prototype.splitLines !== 'function') {
     };
 }
 if (typeof String.prototype.padLeft !== 'function') {
-    String.prototype.padLeft = function (len, paddingChar=' ') {
+    String.prototype.padLeft = function (len, paddingChar = ' ') {
         let s = this.slice(0),
             n = parseInt(len);
 
@@ -135,7 +135,7 @@ if (typeof String.prototype.ucfirst !== 'function') {
 }
 
 String.notEmpty = function (ecc, s) {
-    let frame = ecc.pushFrameObject({ method: 'notEmpty' });
+    let frame = ecc.push({ method: 'notEmpty' });
     try {
         return typeof s === 'string' && /\\w+/.test(s);
     }

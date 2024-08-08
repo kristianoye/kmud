@@ -164,7 +164,7 @@ class SecurityAcl {
      * @param {string} methodName The name of the requesting method
      */
     async can(ecc, flags, fullPath, methodName = 'unknown') {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'can', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'can', callType: CallOrigin.Driver });
         try {
             let perms = await this.getEffectivePermissions(frame.branch()),
                 checkCache = {};
@@ -249,7 +249,7 @@ class SecurityAcl {
      * @returns {Promise<SecurityAcl> | false}
      */
     async getChildAsync(ecc, name) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (typeof this.#children === 'object') {
                 //  Does this entry have an explicit entry?
@@ -273,7 +273,7 @@ class SecurityAcl {
      * @returns {Object.<string,AclEffectivePermission}
      */
     async getEffectivePermissions(ecc, result = {}) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
         try {
             for (const [id, perms] of Object.entries(this.#permissions)) {
                 //  Do not overwrite permissions inherited from a higher level
@@ -302,7 +302,7 @@ class SecurityAcl {
      * @returns
      */
     async getPermString(ecc, tp, fullPath) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getPermString', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getPermString', isAsync: true, callType: CallOrigin.Driver });
         try {
             let perms = await this.getEffectivePermissions(frame.branch()),
                 result = 0;
@@ -346,7 +346,7 @@ class SecurityAcl {
      * @param {ExecutionContext} ecc The current call stack
      */
     async saveAsync(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'saveAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'saveAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (this.#children === false) {
                 await this.#parent.saveAsync(frame.branch());
@@ -387,7 +387,7 @@ class SecurityAcl {
      * @param {string} [filename]
      */
     async setPermissionsAsync(ecc, perms, filename = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (await this.can(frame.branch(), SecurityFlags.P_CHANGEPERMS)) {
                 /** @type {SecurityAcl} */
@@ -511,7 +511,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {string[] | AclSecurityCredential[]} members
      */
     async addGroupMembers(ecc, group, members) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
         try {
         }
         finally {
@@ -548,7 +548,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns
      */
     async removeGroupMembers(ecc, group, members) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
         try {
         }
         finally {
@@ -576,7 +576,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {SecurityAcl} acl
      */
     applyWildcardAcls(ecc, acl) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
         try {
         }
         finally {
@@ -600,7 +600,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {GameServer} masterObject
      */
     async bootstrap(ecc, masterObject) {
-        let frame = ecc.pushFrameObject({ object: this, file: __filename, method: 'bootstrap', callType: CallOrigin.Driver });
+        let frame = ecc.push({ object: this, file: __filename, method: 'bootstrap', callType: CallOrigin.Driver });
         try {
             if (this.bootstrapApply) {
                 await super.bootstrap(masterObject);
@@ -635,7 +635,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {string} methodName The name of the method making the request
      */
     async can(ecc, fo, flags, methodName = 'unknonwn') {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'can', isAsync: true });
+        let frame = ecc.push({ file: __filename, method: 'can', isAsync: true });
         try {
             //  Everything is read-write until the master object is loaded
             if (!driver.masterObject)
@@ -657,7 +657,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns
      */
     async createGroup(ecc, group) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
         try {
         }
         finally {
@@ -679,7 +679,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns
      */
     async deleteGroup(ecc, group) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
         try {
         }
         finally {
@@ -698,7 +698,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns {Promise<SecurityAcl>}
      */
     async getAcl(ecc, fo, ignoreParent = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
         if (typeof fo === 'string') {
             try {
                 return await this.getAcl(frame.branch(), await driver.fileManager.getObjectAsync(frame.branch(), fo, 0, true));
@@ -777,7 +777,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns string The full MUD path of the ACL file
      */
     async getAclFilename(ecc, fso) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (this.shadowFilesystem) {
                 const aclPath = fso.isDirectory ?
@@ -808,7 +808,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {string} groupName
      */
     getGroup(ecc, groupName) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getGroup', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getGroup', isAsync: true, callType: CallOrigin.Driver });
         try {
             return this.groups[groupName];
         }
@@ -824,7 +824,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {boolean} refresh If true then the cache is ignored
      */
     getSafeCredential(ecc, username, refresh = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getSafeCredential', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getSafeCredential', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (username in this.safeCredentials)
                 return this.safeCredentials[username];
@@ -844,7 +844,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {boolean} reload Reload permissions
      */
     async getSafeCredentialAsync(ecc, username, reload = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
         try {
             let creds = this.getCredential(frame.context, username);
             return creds.createSafeExport(frame.context);
@@ -859,7 +859,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {ExecutionContext} ecc The current call stack
      */
     async initSecurityAsync(ecc) {
-        let frame = ecc.pushFrameObject({ method: 'initSecurityAsync', isAsync: true });
+        let frame = ecc.push({ method: 'initSecurityAsync', isAsync: true });
         try {
             if (this.shadowFilesystem !== false) {
                 let shadowFS = await driver.fileManager.getFileAsync(ecc.branch(), this.shadowFilesystem, 0, true);
@@ -885,7 +885,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {string} groupName
      */
     isGroupMember(ecc, userId, groupName) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isGroupMember', isAsync: false, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'isGroupMember', isAsync: false, callType: CallOrigin.Driver });
         try {
             let group = this.getGroup(frame.context, groupName);
             return group && group.isMember(frame.context, userId);
@@ -901,7 +901,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {FileSystemObject} file
      */
     isSystemFile(ecc, file) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isSystemFile', isAsync: false, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'isSystemFile', isAsync: false, callType: CallOrigin.Driver });
         try {
             if (file.fullPath === this.groupsFile) return true;
             else if (file.fullPath === this.permissionFile) return true;
@@ -920,7 +920,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns
      */
     listGroups(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'listGroups', isAsync: false, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'listGroups', isAsync: false, callType: CallOrigin.Driver });
         try {
             if (!expr) expr = '*';
             expr = expr.replace('*', '.*');
@@ -950,7 +950,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {ExecutionContext} ecc The current call stack
      */
     async loadGroupsFile(ecc) {
-        let frame = ecc.pushFrameObject({ object: this, file: __filename, method: 'loadGroupsFile', isAsync: true });
+        let frame = ecc.push({ object: this, file: __filename, method: 'loadGroupsFile', isAsync: true });
         try {
             let groupsFile = await driver.fileManager.getObjectAsync(frame.branch(), this.groupsFile, 0, true),
                 groupData = await groupsFile.readJsonAsync(frame.branch());
@@ -984,7 +984,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {ExecutionContext} ecc The current call stack
      */
     async loadPermissionsFile(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadPermissionsFile', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'loadPermissionsFile', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let perms = await efuns.fs.readYamlAsync(frame.branch(), this.permissionsFile),
                 permSets = Object.keys(perms).filter(p => p.startsWith('PERMSET')),
@@ -1078,7 +1078,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns {AclSecurityCredential | AclSecurityGroup}
      */
     getCredential(ecc, filename, reload = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getCredential', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getCredential', callType: CallOrigin.Driver });
         try {
             if ('~@$'.indexOf(filename.charAt(0)) > -1) {
                 return this.groups[filename];
@@ -1125,9 +1125,9 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns {AclSecurityCredential[] | string[]}
      */
     getCredentials(ecc, names) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getCredentials', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getCredentials', isAsync: true, callType: CallOrigin.Driver });
         try {
-            let frame = ecc.pushFrameObject({ method: 'getCredentials' });
+            let frame = ecc.push({ method: 'getCredentials' });
             try {
                 return this.initialized ? names.map(n => this.getCredential(ecc.branch(), n)) : names;
             }
@@ -1147,7 +1147,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns
      */
     async getGroupName(ecc, fo) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getGroupName', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getGroupName', isAsync: true, callType: CallOrigin.Driver });
         try {
             let acl = await this.getAcl(frame.branch(), fo);
             return acl && acl.group || '(no group)';
@@ -1165,7 +1165,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns {string} Returns the name of the file owner
      */
     async getOwnerName(ecc, fo) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getOwnerName', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getOwnerName', isAsync: true, callType: CallOrigin.Driver });
         try {
             let acl = await this.getAcl(ecc, fo);
             return acl?.owner ?? 'unknown';
@@ -1183,7 +1183,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns {string} Returns a string indicating individual permissions
      */
     async getPermString(ecc, fo, tp) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getPermString', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getPermString', isAsync: true, callType: CallOrigin.Driver });
         try {
             let acl = await this.getAcl(ecc, fo);
             return acl ? await acl.getPermString(ecc, tp, fo.fullPath) : 'unknown';
@@ -1252,7 +1252,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns {Promise<SecurityAcl>}
      */
     async readAclData(ecc, filename) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'readAclData', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'readAclData', isAsync: true, callType: CallOrigin.Driver });
         try {
             let fso = await driver.fileManager.getObjectAsync(frame.branch(), filename, 0, true);
             if (fso.exists)
@@ -1272,7 +1272,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns
      */
     resolveGroup(ecc, groupName) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'resolveGroup', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'resolveGroup', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (groupName in this.groups)
                 return this.groups[groupName];
@@ -1288,7 +1288,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns {Promise<boolean>}
      */
     async saveGroups(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'saveGroups', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'saveGroups', isAsync: true, callType: CallOrigin.Driver });
         try {
             let groupData = {
                 defaultGroupName: this.defaultGroupName,
@@ -1320,7 +1320,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {GameServer} gameDriver
      */
     async validateAsync(ecc, gameDriver) {
-        let frame = ecc.pushFrameObject({ method: 'validateAsync', file: __filename, isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ method: 'validateAsync', file: __filename, isAsync: true, callType: CallOrigin.Driver });
         try {
             if (typeof gameDriver.masterObject[this.getCredentialApply] !== 'function')
                 throw new Error(`Master object ${driver.masterObject.filename} does not contain method '${this.getCredentialApply}'`);
@@ -1340,7 +1340,7 @@ class AclSecurityManager extends BaseSecurityManager {
       * @param {FileSystemRequest} req
       */
     validAppendFile(ecc, efuns, req) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validAppendFile', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validAppendFile', isAsync: true, callType: CallOrigin.Driver });
         try {
             return this.validWriteFile(frame.branch(), efuns, req);
         }
@@ -1355,7 +1355,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {string} expr The directory being created.
      */
     validCreateDirectory(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validCreateDirectory', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validCreateDirectory', isAsync: true, callType: CallOrigin.Driver });
         try {
             return this.validWriteFile(frame.branch(), expr);
         }
@@ -1370,7 +1370,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {string} expr The expression to create
      */
     validCreateFile(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validCreateFile', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validCreateFile', isAsync: true, callType: CallOrigin.Driver });
         try {
             return this.validWriteFile(frame.branch(), expr);
         }
@@ -1385,7 +1385,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {string} expr The directory to delete
      */
     validDeleteDirectory(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validDeleteDirectory', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validDeleteDirectory', isAsync: true, callType: CallOrigin.Driver });
         try {
             return this.validWriteFile(frame.branch(), expr);
         }
@@ -1400,7 +1400,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {string} expr The path to delete
      */
     validDeleteFile(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validDeleteFile', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validDeleteFile', isAsync: true, callType: CallOrigin.Driver });
         try {
             return this.validWriteFile(frame.branch(), expr);
         }
@@ -1415,7 +1415,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {FileSystemRequest} expr
      */
     validDestruct(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validDestruct', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validDestruct', isAsync: true, callType: CallOrigin.Driver });
         try {
             return true;
         }
@@ -1430,7 +1430,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {any} expr
      */
     validGetDirectory(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validGetDirectory', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validGetDirectory', isAsync: true, callType: CallOrigin.Driver });
         try {
             return true;
         }
@@ -1444,7 +1444,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {ExecutionContext} ecc The current call stack
      */
     validGrant(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validGrant', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validGrant', isAsync: true, callType: CallOrigin.Driver });
         try {
             throw new Error('Security system does not support the use of grant');
         }
@@ -1459,7 +1459,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {string} expr The path to load the object from.
      */
     validLoadObject(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validLoadObject', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validLoadObject', isAsync: true, callType: CallOrigin.Driver });
         try {
             return this.validReadFile(frame.branch(), expr);
         }
@@ -1475,7 +1475,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {FileSystemRequest} req The path expression to try and read.
      */
     async validReadDirectory(ecc, req) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validReadDirectory', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validReadDirectory', isAsync: true, callType: CallOrigin.Driver });
         try {
             return await this.validReadFile(frame.branch(), req);
         }
@@ -1490,7 +1490,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @param {DirectoryObject} stat The stat object to check
      */
     async validReadDirectoryAsync(ecc, stat) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validReadDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validReadDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (!stat.isDirectory)
                 throw new Error(`Bad argument 1 to validReadDirectoryAsync; Expected DirectoryObject got ${stat.constructor.name}`);
@@ -1508,7 +1508,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns {boolean} True if the operation can proceed.
      */
     async validReadFile(ecc, filename) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validReadFile', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validReadFile', isAsync: true, callType: CallOrigin.Driver });
         try {
             return frame.context.guarded(async f => await driver.validRead(frame.branch(), f, filename));
         }
@@ -1524,7 +1524,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns {boolean} True if the operation can proceed.
      */
     validStatFile(ecc, filename) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validStatFile', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validStatFile', isAsync: true, callType: CallOrigin.Driver });
         try {
             return this.validReadFile(frame.branch(), filename);
         }
@@ -1540,7 +1540,7 @@ class AclSecurityManager extends BaseSecurityManager {
      * @returns {boolean} Returns true if the operation is permitted.
      */
     validWriteFile(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'validWriteFile', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'validWriteFile', isAsync: true, callType: CallOrigin.Driver });
         try {
             return frame.context.guarded(f => driver.validWrite(frame.branch(), f, expr));
         }

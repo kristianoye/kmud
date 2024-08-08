@@ -67,7 +67,7 @@ class PipelineContext {
      */
     addValue(key, val) {
         this[key] = val;
-        
+
         return this;
     }
 
@@ -78,7 +78,7 @@ class PipelineContext {
      * @param {string} possibleExtensions A list of expressions to search for
      */
     static async create(ecc, options, possibleExtensions = '') {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'create', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'create', isAsync: true, callType: CallOrigin.Driver });
         try {
             let expr = options.file,
                 directory = expr.slice(0, expr.lastIndexOf('/')),
@@ -172,7 +172,7 @@ class PipelineContext {
                 console.log('update failure');
             }
         }
-        if(content) this.content = content;
+        if (content) this.content = content;
         return (this.state = state), this;
     }
 
