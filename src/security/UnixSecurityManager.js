@@ -33,17 +33,17 @@ class UnixSecurityManager extends BaseSecurityManager {
      * @param {FileSystemObject} stat The stat to get an Acl for
      */
     async getAcl(stat) {
-        if (stat.isFile) {
+        if (stat.isFile()) {
             let parent = await stat.getParentAsync(),
                 parentAcl = await this.getAcl(parent);
             return parentAcl;
         }
-        else if (stat.isDirectory) {
+        else if (stat.isDirectory()) {
             if (stat.path in this.permsCache)
                 return this.permsCache[stat.path];
 
             let aclData = await driver.fileManager.getSystemFileAsync(stat.mapPath('.acl'), 1);
-            if (!aclData.exists) {
+            if (!aclData.exists()) {
                 let parent = await stat.getParentAsync();
                 if (parent) return await this.getAcl(parent);
             }
@@ -138,7 +138,7 @@ class UnixSecurityManager extends BaseSecurityManager {
      * @param {DirectoryObject} stat The stat object to check
      */
     async validReadDirectoryAsync(stat) {
-        if (!stat.isDirectory)
+        if (!stat.isDirectory())
             throw new Error(`Bad argument 1 to validReadDirectoryAsync; Expected DirectoryObject got ${stat.constructor.name}`);
         return true; // BOGUS... but does not work yet
     }

@@ -24,7 +24,7 @@ class BaseSecurityManager extends EventEmitter {
          * @type {string} */
         this.bootstrapApply = options.bootstrapApply;
 
-        /** @type {GameServer} */
+        /** @type {IGameServer} */
         this.driver = fileManager.driver;
 
         /** @type {FileManager} */
@@ -336,7 +336,7 @@ class BaseSecurityCredential extends EventEmitter {
 
     /**
      * Add a group
-     * @param {ExecutionContext} ecc
+     * @param {ExecutionContext} ecc The callstack
      * @param {BaseSecurityGroup} group
      */
     addGroup(ecc, group) {
@@ -357,7 +357,7 @@ class BaseSecurityCredential extends EventEmitter {
 
     /**
      * Create an object that be safely imported into the game runtime
-     * @param {ExecutionContext} ecc
+     * @param {ExecutionContext} ecc The callstack
      * @returns
      */
     createSafeExport(ecc) {

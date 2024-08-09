@@ -9,6 +9,7 @@ const
 
 /**
  * Base type for all MUD objects.
+ * @property {MUDWrapper} wrapper
  */
 class MUDObject extends MUDEventEmitter {
     /**

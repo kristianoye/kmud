@@ -14,14 +14,14 @@ class ActionEntry {
     constructor(verb) {
         this.verb = verb;
 
-        /** @type {Object.<string,{ target: MUDObject, callback: (text: string, evt:MUDInputEvent)=>boolean>>}} */
+        /** @type {Object.<string,{ target: IMUDObject, callback: (text: string, evt:MUDInputEvent)=>boolean>>}} */
         this.mapping = {};
         this.count = 0;
     }
 
     /**
      * Add a mapping
-     * @param {MUDObject} target The object containing the action
+     * @param {IMUDObject} target The object containing the action
      * @param {(text: string, evt:MUDInputEvent)=>boolean} callback The action callback
      */
     addMapping(target, callback) {
@@ -78,13 +78,13 @@ class ActionBinder {
     constructor() {
         /** @type {Object.<string,ActionEntry>} */
         this.actions = {};
-    } 
+    }
 
     /**
      * Create an action binding.
      * 
      * @param {string} verb The verb to invoke the action
-     * @param {MUDObject} target The verb to invoke the action
+     * @param {IMUDObject} target The verb to invoke the action
      * @param {(text: string, evt:MUDInputEvent)=>boolean} callback The verb to invoke the action
      * @return {ActionBinder}
      */
@@ -134,7 +134,7 @@ class ActionBinder {
 
     /** 
      * Unbinds all actions implemented by the specified object 
-     * @param {MUDObject} obj The object to unbind from
+     * @param {IMUDObject} obj The object to unbind from
      */
     unbindActions(obj) {
         let actions = this.getActions();

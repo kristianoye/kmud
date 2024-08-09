@@ -40,7 +40,7 @@ class PipelineContext {
             this.basename = file.baseName;
             this.content = content || '';
             this.directory = file.directory;
-            this.exists = file.exists;
+            this.exists = file.exists();
             this.extension = file.extension;
             this.filename = file.baseName;
             this.fullPath = file.fullPath;
@@ -188,8 +188,8 @@ class PipelineContext {
             let tryFilename = this.filename.endsWith(ext) ? this.filename : this.filename + ext;
             /** @type {FileSystemObject} */
             let stat = driver.efuns.stat(tryFilename, MUDFS.StatFlags.Content);
-            if (stat && stat.exists) {
-                if (stat.isFile) {
+            if (stat && stat.exists()) {
+                if (stat.isFile()) {
                     let n = this.filename.lastIndexOf('/');
 
                     this.extension = ext;
@@ -220,12 +220,12 @@ class PipelineContext {
                 return false;
             try {
                 let tryFilename = this.filename.endsWith(ext) ? this.filename : this.filename + ext,
-                    fileObject = await driver.efuns.fs.getFileAsync(tryFilename);
-                if (fileObject.exists) {
+                    fileObject = await driver.efuns.fs.getObjectAsync(tryFilename);
+                if (fileObject.exists()) {
                     this.extension = fileObject.extension;
                     this.filename = fileObject.baseName;
                     this.lastModified = fileObject.mtime;
-                    this.exists = fileObject.exists;
+                    this.exists = fileObject.exists();
                     this.directory = fileObject.directory;
                     this.resolvedName = this.realName.endsWith(ext) ? this.realName : this.realName + ext;
                     this.isEval = false;

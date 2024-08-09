@@ -111,7 +111,7 @@ class FileSystemHelper {
                 fileOrPath = fileOrPath.fullPath;
 
             let fso = await driver.fileManager.getObjectAsync(frame.branch(), fileOrPath);
-            if (!fso.exists)
+            if (!fso.exists())
                 return '';
 
             let ext = await this.getBackupExtension(frame.branch(), fso, backupControl, suffix),
@@ -284,7 +284,7 @@ class FileSystemHelper {
         let frame = ecc.push({ file: __filename, method: 'getDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let result = await driver.fileManager.getObjectAsync(frame.branch(), expr, flags);
-            if (!result.isDirectory)
+            if (!result.isDirectory())
                 throw new Error(`getDirectoryAsync(): '${expr}' is not a valid directory`);
             return result;
         }
@@ -336,7 +336,7 @@ class FileSystemHelper {
         let frame = ecc.push({ file: __filename, method: 'isDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let result = await driver.fileManager.getObjectAsync(frame.branch(), expr);
-            return result && result.exists && result.isDirectory;
+            return result && result.exists() && result.isDirectory();
         }
         finally {
             frame.pop();

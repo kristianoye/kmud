@@ -172,7 +172,7 @@ class CommandShell extends events.EventEmitter {
     /**
      * Attaches this shell to a player.
      * @param {ExecutionContext} ecc The current callstack
-     * @param {MUDObject} player The in-game object to attach I/O to .
+     * @param {IMUDObject} player The in-game object to attach I/O to .
      * @param {number} shellLevel Shell level determines default behavior for command processing.
      * @param {number} snoopLevel Snoop level 0 [actual player], level 1 [observe], level 2 [control], level 3 [lockout]
      * @returns {boolean} True on success.
@@ -317,8 +317,8 @@ class CommandShell extends events.EventEmitter {
     async executeResourceFile(ecc, filename) {
         let frame = ecc.push({ file: __filename, method: 'executeResourceFile', isAsync: true, callType: CallOrigin.Driver });
         try {
-            let fso = await driver.efuns.fs.getFileAsync(frame.branch(), filename);
-            if (fso.isFile) {
+            let fso = await driver.efuns.fs.getObjectAsync(frame.branch(), filename);
+            if (fso.isFile(frame.context)) {
                 let fullText = await fso.readFileAsync(frame.branch()),
                     lines = fullText
                         .split('\n')

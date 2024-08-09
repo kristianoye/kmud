@@ -11,6 +11,25 @@ declare module 'efuns' {
              * @param options Options used when performing the creation
              */
             createDirectoryAsync(ecc: IExecutionContext, dirName: string, options: { createAsNeeded: boolean, errorIfExists: boolean }): Promise<boolean>;
+
+            getObjectAsync(ecc: IExecutionContext, pathLike: string): Promise<IFileSystemObject>;
+            getObjectAsync(ecc: IExecutionContext, query: IFileSystemQuery): Promise<IFileSystemObject>;
+            getObjectAsync(pathLike: string): Promise<IFileSystemObject>;
+            getObjectAsync(query: IFileSystemQuery): Promise<IFileSystemObject>;
+        }
+
+        interface IObjectFunctions {
+            /** Load/create a MUD object */
+            loadObjectAsync(ecc: IExecutionContext, options: ILoadObjectParms): Promise<IMUDObject>;
+            loadObjectAsync(options: ILoadObjectParms): Promise<IMUDObject>;
+        }
+
+        interface IMUDTypeSpec {
+            file: string;
+            type: string;
+            extension?: string;
+            objectId?: string;
+            defaultType?: boolean;
         }
 
         interface IEFUNProxy {
@@ -27,14 +46,14 @@ declare module 'efuns' {
              * @param ecc The callstack
              * @param obj The object to add to the stream
              */
-            addOutputObject(ecc: IExecutionContext, obj: MUDObject): void;
+            addOutputObject(ecc: IExecutionContext, obj: IMUDObject): void;
 
             /**
              * Check to see if the specified object is an administrator
              * @param ecc The callstack
              * @param obj The object to evaluate
              */
-            adminp(ecc: IExecutionContext, obj: MUDObject): boolean;
+            adminp(ecc: IExecutionContext, obj: IMUDObject): boolean;
 
             /**
              * Check to see if the specified object is an assistant administrator
@@ -48,7 +67,7 @@ declare module 'efuns' {
              * @param ecc The callstack
              * @param list A list of objects and/or strings to consolidate into a sentence fragment
              */
-            arrayToSentence(ecc: IExecutionContext, list: (MUDObject | string)[]): string;
+            arrayToSentence(ecc: IExecutionContext, list: (IMUDObject | string)[]): string;
 
             /**
              * Bind an object function by name
@@ -57,7 +76,7 @@ declare module 'efuns' {
              * @param methodName The name of the method to bind
              * @param args Parameters to pass in the binding
              */
-            bindFunctionByName(ecc: IExecutionContext, target: MUDObject, methodName: string, ...args: any): function;
+            bindFunctionByName(ecc: IExecutionContext, target: IMUDObject, methodName: string, ...args: any): (thisObj: IMUDObject, ...args: any) => any;
 
             /**
              * Returns true if the provided cipher text matches the encrypted cipherText
@@ -70,7 +89,14 @@ declare module 'efuns' {
             /**
              * External functions for performing file operations
              */
-            readonly fs: IFileFunctions;
+            readonly fs: Readonly<IFileFunctions>;
+
+            /**
+             * External functions for interacting with game objects
+             */
+            readonly objects: Readonly<IObjectFunctions>;
+
+            parsePath(ecc: IExecutionContext, pathLike: string): Readonly<IMUDTypeSpec>;
         }
     }
 }

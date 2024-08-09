@@ -152,15 +152,19 @@ class ObjectHelper {
     /**
      * Load an object asyncronously
      * @param {ExecutionContext} ecc The current callstack
-     * @param {any} expr
+     * @param {string | ILoadObjectParms} expr
      * @param {...any} args
      * @returns {Promise<MUDObject>}
      */
     static async loadObjectAsync(ecc, expr, ...args) {
-        let frame = ecc.push({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, line: __line, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (expr instanceof MUDObject)
                 return expr;
+            else if (typeof expr === 'object') {
+                args = expr.args || [];
+                expr = expr.file;
+            }
 
             if (typeof expr !== 'string') {
                 if (typeof expr === 'function' && expr.isWrapper)
@@ -168,6 +172,11 @@ class ObjectHelper {
                 else if (expr instanceof MUDObject)
                     return expr.wrapper;
             }
+
+            const
+                fileParts = efuns.parsePath(expr),
+                targetFile = await driver.fileManager.getObjectAsync(ecc, fileParts.file);
+
             let result = await driver.fileManager.loadObjectAsync(frame.branch(), driver.efuns.resolvePath(undefined, expr), args);
             return result;
         }

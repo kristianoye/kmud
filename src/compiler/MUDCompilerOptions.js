@@ -82,7 +82,7 @@ class MUDCompilerOptions {
 
         /**
          * This allows the compiler to override the injectedSuperClass option for special cases like SimulEfuns
-         * @type {MUDObject}
+         * @type {IMUDObject}
          */
         this.altParent = options.altParent;
 

@@ -89,7 +89,7 @@ export default singleton class UpdateCommand extends Command {
                                         if (err === false) {
                                             let filename = fullPath.split('/').pop(),
                                                 outputFilename = `${savePath}/${filename}.${stage}`,
-                                                outputFile = await efuns.fs.getFileAsync(outputFilename);
+                                                outputFile = await efuns.fs.getObjectAsync(outputFilename);
 
                                             await outputFile.writeFileAsync(source);
                                         }
@@ -149,7 +149,7 @@ export default singleton class UpdateCommand extends Command {
                                     if (err === false) {
                                         let filename = fullPath.split('/').pop(),
                                             outputFilename = `${savePath}/${filename}.${stage}`,
-                                            outputFile = await efuns.fs.getFileAsync(outputFilename);
+                                            outputFile = await efuns.fs.getObjectAsync(outputFilename);
 
                                         await outputFile.writeFileAsync(source);
                                     }
@@ -191,7 +191,7 @@ export default singleton class UpdateCommand extends Command {
         }
         for (let i = 0; i < options.files.length; i++) {
             let path = options.files[i],
-                fso = await efuns.fs.getFileAsync(path);
+                fso = await efuns.fs.getObjectAsync(path);
 
             try {
                 let result = await fso.compileAsync(options.createCompilerOptions(path, options));

@@ -1160,7 +1160,7 @@ class EFUNProxy {
      * Splits a file/object name into it's components (path, type name, instance ID)
      * @param {ExecutionContext} ecc The current execution context/call stack
      * @param {string} fileExprIn The file expression.
-     * @returns {{ file: string, type: string, extension?: string, objectId: string, defaultType: boolean }} Information about the path.
+     * @returns {IMUDTypeSpec} Information about the path.
      */
     parsePath(ecc, fileExprIn) {
         /** @type {[ ExecutionFrame, string ]} */
@@ -1915,7 +1915,7 @@ class EFUNProxy {
                         restoreFile += SaveExtension;
                     let dataFile = await this.fs.getObjectAsync(frame.branch(), restoreFile);
 
-                    if (dataFile.exists) {
+                    if (dataFile.exists()) {
                         let data = await dataFile.readJsonAsync(frame.branch());
                         let store = driver.storage.get(thisOb);
                         return store ? await store.eventRestore(frame.branch(), data) : false;

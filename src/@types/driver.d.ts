@@ -1,5 +1,6 @@
-/// <reference path="./execution.d.ts" />
+/// <reference path="execution.d.ts" />
 /// <reference path="efuns.d.ts" />
+/// <reference path="filesystem.d.ts" />
 
 declare module 'driver' {
     global {
@@ -47,6 +48,9 @@ declare module 'driver' {
             driverCallAsync(method: string, callback: (ecc: IExecutionContext) => any, file: string, rethrow: boolean): Promise<any>;
 
             efuns: IEFUNProxy;
+
+            /** The file manager singleton */
+            readonly fileManager: IFileManager;
 
             /**
              * Generate a new UUID

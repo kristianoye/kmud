@@ -641,8 +641,8 @@ class AclSecurityManager extends BaseSecurityManager {
             if (!driver.masterObject)
                 return true;
 
-            let acl = await this.getAcl(frame.branch(), fo);
-            let result = await acl.can(frame.branch(), flags, fo.fullPath, methodName);
+            let acl = await this.getAcl(frame, fo);
+            let result = await acl.can(frame, flags, fo.fullPath, methodName);
             return result;
         }
         finally {
@@ -710,21 +710,21 @@ class AclSecurityManager extends BaseSecurityManager {
         else
             return new Promise(async (resolve, reject) => {
                 try {
-                    if (fo.isFile) {
+                    if (fo.isFile()) {
                         let parent = await fo.getParentAsync(frame.branch()),
                             parentAcl = await this.getAcl(frame.branch(), parent);
 
                         return resolve(await parentAcl.getChildAsync(frame.branch(), fo.name));
                     }
-                    else if (fo.isDirectory) {
+                    else if (fo.isDirectory()) {
                         try {
                             if (fo.path in this.aclCache)
                                 return resolve(this.aclCache[fo.path]);
                             let aclFilename = await this.getAclFilename(frame.branch(), fo);
                             let aclFile = await driver.fileManager.getObjectAsync(frame.branch(), aclFilename, 0, true);
-                            let existingData = aclFile.exists ? await this.readAclData(frame.branch(), aclFilename) : false;
+                            let existingData = aclFile.exists() ? await this.readAclData(frame.branch(), aclFilename) : false;
                             let parentAcl = fo.parent ? await this.getAcl(frame.branch(), fo.parent) : false;
-                            let requireSave = !aclFile.exists;
+                            let requireSave = !aclFile.exists();
 
                             //  There was no data for this directory; Ask the master
                             if (existingData === false) {
@@ -732,7 +732,7 @@ class AclSecurityManager extends BaseSecurityManager {
                             }
 
                             if (!existingData.owner)
-                                existingData.owner = await driver.callApplySync(frame.branch(), this.getFileOwnerApply, fo.fullPath, fo.isDirectory);
+                                existingData.owner = await driver.callApplySync(frame.branch(), this.getFileOwnerApply, fo.fullPath, fo.isDirectory());
 
                             /** @type {SecurityAcl} */
                             let acl = new SecurityAcl(parentAcl, true, aclFile.fullPath, existingData);
@@ -746,15 +746,15 @@ class AclSecurityManager extends BaseSecurityManager {
                             reject(err);
                         }
                     }
-                    else if (!fo.exists && ignoreParent === false) {
+                    else if (!fo.exists() && ignoreParent === false) {
                         //  Look for the first parent that does exist
                         let parent = await fo.getParentAsync(frame.branch());
 
-                        if (!parent.exists) {
+                        if (!parent.exists()) {
                             do {
                                 parent = await parent.getParentAsync(frame.branch());
                             }
-                            while (!parent.exists);
+                            while (!parent.exists());
                         }
 
                         let parentAcl = await this.getAcl(parent);
@@ -771,27 +771,45 @@ class AclSecurityManager extends BaseSecurityManager {
     }
 
     /**
+     * 
+     * @param {ExecutionContext} ecc The callstack
+     * @param {IFileSystemObject} fso The object we need an ACL for
+     */
+    async getAclFile(ecc, fso) {
+        const frame = ecc.push({ file: __filename, method: 'getAclFile', lineNumber: __line, isAsync: true, className: AclSecurityManager, callType: CallOrigin.Driver });
+        try {
+            const aclFilename = await this.getAclFilename(frame, fso);
+            return await driver.fileManager.getObjectAsync(frame, { file: aclFilename, isSystemRequest: true });
+        }
+        finally {
+            frame.pop();
+        }
+    }
+
+    /**
      * Get the filename of the ACL file for the provided object
      * @param {ExecutionContext} ecc The current call stack
-     * @param {FileSystemObject} fso
+     * @param {IFileSystemObject} fso
      * @returns string The full MUD path of the ACL file
      */
     async getAclFilename(ecc, fso) {
-        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getAclFilename', line: __line, isAsync: true, callType: CallOrigin.Driver });
         try {
             if (this.shadowFilesystem) {
-                const aclPath = fso.isDirectory ?
+                const aclPath = fso.isDirectory() ?
                     path.join(this.shadowFilesystem, fso.fullPath.slice(1)) :
-                    path.join(this.shadowFilesystem, fso.directory.slice(1));
+                    path.join(this.shadowFilesystem, fso.directory.slice(1)),
+                    /** @todo Make the path inode-based to ensure consistent perms regardless of mount location */
+                    aclFilename = aclPath.endsWith(this.aclFileName) ? aclPath : path.join(aclPath, this.aclFileName);
                 let aclDir = await driver.fileManager.getObjectAsync(frame.branch(), aclPath, 0, true);
 
-                if (!aclDir.exists) {
+                if (!aclDir.exists()) {
                     await aclDir.createDirectoryAsync(frame.branch(), true);
                 }
-                return path.join(aclPath, this.aclFileName);
+                return aclFilename;
             }
             else {
-                const aclPath = fso.isDirectory ?
+                const aclPath = fso.isDirectory() ?
                     path.join(fso.fullPath, this.aclFileName) :
                     path.join(fso.directory, this.aclFileName);
                 return aclPath;
@@ -862,8 +880,8 @@ class AclSecurityManager extends BaseSecurityManager {
         let frame = ecc.push({ method: 'initSecurityAsync', isAsync: true });
         try {
             if (this.shadowFilesystem !== false) {
-                let shadowFS = await driver.fileManager.getFileAsync(ecc.branch(), this.shadowFilesystem, 0, true);
-                if (!shadowFS.exists) {
+                let shadowFS = await driver.fileManager.getObjectAsync(frame, this.shadowFilesystem, 0, true);
+                if (!shadowFS.exists()) {
                     console.log(`Creating shadow volumne: ${shadowFS.fullPath}`);
                     await shadowFS.createDirectoryAsync(true);
                 }
@@ -1010,12 +1028,10 @@ class AclSecurityManager extends BaseSecurityManager {
             });
 
             console.log('Ensuring security ACLs are up-to-date:');
-            for (let i = 0; i < dirList.length; i++) {
-                let aclData = dirList[i];
-
+            for (const aclData of dirList) {
                 try {
                     if (driver.efuns.containsWildcard(frame.branch(), aclData.directory)) {
-                        this.wildcardPermissions.push(new WildcardAcl(dirList[i]));
+                        this.wildcardPermissions.push(new WildcardAcl(aclData));
                         continue;
                     }
                     /** @type {FileSystemObject} */
@@ -1028,25 +1044,26 @@ class AclSecurityManager extends BaseSecurityManager {
                     }, aclData.data);
 
                     if (aclData.directory) {
-                        if (!fso.isDirectory && fso.exists)
+                        if (!fso.isDirectory() && fso.exists())
                             throw new Error(`AclSecurityManager: File object: ${fso.fullPath} is not a directory`);
-                        else if (fso.exists) {
+                        else if (fso.exists()) {
                             console.log(`\tEnsuring permissions for directory: ${fso.path}`);
 
-                            let aclFile = await driver.fileManager.getObjectAsync(frame.branch(), this.aclFileName, 0, true), // await fso.getFileAsync(this.aclFileName),
-                                existingData = await this.readAclData(frame.branch(), await this.getAclFilename(frame.branch(), aclFile)),
-                                parentAcl = fso.parent ? await this.getAcl(frame.branch(), fso.parent) : false;
+                            const
+                                targetDirectory = await driver.fileManager.getObjectAsync(frame.context, { file: aclData.directory, isSystemRequest: true }),
+                                targetAclFile = await this.getAclFile(frame.context, targetDirectory),
+                                existingAclData = targetAclFile.exists() ? await targetAclFile.readJsonAsync(frame.context) : {},
+                                parentAcl = targetDirectory.parent ? await this.getAcl(frame, targetDirectory.parent) : false;
+                            var
+                                resolvedData = { ...existingAclData, ...aclData.data };
 
-                            /** @type {AclDirectoryData} */
-                            let data = Object.assign(existingData, aclData.data);
-
-                            if (!data.owner)
-                                data.owner = await driver.callApplyAsync(frame.branch(), this.getFileOwnerApply, fso.fullPath);
+                            if (!resolvedData.owner)
+                                resolvedData.owner = await driver.callApplyAsync(frame, this.getFileOwnerApply, targetDirectory.fullPath);
 
                             /** @type {SecurityAcl} */
-                            let acl = this.cacheAcl(fso.fullPath, new SecurityAcl(parentAcl, true, aclFile.fullPath, data));
+                            let acl = this.cacheAcl(targetDirectory.fullPath, new SecurityAcl(parentAcl, true, targetAclFile.fullPath, resolvedData));
 
-                            await acl.saveAsync(frame.branch());
+                            await acl.saveAsync(frame);
                         }
                         else
                             console.log(`\tWARNING: Skipping permissions for missing directory: ${fso.path}`);
@@ -1059,7 +1076,7 @@ class AclSecurityManager extends BaseSecurityManager {
                     }
                 }
                 catch (err) {
-                    console.log(`\tWARNING: Error setting permissions for directory: ${dirList[i].directory}: ${err}`);
+                    console.log(`\tWARNING: Error setting permissions for directory: ${aclData.directory}: ${err}`);
                 }
             }
         }
@@ -1255,7 +1272,7 @@ class AclSecurityManager extends BaseSecurityManager {
         let frame = ecc.push({ file: __filename, method: 'readAclData', isAsync: true, callType: CallOrigin.Driver });
         try {
             let fso = await driver.fileManager.getObjectAsync(frame.branch(), filename, 0, true);
-            if (fso.exists)
+            if (fso.exists())
                 return await fso.readJsonAsync(frame.branch());
             else
                 return {};
@@ -1298,7 +1315,7 @@ class AclSecurityManager extends BaseSecurityManager {
             for (const [id, group] of Object.entries(this.groups)) {
                 groupData.groups[id] = group.createSafeExport(frame.branch());
             }
-            let groupsFile = await driver.fileManager.getFileAsync(frame.branch(), this.groupsFile, 0, true);
+            let groupsFile = await driver.fileManager.getObjectAsync(frame.branch(), this.groupsFile, 0, true);
             return await groupsFile.writeJsonAsync(frame.branch(), groupData);
         }
         finally {
@@ -1492,7 +1509,7 @@ class AclSecurityManager extends BaseSecurityManager {
     async validReadDirectoryAsync(ecc, stat) {
         let frame = ecc.push({ file: __filename, method: 'validReadDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
-            if (!stat.isDirectory)
+            if (!stat.isDirectory())
                 throw new Error(`Bad argument 1 to validReadDirectoryAsync; Expected DirectoryObject got ${stat.constructor.name}`);
             return true; // BOGUS... but does not work yet
         }

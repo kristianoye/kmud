@@ -3,13 +3,12 @@ const
     events = require('events'),
     FileSystemQuery = require('./FileSystemQuery');
 
-
 /**
- * @typedef {Object} CreateDirectoryOptions
- * @property {boolean} [createAsNeeded] Check and create every parent as needed; Defaults to false
- * @property {boolean} [errorIfExists] Throw an exception if the directory already exists; Defaults to true
- * @property {boolean} [isSystemRequest] Is this request being made by the driver? RESERVED--cannot be used in-game
- */
+* @typedef {Object} CreateDirectoryOptions
+* @property {boolean} [createAsNeeded] Check and create every parent as needed; Defaults to false
+* @property {boolean} [errorIfExists] Throw an exception if the directory already exists; Defaults to true
+* @property {boolean} [isSystemRequest] Is this request being made by the driver? RESERVED--cannot be used in-game
+*/
 
 /**
  * @typedef {Object} CopyOptions
@@ -53,7 +52,7 @@ class BaseFileSystem extends events.EventEmitter {
         /** @type {number} */
         this.flags = opts.flags || FS_NONE;
 
-        /** @type {FileManager} */
+        /** @type {IFileManager} */
         this.fileManager = fileManager;
 
         /** @type {string} */

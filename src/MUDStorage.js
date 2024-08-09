@@ -25,7 +25,7 @@ const
 class MUDStorage extends events.EventEmitter {
     /**
      * Construct a storage object.
-     * @param {MUDObject} owner The owner of the storage object.
+     * @param {IMUDObject} owner The owner of the storage object.
      */
     constructor(owner, $credential) {
         super();
@@ -36,7 +36,7 @@ class MUDStorage extends events.EventEmitter {
 
         this.$credential = $credential;
 
-        /** @type {MUDObject} The current environment */
+        /** @type {IMUDObject} The current environment */
         this.$environment = null;
 
         this.filename = typeof owner === 'object' ?
@@ -46,7 +46,7 @@ class MUDStorage extends events.EventEmitter {
 
         /** 
          * A collection of objects contained within this object
-         * @type {MUDObject[]}} 
+         * @type {IMUDObject[]}} 
          */
         this.$inventory = [];
 
@@ -359,7 +359,7 @@ class MUDStorage extends events.EventEmitter {
     /**
      * Initialize the storage object.
      * @param {ExecutionContext} ecc
-     * @param {MUDObject} ownerObject
+     * @param {IMUDObject} ownerObject
      */
     async eventInitialize(ecc, ownerObject) {
         let frame = ecc.push({ object: ownerObject, method: 'eventInitialize', file: ownerObject.fullPath, isAsync: true, callType: CallOrigin.Driver });
@@ -548,7 +548,7 @@ class MUDStorage extends events.EventEmitter {
             .filter(o => o instanceof MUDObject);
     }
 
-    /** @param {MUDObject[]} list */
+    /** @param {IMUDObject[]} list */
     set inventory(list) {
         this.$inventory = list
             .filter(o => o instanceof MUDObject)
@@ -762,7 +762,7 @@ class MUDStorage extends events.EventEmitter {
 
     /**
      * Re-associate a new object instance with an existing storage object.
-     * @param {MUDObject} owner The new owner of this storage
+     * @param {IMUDObject} owner The new owner of this storage
      * @param {object} ctx The context from the reload
      * @returns {MUDStorage} Returns existing storage object. 
      */
@@ -833,7 +833,7 @@ class MUDStorageContainer {
     }
 
     /**
-     * @param {MUDObject} ob
+     * @param {IMUDObject} ob
      */
     create(ob) {
         return this.storage[ob.filename] = new MUDStorage(ob);
@@ -866,7 +866,7 @@ class MUDStorageContainer {
 
     /**
      * Delete an object's data from storage.
-     * @param {MUDObject} ob
+     * @param {IMUDObject} ob
      */
     delete(ob) {
         if (ob) {
@@ -893,7 +893,7 @@ class MUDStorageContainer {
 
     /**
      * Fetch storage for the specified argument.
-     * @param {MUDObject} ob The file to fetch storage for.
+     * @param {IMUDObject} ob The file to fetch storage for.
      * @returns {MUDStorage} The storage object for the item or false.
      */
     get(ob) {

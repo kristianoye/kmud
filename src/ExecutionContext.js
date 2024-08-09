@@ -133,7 +133,7 @@ class ExecutionFrame {
          * The line number at which the call was made 
          * @type {number}
          */
-        this.lineNumber = frame.lineNumber || 0;
+        this.lineNumber = frame.lineNumber || frame.line || 0;
 
         /** More informative than useful, now
          * @type {boolean}
@@ -198,6 +198,14 @@ class ExecutionFrame {
     pop(yieldBack = false) {
         this.ellapsed = this.ticks;
         this.context.popFrame(this, yieldBack === true);
+    }
+
+    /**
+     * Allow a frame to act as a proxy for its owning context
+     * @param  {Partial<ExecutionFrame>} frameInfo Details to include on the callstack frame
+     */
+    push(frameInfo) {
+        return this.context.push(frameInfo);
     }
 
     /**
@@ -688,7 +696,7 @@ class ExecutionContext extends events.EventEmitter {
                     for (const [id, child] of Object.entries(this.unusedChildren)) {
                         if (global.driver?.debugMode) {
                             console.log(`\tExecutionContext: Child context ${child.handleId} was never used`);
-                            ExecutionContext.deleteContext(child);
+                            cExecutionContext.deleteContext(child);
                         }
                     }
                 }
@@ -1356,7 +1364,7 @@ class ExecutionContext extends events.EventEmitter {
 
     /**
      * Perform an object with a particular object as the current / thisObject
-     * @param {MUDObject} obj
+     * @param {IMUDObject} obj
      * @param {string} method
      * @param {any} callback
      * @param {any} isAsync

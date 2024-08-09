@@ -1146,7 +1146,7 @@ class MUDModule extends events.EventEmitter {
             for (const mod of this.dependents) {
                 try {
                     let childOptions = options.createChildOptions(mod.fullPath),
-                        fso = await driver.efuns.fs.getFileAsync(mod.fullPath);
+                        fso = await driver.efuns.fs.getObjectAsync(mod.fullPath);
 
                     await fso.compileAsync(childOptions);
 

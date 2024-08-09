@@ -54,7 +54,7 @@ class DesktopFileAbstraction extends Abstraction.FileAbstractionDefault {
 
         let stat = await this.stat(fileName, mapped);
 
-        if (stat.exists && stat.isDirectory()) {
+        if (stat.exists() && stat.isDirectory()) {
             let found = false;
 
             for (let i = 0; i < this.indexFiles.length; i++) {
@@ -62,12 +62,12 @@ class DesktopFileAbstraction extends Abstraction.FileAbstractionDefault {
 
                 stat = await this.readLocation(fullPath, false);
 
-                if (stat.exists && stat.isFile()) {
+                if (stat.exists() && stat.isFile()) {
                     return [fullPath, stat];
                 }
             }
         }
-        else if (stat.exists && stat.isFile())
+        else if (stat.exists() && stat.isFile())
             return [fileName, stat];
         return false;
     }
@@ -92,7 +92,7 @@ class DesktopFileAbstraction extends Abstraction.FileAbstractionDefault {
             return isMapped ? await super.stat(expr) : await driver.fileManager.statAsync(expr);
         });
 
-        if (stat.exists)
+        if (stat.exists())
             return stat;
         else
             return await super.stat(expr, isMapped);
