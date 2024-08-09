@@ -15,7 +15,7 @@ class ArrayHelper {
      * @param {...any[]} a
      */
     static intersection(ecc, ...a) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'intersection', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'intersection', callType: CallOrigin.DriverEfun });
         try {
             let arrays = a.slice(0).filter(_ => Array.isArray(_));
             if (arrays.length === 1) return a[0];
@@ -41,7 +41,7 @@ class ArrayHelper {
      * TODO: Make this a simulEfun
      */
     static consolidate(ecc, arr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'consolidate', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'consolidate', callType: CallOrigin.DriverEfun });
         try {
             let shorts = {};
             arr.map(s => typeof s === 'string' && s || unwrap(uw => uw.shortDesc) || false)

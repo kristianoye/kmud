@@ -27,7 +27,7 @@ class FileSystemHelper {
      * @param {string} encoding The file encoding to use
      */
     async appendFileAsync(ecc, expr, content, options = { encoding: 'utf8' }) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'appendFileAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'appendFileAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let
                 absPath = path.resolve(this.efuns.directory, expr),
@@ -48,7 +48,7 @@ class FileSystemHelper {
      * @returns
      */
     async copyAsync(ecc, source, destination, options) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'copyAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'copyAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             /** @type {FileCopyOperation} */
             let opts = {
@@ -105,13 +105,13 @@ class FileSystemHelper {
      * @returns
      */
     async createBackupAsync(ecc, fileOrPath, backupControl = 'simple', suffix = '~') {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createBackupAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'createBackupAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (typeof fileOrPath === 'object' && typeof fileOrPath.fullPath === 'string')
                 fileOrPath = fileOrPath.fullPath;
 
             let fso = await driver.fileManager.getObjectAsync(frame.branch(), fileOrPath);
-            if (!fso.exists)
+            if (!fso.exists())
                 return '';
 
             let ext = await this.getBackupExtension(frame.branch(), fso, backupControl, suffix),
@@ -134,7 +134,7 @@ class FileSystemHelper {
      * @returns {Promise<boolean>} Returns true if successful
      */
     async createDirectoryAsync(ecc, expr, { createAsNeeded, errorIfExists } = { createAsNeeded: false, errorIfExists: true }) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'createDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let fso = await driver.fileManager.getObjectAsync(frame.context, expr);
             return await fso.createDirectoryAsync(frame.context, { createAsNeeded, errorIfExists });
@@ -152,7 +152,7 @@ class FileSystemHelper {
      * @returns
      */
     async deleteAsync(ecc, files, options) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'deleteAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'deleteAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             /** @type {FileDeleteOperation} */
             let opts = {
@@ -223,7 +223,7 @@ class FileSystemHelper {
      * @returns
      */
     async getBackupExtension(ecc, fileOrPath, control = 'simple', suffix = '~') {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getBackupExtension', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'getBackupExtension', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (typeof fileOrPath === 'object' && typeof fileOrPath.fullPath === 'string')
                 fileOrPath = fileOrPath.fullPath;
@@ -281,10 +281,10 @@ class FileSystemHelper {
      * @param {any} flags Flags to control the operation
      */
     async getDirectoryAsync(ecc, expr, flags = 0) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'getDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let result = await driver.fileManager.getObjectAsync(frame.branch(), expr, flags);
-            if (!result.isDirectory)
+            if (!result.isDirectory())
                 throw new Error(`getDirectoryAsync(): '${expr}' is not a valid directory`);
             return result;
         }
@@ -301,7 +301,7 @@ class FileSystemHelper {
      * @returns {Promise<FileSystemObject>}
      */
     async getFileAsync(ecc, expr, flags = 0) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let result = await driver.fileManager.getObjectAsync(frame.branch(), expr, flags);
             return result;
@@ -317,7 +317,7 @@ class FileSystemHelper {
      * @param {number} [flags] Optional flags to control the operation
      */
     async getObjectAsync(ecc, expr, flags = 0) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             return await driver.fileManager.getObjectAsync(frame.branch(), expr, flags);
         }
@@ -333,10 +333,10 @@ class FileSystemHelper {
      * @returns {Promise<boolean>} Returns promise to check directory status
      */
     async isDirectoryAsync(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'isDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let result = await driver.fileManager.getObjectAsync(frame.branch(), expr);
-            return result && result.exists && result.isDirectory;
+            return result && result.exists() && result.isDirectory();
         }
         finally {
             frame.pop();
@@ -351,7 +351,7 @@ class FileSystemHelper {
      * @param {any} options
      */
     queryFileSystemAsync(ecc, expr, flags = 0, options = {}) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'queryFileSystemAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'queryFileSystemAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let fullOptions = { expression: false, flags: 0 };
 
@@ -394,7 +394,7 @@ class FileSystemHelper {
      * @returns {Promise<string[]> | Promise<FileSystemObject[]>} Returns directory contents
      */
     async readDirectoryAsync(ecc, expr, flags = 0) {
-        let frame = ecc.pushFrameObject({ method: 'readDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ method: 'readDirectoryAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             return await driver.fileManager.readDirectoryAsync(expr, flags);
         }
@@ -412,7 +412,7 @@ class FileSystemHelper {
      * @returns {Promise<string>}
      */
     async readFileAsync(ecc, expr, options = {}) {
-        let frame = ecc.pushFrameObject({ method: 'readFileAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ method: 'readFileAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let fso = await driver.fileManager.getObjectAsync(frame.branch(), expr);
             return await fso.readFileAsync(frame.branch(), options);
@@ -430,7 +430,7 @@ class FileSystemHelper {
      * @returns {Promise<object>} The resulting object
      */
     async readJsonAsync(ecc, expr, options = {}) {
-        let frame = ecc.pushFrameObject({ method: 'readJsonAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ method: 'readJsonAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let fso = await driver.fileManager.getObjectAsync(frame.branch(), expr);
             return await fso.readJsonAsync(frame.branch(), options);
@@ -446,7 +446,7 @@ class FileSystemHelper {
      * @param {string} expr The file to read from
      */
     async readYamlAsync(ecc, expr) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'readYamlAsync', callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'readYamlAsync', callType: CallOrigin.DriverEfun });
         try {
             let fso = await driver.fileManager.getObjectAsync(frame.branch(), expr);
             return await fso.readYamlAsync(frame.branch());
@@ -465,7 +465,7 @@ class FileSystemHelper {
      * @param {string} encoding The encoding to use when writing the file (defaults to utf8)
      */
     async writeFileAsync(ecc, expr, content, flags = 0, encoding = 'utf8') {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeFileAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'writeFileAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let fso = await driver.fileManager.getObjectAsync(frame.branch(), expr);
             return await fso.writeFileAsync(frame.branch(), content, options)
@@ -484,7 +484,7 @@ class FileSystemHelper {
      * @param {string} [encoding] The encoding to use when writing the file
      */
     async writeJsonAsync(ecc, expr, content, options = { indent: true, encoding: 'utf8' }) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeJsonAsync', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'writeJsonAsync', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let fso = await driver.fileManager.getObjectAsync(frame.branch(), expr);
             return await fso.writeJsonAsync(frame.branch(), content, options)

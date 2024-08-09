@@ -135,10 +135,10 @@ class HTTPServer extends events.EventEmitter {
         this.port = config.port || 8088;
         this.portOptions = Object.assign(
             config.portOptions || {}, {
-                host: '0.0.0.0',
-                IncomingMessage: HTTPRequest,
-                ServerResponse: HTTPResponse
-            });
+            host: '0.0.0.0',
+            IncomingMessage: HTTPRequest,
+            ServerResponse: HTTPResponse
+        });
 
         this.routeTable = new RouteTable(this);
         this.securePort = config.securePort || false;
@@ -159,7 +159,7 @@ class HTTPServer extends events.EventEmitter {
      * @param {...string} spec
      */
     addIndexFile(ecc, ...spec) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'addIndexFile' });
+        let frame = ecc.push({ file: __filename, method: 'addIndexFile' });
         try {
             spec.forEach(fn => {
                 if (this.indexFiles.indexOf(fn) === -1)
@@ -276,7 +276,7 @@ class HTTPServer extends events.EventEmitter {
             handler = false;
 
         context.response.mimeType = KnownMimeTypes.resolve(urlParsed.extension);
-        if (urlParsed.exists) {
+        if (urlParsed.exists()) {
             handler = this.handlers[urlParsed.extension] || this.handlers[HandlerDefault] || false;
         }
         else
@@ -319,11 +319,11 @@ class HTTPServer extends events.EventEmitter {
 
         let stat = await this.statFile(urlParsed.localPath = physicalPath);
         urlParsed.stat = stat;
-        urlParsed.exists = stat.exists;
+        urlParsed.exists = stat.exists();
 
         //  If this is a directory then we will look for an index file
         //  TODO: Allow server option to render custom index view?
-        if (urlParsed.exists && urlParsed.stat.isDirectory()) {
+        if (urlParsed.exists() && urlParsed.stat.isDirectory()) {
             let indexPath = this.indexFiles
                 .map(s => path.posix.join(url, s))
                 .map(async fn => await this.virtualPathExists(fn));
@@ -417,12 +417,12 @@ class HTTPServer extends events.EventEmitter {
         let resolvedFilename = this.fileSystem.createLocation(expr),
             stat = await resolvedFilename.stat();
 
-        if (stat.isDirectory === true|| stat.isDirectory()) {
+        if (stat.isDirectory() === true || stat.isDirectory()) {
             for (let i = 0; i < this.indexFiles.length; i++) {
                 let indexFile = resolvedFilename.resolveVirtual(this.indexFiles[i]);
                 let indexStat = await indexFile.stat();
 
-                if (indexStat.exists) {
+                if (indexStat.exists()) {
                     return indexFile;
                 }
             }
@@ -486,7 +486,7 @@ class HTTPServer extends events.EventEmitter {
      * @param {any} siteRoot
      */
     setContentRoot(ecc, siteRoot) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'setContentRoot' });
+        let frame = ecc.push({ file: __filename, method: 'setContentRoot' });
         try {
             this.contentRoot = siteRoot;
             return this;
@@ -576,7 +576,7 @@ class HTTPServer extends events.EventEmitter {
             if (virtualPath.startsWith(names[i])) {
                 let mapsTo = path.join(this.fileMappings[names[i]], virtualPath.slice(names[i].length));
                 let stats = await this.statFile(mapsTo);
-                if (stats.exists) {
+                if (stats.exists()) {
                     return [mapsTo, stats];
                 }
             }
@@ -590,7 +590,7 @@ class HTTPServer extends events.EventEmitter {
      * @param {any} doAction
      */
     withRoutes(ecc, doAction = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'withRoutes' });
+        let frame = ecc.push({ file: __filename, method: 'withRoutes' });
 
         try {
             if (typeof doAction === 'function')

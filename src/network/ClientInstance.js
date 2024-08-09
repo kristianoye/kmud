@@ -210,7 +210,7 @@ class ClientInstance extends events.EventEmitter {
      * @returns
      */
     static async registerComponent(ecc, client, data) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'registerComponent', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'registerComponent', isAsync: true, callType: CallOrigin.Driver });
         try {
             //  If this is a new client, then it will never find existing components...
             let component = client.getComponentById(data.id)

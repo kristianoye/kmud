@@ -211,7 +211,7 @@ class VerbRule {
      * @returns {boolean|string} True if the action can move forward.
      */
     async can(ecc, matchData) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'can', isAsync: true, callType: CallOrigin.DriverEfun, className: VerbRule });
+        const frame = ecc.push({ file: __filename, method: 'can', isAsync: true, callType: CallOrigin.DriverEfun, className: VerbRule });
         try {
             let handler = this.handler.instance,
                 method = handler[this.canMethod] || false,
@@ -242,7 +242,7 @@ class VerbRule {
      * @returns {boolean|string} True if the action was successful.
      */
     async do(ecc, matchData) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'do', isAsync: true, callType: CallOrigin.DriverEfun, className: VerbRule });
+        const frame = ecc.push({ file: __filename, method: 'do', isAsync: true, callType: CallOrigin.DriverEfun, className: VerbRule });
         try {
             let handler = this.handler.instance,
                 method = handler[this.doMethod] || false,
@@ -334,7 +334,7 @@ class Verb {
      * @returns {string|boolean} Returns true if the verb succeeded.
      */
     tryVerb(ecc, tp, verb, args) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'tryVerb', callType: CallOrigin.DriverEfun, className: Verb });
+        const frame = ecc.push({ file: __filename, method: 'tryVerb', callType: CallOrigin.DriverEfun, className: Verb });
         try {
             let rules = this.rules,
                 words = args.map(w => _prepositions[w] || w),
@@ -416,7 +416,7 @@ class VerbContainer {
      * @returns {boolean} Returns true on success.
      */
     addRule(ecc, verbName, rule, handler, scope) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'addSynonym', callType: CallOrigin.DriverEfun, className: VerbContainer });
+        const frame = ecc.push({ file: __filename, method: 'addSynonym', callType: CallOrigin.DriverEfun, className: VerbContainer });
         try {
             if (!handler) //  Could not determine handler! Ack!
                 throw new Error(`No valid handler associated with verb '${verbName}'`);
@@ -436,7 +436,7 @@ class VerbContainer {
      * @returns {boolean} True on success.
      */
     addSynonym(ecc, synonym, verbName) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'addSynonym', callType: CallOrigin.DriverEfun, className: VerbContainer });
+        const frame = ecc.push({ file: __filename, method: 'addSynonym', callType: CallOrigin.DriverEfun, className: VerbContainer });
         try {
             const verb = this.getVerb(verbName);
 
@@ -601,7 +601,7 @@ class VerbContainer {
      * @returns {string|boolean|any[]} Try match a rule to the user's input.
      */
     async tryParseRule(ecc, thisPlayer, rule, inputs, errors) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'tryParseRule', callType: CallOrigin.DriverEfun, className: VerbContainer });
+        const frame = ecc.push({ file: __filename, method: 'tryParseRule', callType: CallOrigin.DriverEfun, className: VerbContainer });
         try {
             let chunks = [],
                 chunk = [],
@@ -943,7 +943,7 @@ class VerbContainer {
      * @returns {string|boolean} Returns true on success
      */
     async tryParseSentence(ecc, input, player, scopes) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'tryParseVerb', callType: CallOrigin.DriverEfun, className: VerbContainer });
+        const frame = ecc.push({ file: __filename, method: 'tryParseVerb', callType: CallOrigin.DriverEfun, className: VerbContainer });
         try {
             let words = input.trim().split(/\s+/),
                 verbName = words.shift() || false;
@@ -964,7 +964,7 @@ class VerbContainer {
      * @returns {boolean|string} True on success
      */
     async tryParseVerb(ecc, verbName, input, thisPlayer, scopes) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'tryParseVerb', callType: CallOrigin.DriverEfun, className: VerbContainer });
+        const frame = ecc.push({ file: __filename, method: 'tryParseVerb', callType: CallOrigin.DriverEfun, className: VerbContainer });
         try {
             let verb = this.getVerb(verbName, false),
                 errors = [];
@@ -1075,7 +1075,7 @@ class VerbSystemFeature extends FeatureBase {
              * @returns 
              */
             efunPrototype[efunNameParseAddRule] = function (ecc, verb, rule, target) {
-                const frame = ecc.pushFrameObject({ file: __filename, method: efunNameParseAddRule, callType: CallOrigin.Driver, className: VerbSystemFeature });
+                const frame = ecc.push({ file: __filename, method: efunNameParseAddRule, callType: CallOrigin.Driver, className: VerbSystemFeature });
                 try {
                     let handler = feature.allowHandlerParameter ?
                         target || this.thisObject(ecc) : this.thisObject(ecc);
@@ -1090,7 +1090,7 @@ class VerbSystemFeature extends FeatureBase {
         }
         if (efunNameParseAddSynonym) {
             efunPrototype[efunNameParseAddSynonym] = function (ecc, synonym, verb) {
-                const frame = ecc.pushFrameObject({ file: __filename, method: efunNameParseAddSynonym, callType: CallOrigin.Driver, className: VerbSystemFeature });
+                const frame = ecc.push({ file: __filename, method: efunNameParseAddSynonym, callType: CallOrigin.Driver, className: VerbSystemFeature });
                 try {
                     return container.addSynonym(ecc, synonym, verb);
                 }
@@ -1105,7 +1105,7 @@ class VerbSystemFeature extends FeatureBase {
              * @param {ExecutionContext} ecc The current callstack
              */
             efunPrototype[efunNameParseInit] = function (ecc) {
-                const frame = ecc.pushFrameObject({ file: __filename, method: efunNameParseInit, callType: CallOrigin.Driver, className: VerbSystemFeature });
+                const frame = ecc.push({ file: __filename, method: efunNameParseInit, callType: CallOrigin.Driver, className: VerbSystemFeature });
                 try {
                 }
                 finally {
@@ -1115,7 +1115,7 @@ class VerbSystemFeature extends FeatureBase {
         }
         if (efunNameParseRefresh) {
             efunPrototype[efunNameParseRefresh] = function (ecc) {
-                const frame = ecc.pushFrameObject({ file: __filename, method: efunNameParseRefresh, callType: CallOrigin.Driver, className: VerbSystemFeature });
+                const frame = ecc.push({ file: __filename, method: efunNameParseRefresh, callType: CallOrigin.Driver, className: VerbSystemFeature });
                 try {
                 }
                 finally {
@@ -1132,7 +1132,7 @@ class VerbSystemFeature extends FeatureBase {
              * @returns 
              */
             efunPrototype[efunNameParseSentence] = async function (ecc, rawInput, scopeList) {
-                const frame = ecc.pushFrameObject({ file: __filename, method: efunNameParseVerb, callType: CallOrigin.Driver, className: VerbSystemFeature });
+                const frame = ecc.push({ file: __filename, method: efunNameParseVerb, callType: CallOrigin.Driver, className: VerbSystemFeature });
                 try {
                     let input = rawInput.trim(),
                         scopes = feature.useVerbRuleScope ?
@@ -1157,7 +1157,7 @@ class VerbSystemFeature extends FeatureBase {
              * @returns 
              */
             efunPrototype[efunNameParseVerb] = async function (ecc, verb, input, scopeList) {
-                const frame = ecc.pushFrameObject({ file: __filename, method: efunNameParseVerb, className: VerbSystemFeature, callType: CallOrigin.Driver });
+                const frame = ecc.push({ file: __filename, method: efunNameParseVerb, className: VerbSystemFeature, callType: CallOrigin.Driver });
                 try {
                     let scopes = feature.useVerbRuleScope ?
                         Array.isArray(scopeList) && scopeList.length ?

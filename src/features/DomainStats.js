@@ -161,7 +161,7 @@ class DomainStatsFeature extends FeatureBase {
     }
 
     preCompile(ecc, module) {
-        let frame = ecc.pushFrameObject({ method: 'preCompile', file: __filename });
+        let frame = ecc.push({ method: 'preCompile', file: __filename });
         try {
             module.stats = this.driver.getDomainStats(ecc, module.filename) || this.driver.getAuthorStats(ecc, module.filename) || false;
         }

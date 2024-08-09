@@ -9,7 +9,7 @@ class LivingsHelper {
      * @returns {boolean} True if the flag state changed.
      */
     static enableHeartbeat(ecc, flag = true) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'enableHeartbeat', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'enableHeartbeat', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let thisObject = ecc.thisObject,
                 store = driver.storage.get(thisObject);
@@ -31,7 +31,7 @@ class LivingsHelper {
      * @returns {boolean} True if the flag state changed.
      */
     static enableLiving(ecc, flag = true) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'enableLiving', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'enableLiving', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let thisObject = ecc.thisObject,
                 store = driver.storage.get(thisObject);
@@ -53,7 +53,7 @@ class LivingsHelper {
      * @returns {boolean} True if the flag state changed.
      */
     static enablePlayer(ecc, flag = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'enablePlayer', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'enablePlayer', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let thisObject = ecc.thisObject,
                 store = driver.storage.get(thisObject);
@@ -75,7 +75,7 @@ class LivingsHelper {
      * @returns {boolean} True if the flag state changed.
      */
     static enableWizard(ecc, flag = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'enableWizard', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'enableWizard', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let thisObject = ecc.thisObject,
                 store = driver.storage.get(thisObject);
@@ -97,7 +97,7 @@ class LivingsHelper {
      * @param {boolean} allowPartial
      */
     static findLiving(ecc, name, allowPartial = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'findLiving', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'findLiving', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let result = driver.livingObjects
                 .find(efuns.normalizeName(name), allowPartial);
@@ -118,7 +118,7 @@ class LivingsHelper {
      * @param {boolean} allowPartial
      */
     static findPlayer(ecc, name, allowPartial = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'findPlayer', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'findPlayer', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let result = driver.playerObjects
                 .find(efuns.normalizeName(frame.context, name), allowPartial);
@@ -139,7 +139,7 @@ class LivingsHelper {
      * @param {boolean} allowPartial
      */
     static findCreator(ecc, name, allowPartial = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'findCreator', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'findCreator', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let result = driver.wizardObjects
                 .find(efuns.normalizeName(frame.context, name), allowPartial);
@@ -160,7 +160,7 @@ class LivingsHelper {
      * @returns {boolean} Returns true if the object has a periodic heartbeat.
      */
     static hasHeartbeat(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'hasHeartbeat', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'hasHeartbeat', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let ob = target.instance;
             if (ob) {
@@ -180,7 +180,7 @@ class LivingsHelper {
      * @param {any} target
      */
     static isAlive(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isAlive', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'isAlive', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let ob = target.instance;
             if (ob) {
@@ -201,7 +201,7 @@ class LivingsHelper {
      * @returns {boolean} Returns true if the object has an active client
      */
     static isConnected(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isConnected', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'isConnected', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let ob = target.instance;
             if (ob) {
@@ -222,7 +222,7 @@ class LivingsHelper {
      * @returns {boolean} Returns true if the object is interactive
      */
     static isInteractive(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isInteractive', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'isInteractive', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let store = driver.storage.get(target.instance);
             return !!store && store.interactive;
@@ -239,7 +239,7 @@ class LivingsHelper {
      * @returns {boolean} Returns true if the object is interactive
      */
     static isPlayer(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isPlayer', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'isPlayer', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let store = driver.storage.get(target);
             return !!store && store.player;
@@ -256,7 +256,7 @@ class LivingsHelper {
      * @returns {boolean} Returns true if the object is interactive
      */
     static isWizard(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isWizard', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'isWizard', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let store = driver.storage.get(target);
             return !!store && store.wizard;
@@ -274,7 +274,7 @@ class LivingsHelper {
      * @returns
      */
     static async playerExists(ecc, user, wantFile = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'playerExists', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'playerExists', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             return await driver.callApplyAsync(frame.branch(), 'applyUserExists', user, false, wantFile);
         }
@@ -290,7 +290,7 @@ class LivingsHelper {
      * @returns {MUDObject[]} The list of players.
      */
     static players(ecc, showAll = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'players', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'players', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let players = driver.playerObjects
                 .toArray()
@@ -315,7 +315,7 @@ class LivingsHelper {
      * @returns {number} The amount of idle time in milliseconds.
      */
     static queryIdle(ecc, target) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'queryIdle', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'queryIdle', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let $storage = driver.storage.get(target);
             if ($storage && $storage.flags & MUDStorageFlags.PROP_INTERACTIVE) {
@@ -337,7 +337,7 @@ class LivingsHelper {
      * @param {any} name
      */
     static setLivingName(ecc, name) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'setLivingName', isAsync: false, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'setLivingName', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
             let ob = ecc.thisObject,
                 store = driver.storage.get(ob);
@@ -357,7 +357,7 @@ class LivingsHelper {
      * @returns True if the user exists either as a player or a wizard
      */
     static async userExists(ecc, user, wantFile = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             return await driver.callApplyAsync(frame.branch(), 'applyUserExists', user, undefined, wantFile);
         }
@@ -374,7 +374,7 @@ class LivingsHelper {
      * @returns
      */
     static async creatorExists(ecc, user, wantFile = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: '', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             return await driver.callApplyAsync(frame.branch(), 'applyUserExists', user, true, wantFile);
         }

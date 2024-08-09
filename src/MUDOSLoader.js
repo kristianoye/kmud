@@ -411,22 +411,22 @@ class MUDOSLoader extends MUDLoader {
 
         switch (n) {
             case 0:
-                return ecc.stack.map(frame => frame.file || '/<driver>');
+                return ecc._callstack.map(frame => frame.file || '/<driver>');
 
             case 1:
-                return ecc.stack
+                return ecc._callstack
                     .map(frame => frame.object)
                     .filter(o => o instanceof MUDObject || o instanceof SimpleObject)
                     .slice(0);
 
             case 2:
-                return ecc.stack
+                return ecc._callstack
                     .map(frame => frame.method)
                     .filter(m => typeof m === 'string' && m.length > 0)
                     .slice(0);
 
             case 3:
-                return ecc.stack
+                return ecc._callstack
                     .map(frame => frame.origin)
                     .filter(m => typeof m === 'string' && m.length > 0)
                     .slice(0);

@@ -103,7 +103,7 @@ class HTTPClientEndpoint extends ClientEndpoint {
      * @returns {HTTPClientEndpoint} Reference to self
      */
     bind(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'bind', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'bind', callType: CallOrigin.Driver });
         try {
             this[_server] = createHttpServer();
             this.httpServer.listen({ port: this.port, host: this.address });

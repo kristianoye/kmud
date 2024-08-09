@@ -24,7 +24,7 @@ class BaseSecurityManager extends EventEmitter {
          * @type {string} */
         this.bootstrapApply = options.bootstrapApply;
 
-        /** @type {GameServer} */
+        /** @type {IGameServer} */
         this.driver = fileManager.driver;
 
         /** @type {FileManager} */
@@ -336,11 +336,11 @@ class BaseSecurityCredential extends EventEmitter {
 
     /**
      * Add a group
-     * @param {ExecutionContext} ecc
+     * @param {ExecutionContext} ecc The callstack
      * @param {BaseSecurityGroup} group
      */
     addGroup(ecc, group) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'addGroup', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'addGroup', callType: CallOrigin.Driver });
         try {
             if (group instanceof BaseSecurityGroup) {
                 if (this.#groups.indexOf(group) === -1) {
@@ -357,11 +357,11 @@ class BaseSecurityCredential extends EventEmitter {
 
     /**
      * Create an object that be safely imported into the game runtime
-     * @param {ExecutionContext} ecc
+     * @param {ExecutionContext} ecc The callstack
      * @returns
      */
     createSafeExport(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createSafeExport', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'createSafeExport', callType: CallOrigin.Driver });
         try {
             return Object.freeze(new SafeSecurityCredential(this));
         }
@@ -394,7 +394,7 @@ class BaseSecurityCredential extends EventEmitter {
      * @param {string | BaseSecurityCredential} info
      */
     isEqual(ecc, info) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isEqual', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'isEqual', callType: CallOrigin.Driver });
         try {
             if (info instanceof BaseSecurityCredential)
                 return info === this || info.userId === this.userId;
@@ -414,7 +414,7 @@ class BaseSecurityCredential extends EventEmitter {
      * @param {any} groupName
      */
     inGroup(ecc, groupName) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'inGroup', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'inGroup', callType: CallOrigin.Driver });
         try {
             return this.#groups.indexOf(groupName) > -1;
         }
@@ -429,7 +429,7 @@ class BaseSecurityCredential extends EventEmitter {
      * @param {BaseSecurityGroup} group
      */
     removeFromGroup(ecc, group) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'removeFromGroup', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'removeFromGroup', callType: CallOrigin.Driver });
         try {
             let index = this.#groups.findIndex(g => g.gid === group.gid);
             if (index > -1) {
@@ -472,7 +472,7 @@ class BaseSecurityGroup extends EventEmitter {
      * @returns
      */
     createSafeExport(ecc) {
-        let frame = ecc?.pushFrameObject({ file: __filename, method: 'createSafeExport', callType: CallOrigin.Driver });
+        let frame = ecc?.push({ file: __filename, method: 'createSafeExport', callType: CallOrigin.Driver });
         try {
             return Object.freeze({
                 id: this.gid,
@@ -514,7 +514,7 @@ class BaseSecurityGroup extends EventEmitter {
     }
 
     isEqual(ecc, info) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isEqual', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'isEqual', callType: CallOrigin.Driver });
         try {
             if (info instanceof BaseSecurityGroup)
                 return info === this || info.name === this.name;
@@ -555,7 +555,7 @@ class BaseSecurityGroup extends EventEmitter {
      * @param {string | BaseSecurityCredential | BaseSecurityGroup} member
      */
     addMember(ecc, member) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: '', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: '', callType: CallOrigin.Driver });
         try {
             if (!this.isMember(member)) {
                 if (member instanceof BaseSecurityGroup) {
@@ -587,7 +587,7 @@ class BaseSecurityGroup extends EventEmitter {
      * @param {string | BaseSecurityCredential | BaseSecurityGroup} member
      */
     findIndex(ecc, member) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'findIndex', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'findIndex', callType: CallOrigin.Driver });
         try {
             return this.#members.findIndex(m => {
                 if (m instanceof BaseSecurityGroup) {
@@ -621,7 +621,7 @@ class BaseSecurityGroup extends EventEmitter {
      * @param {string | BaseSecurityCredential | BaseSecurityGroup} member
      */
     isMember(ecc, member) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'isMember', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'isMember', callType: CallOrigin.Driver });
         try {
             return this.findIndex(frame.branch(), member) > -1;
         }
@@ -636,7 +636,7 @@ class BaseSecurityGroup extends EventEmitter {
      * @param {string | BaseSecurityCredential | BaseSecurityGroup} member
      */
     removeMember(ecc, member) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'removeMember', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'removeMember', callType: CallOrigin.Driver });
         try {
             return this.findIndex(ecc, member) > -1;
             //  Objects cannot be removed from default group
@@ -667,7 +667,7 @@ class BaseSecurityGroup extends EventEmitter {
      * @param {ExecutionContext} ecc The current stack stack
      */
     resolveMembers(ecc) {
-        let frame = ecc.pushFrameObject({ method: 'resolveMembers' });
+        let frame = ecc.push({ method: 'resolveMembers' });
         try {
             if (this.owner.initialized === true) {
                 this.#members = this.owner.getCredentials(ecc, this.members);

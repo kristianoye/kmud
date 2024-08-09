@@ -93,7 +93,7 @@ class FileManager extends events.EventEmitter {
      * @returns
      */
     async bootstrap(ecc, fsconfig) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'bootstrap', isAsync: true, className: FileManager });
+        const frame = ecc.push({ file: __filename, method: 'bootstrap', isAsync: true, className: FileManager });
         try {
             await fsconfig.eachFileSystem(async (config, index) => await this.createFileSystem(config, index));
             await this.ensureMountPointsExist(frame.context);
@@ -122,7 +122,7 @@ class FileManager extends events.EventEmitter {
      * @returns {MUDWrapper} The wrapped instance.
      */
     async cloneObjectAsync(ecc, expr, args = []) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             return await this.loadObjectAsync(frame.branch(), expr, args, 2);
         }
@@ -162,16 +162,16 @@ class FileManager extends events.EventEmitter {
             source = await this.getObjectAsync(options.resolvedSource, 0, isSystemRequest === true),
             dest = await this.getObjectAsync(options.resolvedDestination, 0, isSystemRequest === true);
 
-        if (!source.exists)
+        if (!source.exists())
             throw new Error(`${options.verb}: Source '${options.source}' does not exist`);
-        else if (source.isDirectory && !options.hasFlag(CopyFlags.Recursive))
+        else if (source.isDirectory() && !options.hasFlag(CopyFlags.Recursive))
             throw new Error(`${options.verb}: Recursive flag not specified; omitting directory '${options.source}'`);
 
-        if (source.isDirectory) {
-            if (dest.isFile) {
+        if (source.isDirectory()) {
+            if (dest.isFile()) {
                 throw new Error(`${options.verb}: Cannot overwrite non-directory '${options.destination} with directory '${options.source}'`);
             }
-            else if (!dest.exists) {
+            else if (!dest.exists()) {
                 await dest.createDirectoryAsync(true);
                 if (options.hasFlag(CopyFlags.Verbose))
                     options.onCopyComplete(options.verb, options.source, options.destination);
@@ -181,14 +181,14 @@ class FileManager extends events.EventEmitter {
                 targetPathFull = path.posix.join(options.resolvedDestination, source.name),
                 targetDir = await this.getObjectAsync(targetPathFull);
 
-            if (!targetDir.exists)
+            if (!targetDir.exists())
                 await targetDir.createDirectoryAsync(true);
 
             for (const file of sourceFiles) {
                 try {
                     let sourcePath = path.posix.join(options.source, file.name);
 
-                    if (file.isDirectory) {
+                    if (file.isDirectory()) {
                         if (file.fileSystemId !== source.fileSystemId && options.hasFlag(CopyFlags.SingleFilesystem)) {
                             options.onCopyInformation(options.verb, `Omitting directory '${sourcePath}' since it is on a different filesystem`);
                         }
@@ -198,7 +198,7 @@ class FileManager extends events.EventEmitter {
                         });
                         await this.copyAsync(child, isSystemRequest === true);
                     }
-                    else if (file.isFile) {
+                    else if (file.isFile()) {
                         let destPath = path.posix.join(targetPath, file.name);
                         let child = options.createChild({
                             source: sourcePath,
@@ -216,14 +216,14 @@ class FileManager extends events.EventEmitter {
                 }
             }
         }
-        else if (dest.isDirectory) {
+        else if (dest.isDirectory()) {
             let destFullPath = path.posix.join(dest.fullPath, source.name),
                 destPath = path.posix.join(options.destination, source.name),
                 fo = await this.getObjectAsync(destFullPath, 0, isSystemRequest === true),
                 backup = '';
 
-            if (fo.exists) {
-                if (options.hasFlag(CopyFlags.RemoveDestination) && fo.exists) {
+            if (fo.exists()) {
+                if (options.hasFlag(CopyFlags.RemoveDestination) && fo.exists()) {
                     await fo.deleteFileAsync();
                 }
                 if (options.hasFlag(CopyFlags.NonClobber)) {
@@ -255,12 +255,12 @@ class FileManager extends events.EventEmitter {
             }
             return false;
         }
-        else if (dest.isFile || !dest.exists) {
+        else if (dest.isFile() || !dest.exists()) {
             let destPath = options.destination,
                 backup = '';
 
-            if (dest.exists) {
-                if (options.hasFlag(CopyFlags.RemoveDestination) && dest.exists) {
+            if (dest.exists()) {
+                if (options.hasFlag(CopyFlags.RemoveDestination) && dest.exists()) {
                     await dest.deleteAsync();
                 }
                 if (options.hasFlag(CopyFlags.NonClobber)) {
@@ -397,12 +397,12 @@ class FileManager extends events.EventEmitter {
             try {
                 let target = await this.getObjectAsync(resolvedPath, isSystemRequest === true);
 
-                if (!target.exists) {
+                if (!target.exists()) {
                     if (options.onDeleteFailure)
                         options.onDeleteFailure(options.verb, displayPath, `Cannot remove '${displayPath}': Does not exist`);
                     continue;
                 }
-                else if (target.isDirectory) {
+                else if (target.isDirectory()) {
                     if (!options.hasFlag(DeleteFlags.Recursive)) {
                         if (options.onDeleteFailure)
                             options.onDeleteFailure(options.verb, displayPath, `Cannot remove '${displayPath}': It is a directory`);
@@ -418,7 +418,7 @@ class FileManager extends events.EventEmitter {
                         let displayChild = path.posix.join(displayPath, file.name);
                         try {
 
-                            if (file.isDirectory) {
+                            if (file.isDirectory()) {
                                 if (options.hasFlag(DeleteFlags.SingleFilesystem) && file.fileSystemId !== target.fileSystemId) {
                                     if (options.hasFlag(DeleteFlags.Verbose)) {
                                         options.onDeleteInformation(options.verb, `Skipping '${displayChild}': Different filesystem`);
@@ -442,7 +442,7 @@ class FileManager extends events.EventEmitter {
                                 if (childRequest.aborted)
                                     return false;
                             }
-                            else if (file.isFile) {
+                            else if (file.isFile()) {
                                 if (options.hasFlag(DeleteFlags.Interactive)) {
                                     try {
                                         if (!await options.onConfirmDelete(options.verb, displayChild)) {
@@ -459,7 +459,7 @@ class FileManager extends events.EventEmitter {
                                     }
                                 }
                             }
-                            else if (!file.exists)
+                            else if (!file.exists())
                                 continue;
                             else {
                                 options.onDeleteFailure(options.verb, `Unable to delete ${displayChild}: Unhandled file type`);
@@ -497,7 +497,7 @@ class FileManager extends events.EventEmitter {
                         options.onDeleteFailure(options.verb, displayPath, `Cannot remove '${displayPath}': Directory is not empty`);
                     }
                 }
-                else if (target.isFile) {
+                else if (target.isFile()) {
                     if (options.hasFlag(DeleteFlags.Interactive)) {
                         try {
                             if (!await options.onConfirmDelete(options.verb, displayPath)) {
@@ -531,7 +531,7 @@ class FileManager extends events.EventEmitter {
      */
     async ensureMountPointsExist(ecc) {
         const
-            frame = ecc.pushFrameObject({ file: __filename, method: 'ensureMountPointsExist', className: FileManager });
+            frame = ecc.push({ file: __filename, method: 'ensureMountPointsExist', className: FileManager });
 
         try {
             await this.eachFileSystemAsync(async (fs, mp) => {
@@ -540,13 +540,13 @@ class FileManager extends events.EventEmitter {
                         parentDir = await this.getObjectAsync(frame.context, parentPath, undefined, true),
                         mountDir = await this.getObjectAsync(frame.context, mp, undefined, true);
 
-                    if (!parentDir.isDirectory)
+                    if (!parentDir.isDirectory())
                         throw new Error(`Invalid mount point for ${mp}: ${parentDir.fullPath} is not a directory`);
-                    if (!mountDir.exists) {
+                    if (!mountDir.exists()) {
                         console.log(`\tEnsuring mount point ${mp} exists`);
                         await mountDir.createDirectoryAsync({ createAsNeeded: true });
                     }
-                    else if (!mountDir.isDirectory) {
+                    else if (!mountDir.isDirectory()) {
                         throw new Error(`Invalid mount point for ${mp}; Target is not a directory`);
                     }
                 }
@@ -741,6 +741,7 @@ class FileManager extends events.EventEmitter {
      * @param {string} expr The directory expression to fetch
      * @param {number} flags Flags to control the operation
      * @returns {Promise<FileSystemObject>} Returns a directory object.
+     * @deprecated
      */
     async getDirectoryAsync(expr, flags = 0) {
         return new Promise(async (resolve, reject) => {
@@ -749,9 +750,9 @@ class FileManager extends events.EventEmitter {
                     result = this.cache.get(req.fullPath);
 
                 if (!result) {
-                    await req.fileSystem.getFileAsync(req)
+                    await req.fileSystem.getObjectAsync(req)
                         .then(fso => {
-                            if (fso.isDirectory)
+                            if (fso.isDirectory())
                                 this.cache.store(fso);
                             resolve(fso);
                         })
@@ -773,10 +774,10 @@ class FileManager extends events.EventEmitter {
      * @returns {Promise<FileObject>}
      */
     async getFileAsync(ecc, expr, flags = 0, isSystemRequest = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let request = this.createFileRequest('getFileAsync', expr, flags);
-            let fso = await request.fileSystem.getFileAsync(frame.branch(), request);
+            let fso = await request.fileSystem.getObjectAsync(frame.branch(), request);
             return isSystemRequest ? fso : new FileWrapperObject(fso);
         }
         finally {
@@ -834,42 +835,33 @@ class FileManager extends events.EventEmitter {
      * This method MUST ALWAYS return a filesystem object.  If the object does
      * not exist or an error occurs this method should return a ObjectNotFound
      * FileSystem object.
-     * @param {ExecutionContext} ecc
-     * @param {string} expr The path expression to fetch
+     * @param {ExecutionContext} ecc The callstack
+     * @param {string | IFileSystemQuery} expr The path expression to fetch
      * @param {number} flags Filesystem flags to control the operation
      * @param {boolean} [isSystemRequest] THIS SHOULD ONLY BE USED BY DRIVER INTERNALS
      * @returns {Promise<FileSystemObject>}
      */
-    getObjectAsync(ecc, expr, flags = 0, isSystemRequest = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+    async getObjectAsync(ecc, expr, flags = 0, isSystemRequest = false) {
+        let frame = ecc.push({ file: __filename, lineNumber: __line, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (typeof expr === 'object') {
+                isSystemRequest = expr.isSystemRequest === true;
+                flags = expr.flags || 0;
+                expr = expr.file;
+            }
+            else if (typeof flags === 'boolean') {
+                isSystemRequest = flags;
+                flags = 0;
+            }
+            const request = this.createFileRequest('getObjectAsync', expr, flags, isSystemRequest),
+                response = await request.fileSystem.getObjectAsync(frame.context, request),
+                result = isSystemRequest === true ? response : new FileWrapperObject(response);
 
-        if (typeof flags === 'boolean') {
-            isSystemRequest = flags;
-            flags = 0;
+            return result;
         }
-        let request = this.createFileRequest('getObjectAsync', expr, flags, isSystemRequest);
-
-        return new Promise(async resolve => {
-            try {
-                await request.fileSystem.getObjectAsync(frame.branch(), request)
-                    .then(stat => {
-                        if (isSystemRequest === true)
-                            resolve(stat);
-                        else
-                            resolve(new FileWrapperObject(stat));
-                    })
-                    .catch(reason => {
-                        let result = new ObjectNotFound(FileSystemObject.createDummyStats(request), reason);
-                        resolve(result);
-                    });
-            }
-            catch (ex) {
-                let result = new ObjectNotFound(FileSystemObject.createDummyStats(request), ex);
-                resolve(result);
-            }
-        }).finally(() => {
-            frame.pop(true);
-        });
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -954,9 +946,9 @@ class FileManager extends events.EventEmitter {
     isDirectoryAsync(expr) {
         return new Promise(async resolve => {
             try {
-                let directory = await this.getFileAsync(expr)
+                let directory = await this.getObjectAsync(expr)
                     .catch(err => resolve(false));
-                resolve(directory && directory.exists && directory.isDirectory);
+                resolve(directory && directory.exists() && directory.isDirectory());
             }
             catch (err) { resolve(false); }
         });
@@ -975,8 +967,8 @@ class FileManager extends events.EventEmitter {
                 /** @type {DirectoryObject} */
                 let directory = await this.getDirectoryAsync(request.directory)
                     .catch(err => resolve(false));
-                let file = await directory.getFileAsync(request.name);
-                resolve(file.exists && file.isFile);
+                let file = await directory.getObjectAsync(request.name);
+                resolve(file.exists() && file.isFile());
             }
             catch (err) { resolve(false); }
         });
@@ -988,10 +980,10 @@ class FileManager extends events.EventEmitter {
      * @param {string} expr Information about what is being requested.
      * @param {any} args Data to pass to the constructor.
      * @param {number} flags Flags to control the operation
-     * @returns {MUDObject} The loaded object... hopefully
+     * @returns {IMUDObject} The loaded object... hopefully
      */
     async loadObjectAsync(ecc, expr, args, flags = 0) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let request = this.createFileRequest('loadObjectAsync', expr, flags);
             let exts = driver.compiler.supportedExtensions,
@@ -1022,10 +1014,10 @@ class FileManager extends events.EventEmitter {
             else {
                 //  Extension was not specified... try them all
                 for (let i = 0; i < exts.length; i++) {
-                    let fileWithExtension = await this.getFileAsync(frame.branch(), file + exts[i], flags);
+                    let fileWithExtension = await this.getObjectAsync(frame, { file: file + exts[i], flags });
 
-                    if (fileWithExtension.exists) {
-                        result = await fileWithExtension.loadObjectAsync(frame.branch(), request.flags, args);
+                    if (fileWithExtension.exists()) {
+                        result = await fileWithExtension.loadObjectAsync(frame, request.flags, args);
                         break;
                     }
                 }
@@ -1070,7 +1062,7 @@ class FileManager extends events.EventEmitter {
             }
 
             let directory = await this.getDirectoryAsync(initialDirectory);
-            if (!directory.exists || !directory.isDirectory)
+            if (!directory.exists() || !directory.isDirectory())
                 return reject(`Path ${initialDirectory} is not a directory.`);
             return resolve(await directory.readAsync(fileExpression));
         });
@@ -1087,8 +1079,8 @@ class FileManager extends events.EventEmitter {
         return new Promise(async (resolve, reject) => {
             try {
                 /** @type {FileObject} */
-                let fileObject = await request.fileSystem.getFileAsync(request);
-                if (fileObject.exists) {
+                let fileObject = await request.fileSystem.getObjectAsync(request);
+                if (fileObject.exists()) {
                     let result = fileObject.readAsync(options.encoding, options.flags)
                         .catch(err => reject(err));
                     resolve(result);
@@ -1100,7 +1092,6 @@ class FileManager extends events.EventEmitter {
                 reject(err);
             }
         });
-        return request.valid('validReadFile') && await request.fileSystem.readFileAsync(request);
     }
 
     /**
@@ -1183,7 +1174,7 @@ class FileManager extends events.EventEmitter {
             try {
                 let request = this.createFileRequest('writeFileAsync', expr, flags || 'w');
                 let directory = await this.getDirectoryAsync(request.directory);
-                let file = await directory.getFileAsync(request.name);
+                let file = await directory.getObjectAsync(request.name);
                 resolve(await file.writeFileAsync(content, flags, encoding));
             }
             catch (err) {

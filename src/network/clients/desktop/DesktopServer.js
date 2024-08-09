@@ -39,7 +39,7 @@ class DesktopServer extends ClientEndpoint {
      * @returns
      */
     bind(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'bind', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'bind', callType: CallOrigin.Driver });
         try {
             this.server = new HTTPServer(
                 {
@@ -105,7 +105,7 @@ class DesktopServer extends ClientEndpoint {
     #clients;
 
     createAuthToken(username, password) {
-        if (this.server.authManager != null) 
+        if (this.server.authManager != null)
             return this.server.authManager.create(username, password);
         return false;
     }

@@ -176,7 +176,6 @@ class FileDeleteOperation {
          * @type {Object.<string,string>}
          */
         this.filesResolved = {};
-
         this.files.forEach(f => {
             let fn = typeof f === 'string' ? f : f.fullPath;
 

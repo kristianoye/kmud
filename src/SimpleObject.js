@@ -8,7 +8,7 @@ const
 
 class SimpleObject extends MUDEventEmitter {
     constructor(ecc, ...args) {
-        let frame = ecc.pushFrameObject({ method: 'constructor' });
+        let frame = ecc.push({ method: 'constructor' });
         try {
             super();
             this.create(frame.context, ...args);

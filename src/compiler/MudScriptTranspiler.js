@@ -1921,7 +1921,7 @@ class MudScriptTranspiler extends PipelineComponent {
      * @returns
      */
     async runAsync(ecc, context, options, step, maxStep) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'runAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'runAsync', isAsync: true, callType: CallOrigin.Driver });
         let op = new MudScriptAstAssembler(Object.assign({
             acornOptions: Object.assign({ locations: true, sourceType: 'mudscript' }, this.acornOptions, context.acornOptions),
             allowConstructorKeyword: false,

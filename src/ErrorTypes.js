@@ -30,7 +30,7 @@ class CompositeError extends MUDError {
     }
 
     getItems(ecc) {
-        let frame = ecc.pushFrameObject({ method: 'getItems' });
+        let frame = ecc.push({ method: 'getItems' });
         try {
             return this.errors?.slice(0) || [];
         }

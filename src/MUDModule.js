@@ -333,7 +333,7 @@ class MUDModuleTypeInfo {
      * @param {any} typeAlias
      */
     importTypeInfo(ecc, typeRef, typeAlias) {
-        let frame = ecc.pushFrameObject({ file: this.filename, method: 'importTypeInfo' });
+        let frame = ecc.push({ file: this.filename, method: 'importTypeInfo' });
         try {
             let info = driver.efuns.parsePath(frame.branch(), typeRef.prototype.baseName),
                 file = info.file,
@@ -569,7 +569,7 @@ class MUDModule extends events.EventEmitter {
      * @param {any} val
      */
     async setDefaultExport(ecc, val) {
-        let frame = ecc.pushFrameObject({ method: 'setDefaultExport', file: this.filename, isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ method: 'setDefaultExport', file: this.filename, isAsync: true, callType: CallOrigin.Driver });
         try {
             if (driver.efuns.isClass(frame.branch(), val)) {
                 let flags = val.prototype.typeModifiers;
@@ -672,7 +672,7 @@ class MUDModule extends events.EventEmitter {
      * @returns
      */
     async createInstanceAsync(ecc, typeSpec, instanceData, args, factory = false, callingFile = false, isReload = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createInstanceAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'createInstanceAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let instance = false,
                 store = false,
@@ -737,7 +737,7 @@ class MUDModule extends events.EventEmitter {
 
                 let constructorFrame = frame
                     .branch({ hint: 'constructor' })
-                    .pushFrameObject({ object: instance, method: 'constructor', file: this.filename, callType: CallOrigin.Constructor });
+                    .push({ object: instance, method: 'constructor', file: this.filename, callType: CallOrigin.Constructor });
 
                 try {
                     let constructorArgs = [instanceData, constructorFrame.context, ...args];
@@ -898,7 +898,7 @@ class MUDModule extends events.EventEmitter {
      * @returns {CreationContext} Information needed by MUDObject constructor.
      */
     async getNewContext(ecc, type, args, virtualContext = false) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'getNewContext', callType: CallOrigin.Driver });
+        const frame = ecc.push({ file: __filename, method: 'getNewContext', callType: CallOrigin.Driver });
         try {
             let typeName = typeof type === 'function' ? type.name : typeof type === 'string' ? type : false,
                 objectId = virtualContext?.objectId || driver.efuns.getNewId(),
@@ -993,7 +993,7 @@ class MUDModule extends events.EventEmitter {
             /** @param {ExecutionContext} ecc */
             return (ecc) => {
                 let instance = this.instancesById[objectId];
-                let frame = ecc && ecc.pushFrameObject({ object: instance, method: 'wrapper', file: filename, callType: CallOrigin.LocalCall });
+                let frame = ecc && ecc.push({ object: instance, method: 'wrapper', file: filename, callType: CallOrigin.LocalCall });
                 try {
                     if (instance) {
                         if (instance === -1 || instance.destructed) {
@@ -1092,7 +1092,7 @@ class MUDModule extends events.EventEmitter {
      * @param {any} type
      */
     eventDefineType(ecc, type) {
-        let frame = ecc.pushFrameObject({ file: this.filename, method: 'eventDefineType' });
+        let frame = ecc.push({ file: this.filename, method: 'eventDefineType' });
         try {
             this.types[type.name] = type;
             this.typeNames.push(type.name);
@@ -1146,7 +1146,7 @@ class MUDModule extends events.EventEmitter {
             for (const mod of this.dependents) {
                 try {
                     let childOptions = options.createChildOptions(mod.fullPath),
-                        fso = await driver.efuns.fs.getFileAsync(mod.fullPath);
+                        fso = await driver.efuns.fs.getObjectAsync(mod.fullPath);
 
                     await fso.compileAsync(childOptions);
 
@@ -1172,7 +1172,7 @@ class MUDModule extends events.EventEmitter {
      * @param {ExecutionContext} ecc The current callstack
      */
     eventResetModule(ecc) {
-        let frame = ecc.pushFrameObject({ file: this.filename, method: 'eventResetModule' });
+        let frame = ecc.push({ file: this.filename, method: 'eventResetModule' });
         try {
             this.$exports = { length: 0 };
             this.singletons = {};

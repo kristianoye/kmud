@@ -6,10 +6,10 @@
 const
     BaseFileSystem = require('./BaseFileSystem'),
     StreamPromises = require('stream/promises'),
-    { FileSystemObject } = require('./FileSystemObject'),
+    { FileSystemObject, ObjectNotFound } = require('./FileSystemObject'),
     { FileSystemQueryFlags, CopyFlags } = require('./FileSystemFlags'),
     { ExecutionContext, CallOrigin } = require('../ExecutionContext'),
-    { copyFile, readdir, statfs, mkdir } = require('fs/promises'),
+    { copyFile, readdir, statfs, mkdir, unlink, stat } = require('fs/promises'),
     async = require('async'),
     path = require('path'),
     fs = require('fs'),
@@ -24,29 +24,28 @@ class DiskFileObject extends FileSystemObject {
      * Construct disk-based file object
      * @param {FileSystemObject} stat
      * @param {string} physicalPath
+     * @param {DiskFileSystem} manager
      */
     constructor(stat, physicalPath, manager) {
         super(stat);
 
         this.#manager = manager;
         this.#physicalLocation = physicalPath;
-
-        if (this.isDirectory) {
-            this.#directories = [];
-            this.#files = [];
-            this.#hasLoaded = false;
-        }
-        else
-            this.#files = this.#directories = false;
     }
 
     //#region Private Properties
 
     /**
-     * Contains subdirectories or false if this is not a directory.
-     * @type {FileSystemObject[] | false}
+     * Contains cached file entries if this object is a directory
+     * @type {FileSystemObject[]}
      */
-    #directories;
+    #entries;
+
+    /**
+     * Contains cached file entries for faster named-based lookup
+     * @type {Object.<string,FileSystemObject}
+     */
+    #entryMap;
 
     /**
      * Contains files or false if this is not a directory.
@@ -58,12 +57,9 @@ class DiskFileObject extends FileSystemObject {
      * If this is a directory, this flag indicates whether it has loaded contents.
      * @type {boolean}
      */
-    #hasLoaded;
+    #isLoaded;
 
-    /**
-     * Reference to the file manager
-     * @type {DiskFileSystem}
-     */
+    /** @type {DiskFileSystem} */
     #manager;
 
     /**
@@ -82,7 +78,8 @@ class DiskFileObject extends FileSystemObject {
      * @returns
      */
     async appendFileAsync(ecc, content, options = { encoding: 'utf8' }) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'appendFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'appendFileAsync', isAsync: true, callType: CallOrigin.Driver });
+
         try {
             return await this.writeFileAsync(frame.branch(), content, { ...options, flag: 'a' });
         }
@@ -97,7 +94,7 @@ class DiskFileObject extends FileSystemObject {
      * @param {FileSystemObject} dest
      */
     async copyAsync(ecc, dest, flags = 0) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'copyAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'copyAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (typeof dest === 'string')
                 dest = await driver.fs.getObjectAsync(frame.branch(), dest);
@@ -128,7 +125,7 @@ class DiskFileObject extends FileSystemObject {
      * @returns
      */
     async tryDirectCopyAsync(ecc, dest, { errorIfExists, failSilently, flags } = { errorIfExists: false, failSilently: false, flags: 0 }) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'tryDirectCopyAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'tryDirectCopyAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             //  Cannot direct copy between a disk file and a database file, for example
             if (dest.storageType !== this.storageType)
@@ -160,7 +157,7 @@ class DiskFileObject extends FileSystemObject {
      * @returns
      */
     async createDirectoryAsync(ecc, { createAsNeeded, errorIfExists, isSystemRequest } = { createAsNeeded: false, errorIfExists: true, isSystemRequest: false }) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'createDirectoryAsync', isAsync: true, callType: CallOrigin.Driver }),
+        const frame = ecc.push({ file: __filename, method: 'createDirectoryAsync', isAsync: true, callType: CallOrigin.Driver }),
             pathParts = this.fullPath.split(path.posix.sep).slice(1),
             directoriesToCreate = !createAsNeeded ? [this.fullPath] : pathParts.flatMap((part, i) => {
                 return path.join(pathParts.slice(0, i).join(path.posix.sep), part);
@@ -198,9 +195,9 @@ class DiskFileObject extends FileSystemObject {
      * @returns
      */
     createReadStream(ecc, options = { encoding: 'utf8', flags: 'r' }) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createReadStream', isAsync: false, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'createReadStream', isAsync: false, callType: CallOrigin.Driver });
         try {
-            if (this.isDirectory)
+            if (this.isDirectory())
                 throw new Error(`createReadStream(): ${this.fullPath} is a directory`);
             else {
                 options = Object.assign({
@@ -222,9 +219,9 @@ class DiskFileObject extends FileSystemObject {
      * @returns {fs.WriteStream}
      */
     createWriteStream(ecc, options = { encoding: 'utf8', flags: 'w' }) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createWriteStream', isAsync: false, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'createWriteStream', isAsync: false, callType: CallOrigin.Driver });
         try {
-            if (this.isDirectory)
+            if (this.isDirectory())
                 throw new Error(`createWriteStream(): ${this.fullPath} is a directory`);
             else {
                 options = Object.assign({
@@ -245,9 +242,9 @@ class DiskFileObject extends FileSystemObject {
      * @param {...any} args
      */
     async deleteAsync(ecc, ...args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'deleteAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'deleteAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
-            if (this.isDirectory)
+            if (this.isDirectory())
                 return this.deleteDirectoryAsync(ecc, ...args);
             else
                 return this.deleteFileAsync(ecc, ...args);
@@ -264,7 +261,7 @@ class DiskFileObject extends FileSystemObject {
      * @param {number} flags
      */
     async deleteDirectoryAsync(ecc, expr = '', flags = 0) {
-        const frame = ecc.pushFrameObject({ file: __filename, method: 'deleteDirectoryAsync', isAsync: true, callType: CallOrigin.Driver, className: DiskFileObject });
+        const frame = ecc.push({ file: __filename, method: 'deleteDirectoryAsync', isAsync: true, callType: CallOrigin.Driver, className: DiskFileObject });
         try {
             let deleteOperation = { pattern: '', confirm: () => true, flags: 0 };
 
@@ -300,25 +297,16 @@ class DiskFileObject extends FileSystemObject {
      * @returns
      */
     async deleteFileAsync(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'deleteFileAsync', isAsync: true, callType: CallOrigin.Driver });
-        return new Promise((resolve, reject) => {
-            try {
-                if (this.isDirectory)
-                    return reject(`deleteFileAsync: Invalid operation: ${this.path} is a directory`);
-                else
-                    fs.unlink(this.#physicalLocation, err => {
-                        if (err)
-                            reject(err);
-                        else resolve(true);
-                    });
-            }
-            catch (ex) {
-                reject(ex);
-            }
-            finally {
-                frame.pop();
-            }
-        });
+        let frame = ecc.push({ file: __filename, method: 'deleteFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (this.isDirectory())
+                throw new Error(`deleteFileAsync: Invalid operation: ${this.path} is a directory`);
+            await unlink(this.#physicalLocation);
+            await this.refreshAsync();
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -328,7 +316,7 @@ class DiskFileObject extends FileSystemObject {
      * @returns
      */
     async getFileAsync(ecc, fileName) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             return await this.getObjectAsync(fileName);
         }
@@ -338,61 +326,77 @@ class DiskFileObject extends FileSystemObject {
     }
 
     /**
-     * Get a child object
+     * Get a child object; Only really applies to directories
      * @param {ExecutionContext} ecc The current callstack
      * @param {string} fileName
-     * @returns
+     * @returns {Promise<FileSystemObject>}
      */
     async getObjectAsync(ecc, fileName) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.Driver });
-        return new Promise(async (resolve, reject) => {
-            try {
-                await this.#loadDirectoryInternal();
-                let file = this.#files.find(file => file.name === fileName);
-                if (file)
-                    return resolve(file);
-                else if ((file = this.#directories.find(file => file.name === fileName)))
-                    return resolve(file);
-                else
-                    return reject(`Could not find ${fileName}`);
+        let frame = ecc.push({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            if (!this.isDirectory())
+                return this;
+            else if (fileName.indexOf(path.posix.sep) === -1) {
+                const match = this.#files.find(f => f.name === fileName);
+                if (match)
+                    return match;
+                //  If the object was not found, we let it pass through and the file manager can return 
             }
-            catch (err) {
-                reject(err);
-            }
-            finally {
-                frame.pop();
-            }
-        });
-    }
-
-    async isEmpty() {
-        if (this.isDirectory) {
-            await this.#loadDirectoryInternal();
-            return this.#files.length === 0;
+            const resolvedPath = path.posix.resolve(this.fullPath, fileName),
+                result = await driver.fileManager.getObjectAsync(resolvedPath, 0, this.hasWrapper === false);
+            return result;
         }
-        else if (this.isFile) {
-            return this.size === 0;
-        }
-        else if (!this.exists) {
-            return true;
+        finally {
+            frame.pop();
         }
     }
 
-    async #loadDirectoryInternal() {
-        if (!this.isDirectory || this.#hasLoaded)
-            return true;
+    async isEmpty(ecc) {
+        const frame = ecc.push({ file: __filename, method: 'isEmpty', lineNumber: __line, isAsync: true, className: DiskFileObject, callType: CallOrigin.Driver });
+        try {
+            if (this.isDirectory()) {
+                await this.#loadDirectoryInternal(frame.context);
+                return this.#entries.length === 0;
+            }
+            else if (this.isFile()) {
+                return this.size === 0;
+            }
+            else if (!this.exists()) {
+                return true;
+            }
+        }
+        finally {
+            frame.pop();
+        }
+    }
 
-        await this.#manager.getDirectoryContentsAsync(this.#physicalLocation)
-            .then(result => {
-                this.#directories = result.directories;
-                this.#files = result.files;
-            })
-            .catch(err => {
-                this.#directories = [];
-                this.#files = [];
-            });
+    async #loadDirectoryInternal(ecc, forceRefresh = false) {
+        const frame = ecc.push({ file: __filename, method: '#loadDirectoryInternal', lineNumber: __line, isAsync: true, className: DiskFileObject, callType: CallOrigin.Driver });
+        try {
+            if (!this.isDirectory() || this.#isLoaded)
+                return true;
 
-        return (this.#hasLoaded = true);
+            if (!this.#isLoaded || forceRefresh) {
+                const
+                    filenames = await readdir(this.#physicalLocation),
+                    /** @type {Promise<FileSystemObject>[]} */
+                    plist = filenames.map(async file => {
+                        return driver.fileManager.getObjectAsync(frame.branch(), `${this.fullPath}/${file}`, undefined, true);
+                    }),
+                    result = await Promise.allSettled(plist);
+
+                this.#entryMap = {};
+                this.#entries = result.map((entry) => {
+                    this.#entryMap[entry.value.name] = entry.value;
+                    return entry.value;
+                });
+            }
+
+            return (this.#isLoaded = true);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -402,9 +406,9 @@ class DiskFileObject extends FileSystemObject {
      * @param {boolean} [stripBOM] Strip byte order mark?
      */
     async readAsync(ecc, ...args) {
-        let frame = ecc.pushFrameObject({ object: this, file: __filename, method: 'readAsync', isAsync: true });
+        let frame = ecc.push({ object: this, file: __filename, method: 'readAsync', isAsync: true });
         try {
-            if (this.isDirectory)
+            if (this.isDirectory())
                 return await this.readDirectoryAsync(frame.branch(), ...args);
             else
                 return await this.readFileAsync(frame.branch(), ...args);
@@ -422,7 +426,7 @@ class DiskFileObject extends FileSystemObject {
      * @returns {Promise<FileSystemObject[]>}
      */
     async readDirectoryAsync(ecc, pattern = '', flags = 0) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'readDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'readDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
 
         let isSystemRequest = this.hasWrapper === false;
 
@@ -434,6 +438,17 @@ class DiskFileObject extends FileSystemObject {
                 frame.pop();
             }
         }
+
+        await this.#loadDirectoryInternal(frame.context);
+        const filterPattern = pattern && DiskFileSystem.createPattern(pattern);
+        const results = this.#entries.filter(file => {
+            if (filterPattern) {
+                if (filterPattern.test(file.name))
+                    return true;
+                return false;
+            }
+        });
+
         return new Promise(async (resolve, reject) => {
             let returnResults = async (err = undefined, objectList = []) => {
                 let directoriesOnly = false,
@@ -466,7 +481,7 @@ class DiskFileObject extends FileSystemObject {
                         let workers = objectList.map(fo =>
                             new Promise(async (res, rej) => {
                                 try {
-                                    if (fo.isDirectory)
+                                    if (fo.isDirectory())
                                         return res(await fo.readAsync(pattern));
                                     else if (regex.test(fo.name))
                                         return res(fo);
@@ -486,7 +501,7 @@ class DiskFileObject extends FileSystemObject {
                 results = objectList
                     .filter(f => {
                         if (directoriesOnly) {
-                            if (!f.isDirectory)
+                            if (!f.isDirectory())
                                 return false;
                             else if (regex)
                                 return regex.test(f.name);
@@ -529,7 +544,7 @@ class DiskFileObject extends FileSystemObject {
      * @returns
      */
     async readFileAsync(ecc, encoding = 'utf8', stripBOM = true) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'readFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'readFileAsync', isAsync: true, callType: CallOrigin.Driver });
 
         return new Promise(async (resolve, reject) => {
             try {
@@ -568,22 +583,14 @@ class DiskFileObject extends FileSystemObject {
      * @returns
      */
     async refreshAsync(ecc) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'readFileAsync', isAsync: true, callType: CallOrigin.Driver });
-
-        return new Promise((resolve, reject) => {
-            try {
-                fs.stat(this.#physicalLocation, (err, stat) => {
-                    stat = this.#manager.createNormalizedStats(this.#physicalLocation, stat || {}, err);
-                    super.refreshAsync(stat);
-                    resolve(true);
-                    frame.pop();
-                });
-            }
-            catch (err) {
-                frame.pop();
-                reject(err);
-            }
-        });
+        let frame = ecc.push({ file: __filename, method: 'readFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            const newStats = await stat(this.#physicalLocation);
+            return super.refreshAsync(newStats);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**
@@ -593,9 +600,9 @@ class DiskFileObject extends FileSystemObject {
      * @returns
      */
     async writeAsync(ecc, ...args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'readFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'readFileAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
-            if (this.isDirectory)
+            if (this.isDirectory())
                 return this.writeDirectoryAsync(frame.branch(), ...args);
             else
                 return this.writeFileAsync(frame.branch(), ...args);
@@ -613,7 +620,7 @@ class DiskFileObject extends FileSystemObject {
      * @returns
      */
     async writeJsonAsync(ecc, data, options = { indent: true, encoding: 'utf8' }) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeJsonAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'writeJsonAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let exportText = '';
             if (options.indent) {
@@ -639,7 +646,7 @@ class DiskFileObject extends FileSystemObject {
      * @param {any} options
      */
     async writeDirectoryAsync(ecc, fileNameOrContent, content, options = { encoding: 'utf8', flag: 'w' }) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'writeDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let writes = [];
 
@@ -670,7 +677,7 @@ class DiskFileObject extends FileSystemObject {
      * @param {{ encoding?: string, flags?: string }} options
      */
     async writeFileAsync(ecc, content, options = { encoding: 'utf8', flag: 'w' }) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'writeFileAsync', isAsync: true, callType: CallOrigin.Driver });
         if (typeof options === 'string') {
             options = { flag: options };
         }
@@ -748,7 +755,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {Promise<{ directories: DiskFileObject[], files: DiskFileObject[]}>}
      */
     getDirectoryContentsAsync(ecc, pathIn) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getDirectoryContentsAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getDirectoryContentsAsync', isAsync: true, callType: CallOrigin.Driver });
         const pathInfo = this.getPathInfo(pathIn);
 
         return new Promise((resolve, reject) => {
@@ -784,8 +791,8 @@ class DiskFileSystem extends BaseFileSystem {
                                     const stat = await statFile(fullPath);
 
                                     //  Special case for subdirectories that are also mount points
-                                    if (stat.isDirectory && this.fileManager.isMountPoint(stat.fullPath)) {
-                                        let result = await this.fileManager.getFileAsync(stat.fullPath, 0, true);
+                                    if (stat.isDirectory() && this.fileManager.isMountPoint(stat.fullPath)) {
+                                        let result = await this.fileManager.getObjectAsync(ecc, { file: stat.fullPath, flags: 0, isSystemRequest: true });
                                         return result;
                                     }
 
@@ -803,7 +810,7 @@ class DiskFileSystem extends BaseFileSystem {
                         let fileObjects = await statFiles(fileNames);
 
                         fileObjects.forEach(o => {
-                            if (o.isDirectory)
+                            if (o.isDirectory())
                                 directories.push(o);
                             else
                                 files.push(o);
@@ -827,7 +834,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {{ directory: string, name: string, physicalPath: string, relativePath: string, virtualPath: string }}
      */
     getPathInfo(ecc, pathIn) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getPathInfo', isAsync: false, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getPathInfo', isAsync: false, callType: CallOrigin.Driver });
         try {
             if (pathIn.indexOf('..') > -1)
                 throw new Error(`getPathInfo(): Path expression may not contain '..'`);
@@ -924,7 +931,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {MUDObject|false} The newly cloned object.
      */
     async cloneObjectAsync(ecc, request, args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'cloneObjectAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let { file, type, instance } = driver.efuns.parsePath(ecc, request.fullPath),
                 module = driver.cache.get(file);
@@ -959,7 +966,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @param {any} flags
      */
     async createDirectoryAsync(ecc, request, flags) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'createDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let fullPath = this.translatePath(frame.branch(), request.relativePath);
             let parts = path.relative(this.root, fullPath).split(path.sep),
@@ -990,11 +997,11 @@ class DiskFileSystem extends BaseFileSystem {
                 let dir = path.posix.join(this.mountPoint, path.posix.sep, ...parts.slice(0, i + 1)),
                     stat = await driver.fileManager.getObjectAsync(frame.branch(), dir);
 
-                if (stat.exists && !stat.isDirectory)
+                if (stat.exists() && !stat.isDirectory())
                     return false;
 
                 if (i + 1 === max) {
-                    if (stat.exists)
+                    if (stat.exists())
                         return true;
 
                     let result = await mkdir(dir);
@@ -1004,7 +1011,7 @@ class DiskFileSystem extends BaseFileSystem {
                     else
                         throw result;
                 }
-                else if (stat.isDirectory)
+                else if (stat.isDirectory())
                     continue;
 
                 else if (!ensure)
@@ -1023,6 +1030,88 @@ class DiskFileSystem extends BaseFileSystem {
 
     /**
      * Generate a normalized stat object.
+     * @param {ExecutionContext} ecc The callstack
+     * @param {string} fullPath The full native path to the object.
+     * @param {FileSystemObject} baseStat What information we CAN provide
+     * @param {Error} err Any error associated with this request
+     * @returns {FileSystemObject}} A basic stat object
+     */
+    static createNormalizedStat(ecc, fullPath, baseStat = {}, err = false) {
+        let frame = ecc.push({ file: __filename, lineNumber: __line, method: 'createNormalizedStats', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let getStatValue = (val, def = false) => {
+                try {
+                    if (typeof val === 'function')
+                        return function () { return val.call(baseStat) };
+                    else if (typeof val !== 'undefined')
+                        return val;
+                    else
+                        return def;
+                }
+                catch (err) {
+                    return def;
+                }
+            };
+
+            let dt = new Date(0);
+
+            let pathInfo = this.getPathInfo(frame.context, fullPath);
+            let result = {
+                atime: getStatValue(baseStat.atime, dt),
+                atimeMs: getStatValue(baseStat.atime, dt.getTime()),
+                birthtime: getStatValue(baseStat.birthtime, dt),
+                birthtimeMs: getStatValue(baseStat.birthtimeMs, dt.getTime()),
+                blksize: getStatValue(baseStat.blksize, 4096),
+                blocks: getStatValue(baseStat.blocks, 0),
+                ctime: getStatValue(baseStat.ctime, dt),
+                ctimeMs: getStatValue(baseStat.ctimeMs, dt.getTime()),
+                dev: getStatValue(baseStat.dev, -1),
+                directory: pathInfo.directory,
+                error: !err ? false : err || new Error('Unknown error'),
+                exists: () => false,
+                fullPath: pathInfo.virtualPath,
+                gid: getStatValue(baseStat.gid, -1),
+                ino: getStatValue(baseStat.ino, -1),
+                isReadOnly: () => this.isReadOnly === true,
+                nlink: getStatValue(baseStat.nlink, -1),
+                uid: getStatValue(baseStat.uid, -1),
+                mode: getStatValue(baseStat.mode, -1),
+                mountPoint: this.mountPoint,
+                mtime: getStatValue(baseStat.mtime, dt),
+                mtimeMs: getStatValue(baseStat.mtimeMs, dt.getTime()),
+                name: baseStat.name || pathInfo.name,
+                path: pathInfo.virtualPath,
+                size: getStatValue(baseStat.size, -1),
+                rdev: getStatValue(baseStat.rdev, -1),
+                fileSystemId: this.systemId,
+                storageType: 'disk',
+                isBlockDevice: getStatValue(baseStat.isBlockDevice),
+                isCharacterDevice: getStatValue(baseStat.isCharacterDevice),
+                isDirectory: getStatValue(baseStat.isDirectory),
+                isFIFO: getStatValue(baseStat.isFIFO),
+                isFile: getStatValue(baseStat.isFile),
+                isSocket: getStatValue(baseStat.isSocket),
+                isSymbolicLink: getStatValue(baseStat.isSymbolicLink),
+                exists: () => {
+                    return baseStat.isBlockDevice()
+                        || baseStat.isCharacterDevice()
+                        || baseStat.isDirectory()
+                        || baseStat.isFIFO()
+                        || baseStat.isFile()
+                        || baseStat.isSocket()
+                        || baseStat.isSymbolicLink()
+                }
+            };
+
+            return result;
+        }
+        finally {
+            frame.pop();
+        }
+    }
+
+    /**
+     * Generate a normalized stat object.
      * 
      * @param {ExecutionContext} ecc The current callstack
      * @param {string} fullPath The full native path to the object.
@@ -1031,12 +1120,12 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {FileSystemObject}} A basic stat object
      */
     createNormalizedStats(ecc, fullPath, baseStat = {}, err = false) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createNormalizedStats', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'createNormalizedStats', isAsync: true, callType: CallOrigin.Driver });
         try {
             let getStatValue = (val, def = false) => {
                 try {
                     if (typeof val === 'function')
-                        return val.call(baseStat);
+                        return function () { return val.call(baseStat) };
                     else if (typeof val !== 'undefined')
                         return val;
                     else
@@ -1066,7 +1155,7 @@ class DiskFileSystem extends BaseFileSystem {
                 fullPath: pathInfo.virtualPath,
                 gid: getStatValue(baseStat.gid, -1),
                 ino: getStatValue(baseStat.ino, -1),
-                isReadOnly: this.isReadOnly === true,
+                isReadOnly: () => this.isReadOnly === true,
                 nlink: getStatValue(baseStat.nlink, -1),
                 uid: getStatValue(baseStat.uid, -1),
                 mode: getStatValue(baseStat.mode, -1),
@@ -1085,16 +1174,17 @@ class DiskFileSystem extends BaseFileSystem {
                 isFIFO: getStatValue(baseStat.isFIFO),
                 isFile: getStatValue(baseStat.isFile),
                 isSocket: getStatValue(baseStat.isSocket),
-                isSymbolicLink: getStatValue(baseStat.isSymbolicLink)
+                isSymbolicLink: getStatValue(baseStat.isSymbolicLink),
+                exists: () => {
+                    return baseStat.isBlockDevice()
+                        || baseStat.isCharacterDevice()
+                        || baseStat.isDirectory()
+                        || baseStat.isFIFO()
+                        || baseStat.isFile()
+                        || baseStat.isSocket()
+                        || baseStat.isSymbolicLink()
+                }
             };
-
-            result.exists = result.isBlockDevice
-                || result.isCharacterDevice
-                || result.isDirectory
-                || result.isFIFO
-                || result.isFile
-                || result.isSocket
-                || result.isSymbolicLink;
 
             return result;
         }
@@ -1125,7 +1215,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {FileSystemObject} Only files and directories are supported at the moment
      */
     createStatObject(ecc, data, physicalPath) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createStatObject', isAsync: false, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'createStatObject', isAsync: false, callType: CallOrigin.Driver });
         let result;
 
         try {
@@ -1144,7 +1234,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @param {any} flags TBD
      */
     async deleteDirectoryAsync(ecc, relativePath, flags) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'deleteDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'deleteDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let fullPath = this.translatePath(frame.branch(), relativePath);
             return new Promise((resolve, reject) => {
@@ -1166,12 +1256,12 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {Promise<FileSystemObject>} A directory object
      */
     async getDirectoryAsync(ecc, request) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getDirectoryAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let fullPath = this.translatePath(frame.branch(), request.relativePath),
                 stats = await this.statAsync(frame.branch(), request);
 
-            if (stats.exists && stats.isDirectory)
+            if (stats.exists() && stats.isDirectory())
                 return new DiskFileObject(stats, fullPath, this);
             else
                 throw (`getDirectoryAsync(): ${stats.fullPath} is not a directory`);
@@ -1188,7 +1278,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {Promise<FileSystemObject>} Returns a file object if the file is found.
      */
     async getFileAsync(ecc, request) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getFileAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let stats = await this.statAsync(frame.branch(), request),
                 absolutePath = this.getRealPath(frame.branch(), request.relativePath);
@@ -1202,15 +1292,29 @@ class DiskFileSystem extends BaseFileSystem {
     /**
      * Get a filesystem object from the expression provided.
      * @param {ExecutionContext} ecc The current callstack
-     * @param {FileSystemRequest} request The filesystem request
+     * @param {import('./FileSystemRequest')} request The filesystem request
      * @returns {Promise<FileSystemObject>}
      */
     async getObjectAsync(ecc, request) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        const frame = ecc.push({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.Driver }),
+            physicalPath = this.translatePath(ecc, request);
+
         try {
-            let stats = await this.statAsync(frame.branch(), request),
-                absolutePath = this.getRealPath(frame.branch(), request.relativePath);
-            return new DiskFileObject(stats, absolutePath, this);
+            const
+                stats = await stat(physicalPath),
+                normStats = this.createNormalizedStats(ecc, request.fullPath, stats),
+                result = new DiskFileObject(normStats, physicalPath, this);
+            return result;
+        }
+        catch (err) {
+            frame.error = err;
+            if (err.code === 'ENOENT') {
+                const stats = FileSystemObject.createDummyStats(request, err),
+                    result = new ObjectNotFound(stats, request, err);
+                return result;
+            }
+            else
+                throw err;
         }
         finally {
             frame.pop(true);
@@ -1223,7 +1327,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {Promise<FileSystemObject>} The system file (if found)
      */
     async readSystemFileAsync(ecc, request) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.Driver });
         return new Promise(async resolve => {
             let fullDiskPath = this.translatePath(frame.branch(), request.relativePath);
             fs.readFile(fullDiskPath, { encoding: 'utf8' }, (err, data) => {
@@ -1246,7 +1350,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {FileSystemObject[]} A collection of filesystem objects
      */
     async glob(ecc, relativePath, expr, options = 0) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getObjectAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             let fullPath = this.translatePath(frame.branch(), relativePath);
             let regex = DiskFileSystem.createPattern(expr);
@@ -1270,7 +1374,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @param {any} args
      */
     async loadObjectAsync(ecc, request, args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver, unguarded: true });
+        let frame = ecc.push({ file: __filename, method: 'loadObjectAsync', isAsync: true, callType: CallOrigin.Driver, unguarded: true });
         try {
             let parts = driver.efuns.parsePath(frame.branch(), request.fullPath),
                 module = driver.cache.get(parts.file),
@@ -1299,7 +1403,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @param {FileSystemQuery} query
      */
     queryFileSystemAsync(ecc, query) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'queryFileSystemAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'queryFileSystemAsync', isAsync: true, callType: CallOrigin.Driver });
         return new Promise((resolve, reject) => {
             try {
                 let abspath = this.translatePath(query.relativePath);
@@ -1323,8 +1427,8 @@ class DiskFileSystem extends BaseFileSystem {
                                 content = content.filter(f => query.expression === f.name);
                             }
                         }
-                        let dirs = content.filter(f => f.isDirectory),
-                            files = content.filter(f => f.isFile),
+                        let dirs = content.filter(f => f.isDirectory()),
+                            files = content.filter(f => f.isFile()),
                             finalResults = [];
 
                         if (query.hasFlag(FileSystemQueryFlags.Recursive) && !query.atMaxDepth) {
@@ -1369,7 +1473,7 @@ class DiskFileSystem extends BaseFileSystem {
                             if (o instanceof FileSystemObject)
                                 return o;
                             else
-                                return new DiskFileObject(o);
+                                return new DiskFileObject(o, undefined, this);
                         }));
                     }
                     catch (ex) {
@@ -1395,7 +1499,7 @@ class DiskFileSystem extends BaseFileSystem {
     async readDirectoryAsync(request, fileName, flags) {
         let stat = await this.getDirectoryAsync(request);
 
-        if (!stat.isDirectory) {
+        if (!stat.isDirectory()) {
             let parent = await stat.getParentAsync();
             return await parent.readAsync(stat.name || request.fileName, request.flags);
         }
@@ -1515,19 +1619,15 @@ class DiskFileSystem extends BaseFileSystem {
      * @param {FileSystemRequest} request The file being requested.
      * @returns {Promise<string>}
      */
-    readFileAsync(ecc, request) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'readFileAsync', isAsync: true, callType: CallOrigin.Driver });
-        return new Promise(async (resolve, reject) => {
-            try {
-                let fileObject = await this.getFileAsync(frame.branch(), request)
-                resolve(await fileObject.readAsync(frame.branch()));
-                return frame.pop();
-            }
-            catch (err) {
-                reject(err);
-            }
+    async readFileAsync(ecc, request) {
+        let frame = ecc.push({ file: __filename, method: 'readFileAsync', isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let fileObject = await this.getObjectAsync(frame.branch(), request)
+            return await fileObject.readAsync(frame.branch());
+        }
+        finally {
             frame.pop();
-        });
+        }
     }
 
     /**
@@ -1537,22 +1637,15 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {Promise<FileSystemObject>}
      */
     async statAsync(ecc, request) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'statAsync', isAsync: true, callType: CallOrigin.Driver });
+        const frame = ecc.push({ file: __filename, method: 'statAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
-            let fullPath = this.translatePath(frame.branch(), request.relativePath);
-            let myp = new Promise((resolve, reject) => {
-                try {
-                    fs.stat(fullPath, (err, data) => {
-                        let stat = this.createNormalizedStats(frame.branch(), fullPath, data, err);
-                        resolve(stat);
-                    });
-                }
-                catch (ex) {
-                    reject(ex);
-                }
-            });
-            let result = await myp;
+            const fullPath = this.translatePath(frame.branch(), request.relativePath),
+                statInfo = await stat(fullPath),
+                result = this.createNormalizedStats(statInfo);
             return result;
+        }
+        catch (err) {
+            frame.error = err;
         }
         finally {
             frame.pop();
@@ -1566,7 +1659,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @returns {string} The absolute filesystem path.
      */
     translatePath(ecc, request) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'translatePath', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'translatePath', callType: CallOrigin.Driver });
         try {
             if (typeof request === 'string') {
                 if (request.startsWith(this.root) && request.indexOf('..') === -1)
@@ -1597,7 +1690,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @deprecated
      */
     async writeFileAsync(ecc, request, content, flag, encoding) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeFileAsync', isAsync: true, callType: CallOrigin.Driver }),
+        let frame = ecc.push({ file: __filename, method: 'writeFileAsync', isAsync: true, callType: CallOrigin.Driver }),
             fullPath = this.translatePath(frame.branch(), request.relativePath);
 
         return new Promise(resolve => {
@@ -1627,7 +1720,7 @@ class DiskFileSystem extends BaseFileSystem {
      * @deprecated
      */
     async writeJsonAsync(ecc, request, content, encoding = 'utf8', indent = 3) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'writeJsonAsync', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'writeJsonAsync', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (typeof content !== 'string')
                 content = JSON.stringify(content, undefined, indent || undefined);

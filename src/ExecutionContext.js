@@ -92,6 +92,8 @@ class ExecutionFrame {
         else if (frame.className) {
             if (typeof frame.className === 'string')
                 this.className = frame.className;
+            else if (frame.className.constructor)
+                this.className = frame.className.constructor.name;
             else
                 this.className = frame.className.name || 'Unknown';
         }
@@ -131,7 +133,7 @@ class ExecutionFrame {
          * The line number at which the call was made 
          * @type {number}
          */
-        this.lineNumber = frame.lineNumber || 0;
+        this.lineNumber = frame.lineNumber || frame.line || 0;
 
         /** More informative than useful, now
          * @type {boolean}
@@ -175,7 +177,7 @@ class ExecutionFrame {
      * How did this call originate?
      */
     get origin() {
-        let prev = this.context.length > 1 ? this.context.stack[1] : false,
+        let prev = this.context.length > 1 ? this.context._callstack[1] : false,
             val = CallOrigin.Unknown;
 
         if (prev) {
@@ -196,6 +198,14 @@ class ExecutionFrame {
     pop(yieldBack = false) {
         this.ellapsed = this.ticks;
         this.context.popFrame(this, yieldBack === true);
+    }
+
+    /**
+     * Allow a frame to act as a proxy for its owning context
+     * @param  {Partial<ExecutionFrame>} frameInfo Details to include on the callstack frame
+     */
+    push(frameInfo) {
+        return this.context.push(frameInfo);
     }
 
     /**
@@ -337,7 +347,7 @@ class ExecutionContext extends events.EventEmitter {
         this.controller = new ExecutionSignaller();
 
         /** @type {ExecutionFrame[]} */
-        this.stack = [];
+        this._callstack = [];
 
         /** @type {{ verb: string, args: string[] }[]} */
         this.cmdStack = [];
@@ -353,9 +363,9 @@ class ExecutionContext extends events.EventEmitter {
 
         if (parent) {
             /** @type {ExecutionFrame[]} */
-            this.stack = parent.stack.slice(0);
+            this._callstack = parent._callstack.slice(0);
             this.shell = parent.shell || false;
-            this.branchedAt = parent.stack.length;
+            this.branchedAt = parent._callstack.length;
             this.alarmTime = parent.alarmTime;
             this.currentVerb = parent.currentVerb || false;
             this.client = parent.client;
@@ -363,7 +373,7 @@ class ExecutionContext extends events.EventEmitter {
 
             if (createDetached !== true) {
                 this.parent = parent;
-                this.parentFrame = parent.stack[0];
+                this.parentFrame = parent._callstack[0];
 
                 parent.addNewChild(this);
 
@@ -571,7 +581,7 @@ class ExecutionContext extends events.EventEmitter {
      */
     async awaitResult(asyncCode) {
         let startTime = new Date().getTime(),
-            frame = this.stack[0];
+            frame = this._callstack[0];
 
         if (!frame)
             await driver.crashAsync(new Error(`Call stack was empty!`));
@@ -622,9 +632,9 @@ class ExecutionContext extends events.EventEmitter {
 
         let result = new ExecutionContext(this, false, info);
         if (lineNumber > 0) {
-            let lastFrame = result.stack[0].clone();
+            let lastFrame = result._callstack[0].clone();
             lastFrame.lineNumber = lineNumber;
-            result.stack[0] = lastFrame;
+            result._callstack[0] = lastFrame;
         }
         return result;
     }
@@ -668,13 +678,15 @@ class ExecutionContext extends events.EventEmitter {
      */
     complete(forceCompletion = false) {
         try {
-            if (this.stack.length === this.branchedAt || true === forceCompletion) {
+            if (this._callstack.length === this.branchedAt || true === forceCompletion) {
                 if (this.childCount > 0) {
                     for (const [id, child] of Object.entries(this.children)) {
-                        console.log(`\tExecutionContext: Child context ${id} has not completed`);
-                        child.onComplete.push(() => {
-                            console.log(`\tExecutionContext: Child context ${id} completed after its parent`);
-                        });
+                        if (global.driver?.debugMode) {
+                            console.log(`\tExecutionContext: Child context ${id} has not completed`);
+                            child.onComplete.push(() => {
+                                console.log(`\tExecutionContext: Child context ${id} completed after its parent`);
+                            });
+                        }
                         if (child.handleId in contexts) {
                             delete contexts[child.handleId];
                         }
@@ -682,8 +694,10 @@ class ExecutionContext extends events.EventEmitter {
                 }
                 if (this.unusedChildCount > 0) {
                     for (const [id, child] of Object.entries(this.unusedChildren)) {
-                        console.log(`\tExecutionContext: Child context ${child.handleId} was never used`);
-                        ExecutionContext.deleteContext(child);
+                        if (global.driver?.debugMode) {
+                            console.log(`\tExecutionContext: Child context ${child.handleId} was never used`);
+                            cExecutionContext.deleteContext(child);
+                        }
                     }
                 }
                 this.completed = true;
@@ -730,7 +744,7 @@ class ExecutionContext extends events.EventEmitter {
     }
 
     get currentFileName() {
-        let frame = this.stack[0];
+        let frame = this._callstack[0];
         return frame.file || false;
     }
 
@@ -801,15 +815,15 @@ class ExecutionContext extends events.EventEmitter {
      * @param {number} index The index of the frame to fetch
      */
     getFrame(index) {
-        return index > -1 && index < this.length && this.stack[index];
+        return index > -1 && index < this.length && this._callstack[index];
     }
 
     /**
      * Returns the last frame that was internal to the game.
      */
     getLastGameFrame() {
-        let lastFrame = this.stack.lastIndexOf(frame => ExecutionContext.isExternalPath(frame.file));
-        return lastFrame > -1 && this.stack[lastFrame]
+        let lastFrame = this._callstack.lastIndexOf(frame => ExecutionContext.isExternalPath(frame.file));
+        return lastFrame > -1 && this._callstack[lastFrame]
     }
 
     /**
@@ -820,7 +834,7 @@ class ExecutionContext extends events.EventEmitter {
      * @returns {string}
      */
     getStackString(startFrame = 0, stopFrame = undefined, maskExternalPaths = true) {
-        return this.stack.slice(startFrame, stopFrame).map(f => f.toString(maskExternalPaths)).join('\n');
+        return this._callstack.slice(startFrame, stopFrame).map(f => f.toString(maskExternalPaths)).join('\n');
     }
 
     /**
@@ -878,7 +892,7 @@ class ExecutionContext extends events.EventEmitter {
     }
 
     get isAwaited() {
-        return this.stack.length > 0 && this.stack[0].awaitCount > 0;
+        return this._callstack.length > 0 && this._callstack[0].awaitCount > 0;
     }
 
     /**
@@ -897,7 +911,7 @@ class ExecutionContext extends events.EventEmitter {
     }
 
     get length() {
-        return this.stack.length;
+        return this._callstack.length;
     }
 
     /**
@@ -934,12 +948,11 @@ class ExecutionContext extends events.EventEmitter {
      * @param {boolean} yieldBack If true, then the call duration is yielded back to the alarm time
      */
     pop(method, yieldBack = false) {
-        let lastFrame = this.stack.shift();
+        let lastFrame = this._callstack.shift();
 
         if (!lastFrame || lastFrame.callString !== method) {
-            if (lastFrame && lastFrame !== method) {
+            if (lastFrame && lastFrame !== method)
                 console.log(`\tExecutionContext: Out of sync; Expected ${method} but found ${lastFrame.callString}`);
-            }
             else
                 console.log(`\tExecutionContext: Out of sync... no frames left!`);
         }
@@ -949,7 +962,7 @@ class ExecutionContext extends events.EventEmitter {
                 this.alarmTime += lastFrame.ellapsed;
         }
 
-        if (this.stack.length === this.branchedAt) {
+        if (this._callstack.length === this.branchedAt) {
             this.complete();
         }
         else
@@ -963,7 +976,7 @@ class ExecutionContext extends events.EventEmitter {
     }
 
     popCurrentFrame() {
-        let frame = this.stack[0];
+        let frame = this._callstack[0];
         return this.pop(frame.callString);
     }
 
@@ -994,27 +1007,25 @@ class ExecutionContext extends events.EventEmitter {
             if (this.alarmTime < Number.MAX_SAFE_INTEGER)
                 this.alarmTime += lastFrame.ellapsed;
         }
-        if (frame !== this.stack[0]) {
-            if (this.stack.length === 0) {
-                //  Crasher?
-                console.log('\tExecutionContext: Cannot pop frame off an empty stack!');
+        if (frame !== this._callstack[0]) {
+            if (this._callstack.length === 0) {
+                global.driver?.crash(new Error(`ExecutionContext: Cannot pop frame off an empty stack! (frame: ${frame})`));
             }
             else {
-                console.log(`\tExecutionContext: Out of sync; Expected ${frame.method} but found ${this.stack[0].method}`);
-                let index = this.stack.findIndex(f => f === frame);
+                console.log(`\tExecutionContext: Out of sync; Expected ${frame.method} but found ${this._callstack[0].method}`);
+                let index = this._callstack.findIndex(f => f === frame);
                 if (index === -1) {
-                    //  Crash?
-                    console.log(`\tExecutionContext: CRITICAL ERROR: FRAME NOT FOUND IN STACK: ${frame.method}`);
+                    global.driver?.crash(new Error(`ExecutionContext: CRITICAL ERROR: FRAME NOT FOUND IN STACK! (frame: ${frame})`));
                 }
                 else {
-                    this.stack = this.stack.slice(0, index);
+                    this._callstack = this._callstack.slice(0, index);
                 }
             }
         }
         else
-            this.stack.shift();
+            this._callstack.shift();
 
-        if (this.stack.length <= this.branchedAt) {
+        if (this._callstack.length <= this.branchedAt) {
             this.complete();
         }
         else
@@ -1052,7 +1063,7 @@ class ExecutionContext extends events.EventEmitter {
      * @type {typeof import('./MUDObject')[]}
      */
     get previousObjects() {
-        let stack = this.stack;
+        let stack = this._callstack;
         return stack
             .filter(f => typeof f.object === 'object')
             .slice(0)
@@ -1060,35 +1071,22 @@ class ExecutionContext extends events.EventEmitter {
     }
 
     /**
-     * Push a new frame onto the stack
-     * @param {any} object
-     * @param {string} method
-     * @param {string} file
-     * @param {boolean} isAsync
-     * @param {number} lineNumber
-     * @param {string} callString
-     * @param {boolean} [isUnguarded]
-     * @returns {ExecutionContext}
+     * Push a new frame on to the call stack
+     * @param {Partial<ExecutionFrame>} frameInfo
      */
-    push(object, method, file, isAsync, lineNumber, callString, isUnguarded, callType = 0) {
-        let newFrame = new ExecutionFrame({ context: this, object, file, method, lineNumber, callString, isAsync, isUnguarded, callType });
-        return this.pushActual(newFrame).context;
-    }
-
-    /**
-     * Actually push the frame to the stack
-     * @param {ExecutionFrame} frame
-     */
-    pushActual(frame) {
-        this.stack.unshift(frame);
-        currentExecution = this;
+    push(frameInfo) {
+        if (typeof frameInfo !== 'object')
+            driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
+        else if (typeof frameInfo.method !== 'string')
+            driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
+        let newFrame = new ExecutionFrame({ context: this, ...frameInfo });
+        this._callstack.unshift(newFrame);
         if (!this.used) {
             this.used = true;
-
-            //  Once a frame is used, only then is it registered with the parent
             this.parent?.addActiveChild(this);
         }
-        return frame;
+        ExecutionContext.setCurrentExecution(newFrame.context);
+        return newFrame;
     }
 
     /**
@@ -1099,69 +1097,8 @@ class ExecutionContext extends events.EventEmitter {
         this.cmdStack.unshift(cmd);
     }
 
-    /**
-     * Push a new frame onto the stack
-     * @param {typeof import('./MUDObject')} object
-     * @param {string} method
-     * @param {string} file
-     * @param {boolean} isAsync
-     * @param {number} lineNumber
-     * @param {string} callString
-     * @param {boolean} [isUnguarded]
-     * @returns {ExecutionFrame}
-     */
-    pushFrame(object, method, file, isAsync = false, lineNumber = 0, callString = false, isUnguarded = false, callType = 0) {
-        this.push(object, method, file, isAsync, lineNumber, callString, isAsync, isUnguarded, callType);
-        return this.stack[0];
-    }
-
-    /**
-     * Shortcut for pushing partial frames to stack
-     * @param {Partial<ExecutionFrame>} frameInfo
-     */
-    pushFrameObject(frameInfo) {
-        if (typeof frameInfo !== 'object')
-            driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
-        else if (typeof frameInfo.method !== 'string')
-            driver.crash(new Error('CRASH: pushFrameObject() received invalid parameter'));
-        let newFrame = new ExecutionFrame({ context: this, ...frameInfo });
-        this.pushActual(newFrame);
-        return newFrame;
-    }
-
     pushNewScope() {
         return this;
-    }
-
-    /**
-     * Push a new frame based on the NodeJS callstack
-     * THIS IS SUPER SLOW (23x slower than pushFrameObject); Avoid use if possible
-     * @param {Partial<ExecutionFrame>} partialInfo
-     * @returns
-     */
-    pushFromStack(partialInfo = {}) {
-        let stack = __stack,
-            frame = stack[1];
-
-        if (frame) {
-            let info = Object.assign({
-                object: undefined,
-                file: frame.getFileName(),
-                method: frame.getMethodName() || frame.getFunctionName(),
-                lineNumber: frame.getLineNumber(),
-                isAsync: false,
-                unguarded: false,
-                callType: 0
-            }, partialInfo)
-            let newFrame = new ExecutionFrame({
-                context: this,
-                ...info,
-                callString: info.callString || info.method
-            });
-            this.pushActual(newFrame);
-            return newFrame;
-        }
-        throw new Error('Could not determine frame information from stack');
     }
 
     /**
@@ -1178,9 +1115,9 @@ class ExecutionContext extends events.EventEmitter {
      * @param {string} frameId The frame's UUID
      */
     removeFrameById(frameId) {
-        let index = this.stack.findIndex(frame => frame.id === frameId);
+        let index = this._callstack.findIndex(frame => frame.id === frameId);
         if (index > -1) {
-            let result = this.stack.splice(index, 1);
+            let result = this._callstack.splice(index, 1);
             return result.length > 0;
         }
         return false;
@@ -1211,7 +1148,7 @@ class ExecutionContext extends events.EventEmitter {
     static startNewContext(initialFrame = false) {
         let ecc = new ExecutionContext();
         if (initialFrame) {
-            let frame = ecc.pushFrameObject(initialFrame);
+            let frame = ecc.push(initialFrame);
             return [ecc, frame];
         }
         return (currentExecution = ecc);
@@ -1235,8 +1172,8 @@ class ExecutionContext extends events.EventEmitter {
      * @type {typeof import('./MUDObject')}
      */
     get thisObject() {
-        for (let i = 0, m = this.stack.length; i < m; i++) {
-            let ob = this.stack[i].object;
+        for (let i = 0, m = this._callstack.length; i < m; i++) {
+            let ob = this._callstack[i].object;
 
             if (typeof ob === 'object')
                 return ob;
@@ -1345,7 +1282,7 @@ class ExecutionContext extends events.EventEmitter {
         if (args[0] instanceof ExecutionContext) {
             /** @type {ExecutionContext} */
             const ecc = args.shift();
-            return [ecc.pushFrameObject(info), ...args];
+            return [ecc.push(info), ...args];
         }
         else {
             let frameResult = undefined;
@@ -1353,7 +1290,7 @@ class ExecutionContext extends events.EventEmitter {
             if (useCurrentIfNotPresent) {
                 const ecc = currentExecution;
                 if (ecc) {
-                    frameResult = ecc.pushFrameObject(info);
+                    frameResult = ecc.push(info);
                 }
                 else if (throwErrorIfNoContext)
                     throw new Error(`There is no active execution context for tryPushFrame(file: ${info.file}, method: ${info.method})`)
@@ -1371,7 +1308,7 @@ class ExecutionContext extends events.EventEmitter {
 
     validSyncCall(filename, lineNumber, expr) {
         let ecc = ExecutionContext.getCurrentExecution(),
-            frame = ecc && ecc.stack[0] || false;
+            frame = ecc && ecc._callstack[0] || false;
 
         let result = expr();
         if (driver.efuns.isPromise(this, result)) {
@@ -1427,7 +1364,7 @@ class ExecutionContext extends events.EventEmitter {
 
     /**
      * Perform an object with a particular object as the current / thisObject
-     * @param {MUDObject} obj
+     * @param {IMUDObject} obj
      * @param {string} method
      * @param {any} callback
      * @param {any} isAsync
@@ -1435,7 +1372,7 @@ class ExecutionContext extends events.EventEmitter {
      * @returns
      */
     async withObject(obj, method, callback, isAsync = false, rethrow = true) {
-        let frame = this.pushFrameObject({ method, object: obj, isAsync: true, callType: CallOrigin.Driver });
+        let frame = this.push({ method, object: obj, isAsync: true, callType: CallOrigin.Driver });
         try {
             let result = undefined;
 
@@ -1477,7 +1414,7 @@ class ExecutionContext extends events.EventEmitter {
             oldStore = this.storage,
             oldShell = this.shell;
 
-        const frame = method ? this.pushFrameObject({ object: player, method, isAsync: true }) : undefined;
+        const frame = method ? this.push({ object: player, method, isAsync: true }) : undefined;
 
         try {
             this.client = storage.component || this.client;

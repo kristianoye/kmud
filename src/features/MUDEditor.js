@@ -70,7 +70,7 @@ Z       display 24 lines, possible args are . + - --
  * @typedef {number|number[]} lineRange
  * @typedef {{ dirty: boolean, line: number, lineTotal: number, filename: string, showLineNumbers: boolean }} EditorStatus
  */
-    
+
 class EditorInstance {
     /**
      * Create an editor instance
@@ -304,7 +304,7 @@ class EditorInstance {
                         else if (Array.isArray(rangeLeft))
                             return this.copyLines(rangeLeft, rangeRight || this.currentLine);
                         else
-                            return this.copyLines([rangeLeft, rangeLeft+1], (rangeRight || this.currentLine - 1));
+                            return this.copyLines([rangeLeft, rangeLeft + 1], (rangeRight || this.currentLine - 1));
 
                     case 'w':
                         return this.writeFile(tokens.slice(3).join('').trim());
@@ -396,7 +396,7 @@ class EditorInstance {
     parseRange(str) {
         if (!str || str.length === 0) return false;
         let parts = str.split(',', 2).map(s => parseInt(s) - 1);
-        return parts.length === 2 ? [parts[0], parts[1]+1] : parts[0];
+        return parts.length === 2 ? [parts[0], parts[1] + 1] : parts[0];
     }
 
     /**
@@ -437,7 +437,7 @@ class EditorInstance {
     queryState(state) {
         let result = 0;
 
-        if (this.mode === MODE_INPUT) 
+        if (this.mode === MODE_INPUT)
             result = this.currentLine + 1;
 
         if (typeof state === 'object') {
@@ -485,7 +485,7 @@ class EditorInstance {
                 }
             }
         } else {
-            for (let i = this.currentLine-2; i > -1; i--) {
+            for (let i = this.currentLine - 2; i > -1; i--) {
                 if (this.content[i].match(this.searchExpression)) {
                     this.currentLine = i;
                     return this.printLines(this.currentLine, 1);
@@ -736,7 +736,7 @@ class MUDEditorFeature extends FeatureBase {
              * @returns
              */
             efunPrototype[this.efunNameEdCommand] = function (ecc, cmd) {
-                let frame = ecc.pushFrameObject({ file: __filename, method: efunNameEdCommand, callType: CallOrigin.Driver });
+                let frame = ecc.push({ file: __filename, method: efunNameEdCommand, callType: CallOrigin.Driver });
                 try {
                     let thisObject = this.thisObject(ecc),
                         $editor = EditorInstance.get(thisObject);
@@ -757,7 +757,7 @@ class MUDEditorFeature extends FeatureBase {
              * @returns
              */
             efunPrototype[this.efunNameEdStart] = function (ecc, file, restricted, optionsIn) {
-                let frame = ecc.pushFrameObject({ file: __filename, method: efunNameEdStart, callType: CallOrigin.Driver });
+                let frame = ecc.push({ file: __filename, method: efunNameEdStart, callType: CallOrigin.Driver });
                 try {
                     let editorState = this[feature.efunNameQueryEdMode].call(this);
                     if (editorState === -1) {
@@ -806,7 +806,7 @@ class MUDEditorFeature extends FeatureBase {
              * @returns
              */
             efunPrototype[this.efunNameQueryEdMode] = function (ecc, state) {
-                let frame = ecc.pushFrameObject({ file: __filename, method: efunNameQueryEdMode, callType: CallOrigin.Driver });
+                let frame = ecc.push({ file: __filename, method: efunNameQueryEdMode, callType: CallOrigin.Driver });
                 try {
                     let thisEditor = this.thisPlayer(ecc),
                         $editor = EditorInstance.get(thisEditor);

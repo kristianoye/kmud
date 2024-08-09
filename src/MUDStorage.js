@@ -25,7 +25,7 @@ const
 class MUDStorage extends events.EventEmitter {
     /**
      * Construct a storage object.
-     * @param {MUDObject} owner The owner of the storage object.
+     * @param {IMUDObject} owner The owner of the storage object.
      */
     constructor(owner, $credential) {
         super();
@@ -36,7 +36,7 @@ class MUDStorage extends events.EventEmitter {
 
         this.$credential = $credential;
 
-        /** @type {MUDObject} The current environment */
+        /** @type {IMUDObject} The current environment */
         this.$environment = null;
 
         this.filename = typeof owner === 'object' ?
@@ -46,7 +46,7 @@ class MUDStorage extends events.EventEmitter {
 
         /** 
          * A collection of objects contained within this object
-         * @type {MUDObject[]}} 
+         * @type {IMUDObject[]}} 
          */
         this.$inventory = [];
 
@@ -108,7 +108,7 @@ class MUDStorage extends events.EventEmitter {
      * @param {ParsedCommand} clientCommand
      */
     async eventCommand(ecc, clientCommand) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'eventCommand', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'eventCommand', isAsync: true, callType: CallOrigin.Driver });
         try {
             let cmd = {
                 verb: clientCommand.verb,
@@ -158,7 +158,7 @@ class MUDStorage extends events.EventEmitter {
      * @param {ExecutionContext} ecc The current callstack
      */
     eventDestroy(ecc, ...args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'eventDestroy', callType: CallOrigin.driver });
+        let frame = ecc.push({ file: __filename, method: 'eventDestroy', callType: CallOrigin.driver });
         try {
             if (!this.destroyed) {
                 let filename = this.owner.trueName || this.owner.filename;
@@ -216,7 +216,7 @@ class MUDStorage extends events.EventEmitter {
      * @param {ClientComponent} component The client bound to this store and in-game object.
      */
     async eventExec(ecc, component, ...args) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'eventExec', isAsync: true, callType: CallOrigin.DriverEfun });
+        let frame = ecc.push({ file: __filename, method: 'eventExec', isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             if (component instanceof ClientComponent) {
                 //  If the client has an old body, the client needs to be dissassociated with it
@@ -332,7 +332,7 @@ class MUDStorage extends events.EventEmitter {
      * @param {number} ticks
      */
     async eventHeartbeat(ecc, total, ticks) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'eventHeartbeat', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'eventHeartbeat', callType: CallOrigin.Driver });
         try {
             if (this.lastActivity) {
                 if (this.idleTime > this.maxIdleTime) {
@@ -359,10 +359,10 @@ class MUDStorage extends events.EventEmitter {
     /**
      * Initialize the storage object.
      * @param {ExecutionContext} ecc
-     * @param {MUDObject} ownerObject
+     * @param {IMUDObject} ownerObject
      */
     async eventInitialize(ecc, ownerObject) {
-        let frame = ecc.pushFrameObject({ object: ownerObject, method: 'eventInitialize', file: ownerObject.fullPath, isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ object: ownerObject, method: 'eventInitialize', file: ownerObject.fullPath, isAsync: true, callType: CallOrigin.Driver });
         try {
             if (ownerObject instanceof MUDObject) {
                 this.owner = ownerObject;
@@ -381,7 +381,7 @@ class MUDStorage extends events.EventEmitter {
      * @returns
      */
     async eventReset(ecc) {
-        let frame = ecc.pushFrameObject({ object: this.owner, method: 'eventReset', isAsync: true, callType: CallOrigin.LocalCall });
+        let frame = ecc.push({ object: this.owner, method: 'eventReset', isAsync: true, callType: CallOrigin.LocalCall });
         try {
             this.nextReset = driver.efuns.ticks + this.resetInterval;
             await this.owner.reset(ecc.branch());
@@ -397,7 +397,7 @@ class MUDStorage extends events.EventEmitter {
      * @param {any} data
      */
     async eventRestore(ecc, data) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'eventRestore', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'eventRestore', isAsync: true, callType: CallOrigin.Driver });
         try {
             if (data) {
                 let owner = this.owner.instance;
@@ -548,7 +548,7 @@ class MUDStorage extends events.EventEmitter {
             .filter(o => o instanceof MUDObject);
     }
 
-    /** @param {MUDObject[]} list */
+    /** @param {IMUDObject[]} list */
     set inventory(list) {
         this.$inventory = list
             .filter(o => o instanceof MUDObject)
@@ -744,7 +744,7 @@ class MUDStorage extends events.EventEmitter {
      * @returns {CommandShellOptions}
      */
     async getShellSettings(ecc, verb, opts) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'getShellSettings', isAsync: true, callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'getShellSettings', isAsync: true, callType: CallOrigin.Driver });
         try {
             return await frame.context.withPlayerAsync(this, async player => {
                 if (player && typeof player.getShellSettings === 'function') {
@@ -762,7 +762,7 @@ class MUDStorage extends events.EventEmitter {
 
     /**
      * Re-associate a new object instance with an existing storage object.
-     * @param {MUDObject} owner The new owner of this storage
+     * @param {IMUDObject} owner The new owner of this storage
      * @param {object} ctx The context from the reload
      * @returns {MUDStorage} Returns existing storage object. 
      */
@@ -833,7 +833,7 @@ class MUDStorageContainer {
     }
 
     /**
-     * @param {MUDObject} ob
+     * @param {IMUDObject} ob
      */
     create(ob) {
         return this.storage[ob.filename] = new MUDStorage(ob);
@@ -847,7 +847,7 @@ class MUDStorageContainer {
      * @returns
      */
     createForId(ecc, objectId, filename) {
-        let frame = ecc.pushFrameObject({ file: __filename, method: 'createForId', callType: CallOrigin.Driver });
+        let frame = ecc.push({ file: __filename, method: 'createForId', callType: CallOrigin.Driver });
         try {
             //  If this is a reload, then the storage should already exist
             if (objectId in this.storage) {
@@ -866,7 +866,7 @@ class MUDStorageContainer {
 
     /**
      * Delete an object's data from storage.
-     * @param {MUDObject} ob
+     * @param {IMUDObject} ob
      */
     delete(ob) {
         if (ob) {
@@ -893,7 +893,7 @@ class MUDStorageContainer {
 
     /**
      * Fetch storage for the specified argument.
-     * @param {MUDObject} ob The file to fetch storage for.
+     * @param {IMUDObject} ob The file to fetch storage for.
      * @returns {MUDStorage} The storage object for the item or false.
      */
     get(ob) {
