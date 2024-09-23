@@ -1,18 +1,29 @@
 /// <reference path="execution.d.ts" />
 /// <reference path="mudobject.d.ts" />
+
 declare module 'filesystem' {
     import * as fs from 'fs';
+    import { URL } from 'node:url';
+
     global {
 
-        type DateRangeLike = IDataRange | [number | Date, number | Date];
-        type BackupControlType = 'simple' | 'none' | 'off' | 'numbered' | 't' | 'existing' | 'nil';
+        export type DateRangeLike = IDataRange | [number | Date, number | Date];
+        export type BackupControlType = 'simple' | 'none' | 'off' | 'numbered' | 't' | 'existing' | 'nil';
+        export type PathLike = string | Buffer | URL;
 
         interface IDataRange {
             start?: number;
             end?: number;
         }
 
+        interface IBackupFileParms extends ICommonFileParms {
+            control?: Readonly<BackupControlType>;
+            suffix?: string;
+        }
+
+        /** Properties shared by most file I/O operations */
         interface ICommonFileParms {
+            encoding?: string;
             file?: IFileSystemObject;
             filename?: string;
             files?: string | string[] | IFileSystemObject[];
@@ -42,7 +53,7 @@ declare module 'filesystem' {
 
         interface IDeleteFileParms extends ICommonFileParms {
             onConfirmDelete?: (ecc: IExecutionContext, verb: string, file: IFileSystemObject) => Promise<boolean>;
-            onDeleteComplete?: (ecc: IExecutionContext, verb: string, pathLike: string, object: IFileSystemObject) => void;
+            onDeleteComplete?: (ecc: IExecutionContext, verb: string, pathLike: PathLike, object: IFileSystemObject) => void;
             onDeleteFailure?: (ecc: IExecutionContext, verb: string, displayPath: string, message: string) => void;
             onDeleteInformation?: (ecc: IExecutionContext, verb: string, message: string) => void;
         }
@@ -76,14 +87,33 @@ declare module 'filesystem' {
             onOverwritePrompt?: (ecc: IExecutionContext, verb: string, pathLike: string) => Promise<boolean>;
         }
 
+        interface IReadFileParms extends IFileSystemQuery {
+            lineCount?: number;
+            lineOffset?: number;
+        }
+
+        interface IWriteFileParms extends ICommonFileParms {
+            /** Are we merely appending to file? */
+            append?: boolean;
+
+            /** The content to write to file */
+            message?: string | Buffer;
+        }
+
         interface IFileSystemObject extends fs.Stats {
             //#region Methods
 
+            /** Does the file have a loadable extension known to the MUD compiler? */
             isLoadable(): boolean;
+            /** Is the loadable module already loaded into memory? */
             isLoaded(): boolean;
+            /** Is the file object read-only? */
             isReadOnly(): boolean;
+            /** Is the file a system file?  e.g. permissions, etc */
             isSystemFile(): boolean;
+            /** Is the file virtual with no direct physical file? */
             isVirtual(): boolean;
+            /** Is the object wrapped for in-game use? */
             isWrapper(): boolean;
 
             //#endregion

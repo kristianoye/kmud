@@ -17,6 +17,18 @@ const
     { ExecutionContext, CallOrigin } = require('../ExecutionContext');
 
 /**
+ * Remove any unsafe parameters from a MUD file request
+ * @param {ICommonFileParms} opts Options to prep
+ * @param {ICommonFileParms} defaults Options to augment original with
+ */
+function safeOptions(opts, defaults = { encoding: 'utf8' }) {
+    if (typeof opts === 'object') {
+        return { ...defaults, ...opts, isSystemRequest: false };
+    }
+    return opts;
+}
+
+/**
  * The interface definition for ALL filesystem types
  */
 class FileSystemObject extends events.EventEmitter {
@@ -1027,7 +1039,7 @@ class FileWrapperObject extends FileSystemObject {
     /**
      * Append text to the end of the file
      * @param {ExecutionContext} ecc The current callstack
-     * @param {any} content
+     * @param {string} content
      * @param {any} options
      * @returns
      */
@@ -1096,7 +1108,7 @@ class FileWrapperObject extends FileSystemObject {
         let frame = ecc.push({ file: __filename, method: 'compileAsync', isAsync: true });
         try {
             if (await this.can(frame.branch(), SecurityFlags.P_LOADOBJECT)) {
-                return this.#instance.compileAsync(ecc.branch(), FileWrapperObject.createSafeCompilerOptions(options));
+                return this.#instance.compileAsync(ecc, safeOptions(options));
             }
             throw new Error(`Permission denied: Could not compile ${this.fullPath}`);
         }
