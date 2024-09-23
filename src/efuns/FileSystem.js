@@ -40,6 +40,21 @@ class FileSystemHelper {
     }
 
     /**
+     * Attempt to compile a MUD module
+     * @param {ExecutionContext} ecc The callstack
+     * @param {IMUDCompilerParms} options Options used when running the compiler
+     */
+    async compileAsync(ecc, options = {}) {
+        const frame = ecc.push({ file: __filename, method: 'compileAsync', lineNumber: __line, isAsync: true, className: FileSystemHelper, callType: CallOrigin.DriverEfun });
+        try {
+            
+        }
+        finally {
+            frame.pop();
+        }
+    }
+
+    /**
      * Copy a file object
      * @param {ExecutionContext} ecc The current call stack
      * @param {string | FileCopyOperation} source
