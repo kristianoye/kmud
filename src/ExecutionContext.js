@@ -696,7 +696,7 @@ class ExecutionContext extends events.EventEmitter {
                     for (const [id, child] of Object.entries(this.unusedChildren)) {
                         if (global.driver?.debugMode) {
                             console.log(`\tExecutionContext: Child context ${child.handleId} was never used`);
-                            cExecutionContext.deleteContext(child);
+                            ExecutionContext.deleteContext(child);
                         }
                     }
                 }

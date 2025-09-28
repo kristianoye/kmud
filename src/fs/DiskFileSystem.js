@@ -995,6 +995,7 @@ class DiskFileSystem extends BaseFileSystem {
 
             for (let i = 0, max = parts.length; i < max; i++) {
                 let dir = path.posix.join(this.mountPoint, path.posix.sep, ...parts.slice(0, i + 1)),
+                    localDir = path.join(this.root, path.sep, ...parts.slice(0, i + 1)),
                     stat = await driver.fileManager.getObjectAsync(frame.branch(), dir);
 
                 if (stat.exists() && !stat.isDirectory())
@@ -1004,7 +1005,7 @@ class DiskFileSystem extends BaseFileSystem {
                     if (stat.exists())
                         return true;
 
-                    let result = await mkdir(dir);
+                    let result = await mkdir(localDir);
 
                     if (result === true)
                         return true;
@@ -1310,7 +1311,7 @@ class DiskFileSystem extends BaseFileSystem {
             frame.error = err;
             if (err.code === 'ENOENT') {
                 const stats = FileSystemObject.createDummyStats(request, err),
-                    result = new ObjectNotFound(stats, request, err);
+                    result = new DiskFileObject(stats, physicalPath, err);
                 return result;
             }
             else

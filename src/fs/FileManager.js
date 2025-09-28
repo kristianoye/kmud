@@ -305,12 +305,19 @@ class FileManager extends events.EventEmitter {
 
     /**
      * Create a directory asynchronously
+     * @param {ExecutionContext} ecc 
      * @param {string} expr The directory to create
      * @param {number} flags Additional flags to control the operation
      */
-    async createDirectoryAsync(expr, flags = 0) {
-        let request = this.createFileRequest('CreateDirectory', expr, flags);
-        return request.valid('validReadDirectory') && await request.fileSystem.createDirectoryAsync(request);
+    async createDirectoryAsync(ecc, expr, flags = 0) {
+        const frame = ecc.push({ file: __filename, method: 'createDirectoryAsync', line: __line, isAsync: true, callType: CallOrigin.Driver });
+        try {
+            let request = this.createFileRequest('CreateDirectory', expr, flags);
+            return await request.fileSystem.createDirectoryAsync(ecc, request);
+        }
+        finally {
+            frame.pop();
+        }
     }
 
     /**

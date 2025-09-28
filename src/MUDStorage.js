@@ -180,7 +180,7 @@ class MUDStorage extends events.EventEmitter {
                 if (this.living) this.living = false;
                 if (this.wizard) this.wizard = false;
 
-                this.owner.removeAllListeners && this.owner.removeAllListeners();
+                this.owner.removeAllListeners && this.owner.removeAllListeners(frame.branch());
 
                 this.destroyed = true;
 
@@ -226,8 +226,9 @@ class MUDStorage extends events.EventEmitter {
                     if (store) {
                         await driver.driverCallAsync('disconnect', /** @param {ExecutionContext} context */ async context => {
                             await context.withPlayerAsync(store, async (player, ecc) => {
-                                if (typeof store.clientCaps.off === 'function' && store.clientCapEventHandlerId) {
+                                if (typeof store.clientCaps.off === 'function' && typeof store.clientCapEventHandlerId === 'function') {
                                     store.clientCaps.off('kmud', store.clientCapEventHandlerId);
+                                    delete store.clientCapEventHandlerId;
                                 }
                                 store.connected = false;
                                 store.interactive = false;
@@ -261,7 +262,7 @@ class MUDStorage extends events.EventEmitter {
                 this.clientCaps = component.caps || ClientCaps.DefaultCaps;
 
                 if (typeof this.clientCaps.on === 'function') {
-                    this.clientCapEventHandlerId = this.clientCaps.on('kmud', async (...args) => await this.eventClientCaps(...args));
+                    this.clientCaps.on('kmud', this.clientCapEventHandlerId = async (...args) => await this.eventClientCaps(...args));
                 }
 
                 //  Linkdeath

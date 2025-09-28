@@ -8,9 +8,6 @@ const
     path = require('node:path'),
     driverSource = path.join(__dirname, 'src');
 
-//  Nothing but the side-effects, mam
-require('./src/Importer')(['.js'], (filename) => !filename.startsWith(driverSource));
-
 var exitCode = 0;
 
 try {

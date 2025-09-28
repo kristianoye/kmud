@@ -369,7 +369,9 @@ class GameServer extends events.EventEmitter {
                     mudFile = mudPath;
             }
             else if (showDriverFrames === true) {
-                if (file.startsWith(dp)) {
+                if (file.contains('ExecutionContext.js'))
+                    return;
+                else if (file.startsWith(dp)) {
                     file = file.replace(dp, '[driver]');
                     newStack.push(t.slice(0, s1) + `${file}:${line}:${col}` + t.slice(s2));
                 }

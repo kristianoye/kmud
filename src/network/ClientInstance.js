@@ -220,6 +220,8 @@ class ClientInstance extends events.EventEmitter {
             if (component.requiresShell) {
                 if (data.attachTo === 'newLogin') {
                     try {
+                        component.eventSend({ type: 'connected', data: efuns.mudName(frame.context) });
+
                         let shell = component.attachShell(new CommandShell(frame.context, component, data.shellOptions));
                         let newLogin = await driver.connect(frame.branch(), client.port, client.clientType);
 
@@ -231,7 +233,6 @@ class ClientInstance extends events.EventEmitter {
                         else
                             throw new Error('Login not available');
 
-                        component.eventSend({ type: 'connected', data: efuns.mudName(frame.context) });
                     }
                     catch (err) {
                         client.writeLine('Sorry, something is very wrong right now; Please try again later.');

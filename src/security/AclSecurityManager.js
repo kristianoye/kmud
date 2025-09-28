@@ -757,7 +757,7 @@ class AclSecurityManager extends BaseSecurityManager {
                             while (!parent.exists());
                         }
 
-                        let parentAcl = await this.getAcl(parent);
+                        let parentAcl = await this.getAcl(frame.branch(), parent);
 
                         return resolve(await parentAcl.getChildAsync(frame.branch(), fo.name));
                     }
@@ -804,7 +804,8 @@ class AclSecurityManager extends BaseSecurityManager {
                 let aclDir = await driver.fileManager.getObjectAsync(frame.branch(), aclPath, 0, true);
 
                 if (!aclDir.exists()) {
-                    await aclDir.createDirectoryAsync(frame.branch(), true);
+                    if (!await driver.fileManager.createDirectoryAsync(frame.branch(), aclDir.fullPath))
+                        throw `Could not create ACL directory: ${aclDir.fullPath}`;
                 }
                 return aclFilename;
             }

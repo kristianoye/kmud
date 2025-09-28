@@ -7,11 +7,15 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch Program",
+            "name": "Start MUD",
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "${workspaceFolder}\\server.js"
+            "program": "${workspaceFolder}\\server.js",
+            "runtimeArgs": [
+                "--expose-gc",
+                "--trace-warnings"
+            ]
         }
     ]
 }

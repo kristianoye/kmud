@@ -202,7 +202,7 @@ class SecurityHelper {
     static parsePerms(ecc, exprIn) {
         let frame = ecc.push({ method: 'parsePerms', file: __filename, isAsync: false, callType: CallOrigin.DriverEfun });
         try {
-            return driver.securityManager.parsePerms(frame.context, expr);
+            return driver.securityManager.parsePerms(frame.context, exprIn);
         }
         finally {
             frame.pop();
@@ -232,7 +232,7 @@ class SecurityHelper {
      * @returns {boolean} True on success
      */
     static async removeGroupMembers(ecc, idIn, membersIn) {
-        let [frame, id, members] = ExecutionContext.tryPushFrame(arguments, { method: '', file: __filename, isAsync: true, callType: CallOrigin.DriverEfun });
+        let [frame, id, members] = ExecutionContext.tryPushFrame(arguments, { method: 'removeGroupMembers', file: __filename, isAsync: true, callType: CallOrigin.DriverEfun });
         try {
             let ecc = frame.context,
                 group = driver.securityManager.getGroup(id),

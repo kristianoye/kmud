@@ -194,11 +194,19 @@ class MUDEventEmitter {
         }
     }
 
-    removeAllListeners(eventName) {
+    removeAllListeners(ecc, eventName = false) {
         const frame = ecc.push({ file: __filename, method: 'removeAllListeners', lineNumber: __line, isAsync: false, className: MUDEventEmitter, callType: CallOrigin.CallOther });
         try {
-            delete this.events[eventName];
-            return this;
+            if (typeof eventName === 'string') {
+                delete this.events[eventName];
+                return this;
+            }
+            else if (eventName === false) {
+                const types = this.eventNames(frame.branch());
+                for (const et of types) {
+                    this.removeAllListeners(frame.branch(), et);
+                }
+            }
         }
         finally {
             frame.pop();

@@ -632,6 +632,8 @@ class FileSystemObject extends events.EventEmitter {
      */
     async writeJsonAsync(ecc, dataIn, optionsIn = { indent: true, encoding: 'utf8' }) {
         let [frame, data, options] = ExecutionContext.tryPushFrame(arguments, { file: __filename, method: 'writeJsonAsync', isAsync: true, callType: CallOrigin.Driver });
+        if (typeof options === 'undefined')
+            options = optionsIn;
         try {
             let exportText = '';
             if (options.indent) {
@@ -1064,7 +1066,7 @@ class FileWrapperObject extends FileSystemObject {
     async can(ecc, perm, methodName = 'unknown') {
         let frame = ecc.push({ file: __filename, method: 'can', isAsync: true });
         try {
-            let result = await driver.securityManager.can(frame.branch(), this, perm, methodName);
+            let result = await driver.securityManager.can(frame.context, this, perm, methodName);
             if (result !== true)
                 throw new SecurityError('Unknown security reason');
             return true;
@@ -1072,7 +1074,7 @@ class FileWrapperObject extends FileSystemObject {
         catch (err) {
             if (err instanceof SecurityError) {
                 let lastFrame = ecc._callstack[1];
-                throw new SecurityError(`${lastFrame.method}: Permission denied`, err);
+                throw new SecurityError(`${lastFrame.method}: Permission denied: ${err.message}`, err);
             }
         }
         finally {
