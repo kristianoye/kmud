@@ -783,7 +783,8 @@ class MUDStorage extends events.EventEmitter {
 
         //  Just in case...
         itemStore.leaveEnvironment();
-        this.$inventory.push(wrapped);
+        if (this.$inventory.indexOf(wrapped) === -1)
+            this.$inventory.push(wrapped);
         itemStore.environment = wrapper(this.owner);
 
         return true;

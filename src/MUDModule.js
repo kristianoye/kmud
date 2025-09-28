@@ -868,13 +868,15 @@ class MUDModule extends events.EventEmitter {
                     objectId = this.defaultExport.objectId;
                 }
                 else if (type in this.instancesByType) {
-                    let instances = this.instancesByType[type];
+                    const instances = this.instancesByType[type];
                     if (Array.isArray(instances) && instances.length)
                         objectId = instances[0];
                 }
             }
             else if (type in this.instancesByType) {
-                objectId = this.instancesByType[0];
+                const instances = this.instancesByType[type];
+                if (Array.isArray(instances) && instances.length)
+                    objectId = instances[0];
             }
             else
                 return false;
