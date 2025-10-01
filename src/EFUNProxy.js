@@ -1621,10 +1621,11 @@ class EFUNProxy {
      * @param {number} n The number of objects to go back
      * @returns {MUDObject}
      */
-    previousObject(ecc, n = 1) {
+    previousObject(ecc, n = 0) {
         let frame = ecc.push({ file: __filename, method: 'previousObject', callType: CallOrigin.DriverEfun });
         try {
             let prev = ecc.previousObject;
+            if (n > -1) n++;
             return n === -1 ? prev.slice(0) : prev[n];
         }
         finally {

@@ -314,6 +314,17 @@ class MUDLoader {
                     if (ctx instanceof ExecutionContext) {
                         return ctx;
                     }
+                    else if (Array.isArray(defaultContext)) {
+                        for (const ctx of defaultContext) {
+                            if (ctx instanceof ExecutionContext) {
+                                ctx._callstack[0].neededContext = true;
+                                return ctx;
+                            }
+                        }
+                        ctx = ExecutionContext.getCurrentExecution();
+                        ctx._callstack[0].neededContext = true;
+                        return ctx;
+                    }
                     else {
                         ctx = defaultContext instanceof ExecutionContext ? defaultContext : ExecutionContext.getCurrentExecution();
                         ctx._callstack[0].neededContext = true;

@@ -395,6 +395,9 @@ class ExecutionContext extends events.EventEmitter {
 
             contextsByPID[this.pid] = this;
         }
+        if (global?.driver?.debugMode === true) {
+            this.stackInfo = (new Error().stack || '').split('\n').slice(2).join('\n');
+        }
         contexts[this.handleId] = this;
         contextCount++;
         ExecutionContext.setCurrentExecution(this);

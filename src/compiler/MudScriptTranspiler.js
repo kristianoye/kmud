@@ -1300,7 +1300,7 @@ async function parseElement(op, e, depth) {
                             }
                             else {
                                 addRuntimeAssert(e,
-                                    `const [${ctx.mecName}, parameters] = __bfc(__ifc(${op.context.mecParent}, [${pnames.join(', ')}]) /*3*/, arguments, ${renderVariableBlock(pnames)}, ${op.thisParameter}, 1 /* public */, '(anonymous)', __FILE__, false, __line, undefined, ${op.context.callType}); try { `,
+                                    `const [${ctx.mecName}, parameters] = __bfc(__ifc([__ctx || false, ${op.context.mecParent}], [${pnames.join(', ')}]) /*3*/, arguments, ${renderVariableBlock(pnames)}, ${op.thisParameter}, 1 /* public */, '(anonymous)', __FILE__, false, __line, undefined, ${op.context.callType}); try { `,
                                     ` } finally { __efc(${ctx.mecName}, '(anonymous)'); }`, false);
                             }
                         }

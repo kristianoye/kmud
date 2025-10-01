@@ -1,9 +1,95 @@
 /// <reference path="execution.d.ts" />
-/// <reference path="mudobject.d.ts" />
 /// <reference path="filesystem.d.ts" />
 
 declare module 'efuns' {
     global {
+        /**
+         * The basis for all in-game objects
+         */
+        interface IMUDObject {
+            /** The time at which the object was created */
+            readonly createTime: number;
+
+            /** The filename to the module appended with the type; Could be virtual */
+            readonly filename: string;
+
+            /** The full path to the actual module */
+            readonly fullPath: string;
+
+            /** The security identifier assigned by the in-game MasterObject */
+            readonly identity: string;
+
+            /** A reference back to the object itself */
+            readonly instance: IMUDObject;
+
+            /** Objects contained within this object */
+            readonly inventory: IMUDObject[];
+
+            /** Is the object virtual, meaning it has a path that is not a real file? */
+            readonly isVirtual: boolean;
+
+            /** Is this object a wrapper?  Nope*/
+            readonly isWrapper: false;
+
+            /** Get a reference to the wrapper object */
+            readonly wrapper: IMUDWrapper;
+
+            /** The unique ID assigned to this object */
+            readonly objectId: string;
+
+            /** The containing object */
+            readonly environment?: IMUDObject;
+
+            /** Has the object been destructed? */
+            readonly destructed: boolean;
+
+            /**
+             * The MUD's replacement for constructor
+             * @param ecc The callstack
+             */
+            create(ecc: IExecutionContext): void;
+
+            /**
+             * Called when a new object enters into the object
+             * @param ecc The callstack
+             */
+            initAsync(ecc: IExecutionContext): Promise<void>;
+
+            /**
+             * Moves the object into a new environment
+             * @param ecc The callstack
+             */
+            moveObjectAsync(ecc: IExecutionContext): Promise<boolean>;
+
+            /**
+             * Similar to write() but allows for a specific message class.
+             * @param ecc The callstack
+             * @param msgClass The message class
+             * @param msg The message itself
+             */
+            receiveMessage(ecc: IExecutionContext, msgClass: string, msg: string): void;
+
+            /**
+             * Serialize the object into JSON
+             * @param ecc The callstack
+             */
+            serializeObject(ecc: IExecutionContext): string;
+
+            /**
+             * Write a message to the object's output
+             * @param ecc The callstack
+             * @param msg The message to send to the client
+             */
+            write(ecc: IExecutionContext, msg: string): IMUDObject;
+
+            /**
+             * Write a message to the object's output
+             * @param ecc The callstack
+             * @param msg The message to send to the client
+             */
+            writeLine(ecc: IExecutionContext, msg: string): IMUDObject;
+        }
+
         /** Options used when compiling MUD objects */
         interface IMUDCompilerParms extends ICommonFileParms {
             /** Numeric bitflag representation of options */
@@ -613,6 +699,77 @@ declare module 'efuns' {
             //#endregion
         }
 
+        interface ILivingFunctions {
+            /**
+             * Makes the thisObject have a heartbeat.
+             * @param {boolean} [flag=true] Disables the heartbeats flag if set to false; Defaults to true.
+             * @returns {boolean} True if the flag state changed.
+             */
+            enableHeartbeat(flag: boolean?): boolean;
+
+            /**
+             * Makes the thisObject appear to be "alive".
+             * @param {boolean} [flag=true] Enable the object as a living being.
+             * @returns {boolean} True if the flag state changed.
+             */
+            enableLiving(flag: boolean?): boolean;
+
+            /**
+             * Makes the thisObject appear to be "alive".
+             * @param name The living name of the object.
+             * @returns {boolean} True if the flag state changed.
+             */
+            enableLiving(name: string): boolean;
+
+            /**
+             * Register an interactive object as a player object.
+             * @param name The living name of the player.
+             * @returns {boolean} True if the flag state changed.
+             */
+            enablePlayer(name: string): boolean;
+
+            /**
+             * Register an interactive object as a content creator (aka wizard).
+             * @param name The living name of the player.
+             * @returns {boolean} True if the flag state changed.
+             */
+            enableCreator(flag: boolean?): boolean;
+
+            /**
+             * Locate an in-game creator by ID
+             * @param spec The identifier to look for
+             * @param allowPartial If true, then the spec may just be the beginning of the creator name.
+             */
+            findCreator(spec: string, allowPartial: boolean?): IMUDObject?;
+
+            /**
+             * Locate an in-game living entity
+             * @param spec The identifier to look for
+             * @param allowPartial If true, then the spec may just be the beginning of the entity name.
+             */
+            findLiving(spec: string, allowPartial: boolean?): IMUDObject?;
+
+            /**
+             * Locate an in-game player
+             * @param spec The identifier to look for
+             * @param allowPartial If true, then the spec may just be the beginning of the player name.
+             */
+            findPlayer(spec: string, allowPartial: boolean?): IMUDObject?;
+
+            /**
+             * Check to see if the target object has a heartbeat.
+             * @param target The object to check for a heartbeat
+             */
+            hasHeartbeat(target: IMUDObject): boolean;
+
+            /**
+             * Test to see if the target object is, or was, linked to a network connection.
+             * @param target The object to test
+             * @returns True if the object is or was interactive
+             */
+            isInteractive(target: IMUDObject): boolean;
+        }
+
         interface IObjectFunctions {
             //#region cloneObjectAsync()
 
@@ -689,17 +846,38 @@ declare module 'efuns' {
              */
             checkPassword(ecc: IExecutionContext, plain: string, cipherText: string): boolean;
 
-            /**
-             * External functions for performing file operations
-             */
+            /** External functions for performing file operations */
             readonly fs: Readonly<IFileFunctions>;
 
-            /**
-             * External functions for interacting with game objects
-             */
+            /** External functions for interacting with living objects  */
+            readonly living: Readonly<ILivingFunctions>;
+
+            /** External functions for interacting with game objects */
             readonly objects: Readonly<IObjectFunctions>;
 
             parsePath(ecc: IExecutionContext, pathLike: PathLike): Readonly<IMUDTypeSpec>;
         }
+
+        /**
+         * Return the previous calling object.
+         * @param x Represents the number of additional objects to go back
+         */
+        function previousObject(x: number?): IMUDObject?;
+
+        /**
+         * Return all previous objects.
+         * @param x When -1 then all previous objects are returned.
+         */
+        function previousObject(x: -1): IMUDObject[];
+
+        /** Return the current, calling object */
+        function thisObject(): IMUDObject;
+
+        /**
+         * Return the current player object.
+         * @param truePlayer If set to true, attempt to get the "true player".  Example: If a player or NPC is forced to do 
+         * something, then calling thisPlayer(true) returns the object that perforced the force operation.
+         */
+        function thisPlayer(truePlayer: boolean?): IMUDObject;
     }
 }

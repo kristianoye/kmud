@@ -62,5 +62,8 @@ declare module 'driver' {
              */
             uptime(): number;
         }
+
+        /** Global driver available in src */
+        const driver: IGameServer;
     }
 }

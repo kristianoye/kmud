@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "allowJs": true,
+        "baseUrl": "./src",
+        "skipLibCheck": true,
+        "noEmit": true,
+        "strict": true,
+        "typeRoots": [
+            "./src/@types/index.d.ts"
+        ]
+    }
+}

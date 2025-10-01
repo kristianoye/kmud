@@ -565,13 +565,14 @@ class VerbContainer {
 
     /**
      * Try to match objects based on user object and context.
+     * @param {ExecutionContext} ecc The execution context
      * @param {VerbTokenMatch} token The token that needs object matches.
      * @param {MUDObject[]} environments The environments to search within.
      */
-    matchObjectToken(token, environments) {
+    matchObjectToken(ecc, token, environments) {
         for (let i = 0, l = environments.length; i < l; i++) {
             unwrap(environments[i], (env) => {
-                if (env.isInventoryVisible()) {
+                if (env.isInventoryVisible(ecc)) {
                     env.inventory.forEach((item) => {
                         if (token.matches.indexOf(item) === -1) {
                             if (token.identifiers.length === 0 && token.all) {
@@ -768,7 +769,7 @@ class VerbContainer {
                                 });
 
                                 thisToken.lastPrep = lastPrep;
-                                this.matchObjectToken(thisToken, environments);
+                                this.matchObjectToken(ecc, thisToken, environments);
                                 thisToken.index = matchedTokens.length;
                                 matchedTokens.push(thisToken),
                                     matched++;

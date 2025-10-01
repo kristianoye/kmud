@@ -3,6 +3,28 @@ const MUDStorageFlags = require('../MUDStorageFlags');
 
 class LivingsHelper {
     /**
+     * Makes the thisObject a wizard.
+     * @param {ExecutionContext} ecc The current execution context/callstack
+     * @param {boolean|string} [flag=true] Disables the player flag if set to false
+     * @returns {boolean} True if the flag state changed.
+     */
+    static enableCreator(ecc, flag = false) {
+        let frame = ecc.push({ file: __filename, method: 'enableWizard', isAsync: false, callType: CallOrigin.DriverEfun });
+        try {
+            let thisObject = ecc.thisObject,
+                store = driver.storage.get(thisObject);
+
+            if (store) {
+                return (store.wizard = flag);
+            }
+            return false;
+        }
+        finally {
+            frame.pop();
+        }
+    }
+
+    /**
      * Makes the thisObject have a heartbeat.
      * @param {ExecutionContext} ecc The current execution context/callstack
      * @param {boolean} [flag=true] Disables the heartbeats flag if set to false
@@ -69,21 +91,20 @@ class LivingsHelper {
     }
 
     /**
-     * Makes the thisObject a wizard.
+     * Attempt to find a player object by name
      * @param {ExecutionContext} ecc The current execution context/callstack
-     * @param {boolean|string} [flag=true] Disables the player flag if set to false
-     * @returns {boolean} True if the flag state changed.
+     * @param {string} name
+     * @param {boolean} allowPartial
      */
-    static enableWizard(ecc, flag = false) {
-        let frame = ecc.push({ file: __filename, method: 'enableWizard', isAsync: false, callType: CallOrigin.DriverEfun });
+    static findCreator(ecc, name, allowPartial = false) {
+        let frame = ecc.push({ file: __filename, method: 'findCreator', isAsync: false, callType: CallOrigin.DriverEfun });
         try {
-            let thisObject = ecc.thisObject,
-                store = driver.storage.get(thisObject);
+            let result = driver.wizardObjects
+                .find(efuns.normalizeName(frame.context, name), allowPartial);
 
-            if (store) {
-                return (store.wizard = flag);
-            }
-            return false;
+            return Array.isArray(result) ?
+                result.map(s => s.owner.instance) :
+                result && result.owner && result.owner.instance;
         }
         finally {
             frame.pop();
@@ -133,30 +154,9 @@ class LivingsHelper {
     }
 
     /**
-     * Attempt to find a player object by name
-     * @param {ExecutionContext} ecc The current execution context/callstack
-     * @param {string} name
-     * @param {boolean} allowPartial
-     */
-    static findCreator(ecc, name, allowPartial = false) {
-        let frame = ecc.push({ file: __filename, method: 'findCreator', isAsync: false, callType: CallOrigin.DriverEfun });
-        try {
-            let result = driver.wizardObjects
-                .find(efuns.normalizeName(frame.context, name), allowPartial);
-
-            return Array.isArray(result) ?
-                result.map(s => s.owner.instance) :
-                result && result.owner && result.owner.instance;
-        }
-        finally {
-            frame.pop();
-        }
-    }
-
-    /**
      * Determines if an object has a heartbeat
      * @param {ExecutionContext} ecc The current execution context/callstack
-     * @param {MUDObject|MUDWrapper} target The item to check
+     * @param {IMUDObject} target The item to check
      * @returns {boolean} Returns true if the object has a periodic heartbeat.
      */
     static hasHeartbeat(ecc, target) {
